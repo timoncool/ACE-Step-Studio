@@ -92,7 +92,7 @@ class PipelineManager {
     this.process = spawn(pythonPath, args, {
       cwd: aceStepDir,
       windowsHide: true,
-      stdio: ['ignore', 'pipe', 'inherit'],  // stderr=inherit for tqdm progress bars
+      stdio: ['ignore', 'pipe', 'pipe'],  // pipe stderr so we can detect Gradio ready signal
       env: {
         ...process.env,
         PYTHONUNBUFFERED: '1',
@@ -109,7 +109,13 @@ class PipelineManager {
       this.parseStdout(text);
     });
 
-    // stderr is inherited — writes directly to console (tqdm works)
+    // Pipe stderr: forward to process.stderr (tqdm still visible) and parse for readiness
+    this.process.stderr!.on('data', (data: Buffer) => {
+      const text = data.toString();
+      process.stderr.write(text);
+      this.parseStdout(text);   // Gradio 6 prints "Running on local URL:" to stderr
+      this.parseStderr(text);
+    });
 
     this.process.on('exit', (code, signal) => {
       console.log(`[Pipeline] Process exited: code=${code} signal=${signal}`);
@@ -173,7 +179,7 @@ class PipelineManager {
     if (text.includes('Initializing 5Hz LM') || text.includes('loading 5Hz LM tokenizer')) {
       this.message = 'Loading language model...';
     }
-    if (text.includes('Running on local URL') || text.includes('Running on')) {
+    if (text.includes('Running on local URL') || text.includes('Uvicorn running on')) {
       this.onReady();
     }
   }
@@ -190,6 +196,7 @@ class PipelineManager {
   }
 
   private onReady() {
+    if (this.state === 'ready') return;
     this.state = 'ready';
     this.message = 'Pipeline running';
     this.startedAt = Date.now();

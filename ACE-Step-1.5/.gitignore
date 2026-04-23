@@ -10,7 +10,7 @@ data/
 *.wav
 
 # Byte-compiled / optimized / DLL files
-__pycache__/
+**/_pycache__/
 *.py[codz]
 *$py.class
 

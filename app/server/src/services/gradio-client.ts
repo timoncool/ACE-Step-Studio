@@ -1,5 +1,6 @@
 import { Client } from "@gradio/client";
 import { config } from '../config/index.js';
+import { pipelineManager } from './pipeline-manager.js';
 
 let clientInstance: Client | null = null;
 let connectionPromise: Promise<Client> | null = null;
@@ -9,6 +10,11 @@ let connectionPromise: Promise<Client> | null = null;
  * Caches the connection for reuse across requests.
  */
 export async function getGradioClient(): Promise<Client> {
+  const { state, message } = pipelineManager.getStatus();
+  if (state !== 'ready') {
+    throw new Error(`Pipeline is not ready (${state}): ${message}`);
+  }
+
   if (clientInstance) return clientInstance;
   if (connectionPromise) return connectionPromise;
 
