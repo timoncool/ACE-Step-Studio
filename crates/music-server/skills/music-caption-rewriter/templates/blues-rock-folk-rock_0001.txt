@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 111. key is G, and scale is minor. Blues Rock / Folk Rock.
+Global Emotional Progression: The piece opens with a solitary, mournful atmosphere that establishes a sense of isolation. As the arrangement builds, the emotion shifts from quiet resignation to a gritty, driving determination in the choruses, before receding back into a reflective, fading calm by the outro.
+Application Scenarios & Imagery: A solitary figure standing on a desolate coastline at twilight, watching a ship disappear into the fog; introspective road trips through rural landscapes; scenes of regret and longing in a dimly lit bar.
+Sonics & Production Profile: The soundstage is moderately wide, anchored by a central vocal and bass, with guitars and harmonica panned to create depth. The frequency response is warm and mid-range heavy, emphasizing the organic texture of the instruments. The dynamic aesthetic is natural and uncompressed in the verses, gaining significant density and saturation during the full-band sections without losing clarity.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Male). The vocalist possesses a deep, raspy baritone with a weathered, gravelly texture that conveys age and experience.
+Vocal Style: The delivery begins as a low, narrative murmur, almost spoken-word in its intimacy. As the song progresses into the choruses, the style evolves into a more forceful, belted projection, utilizing vocal fry and grit to express emotional weight, before returning to a softer, breathy tone in the bridge and outro.
+Harmony/Backing Vocals: No distinct backing vocals or harmonic layers are present; the track relies entirely on the singular lead vocal performance to carry the emotional narrative.
+Vocal FX: The vocal is treated with a moderate amount of plate reverb to enhance the sense of space and loneliness, with a subtle delay added during the louder chorus sections to thicken the presence.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: An electric guitar with a clean, slightly overdriven tone serves as the primary melodic and harmonic driver, present from the very first second through to the end, alternating between finger-picked arpeggios and rhythmic strumming.
+Secondary: A blues-style harmonica enters during the instrumental breaks and bridges, providing soaring, wailing melodic counter-lines. A warm, round electric bass joins after the intro, locking in with the drums to provide the low-end foundation.
+Groove & Foundation Progression: The track begins without percussion, relying solely on the guitar's rhythm. A simple, laid-back drum kit pattern (kick, snare, and hi-hat) enters at the first verse, establishing a steady 4/4 shuffle feel. The groove intensifies in the choruses with more assertive snare hits and open hi-hats, driving the energy forward before stripping back to just guitar and bass in the bridge.
+Embellishments, Textures & Spatial FX: Subtle slide guitar licks appear intermittently to accentuate transitions. The harmonica solos act as textural peaks, filling the sonic space with expressive bends and vibrato. The outro features a gradual de-construction of layers, leaving only the reverberating guitar and a final, fading vocal phrase.

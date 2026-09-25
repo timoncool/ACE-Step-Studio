@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 115. key is A, and scale is major. Americana / Folk Country.
+Global Emotional Progression: The piece opens with a solitary, introspective mood that establishes a sense of isolation. As the arrangement gradually thickens with the entry of rhythm section instruments, the emotion shifts from quiet contemplation to a heavier, more resonant melancholy. The track maintains a steady, somber weight throughout the verses and choruses, never reaching a high-energy climax but instead deepening the feeling of longing before resolving into a gentle, fading conclusion.
+Application Scenarios & Imagery: A solitary figure keeping watch in a coastal lighthouse during a foggy night, scenes of quiet reflection in a rustic tavern, or a slow drive through rural landscapes at twilight.
+Sonics & Production Profile: The soundstage is intimate and centered, prioritizing the clarity of the vocal and acoustic guitar while allowing secondary instruments to fill the mid-range warmth. The frequency response leans towards the lower-mids, creating a dark, woody texture, while the dynamic aesthetic remains natural and uncompressed, preserving the organic feel of a live acoustic performance.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Male). The vocalist possesses a deep, weathered baritone with a slightly gravelly texture that conveys age and experience.
+Vocal Style: The delivery is narrative and understated, resembling a storyteller recounting a personal memory. The singer maintains a consistent, restrained intensity throughout, using subtle phrasing variations rather than dynamic volume shifts to convey emotion. There is no belting or aggressive technique; the performance relies on a calm, resigned tone.
+Harmony/Backing Vocals: No distinct backing vocals or harmony layers are present; the vocal line remains a solo performance throughout the track.
+Vocal FX: The vocal is treated with a modest amount of plate reverb to add spatial depth without obscuring the dry, intimate quality of the voice. No significant delay or modulation effects are applied.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: An acoustic guitar plays a steady, finger-picked pattern that serves as the harmonic and rhythmic backbone from the very beginning to the end of the track.
+Secondary: An electric bass guitar enters shortly after the intro, providing a warm, rounded low-end foundation that locks in with the drums. A clean electric guitar adds sparse, melodic fills and occasional slide-style licks, appearing primarily between vocal phrases and during instrumental breaks.
+Groove & Foundation Progression: A simple, laid-back drum kit pattern featuring a soft kick, brushed snare, and light hi-hat work enters after the first vocal phrase. The groove remains consistent and unhurried throughout, providing a gentle pulse that supports the song's reflective nature without driving the energy upward.
+Embellishments, Textures & Spatial FX: Subtle organ or keyboard pads swell gently in the background during the choruses, adding a layer of atmospheric warmth and sustain. Occasional string bends and slide gestures on the electric guitar act as emotional punctuation marks, enhancing the nautical, lonely theme without cluttering the mix.

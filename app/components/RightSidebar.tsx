@@ -1,38 +1,151 @@
 import React, { useState, useEffect } from 'react';
+import { TRACK_ARTIST } from '../services/studio';
 import { Song } from '../types';
-import { Heart, Share2, Play, Pause, MoreHorizontal, X, Copy, Wand2, MoreVertical, Download, Repeat, Video, Music, Link as LinkIcon, Sparkles, Globe, Lock, Trash2, Edit3, Layers, ChevronDown, ClipboardCopy, ImagePlus } from 'lucide-react';
-import { songsApi } from '../services/api';
+import { Heart, Share2, Play, Pause, MoreHorizontal, X, Copy, Wand2, MoreVertical, Download, Repeat, Video, Music, Link as LinkIcon, Sparkles, Globe, Lock, Trash2, Edit3, Layers, ChevronDown, ClipboardCopy, ImagePlus, Loader2, Mic2, Clapperboard } from 'lucide-react';
+import { mapNativeLibrarySong, updateNativeSong } from '../services/nativeLibrary';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
+import { openExternal } from '../services/externalLinks';
+import { apiUrl } from '../services/apiBase';
 import { SongDropdownMenu } from './SongDropdownMenu';
-import { ShareModal } from './ShareModal';
 import { AlbumCover } from './AlbumCover';
+import { downloadSongAudio } from '../services/songDownload';
+import { localized, useAdapterLibrary, usesFromSettings } from '../services/adapters';
+import { useSongActions } from '../context/SongActionsContext';
 
 interface RightSidebarProps {
     song: Song | null;
     onClose?: () => void;
-    onOpenVideo?: () => void;
     onOpenCoverRegen?: () => void;
     onReuse?: (song: Song) => void;
     onSongUpdate?: (song: Song) => void;
     onNavigateToProfile?: (username: string) => void;
-    onNavigateToSong?: (songId: string) => void;
     isLiked?: boolean;
     onToggleLike?: (songId: string) => void;
-    onDelete?: (song: Song) => void;
-    onAddToPlaylist?: (song: Song) => void;
     onPlay?: (song: Song) => void;
     isPlaying?: boolean;
     currentSong?: Song | null;
 }
 
-export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpenVideo, onOpenCoverRegen, onReuse, onSongUpdate, onNavigateToProfile, onNavigateToSong, isLiked, onToggleLike, onDelete, onAddToPlaylist, onPlay, isPlaying, currentSong }) => {
-    const { token, user } = useAuth();
+/// Times the track's own lyrics with whichever recogniser is configured. The
+/// button only appears once karaoke has been switched on in Settings, so an
+/// untouched studio shows nothing about it at all.
+/** The original and the processed versions of a track; the chosen one plays everywhere. */
+const SongVersions: React.FC<{ song: Song; onChanged: (song: Song) => void }> = ({ song, onChanged }) => {
     const { t } = useI18n();
+    const [busy, setBusy] = useState<string | null>(null);
+    const versions = song.audioVersions ?? [];
+    if (versions.length === 0) return null;
+    const active = song.activeVersion ?? 'original';
+
+    const apply = async (request: Promise<Response>, key: string) => {
+        setBusy(key);
+        try {
+            const response = await request;
+            const body = await response.json().catch(() => null);
+            if (!response.ok || !body) throw new Error(body?.error || `HTTP ${response.status}`);
+            onChanged(mapNativeLibrarySong(body));
+            window.dispatchEvent(new CustomEvent('studio:library-changed'));
+        } catch (problem) {
+            window.dispatchEvent(new CustomEvent('studio:toast', { detail: { message: problem instanceof Error ? problem.message : String(problem), type: 'error' } }));
+        } finally {
+            setBusy(null);
+        }
+    };
+    const select = (version: string) =>
+        apply(fetch(`/v1/library/songs/${encodeURIComponent(song.id)}/version`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ version }),
+        }), version);
+    const remove = (version: string) =>
+        apply(fetch(`/v1/library/songs/${encodeURIComponent(song.id)}/versions/${encodeURIComponent(version)}`, { method: 'DELETE' }), `remove-${version}`);
+
+    const rows = [{ id: 'original', label: t('versionOriginal') }, ...versions.map(v => ({ id: v.id, label: v.label || v.id }))];
+    return (
+        <div className="rounded-xl bg-zinc-100 p-2 dark:bg-white/5">
+            <p className="px-1 pb-1.5 text-[11px] font-bold uppercase tracking-wide text-zinc-500">{t('versionsTitle')}</p>
+            {rows.map(row => (
+                <div key={row.id} className={`flex items-center gap-2 rounded-lg px-2 py-1.5 ${active === row.id ? 'bg-pink-500/10' : ''}`}>
+                    <button
+                        type="button"
+                        onClick={() => active !== row.id && void select(row.id)}
+                        disabled={busy !== null}
+                        className="flex min-w-0 flex-1 items-start gap-2 text-left text-xs leading-4 text-zinc-800 dark:text-zinc-200"
+                    >
+                        {busy === row.id ? <Loader2 size={12} className="animate-spin text-pink-500" /> : (
+                            <span className={`mt-0.5 h-3 w-3 shrink-0 rounded-full border ${active === row.id ? 'border-pink-500 bg-pink-500' : 'border-zinc-400'}`} />
+                        )}
+                        <span className="line-clamp-2 break-words" title={row.label}>{row.label}</span>
+                    </button>
+                    {row.id !== 'original' && (
+                        <button type="button" onClick={() => void remove(row.id)} disabled={busy !== null} className="text-zinc-400 hover:text-rose-500" title={t('versionDelete')}>
+                            <Trash2 size={12} />
+                        </button>
+                    )}
+                </div>
+            ))}
+        </div>
+    );
+};
+
+const KaraokeAction: React.FC<{ song: Song; onDone?: (lrc: string) => void }> = ({ song, onDone }) => {
+    const { t } = useI18n();
+    const [available, setAvailable] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        void fetch('/v1/karaoke/status')
+            .then((response) => (response.ok ? response.json() : Promise.reject(new Error())))
+            .then((status: { ready?: boolean }) => setAvailable(status.ready === true))
+            .catch(() => setAvailable(false));
+    }, []);
+
+    if (!available || !song.audioUrl || !song.lyrics?.trim()) return null;
+
+    const run = async () => {
+        setBusy(true);
+        setError(null);
+        try {
+            const response = await fetch(`/v1/library/songs/${encodeURIComponent(song.id)}/karaoke`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({}),
+            });
+            const body = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(body?.error || String(response.status));
+            onDone?.(body.lrc as string);
+        } catch (reason) {
+            setError(reason instanceof Error ? reason.message : String(reason));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div className="space-y-1">
+            <button
+                onClick={() => void run()}
+                disabled={busy}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 text-zinc-600 dark:text-zinc-400 text-xs font-medium transition-colors disabled:opacity-50"
+            >
+                {busy ? <Loader2 size={14} className="animate-spin" /> : <Mic2 size={14} />}
+                {busy ? t('karaokeMaking') : song.lrcContent ? t('karaokeReady') : t('karaokeMake')}
+            </button>
+            {error && <p className="text-[11px] text-red-500">{error}</p>}
+        </div>
+    );
+};
+
+export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpenCoverRegen, onReuse, onSongUpdate, onNavigateToProfile, onNavigateToSong, isLiked, onToggleLike, onPlay, isPlaying, currentSong }) => {
+    const { user } = useAuth();
+    const { t, language } = useI18n();
+    const adapterLibrary = useAdapterLibrary();
+    const songActions = useSongActions();
     const [showMenu, setShowMenu] = useState(false);
     const [isOwner, setIsOwner] = useState(false);
     const [tagsExpanded, setTagsExpanded] = useState(false);
-    const [shareModalOpen, setShareModalOpen] = useState(false);
     const [copiedStyle, setCopiedStyle] = useState(false);
     const [copiedLyrics, setCopiedLyrics] = useState(false);
     const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -71,10 +184,6 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
 
     const saveTitleEdit = async () => {
         if (!song) return;
-        if (!token) {
-            setTitleError('Please sign in to rename.');
-            return;
-        }
         const trimmed = titleDraft.trim();
         if (!trimmed) {
             setTitleError('Title cannot be empty.');
@@ -87,8 +196,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
         setIsSavingTitle(true);
         setTitleError(null);
         try {
-            await songsApi.updateSong(song.id, { title: trimmed }, token);
-            onSongUpdate?.({ ...song, title: trimmed });
+            const updated = await updateNativeSong(song, { title: trimmed });
+            onSongUpdate?.(updated);
             setIsEditingTitle(false);
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Rename failed';
@@ -262,26 +371,17 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                                     song={song}
                                     isOpen={showMenu}
                                     onClose={() => setShowMenu(false)}
-                                    isOwner={isOwner}
-                                    onCreateVideo={onOpenVideo}
-                                    onReusePrompt={() => onReuse?.(song)}
-                                    onDelete={() => onDelete?.(song)}
-                                    onAddToPlaylist={() => onAddToPlaylist?.(song)}
-                                    onShare={() => setShareModalOpen(true)}
                                 />
                             </div>
                         </div>
 
                         <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white shadow-sm ring-2 ring-white dark:ring-black">
-                                {song.creator ? song.creator[0].toUpperCase() : 'A'}
+                                M3
                             </div>
                             <div className="flex flex-col">
-                                <span
-                                    onClick={() => song.creator && onNavigateToProfile?.(song.creator)}
-                                    className="text-sm font-semibold text-zinc-900 dark:text-white hover:underline cursor-pointer"
-                                >
-                                    {song.creator || t('anonymous')}
+                                <span className="text-sm font-semibold text-zinc-900 dark:text-white">
+                                    {song.creator || TRACK_ARTIST}
                                 </span>
                                 <p className="text-xs text-zinc-500">{t('created')} {new Date(song.createdAt).toLocaleDateString()}</p>
                             </div>
@@ -290,13 +390,6 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
 
                     {/* Main Actions */}
                     <div className="flex items-center justify-between px-3 py-2.5 bg-zinc-200/80 dark:bg-black/40 backdrop-blur-sm rounded-2xl border border-zinc-300/50 dark:border-white/5">
-                        <button
-                            onClick={onOpenVideo}
-                            title={t('createVideo')}
-                            className="p-3 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-300/50 dark:hover:bg-white/10 rounded-xl transition-all duration-200"
-                        >
-                            <Video size={18} strokeWidth={1.5} />
-                        </button>
                         {/* Cover regen — only meaningful for owner; backend would 403 anyway */}
                         {isOwner && (
                             <button
@@ -307,11 +400,20 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                                 <ImagePlus size={18} strokeWidth={1.5} />
                             </button>
                         )}
+                        {songActions.exportVideo && song.audioUrl && (
+                            <button
+                                onClick={() => songActions.exportVideo?.(song)}
+                                title={t('videoExport')}
+                                className="p-3 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-300/50 dark:hover:bg-white/10 rounded-xl transition-all duration-200"
+                            >
+                                <Clapperboard size={18} strokeWidth={1.5} />
+                            </button>
+                        )}
                         <button
                             onClick={() => {
                                 if (!song?.audioUrl) return;
                                 const audioUrl = song.audioUrl.startsWith('http') ? song.audioUrl : `${window.location.origin}${song.audioUrl}`;
-                                window.open(`/editor?audioUrl=${encodeURIComponent(audioUrl)}`, '_blank');
+                                void openExternal(apiUrl(`/editor/index.html?audioUrl=${encodeURIComponent(audioUrl)}`));
                             }}
                             title={t('openInEditor')}
                             className="p-3 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-300/50 dark:hover:bg-white/10 rounded-xl transition-all duration-200"
@@ -350,25 +452,14 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                                 active={isLiked}
                                 onClick={() => onToggleLike?.(song.id)}
                             />
-                            <ActionButton icon={<Share2 size={22} />} onClick={() => setShareModalOpen(true)} />
                         </div>
                         <div className="flex items-center gap-2">
                             <button
                                 className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
                                 title={t('downloadAudio')}
                                 onClick={async () => {
-                                    if (!song.audioUrl) return;
                                     try {
-                                        const response = await fetch(song.audioUrl);
-                                        const blob = await response.blob();
-                                        const url = URL.createObjectURL(blob);
-                                        const link = document.createElement('a');
-                                        link.href = url;
-                                        link.download = `${song.title || 'song'}.mp3`;
-                                        document.body.appendChild(link);
-                                        link.click();
-                                        document.body.removeChild(link);
-                                        URL.revokeObjectURL(url);
+                                        await downloadSongAudio(song);
                                     } catch (error) {
                                         console.error('Download failed:', error);
                                     }
@@ -525,36 +616,36 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                         </div>
                     </div>
 
-                    {/* Generation Parameters Accordion */}
+                    {/* Generation parameters, as the engine recorded them. */}
                     {(() => {
-                        const p = song.generationParams || {};
-                        const hasParams = song.bpm || song.keyScale || song.ditModel || p.inferenceSteps;
-                        if (!hasParams) return null;
-
+                        const p = (song.generationParams || {}) as Record<string, any>;
+                        if (!song.generationParams) return null;
                         const paramRows: [string, string | number | undefined][] = [
-                            ['Model', song.ditModel?.replace('acestep-v15-', '')],
-                            ['LM', song.lmModel ? `${song.lmModel.replace('acestep-5Hz-lm-', '')} (${song.lmBackend || 'pt'})` : undefined],
-                            ['BPM', song.bpm && song.bpm > 0 ? song.bpm : undefined],
-                            ['Key', song.keyScale],
-                            ['Time', song.timeSignature],
-                            ['Duration', song.duration && song.duration !== '0:00' ? song.duration : undefined],
-                            ['Steps', p.inferenceSteps],
-                            ['Guidance', p.guidanceScale != null ? p.guidanceScale : undefined],
-                            ['Sampler', p.samplerMode],
-                            ['Scheduler', p.schedulerType],
-                            ['Method', p.inferMethod?.toUpperCase()],
-                            ['Shift', p.shift],
-                            ['Seed', p.seed],
-                            ['Thinking', p.thinking ? 'ON' : undefined],
-                            ['ADG', p.useAdg ? 'ON' : undefined],
-                            ['CFG Interval', p.cfgIntervalStart != null && p.cfgIntervalEnd != null && (p.cfgIntervalStart > 0 || p.cfgIntervalEnd < 1) ? `${p.cfgIntervalStart}–${p.cfgIntervalEnd}` : undefined],
-                            ['Vel. Clamp', p.velocityNormThreshold > 0 ? p.velocityNormThreshold : undefined],
-                            ['Vel. EMA', p.velocityEmaFactor > 0 ? p.velocityEmaFactor : undefined],
-                            [t('coverStrength'), p.audioCoverStrength != null && p.audioCoverStrength < 1 ? p.audioCoverStrength : undefined],
-                            ['Task', p.taskType && p.taskType !== 'text2music' ? p.taskType : undefined],
-                            ['Format', p.audioFormat?.toUpperCase()],
+                            [t('profile'), song.lmModel || undefined],
+                            [t('maxDuration'), song.duration && song.duration !== '0:00' ? song.duration : undefined],
+                            [t('ditSteps'), p.steps],
+                            [`LM ${t('cfgScale')}`, typeof p.lm_cfg === 'number' ? p.lm_cfg : undefined],
+                            [t('topK'), p.lm_top_k],
+                            [`DiT ${t('cfgScale')}`, typeof p.dit_cfg === 'number' ? p.dit_cfg : undefined],
+                            [t('lmSeedShort'), p.lm_seed],
+                            [t('seedShort'), p.seed],
+                            [t('outputFormat'), typeof p.output_format === 'string' ? p.output_format.toUpperCase() : undefined],
+                            [t('mp3Bitrate'), p.output_format === 'mp3' && p.mp3_bitrate ? `${p.mp3_bitrate} kbps` : undefined],
+                            [t('peakClipLabel'), p.peak_clip],
                             [t('genTime'), song.generationTime ? `${song.generationTime.toFixed(1)}s` : undefined],
                         ];
+                        // The LoRA the song was made with, each with its strength per part of the model.
+                        const uses = usesFromSettings(p);
+                        const tr = t as unknown as (key: string) => string;
+                        uses.forEach((use, index) => {
+                            const adapter = adapterLibrary.installed.find(entry => entry.id === use.id);
+                            const strengths = Object.entries(use.scales).map(([slot, scale]) => {
+                                const role = adapterLibrary.slots.find(entry => entry.id === slot)?.role;
+                                return `${role ? tr(`adapterRole_${role}`) : slot} ${scale.toFixed(2)}`;
+                            });
+                            const name = adapter ? localized(adapter.name, language) : use.id;
+                            paramRows.push([uses.length > 1 ? `LoRA ${index + 1}` : 'LoRA', [name, ...strengths].join(' · ')]);
+                        });
                         const visibleRows = paramRows.filter(([, v]) => v !== undefined && v !== null && v !== '');
 
                         const copyText = visibleRows.map(([k, v]) => `${k}: ${v}`).join('\n');
@@ -563,25 +654,12 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                             <details className="group">
                                 <summary className="flex items-center justify-between cursor-pointer px-3 py-2 rounded-xl bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 transition-colors">
                                     <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
-                                        {song.ditModel && (
-                                            <span className="text-[11px] px-2 py-0.5 rounded bg-zinc-200 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 font-medium">
-                                                {song.ditModel.replace('acestep-v15-', '')}
-                                            </span>
+                                        <span className="text-[11px] px-2 py-0.5 rounded bg-zinc-200 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 font-medium">{TRACK_ARTIST}</span>
+                                        {p.steps && (
+                                            <span className="text-[11px] px-2 py-0.5 rounded bg-zinc-200 dark:bg-white/10 text-zinc-600 dark:text-zinc-400">{p.steps}st</span>
                                         )}
-                                        {p.inferenceSteps && (
-                                            <span className="text-[11px] px-2 py-0.5 rounded bg-zinc-200 dark:bg-white/10 text-zinc-600 dark:text-zinc-400">
-                                                {p.inferenceSteps}st
-                                            </span>
-                                        )}
-                                        {p.samplerMode && p.samplerMode !== 'euler' && (
-                                            <span className="text-[11px] px-2 py-0.5 rounded bg-zinc-200 dark:bg-white/10 text-zinc-700 dark:text-zinc-300">
-                                                {p.samplerMode}
-                                            </span>
-                                        )}
-                                        {p.schedulerType && p.schedulerType !== 'linear' && (
-                                            <span className="text-[11px] px-2 py-0.5 rounded bg-zinc-200 dark:bg-white/10 text-zinc-700 dark:text-zinc-300">
-                                                {p.schedulerType}
-                                            </span>
+                                        {uses.length > 0 && (
+                                            <span className="text-[11px] px-2 py-0.5 rounded bg-pink-500/10 text-pink-600 dark:text-pink-300 font-medium">LoRA ×{uses.length}</span>
                                         )}
                                     </div>
                                     <ChevronDown size={14} className="text-zinc-400 transition-transform group-open:rotate-180 flex-shrink-0 ml-2" />
@@ -608,6 +686,11 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                             </details>
                         );
                     })()}
+
+                    {/* Karaoke: make the timings, then the file can be saved. */}
+                    <SongVersions song={song} onChanged={(next) => onSongUpdate?.(next)} />
+
+                    <KaraokeAction song={song} onDone={(lrc) => onSongUpdate?.({ ...song, lrcContent: lrc })} />
 
                     {/* Download LRC */}
                     {song.lrcContent && song.lrcContent.trim().length > 0 && (
@@ -652,21 +735,13 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                         </div>
                         <div className="p-4 max-h-[300px] overflow-y-auto custom-scrollbar">
                             <div className="text-sm text-zinc-700 dark:text-zinc-300 font-mono whitespace-pre-wrap leading-relaxed opacity-90">
-                                {song.lyrics || <div className="text-zinc-400 dark:text-zinc-600 italic text-center py-8">Instrumental<br /><span className="text-xs not-italic">No lyrics generated</span></div>}
+                                {song.lyrics || <div className="text-zinc-400 dark:text-zinc-600 italic text-center py-8">{t('instrumental')}<br /><span className="text-xs not-italic">{t('noLyrics')}</span></div>}
                             </div>
                         </div>
                     </div>
 
                 </div>
             </div>
-
-            {song && (
-                <ShareModal
-                    isOpen={shareModalOpen}
-                    onClose={() => setShareModalOpen(false)}
-                    song={song}
-                />
-            )}
         </div>
     );
 };

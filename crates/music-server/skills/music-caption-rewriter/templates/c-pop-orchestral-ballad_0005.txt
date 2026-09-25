@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 70. key is Bb, and scale is minor. C-Pop / Orchestral Ballad.
+Global Emotional Progression: The piece opens with a delicate, sorrowful introspection that gradually swells into a grand, cinematic expression of longing during the choruses. The emotional intensity peaks with powerful vocal delivery and full orchestration before receding into a quiet, reflective resolution in the outro, leaving a lingering sense of melancholy.
+Application Scenarios & Imagery: Ideal for dramatic scenes in historical dramas, moments of solitary reflection under moonlight, or visual narratives depicting vast landscapes and separation.
+Sonics & Production Profile: The production features a wide, expansive soundstage with a lush, high-fidelity finish. The frequency spectrum is balanced, highlighting the warmth of the lower strings and the clarity of the upper piano registers, while maintaining a dynamic range that allows for both intimate whispers and soaring crescendos.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Female). The vocalist possesses a clear, crystalline soprano timbre with a slightly breathy quality in the softer passages and a resonant, powerful projection during the climactic sections.
+Vocal Style: The performance begins with a gentle, narrative style marked by precise articulation and soft dynamics. As the song progresses, the delivery evolves into an emotive, soaring technique with sustained notes and increased vibrato, particularly in the choruses, effectively conveying deep yearning.
+Harmony/Backing Vocals: Layered self-harmonies appear in the choruses, creating a rich, choral texture that supports the lead melody. These harmonies are often sung in thirds or sixths, adding depth without obscuring the primary vocal line.
+Vocal FX: The vocal track is treated with a spacious hall reverb that enhances the ethereal atmosphere, particularly noticeable on the sustained notes. A subtle delay is applied to specific phrases to create a sense of distance and echo, reinforcing the theme of separation.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: A grand piano serves as the harmonic backbone throughout the entire track, playing arpeggiated figures in the verses and fuller block chords in the choruses.
+Secondary: A lush string ensemble (violins, violas, cellos) enters subtly in the first verse, swelling to become a dominant force in the choruses with sweeping melodic lines. A traditional plucked instrument (resembling a Guzheng) adds ornamental flourishes and rhythmic texture, primarily appearing in the intro and instrumental breaks.
+Groove & Foundation Progression: The rhythm section is understated, beginning with sparse percussion elements like soft shakers and rim clicks. A full drum kit with a deep kick and crisp snare enters at the first chorus, providing a steady, driving pulse that anchors the orchestral swell. The groove simplifies again in the bridge before building to a final, emphatic climax.
+Embellishments, Textures & Spatial FX: Atmospheric synth pads provide a continuous ambient bed, filling the sonic space between instruments. Occasional wind-like sound effects and reverse cymbal swells are used as transitional markers between sections, enhancing the cinematic quality and spatial depth of the mix.

@@ -1,57 +1,61 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Song, Playlist } from '../types';
-import { Heart, Plus, Music, Play, MoreHorizontal, Trash2 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { Heart, Plus, Music, Play, MoreHorizontal, Trash2, Upload, Loader2 } from 'lucide-react';
 import { SongDropdownMenu } from './SongDropdownMenu';
-import { ShareModal } from './ShareModal';
 import { AlbumCover } from './AlbumCover';
 import { useI18n } from '../context/I18nContext';
+import { captionSummary } from '../services/examples';
 
 interface LibraryViewProps {
   allSongs: Song[];
   likedSongs: Song[];
   playlists: Playlist[];
-  referenceTracks: ReferenceTrack[];
   onPlaySong: (song: Song, list?: Song[]) => void;
   onCreatePlaylist: () => void;
   onSelectPlaylist: (playlist: Playlist) => void;
-  onAddToPlaylist: (song: Song) => void;
-  onOpenVideo?: (song: Song) => void;
-  onReusePrompt?: (song: Song) => void;
-  onDeleteSong?: (song: Song) => void;
-  onDeleteReferenceTrack?: (trackId: string) => void;
-}
-
-interface ReferenceTrack {
-    id: string;
-    filename: string;
-    storage_key: string;
-    duration: number | null;
-    file_size_bytes: number | null;
-    tags: string[] | null;
-    created_at: string;
-    audio_url: string;
+  onImported?: () => void;
 }
 
 export const LibraryView: React.FC<LibraryViewProps> = ({ 
     allSongs,
     likedSongs, 
     playlists, 
-    referenceTracks,
     onPlaySong, 
     onCreatePlaylist,
     onSelectPlaylist,
-    onAddToPlaylist,
-    onOpenVideo,
-    onReusePrompt,
-    onDeleteSong,
-    onDeleteReferenceTrack,
+    onImported,
 }) => {
     const { t } = useI18n();
-    const { user } = useAuth();
-    const [activeTab, setActiveTab] = useState<'all' | 'playlists' | 'liked' | 'uploads'>('all');
-    const [shareModalOpen, setShareModalOpen] = useState(false);
-    const [shareSong, setShareSong] = useState<Song | null>(null);
+    const [openMenuSong, setOpenMenuSong] = useState<Song | null>(null);
+    const [activeTab, setActiveTab] = useState<'all' | 'playlists' | 'liked' | 'import'>('all');
+    const [importing, setImporting] = useState(false);
+    const [importError, setImportError] = useState<string | null>(null);
+    const importInput = useRef<HTMLInputElement | null>(null);
+
+    /// Imports an existing MP3 or WAV into the local library. The service
+    /// stores the media and the row atomically, rolling both back on failure.
+    const importAudio = async (files: FileList | null) => {
+        if (!files || files.length === 0) return;
+        setImporting(true);
+        setImportError(null);
+        try {
+            for (const file of Array.from(files)) {
+                const form = new FormData();
+                form.append('audio', file, file.name);
+                form.append('title', file.name.replace(/\.[^.]+$/, ''));
+                const response = await fetch('/v1/library/import', { method: 'POST', body: form });
+                if (!response.ok) {
+                    const body = await response.json().catch(() => null);
+                    throw new Error(body?.error || `${file.name}: import failed (${response.status})`);
+                }
+            }
+            onImported?.();
+        } catch (reason) {
+            setImportError(reason instanceof Error ? reason.message : 'Import failed.');
+        } finally {
+            setImporting(false);
+        }
+    };
 
     const formatBytes = (bytes?: number | null) => {
         if (!bytes || bytes <= 0) return '0 B';
@@ -67,9 +71,9 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
     return (
         <>
-        <div className="flex-1 bg-white dark:bg-black overflow-y-auto custom-scrollbar p-6 lg:p-10 pb-32 transition-colors duration-300">
-             <div className="flex items-center justify-between mb-8">
-                <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">{t('yourLibrary')}</h1>
+        <div className="min-w-0 flex-1 bg-white p-4 pb-32 transition-colors duration-300 dark:bg-black sm:p-6 lg:p-10">
+             <div className="mb-8 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+                <h1 className="min-w-0 truncate text-2xl font-bold text-zinc-900 dark:text-white sm:text-3xl">{t('yourLibrary')}</h1>
                 <button 
                     onClick={onCreatePlaylist}
                     className="flex items-center gap-2 bg-zinc-900 dark:bg-zinc-800 hover:bg-zinc-800 dark:hover:bg-zinc-700 text-white px-4 py-2 rounded-full font-medium transition-colors shadow-lg shadow-zinc-900/10 dark:shadow-none"
@@ -80,12 +84,12 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
              </div>
 
              {/* Tabs */}
-             <div className="flex items-center gap-4 mb-8 border-b border-zinc-200 dark:border-white/10 pb-1">
+             <div className="mb-8 flex max-w-full items-center gap-4 overflow-x-auto border-b border-zinc-200 pb-1 dark:border-white/10">
                  <button 
                     onClick={() => setActiveTab('all')}
                     className={`pb-3 text-sm font-bold transition-colors relative ${activeTab === 'all' ? 'text-zinc-900 dark:text-white' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'}`}
                  >
-                    All Songs
+                    {t('allSongs')}
                     {activeTab === 'all' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-500 rounded-full"></div>}
                  </button>
                  <button 
@@ -103,11 +107,11 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                     {activeTab === 'playlists' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-500 rounded-full"></div>}
                  </button>
                  <button 
-                    onClick={() => setActiveTab('uploads')}
-                    className={`pb-3 text-sm font-bold transition-colors relative ${activeTab === 'uploads' ? 'text-zinc-900 dark:text-white' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'}`}
+                    onClick={() => setActiveTab('import')}
+                    className={`pb-3 text-sm font-bold transition-colors relative ${activeTab === 'import' ? 'text-zinc-900 dark:text-white' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'}`}
                  >
-                    Uploads
-                    {activeTab === 'uploads' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-500 rounded-full"></div>}
+                    {t('importAudioTab')}
+                    {activeTab === 'import' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-500 rounded-full"></div>}
                  </button>
              </div>
 
@@ -115,10 +119,10 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
              {activeTab === 'all' && (
                  <div className="space-y-1">
                     {allSongs.length === 0 ? (
-                        <div className="text-sm text-zinc-500 dark:text-zinc-400">No songs yet.</div>
+                        <div className="text-sm text-zinc-500 dark:text-zinc-400">{t('noSongsYet')}</div>
                     ) : (
                         allSongs.map((song, idx) => (
-                            <div key={song.id} className="group flex items-center gap-4 p-2 rounded hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors" onClick={() => onPlaySong(song, allSongs)}>
+                            <div key={song.id} data-mcp-context={`song ${song.id}: ${song.title}`} className="group flex min-w-0 items-center gap-2 rounded p-2 transition-colors hover:bg-zinc-100 dark:hover:bg-white/10 sm:gap-4" onClick={() => onPlaySong(song, allSongs)}>
                                 <span className="text-zinc-400 dark:text-zinc-500 w-6 text-center group-hover:hidden">{idx + 1}</span>
                                 <span className="text-zinc-900 dark:text-white w-6 text-center hidden group-hover:block"><Play size={14} fill="currentColor" /></span>
                                 
@@ -130,32 +134,24 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                                 
                                 <div className="flex-1 min-w-0">
                                     <div className="text-zinc-900 dark:text-white font-medium truncate">{song.title}</div>
-                                    <div className="text-zinc-500 dark:text-zinc-400 text-xs">{song.style}</div>
+                                    <div className="truncate text-xs text-zinc-500 dark:text-zinc-400">{captionSummary(song.style)}</div>
                                 </div>
                                 
-                                <div className="text-zinc-500 dark:text-zinc-400 text-sm font-mono">{song.duration}</div>
-                                <div className="relative ml-2">
+                                <div className="hidden text-sm font-mono text-zinc-500 dark:text-zinc-400 sm:block">{song.duration}</div>
+                                <div className="relative ml-0 sm:ml-2">
                                     <button
                                         className="p-2 rounded-full hover:bg-zinc-200 dark:hover:bg-white/5 text-zinc-400 hover:text-black dark:hover:text-white transition-colors"
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            setShareSong(prev => prev?.id === song.id ? null : song);
+                                            setOpenMenuSong(prev => prev?.id === song.id ? null : song);
                                         }}
                                     >
                                         <MoreHorizontal size={16} />
                                     </button>
                                     <SongDropdownMenu
                                         song={song}
-                                        isOpen={shareSong?.id === song.id}
-                                        onClose={() => setShareSong(null)}
-                                        isOwner={user ? song.userId === user.id : false}
-                                        onCreateVideo={() => onOpenVideo?.(song)}
-                                        onReusePrompt={() => onReusePrompt?.(song)}
-                                        onAddToPlaylist={() => onAddToPlaylist(song)}
-                                        onDelete={() => onDeleteSong?.(song)}
-                                        onShare={() => {
-                                            setShareModalOpen(true);
-                                        }}
+                                        isOpen={openMenuSong?.id === song.id}
+                                        onClose={() => setOpenMenuSong(null)}
                                     />
                                 </div>
                             </div>
@@ -165,13 +161,13 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
              )}
              {activeTab === 'liked' && (
                  <div>
-                    <div className="bg-gradient-to-b from-indigo-500/10 to-zinc-50 dark:from-indigo-800/50 dark:to-zinc-900/50 p-6 rounded-xl flex items-end gap-6 mb-8 cursor-pointer hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors group border border-zinc-200 dark:border-white/5" onClick={() => likedSongs.length > 0 && onPlaySong(likedSongs[0], likedSongs)}>
-                         <div className="w-40 h-40 bg-gradient-to-br from-indigo-500 to-purple-400 rounded shadow-2xl flex items-center justify-center">
+                    <div className="group mb-8 flex cursor-pointer flex-col items-start gap-4 rounded-xl border border-zinc-200 bg-gradient-to-b from-indigo-500/10 to-zinc-50 p-4 transition-colors hover:bg-zinc-100 dark:border-white/5 dark:from-indigo-800/50 dark:to-zinc-900/50 dark:hover:bg-white/5 sm:flex-row sm:items-end sm:gap-6 sm:p-6" onClick={() => likedSongs.length > 0 && onPlaySong(likedSongs[0], likedSongs)}>
+                         <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded bg-gradient-to-br from-indigo-500 to-purple-400 shadow-2xl sm:h-40 sm:w-40">
                             <Heart fill="white" size={64} className="text-white" />
                          </div>
                          <div className="mb-2">
                              <h2 className="text-sm font-bold uppercase text-zinc-500 dark:text-white mb-2">{t('playlist')}</h2>
-                             <h1 className="text-5xl font-extrabold text-zinc-900 dark:text-white mb-4">{t('likedSongs')}</h1>
+                             <h1 className="mb-4 text-3xl font-extrabold text-zinc-900 dark:text-white sm:text-5xl">{t('likedSongs')}</h1>
                              <div className="text-sm text-zinc-500 dark:text-zinc-300 font-medium">
                                  {likedSongs.length} {t('songs')}
                              </div>
@@ -185,7 +181,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
                     <div className="space-y-1">
                         {likedSongs.map((song, idx) => (
-                            <div key={song.id} className="group flex items-center gap-4 p-2 rounded hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors" onClick={() => onPlaySong(song, likedSongs)}>
+                            <div key={song.id} data-mcp-context={`song ${song.id}: ${song.title}`} className="group flex min-w-0 items-center gap-2 rounded p-2 transition-colors hover:bg-zinc-100 dark:hover:bg-white/10 sm:gap-4" onClick={() => onPlaySong(song, likedSongs)}>
                                 <span className="text-zinc-400 dark:text-zinc-500 w-6 text-center group-hover:hidden">{idx + 1}</span>
                                 <span className="text-zinc-900 dark:text-white w-6 text-center hidden group-hover:block"><Play size={14} fill="currentColor" /></span>
                                 
@@ -197,33 +193,25 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                                 
                                 <div className="flex-1 min-w-0">
                                     <div className="text-zinc-900 dark:text-white font-medium truncate">{song.title}</div>
-                                    <div className="text-zinc-500 dark:text-zinc-400 text-xs">{song.style}</div>
+                                    <div className="truncate text-xs text-zinc-500 dark:text-zinc-400">{captionSummary(song.style)}</div>
                                 </div>
                                 
-                                <div className="text-zinc-500 dark:text-zinc-400 text-sm font-mono">{song.duration}</div>
-                                <div className="text-green-500"><Heart fill="#22c55e" size={16} /></div>
-                                <div className="relative ml-2">
+                                <div className="hidden text-sm font-mono text-zinc-500 dark:text-zinc-400 sm:block">{song.duration}</div>
+                                <div className="hidden text-green-500 sm:block"><Heart fill="#22c55e" size={16} /></div>
+                                <div className="relative ml-0 sm:ml-2">
                                     <button
                                         className="p-2 rounded-full hover:bg-zinc-200 dark:hover:bg-white/5 text-zinc-400 hover:text-black dark:hover:text-white transition-colors"
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            setShareSong(prev => prev?.id === song.id ? null : song);
+                                            setOpenMenuSong(prev => prev?.id === song.id ? null : song);
                                         }}
                                     >
                                         <MoreHorizontal size={16} />
                                     </button>
                                     <SongDropdownMenu
                                         song={song}
-                                        isOpen={shareSong?.id === song.id}
-                                        onClose={() => setShareSong(null)}
-                                        isOwner={user ? song.userId === user.id : false}
-                                        onCreateVideo={() => onOpenVideo?.(song)}
-                                        onReusePrompt={() => onReusePrompt?.(song)}
-                                        onAddToPlaylist={() => onAddToPlaylist(song)}
-                                        onDelete={() => onDeleteSong?.(song)}
-                                        onShare={() => {
-                                            setShareModalOpen(true);
-                                        }}
+                                        isOpen={openMenuSong?.id === song.id}
+                                        onClose={() => setOpenMenuSong(null)}
                                     />
                                 </div>
                             </div>
@@ -232,7 +220,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                  </div>
              )}
              {activeTab === 'playlists' && (
-                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                 <div className="grid grid-cols-1 gap-4 min-[440px]:grid-cols-2 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                      {playlists.map((playlist) => (
                          <div key={playlist.id} className="bg-white dark:bg-zinc-900/40 p-4 rounded-lg border border-zinc-200 dark:border-white/5 hover:border-zinc-300 dark:hover:border-white/10 hover:shadow-lg dark:hover:bg-zinc-900 transition-all group cursor-pointer" onClick={() => onSelectPlaylist(playlist)}>
                              <div className="relative aspect-square mb-4 rounded-md overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
@@ -248,42 +236,36 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                      ))}
                  </div>
              )}
-             {activeTab === 'uploads' && (
-                 <div className="space-y-2">
-                    {referenceTracks.length === 0 ? (
-                        <div className="text-sm text-zinc-500 dark:text-zinc-400">No uploads yet.</div>
-                    ) : (
-                        referenceTracks.map((track) => (
-                            <div key={track.id} className="flex items-center gap-4 p-3 rounded-lg border border-zinc-200 dark:border-white/5 bg-white dark:bg-zinc-900/40">
-                                <div className="w-10 h-10 rounded bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
-                                    <Music size={18} className="text-zinc-500 dark:text-zinc-400" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="text-sm font-medium text-zinc-900 dark:text-white truncate">{track.filename}</div>
-                                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                                        {formatBytes(track.file_size_bytes)} • {new Date(track.created_at).toLocaleDateString()}
-                                    </div>
-                                </div>
-                                <button
-                                    className="p-2 rounded-full hover:bg-zinc-200 dark:hover:bg-white/5 text-zinc-500 hover:text-red-600 transition-colors"
-                                    onClick={() => onDeleteReferenceTrack?.(track.id)}
-                                    title={t('deleteUpload')}
-                                >
-                                    <Trash2 size={16} />
-                                </button>
-                            </div>
-                        ))
-                    )}
+             {activeTab === 'import' && (
+                 <div
+                     onDragOver={(event) => event.preventDefault()}
+                     onDrop={(event) => { event.preventDefault(); void importAudio(event.dataTransfer.files); }}
+                     className="rounded-2xl border-2 border-dashed border-zinc-300 p-10 text-center dark:border-white/15"
+                 >
+                     <Upload size={26} className="mx-auto text-zinc-400" />
+                     <p className="mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-200">{t('importAudioTitle')}</p>
+                     <p className="mt-1 text-xs text-zinc-500">{t('importAudioHint')}</p>
+                     <button
+                         type="button"
+                         onClick={() => importInput.current?.click()}
+                         disabled={importing}
+                         className="mt-4 inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-pink-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                     >
+                         {importing ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+                         {t('chooseFiles')}
+                     </button>
+                     <input
+                         ref={importInput}
+                         type="file"
+                         accept="audio/mpeg,audio/wav,.mp3,.wav"
+                         multiple
+                         className="hidden"
+                         onChange={(event) => { void importAudio(event.target.files); event.target.value = ''; }}
+                     />
+                     {importError && <p role="alert" className="mt-3 text-xs text-rose-600 dark:text-rose-300">{importError}</p>}
                  </div>
              )}
         </div>
-        {shareSong && (
-            <ShareModal
-                isOpen={shareModalOpen}
-                onClose={() => { setShareModalOpen(false); setShareSong(null); }}
-                song={shareSong}
-            />
-        )}
         </>
     );
 };

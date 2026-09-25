@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Newspaper, X, Star, Github, FileText } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import newsData from '../data/news.json';
+import changelogData from '../data/changelog.json';
+import { STUDIO, STUDIO_REPO_URL } from '../studio';
 
 type TabId = 'news' | 'changelog';
 
@@ -82,93 +84,54 @@ function sectionBadgeColor(title: string): string {
 
 const ChangelogTab: React.FC = () => {
   const { t } = useI18n();
-  const [entries, setEntries] = useState<ChangelogEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
-  useEffect(() => {
-    fetch('/api/changelog')
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to load');
-        return res.text();
-      })
-      .then(raw => {
-        setEntries(parseChangelog(raw));
-        setLoading(false);
-      })
-      .catch(err => {
-        setError(err.message);
-        setLoading(false);
-      });
-  }, []);
+  // Written by scripts/changelog.mjs straight from the repository history, so
+  // this page cannot drift from what was actually shipped. It used to fetch
+  // /api/changelog from a backend this fork does not have.
+  const days = changelogData as Array<{ date: string; items: Array<{ hash: string; subject: string; body: string }> }>;
 
-  if (loading) {
+  if (days.length === 0) {
     return (
-      <div className="text-center py-16">
-        <div className="animate-spin w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full mx-auto mb-3" />
+      <div className="py-16 text-center">
         <p className="text-sm text-zinc-500">{t('changelogLoading')}</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="text-center py-16">
-        <p className="text-sm text-red-400">{error}</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {entries.map((entry, i) => (
-        <div
-          key={entry.date}
-          className="rounded-2xl border bg-white dark:bg-suno-card border-zinc-200 dark:border-white/5"
-        >
+      {days.map((day, index) => (
+        <div key={day.date} className="rounded-2xl border border-zinc-200 bg-white dark:border-white/5 dark:bg-suno-card">
           <div className="p-5 sm:p-6">
-            {/* Date header */}
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-                {entry.date}
-              </span>
-              {i === 0 && (
-                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-500/15 text-green-600 dark:text-green-400">
+            <div className="mb-4 flex items-center gap-3">
+              <span className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{day.date}</span>
+              {index === 0 && (
+                <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-medium text-green-600 dark:text-green-400">
                   {t('changelogLatest')}
                 </span>
               )}
+              <span className="ml-auto text-xs tabular-nums text-zinc-400">{day.items.length}</span>
             </div>
 
-            {/* Sections */}
-            <div className="space-y-3">
-              {entry.sections.map(section => (
-                <div key={section.title}>
-                  <span className={`text-xs font-semibold uppercase tracking-wider ${sectionColor(section.title)}`}>
-                    {section.title}
-                  </span>
-                  <ul className="mt-1.5 space-y-1">
-                    {section.items.map((item, j) => (
-                      <li key={j} className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed flex gap-2">
-                        <span className={`mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${sectionBadgeColor(section.title).split(' ')[0]}`} />
-                        <span dangerouslySetInnerHTML={{
-                          __html: item
-                            .replace(/\*\*(.+?)\*\*/g, '<strong class="text-zinc-200 font-medium">$1</strong>')
-                            .replace(/`(.+?)`/g, '<code class="text-xs bg-white/5 px-1 py-0.5 rounded text-zinc-300">$1</code>')
-                        }} />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+            <ul className="space-y-2.5">
+              {day.items.map((item) => (
+                <li key={item.hash} className="flex gap-2.5">
+                  <code className="mt-0.5 shrink-0 rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[10px] text-zinc-500 dark:bg-white/5 dark:text-zinc-400">
+                    {item.hash}
+                  </code>
+                  <div className="min-w-0">
+                    <p className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">{item.subject}</p>
+                    {item.body && <p className="mt-0.5 text-xs leading-5 text-zinc-500 dark:text-zinc-400">{item.body}</p>}
+                  </div>
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
         </div>
       ))}
     </div>
   );
 };
-
-// ── Main NewsPage ────────────────────────────────────────────────────
 
 export const NewsPage: React.FC = () => {
   const { t, language } = useI18n();
@@ -357,14 +320,14 @@ export const NewsPage: React.FC = () => {
 
         {/* Star Repo */}
         <a
-          href="https://github.com/timoncool/ACE-Step-Studio"
+          href={STUDIO_REPO_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-3 mb-6 px-5 py-4 rounded-2xl border border-zinc-200 dark:border-white/5 bg-white dark:bg-suno-card hover:border-zinc-300 dark:hover:border-white/10 transition-all group"
         >
           <Github size={20} className="text-zinc-500 dark:text-zinc-400 flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">timoncool/ACE-Step-Studio</p>
+            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{STUDIO.repo}</p>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">{t('starRepo')}</p>
           </div>
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 text-sm font-medium group-hover:bg-amber-500/15 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors flex-shrink-0">

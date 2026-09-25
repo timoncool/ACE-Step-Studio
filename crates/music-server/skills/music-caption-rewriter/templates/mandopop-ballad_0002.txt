@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 72. key is Eb, and scale is major. Mandopop / Ballad.
+Global Emotional Progression: The piece opens with a solitary, introspective melancholy that gradually accumulates emotional weight through the verses. As the arrangement swells into the choruses, the feeling transforms into a poignant, sweeping yearning, reaching a dramatic peak before receding into a gentle, resigned reflection in the outro.
+Application Scenarios & Imagery: Ideal for cinematic scenes depicting separation, late-night contemplation under city lights, or moments of realizing the impermanence of a relationship.
+Sonics & Production Profile: The production features a wide, cinematic soundstage with a polished, high-fidelity finish. The frequency spectrum is balanced, highlighting the warmth of the low-mids from the strings while maintaining clarity in the vocal presence. Dynamics are carefully managed, moving from a sparse, breathable texture in the intro to a lush, compressed fullness in the climactic sections.
+Vocal Details
+Vocal Gender & Timbre: A single male vocalist delivers the performance with a clear, smooth tenor timbre that carries a distinct breathy quality, enhancing the sense of vulnerability.
+Vocal Style: The delivery begins softly and intimately, almost whispering the narrative in the verses. It evolves into a powerful, resonant belt during the choruses, utilizing controlled vibrato and dynamic surges to convey deep emotional distress, before returning to a fragile, fading tone at the end.
+Harmony/Backing Vocals: Subtle, self-layered harmonies appear in the choruses, providing a soft cushion beneath the lead melody. These backing lines are mixed lower to add depth without distracting from the primary vocal line.
+Vocal FX: The vocal track is treated with a generous amount of plate reverb to create a spacious, ethereal atmosphere, complemented by a subtle delay that trails off on sustained notes, emphasizing the lyrical themes of distance and fading memories.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: An acoustic guitar plays a delicate, finger-picked arpeggio pattern that serves as the harmonic backbone from the very beginning until the final fade-out.
+Secondary: A solo cello enters early to provide a mournful counter-melody, later expanding into a full string section (violins and violas) that swells dramatically during the choruses. A warm piano adds chordal support in the pre-chorus and remains through the climax.
+Groove & Foundation Progression: The track begins without percussion, relying on the rhythmic flow of the guitar. A soft, brushed drum kit and a rounded electric bass enter subtly at the first pre-chorus, establishing a slow, steady pulse. By the chorus, the drums become more defined with a crisp snare and deeper kick, driving the emotional intensity forward before stripping back to just the guitar and strings for the bridge and outro.
+Embellishments, Textures & Spatial FX: Atmospheric synth pads provide a continuous, airy bed underneath the acoustic instruments, filling the sonic space and adding a modern sheen. Occasional reverse reverb swells are used as transitional effects leading into the choruses, while subtle wind-like textures enhance the feeling of emptiness described in the song's mood.

@@ -1,21 +1,30 @@
-python/
-node/
+target/
 node_modules/
-/models/
-__pycache__/
-cache/
-temp/
-downloads/
-ffmpeg/
-app/data/*.db
-app/data/*.db-journal
-app/server/data/*.db
-app/server/data/*.db-journal
-app/server/public/audio/
-app/server/tmp/
-app/dist/
-tools/
-app/node_modules/
-app/server/node_modules/
+dist/
+# ...except the waveform editor's own bundle, which is shipped, not built.
+!app/public/editor/dist/
+!app/public/editor/dist/**
+.env
+.env.*
+!.env.example
+data/
+!app/data/
+app/data/changelog.json
+models/
+engines/*/bin/
+desktop/src-tauri/resources/
 *.db
-cuda_version.txt
+*.db-shm
+*.db-wal
+
+# Built installers and portable archives belong to a GitHub release, not here.
+release/
+
+# Local engineering notes: they never belong to the published repository.
+HANDOFF.md
+NEXT_SESSION_PROMPT.md
+
+# Local editor and agent settings.
+.claude/
+desktop/src-tauri/tauri.release.conf.json
+*.password

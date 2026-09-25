@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { Activity, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { CreatePanel } from './components/CreatePanel';
 import { SongList } from './components/SongList';
@@ -6,35 +6,55 @@ import { RightSidebar } from './components/RightSidebar';
 import { Player } from './components/Player';
 import { LibraryView } from './components/LibraryView';
 import { CreatePlaylistModal, AddToPlaylistModal } from './components/PlaylistModals';
-import { VideoGeneratorModal } from './components/VideoGeneratorModal';
 import { CoverRegenModal } from './components/CoverRegenModal';
-import { UsernameModal } from './components/UsernameModal';
-import { UserProfile } from './components/UserProfile';
+import { ReplayModal } from './components/ReplayModal';
+import { ProcessingModal } from './components/ProcessingModal';
+import { VideoGeneratorModal } from './components/VideoGeneratorModal';
+import { SongActions, SongActionsProvider } from './context/SongActionsContext';
+import { useBridgeCommand } from './services/mcpBridge';
+import { apiUrl } from './services/apiBase';
+import { aceLogProgress } from './services/engineProgress';
+import { STUDIO } from './studio';
 import { SettingsModal } from './components/SettingsModal';
-import { SongProfile } from './components/SongProfile';
-import { Song, GenerationParams, View, Playlist } from './types';
+import { Song, AceCreateRequest, AceJob, View, Playlist } from './types';
 // Resizable panel hook
-function useResizablePanel(key: string, defaultWidth: number, min: number, max: number, direction: 'left' | 'right' = 'left') {
+const PANEL_MAX_SHARE = 0.4;
+const PANEL_KEY_STEP = 16;
+
+/** A side panel the user sizes by dragging its edge, with the arrow keys once
+ *  the edge has focus, or back to its default with a double click. Wide
+ *  screens get wide panels; the middle always keeps the rest of the window. */
+function useResizablePanel(key: string, defaultWidth: number, min: number, max: number, direction: 'left' | 'right' = 'left', label = '') {
+  const limitNow = React.useCallback(() => Math.max(min, Math.min(max, Math.round(window.innerWidth * PANEL_MAX_SHARE))), [min, max]);
   const [width, setWidth] = React.useState(() => {
-    const saved = localStorage.getItem(`panel-${key}`);
-    return saved ? Number(saved) : defaultWidth;
+    const saved = Number(localStorage.getItem(`panel-${key}`));
+    return Number.isFinite(saved) && saved > 0 ? saved : defaultWidth;
   });
+  const [limit, setLimit] = React.useState(limitNow);
+  React.useEffect(() => {
+    const onResize = () => setLimit(limitNow());
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [limitNow]);
+  // a width saved on a larger window is drawn within this one, and kept for the larger one
+  const shown = Math.min(Math.max(width, min), limit);
+
+  const commit = React.useCallback((next: number) => {
+    const clamped = Math.min(limitNow(), Math.max(min, Math.round(next)));
+    setWidth(clamped);
+    localStorage.setItem(`panel-${key}`, String(clamped));
+  }, [key, min, limitNow]);
 
   const onMouseDown = React.useCallback((e: React.MouseEvent) => {
     const startX = e.clientX;
-    const startW = width;
+    const startW = shown;
+    const bound = limitNow();
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
-
-    const onMouseMove = (ev: MouseEvent) => {
-      const delta = ev.clientX - startX;
-      const newW = Math.min(max, Math.max(min, startW + (direction === 'left' ? delta : -delta)));
-      setWidth(newW);
-    };
+    const at = (ev: MouseEvent) => Math.min(bound, Math.max(min, startW + (direction === 'left' ? 1 : -1) * (ev.clientX - startX)));
+    const onMouseMove = (ev: MouseEvent) => setWidth(at(ev));
     const onMouseUp = (ev: MouseEvent) => {
-      const delta = ev.clientX - startX;
-      const finalW = Math.min(max, Math.max(min, startW + (direction === 'left' ? delta : -delta)));
-      localStorage.setItem(`panel-${key}`, String(finalW));
+      commit(at(ev));
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       document.removeEventListener('mousemove', onMouseMove);
@@ -42,31 +62,85 @@ function useResizablePanel(key: string, defaultWidth: number, min: number, max: 
     };
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
-  }, [width, key, min, max, direction]);
+  }, [shown, min, direction, limitNow, commit]);
+
+  const onKeyDown = React.useCallback((e: React.KeyboardEvent) => {
+    const grow = direction === 'left' ? 'ArrowRight' : 'ArrowLeft';
+    const shrink = direction === 'left' ? 'ArrowLeft' : 'ArrowRight';
+    const step = e.shiftKey ? PANEL_KEY_STEP * 4 : PANEL_KEY_STEP;
+    const next = e.key === grow ? shown + step : e.key === shrink ? shown - step : e.key === 'Home' ? min : e.key === 'End' ? limitNow() : null;
+    if (next === null) return;
+    e.preventDefault();
+    commit(next);
+  }, [shown, min, direction, limitNow, commit]);
 
   const handle = (
     <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={label}
+      aria-valuenow={shown}
+      aria-valuemin={min}
+      aria-valuemax={limit}
+      tabIndex={0}
       onMouseDown={onMouseDown}
-      className="hidden md:flex w-[5px] flex-shrink-0 items-center justify-center cursor-col-resize group z-20 relative bg-zinc-200/50 dark:bg-zinc-800 hover:bg-pink-500/30 transition-colors"
+      onDoubleClick={() => {
+        // the default is kept as it is; a narrow window only draws it narrower
+        setWidth(defaultWidth);
+        localStorage.removeItem(`panel-${key}`);
+      }}
+      onKeyDown={onKeyDown}
+      className="hidden md:flex w-[5px] flex-shrink-0 items-center justify-center cursor-col-resize group z-20 relative bg-zinc-200/50 dark:bg-zinc-800 hover:bg-pink-500/30 focus-visible:bg-pink-500/40 focus-visible:outline-none transition-colors"
     >
-      <div className="w-[3px] h-10 rounded-full bg-zinc-400/30 dark:bg-zinc-600/50 group-hover:bg-pink-500 transition-colors" />
+      <div className="w-[3px] h-10 rounded-full bg-zinc-400/30 dark:bg-zinc-600/50 group-hover:bg-pink-500 group-focus-visible:bg-pink-500 transition-colors" />
     </div>
   );
 
-  return { width, handle };
+  return { width: shown, handle };
 }
-import { generateApi, songsApi, playlistsApi, getAudioUrl } from './services/api';
+import { getAudioUrl } from './services/api';
 import { useAuth } from './context/AuthContext';
 import { useResponsive } from './context/ResponsiveContext';
 import { I18nProvider, useI18n } from './context/I18nContext';
-import { List, GraduationCap } from 'lucide-react';
+import { List } from 'lucide-react';
 import { PlaylistDetail } from './components/PlaylistDetail';
 import { Toast, ToastType } from './components/Toast';
 import { SearchPage } from './components/SearchPage';
-import { TrainingPanel } from './components/TrainingPanel';
-import { ToolsPanel } from './components/ToolsPanel';
 import { NewsPage } from './components/NewsPage';
+import { AdaptersPage } from './components/AdaptersPage';
 import { ConfirmDialog } from './components/ConfirmDialog';
+import { SetupGate } from './components/SetupGate';
+import { EngineStarting } from './components/EngineStarting';
+import { StudioOffline } from './components/StudioOffline';
+import { StudioToolsPanel } from './components/StudioToolsPanel';
+import { createNativePlaylist, deleteNativeSong, loadNativeLibrarySongs, loadNativePlaylists, updateNativePlaylist } from './services/nativeLibrary';
+
+const NATIVE_LIKED_SONG_IDS_KEY = 'native-liked-song-ids';
+
+function loadNativeLikedSongIds(): Set<string> {
+  try {
+    const stored = JSON.parse(localStorage.getItem(NATIVE_LIKED_SONG_IDS_KEY) || '[]');
+    return new Set(Array.isArray(stored) ? stored.filter((id): id is string => typeof id === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveNativeLikedSongIds(ids: Set<string>): void {
+  localStorage.setItem(NATIVE_LIKED_SONG_IDS_KEY, JSON.stringify([...ids]));
+}
+
+function NativeUnavailableView({ title, detail }: { title: string; detail: string }): React.ReactElement {
+  return (
+    <div className="flex h-full min-h-0 flex-1 items-center justify-center overflow-y-auto bg-white px-6 py-10 dark:bg-suno">
+      <section className="w-full max-w-xl rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6 text-center shadow-sm">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-600 dark:text-amber-400">{STUDIO.name}</p>
+        <h1 className="mt-2 text-xl font-bold text-zinc-950 dark:text-white">{title}</h1>
+        <p className="mt-3 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{detail}</p>
+      </section>
+    </div>
+  );
+}
 
 
 function AppContent() {
@@ -77,12 +151,68 @@ function AppContent() {
   const { isMobile, isDesktop } = useResponsive();
 
   // Auth
-  const { user, token, isAuthenticated, isLoading: authLoading, setupUser, logout } = useAuth();
-  const leftPanel = useResizablePanel('create', 420, 320, 600);
-  const rightPanel = useResizablePanel('details', 400, 320, 600, 'right');
-  const [showUsernameModal, setShowUsernameModal] = useState(false);
+  const { user } = useAuth();
+  const leftPanel = useResizablePanel('create', 420, 320, 1200, 'left', t('createMusic'));
+  const rightPanel = useResizablePanel('details', 400, 320, 1200, 'right', t('songDetails'));
+  const [nativeSetupReady, setNativeSetupReady] = useState(false);
+  // A track sent here from a menu's "separate into stems".
+  const [stemsSongId, setStemsSongId] = useState<string | null>(null);
+  // Which of the three situations the studio is in. It starts unknown, and
+  // unknown must not look like "nothing is installed": showing the download
+  // page for a second on every launch is how a ready studio was made to look
+  // like a bill.
+  const [nativeModels, setNativeModels] = useState<'unknown' | 'missing' | 'installed' | 'offline'>('unknown');
+  useEffect(() => {
+    const read = () => void fetch('/setup/status')
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error())))
+      .then((status: { ready?: boolean; engine_ready?: boolean }) => {
+        setNativeModels(status.ready === true ? 'installed' : 'missing');
+        if (status.ready && status.engine_ready) setNativeSetupReady(true);
+      })
+      // A service that does not answer is not an engine that is still coming
+      // up: the application has been closed, and saying "starting" at a dead
+      // process is the one thing the window must not do.
+      .catch(() => {
+        setNativeModels('offline');
+        setNativeSetupReady(false);
+      });
+    read();
+    const timer = window.setInterval(read, 2000);
+    return () => window.clearInterval(timer);
+  }, []);
+  useEffect(() => {
+    const open = (event: Event) => {
+      setStemsSongId((event as CustomEvent<string>).detail);
+      setCurrentView('tools');
+    };
+    const openSettings = (event: Event) => {
+      setSettingsSection((event as CustomEvent<string>).detail);
+      setShowSettingsModal(true);
+    };
+    const process = (event: Event) => {
+      const song = (event as CustomEvent<Song>).detail;
+      if (song) setSongToProcess(song);
+    };
+    window.addEventListener('studio:open-stems', open);
+    // A page asked for by another page, the LoRA card sending the user to its library.
+    const navigate = (event: Event) => {
+      const view = (event as CustomEvent<View>).detail;
+      if (view) setCurrentView(view);
+    };
+    window.addEventListener('studio:open-settings', openSettings);
+    window.addEventListener('studio:process-song', process);
+    window.addEventListener('studio:navigate', navigate);
+    return () => {
+      window.removeEventListener('studio:open-stems', open);
+      window.removeEventListener('studio:open-settings', openSettings);
+      window.removeEventListener('studio:process-song', process);
+      window.removeEventListener('studio:navigate', navigate);
+    };
+  }, []);
+
   // Track multiple concurrent generation jobs
   const activeJobsRef = useRef<Map<string, { tempId: string; pollInterval: ReturnType<typeof setInterval> }>>(new Map());
+  const nativeReplayPollersRef = useRef<Map<string, ReturnType<typeof window.setInterval>>>(new Map());
   const [activeJobCount, setActiveJobCount] = useState(0);
 
   // FIFO drain barrier — handlers awaiting it block until the active-jobs
@@ -170,10 +300,12 @@ function AppContent() {
   }, []);
 
   // Theme State
+  // Dark is the studio's own look, not a preference inherited from the desktop:
+  // the interface was drawn for it, and a light Windows was turning a music
+  // studio into a spreadsheet on first launch. A user who picks light keeps it.
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     const stored = localStorage.getItem('theme');
-    if (stored === 'dark' || stored === 'light') return stored;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    return stored === 'light' ? 'light' : 'dark';
   });
 
   // Navigation State - default to create view
@@ -183,7 +315,6 @@ function AppContent() {
   const [songs, setSongs] = useState<Song[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [likedSongIds, setLikedSongIds] = useState<Set<string>>(new Set());
-  const [referenceTracks, setReferenceTracks] = useState<ReferenceTrack[]>([]);
   const [playQueue, setPlayQueue] = useState<Song[]>([]);
   const [queueIndex, setQueueIndex] = useState(-1);
 
@@ -207,8 +338,11 @@ function AppContent() {
   // UI State
   const [isGenerating, setIsGenerating] = useState(false);
   const [showRightSidebar, setShowRightSidebar] = useState(false);
-  const [showLeftSidebar, setShowLeftSidebar] = useState(true);
-  const [pendingAudioSelection, setPendingAudioSelection] = useState<{ target: 'reference' | 'source'; url: string; title?: string } | null>(null);
+  const [showLeftSidebar, setShowLeftSidebar] = useState(() => window.innerWidth >= 768);
+
+  useEffect(() => {
+    if (isMobile) setShowLeftSidebar(false);
+  }, [isMobile]);
 
   // Mobile UI Toggle
   const [mobileShowList, setMobileShowList] = useState(false);
@@ -219,21 +353,22 @@ function AppContent() {
   const [songToAddToPlaylist, setSongToAddToPlaylist] = useState<Song | null>(null);
 
   // Video Modal
-  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
-  const [songForVideo, setSongForVideo] = useState<Song | null>(null);
 
   // Cover regen modal — manual Pollinations / upload entry from SongList row
   // and RightSidebar. Updates songs.cover_url via /api/songs/:id/regen-cover.
   const [songForCoverRegen, setSongForCoverRegen] = useState<Song | null>(null);
+  const [songForReplay, setSongForReplay] = useState<Song | null>(null);
+  const [songToProcess, setSongToProcess] = useState<Song | null>(null);
+  const [songForVideo, setSongForVideo] = useState<Song | null>(null);
 
   // Settings Modal
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  // Which settings page to land on, when something asks for a particular one.
+  const [settingsSection, setSettingsSection] = useState<string | null>(null);
 
   // Profile View
-  const [viewingUsername, setViewingUsername] = useState<string | null>(null);
 
   // Song View
-  const [viewingSongId, setViewingSongId] = useState<string | null>(null);
 
   // Playlist View
   const [viewingPlaylistId, setViewingPlaylistId] = useState<string | null>(null);
@@ -264,16 +399,6 @@ function AppContent() {
     onConfirm: () => void;
   } | null>(null);
 
-  interface ReferenceTrack {
-    id: string;
-    filename: string;
-    storage_key: string;
-    duration: number | null;
-    file_size_bytes: number | null;
-    tags: string[] | null;
-    created_at: string;
-    audio_url: string;
-  }
 
   const showToast = (message: string, type: ToastType = 'success') => {
     setToast({ message, type, isVisible: true });
@@ -283,23 +408,76 @@ function AppContent() {
     setToast(prev => ({ ...prev, isVisible: false }));
   };
 
-  // Show username modal if not authenticated and not loading
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      setShowUsernameModal(true);
+  const refreshNativeLibrary = useCallback(async (): Promise<boolean> => {
+    try {
+      const [nativeSongs, nativePlaylists] = await Promise.all([loadNativeLibrarySongs(), loadNativePlaylists()]);
+      setSongs(prev => {
+        const generatingSongs = prev.filter(song => song.isGenerating);
+        return [...generatingSongs, ...nativeSongs];
+      });
+      setPlaylists(nativePlaylists);
+      setLikedSongIds(loadNativeLikedSongIds());
+      // A fresh native library is still the authoritative store. Falling back
+      // to the retired ACE service when it is empty made ordinary first-run
+      // actions issue requests to a server that is not part of this desktop app.
+      return true;
+    } catch {
+      return false;
     }
-  }, [authLoading, isAuthenticated]);
+  }, []);
 
-  // Load Playlists
+  // The library asked for while the service was still starting came back
+  // empty; once the service answers again it is read afresh.
+  const wasOffline = useRef(false);
   useEffect(() => {
-    if (token) {
-      playlistsApi.getMyPlaylists(token)
-        .then(res => setPlaylists(res.playlists))
-        .catch(err => console.error('Failed to load playlists', err));
-    } else {
-      setPlaylists([]);
+    if (nativeModels === 'offline') {
+      wasOffline.current = true;
+      return;
     }
-  }, [token]);
+    if (wasOffline.current && nativeModels !== 'unknown') {
+      wasOffline.current = false;
+      void refreshNativeLibrary();
+    }
+  }, [nativeModels, refreshNativeLibrary]);
+
+  /// Watches a re-render job to completion and refreshes the library when the
+  /// new take lands.
+  const trackReplayJob = useCallback((jobId: string) => {
+    showToast(t('replayQueued'));
+    const poll = window.setInterval(async () => {
+      try {
+        const response = await fetch(`/v1/music/jobs/${encodeURIComponent(jobId)}`);
+        if (!response.ok) throw new Error(`Re-render status request failed (${response.status})`);
+        const status: { status?: string; message?: string } = await response.json();
+        const state = status.status?.toLowerCase();
+        if (!state || !['completed', 'failed', 'cancelled'].includes(state)) return;
+
+        window.clearInterval(poll);
+        nativeReplayPollersRef.current.delete(jobId);
+        if (state === 'completed') {
+          await refreshNativeLibrary();
+          showToast(t('trackReady'));
+        } else {
+          showToast(status.message || `Re-render ${state}.`, 'error');
+        }
+      } catch (error) {
+        window.clearInterval(poll);
+        nativeReplayPollersRef.current.delete(jobId);
+        showToast(error instanceof Error ? error.message : 'Re-render polling failed.', 'error');
+      }
+    }, 1500);
+    nativeReplayPollersRef.current.set(jobId, poll);
+  }, [refreshNativeLibrary, t]);
+
+  const handleNativeReplay = useCallback((song: Song) => {
+    if (!song.nativeReplayAvailable) return;
+    setSongForReplay(song);
+  }, []);
+
+  useEffect(() => () => {
+    nativeReplayPollersRef.current.forEach((poll) => window.clearInterval(poll));
+    nativeReplayPollersRef.current.clear();
+  }, []);
 
   // Keep selectedSongRef in sync for use in callbacks without stale closures
   useEffect(() => { selectedSongRef.current = selectedSong; }, [selectedSong]);
@@ -338,34 +516,6 @@ function AppContent() {
     }
   };
 
-  // Navigate to Profile Handler
-  const handleNavigateToProfile = (username: string) => {
-    setViewingUsername(username);
-    setCurrentView('profile');
-    window.history.pushState({}, '', `/@${username}`);
-  };
-
-  // Back from Profile Handler
-  const handleBackFromProfile = () => {
-    setViewingUsername(null);
-    setCurrentView('create');
-    window.history.pushState({}, '', '/');
-  };
-
-  // Navigate to Song Handler
-  const handleNavigateToSong = (songId: string) => {
-    setViewingSongId(songId);
-    setCurrentView('song');
-    window.history.pushState({}, '', `/song/${songId}`);
-  };
-
-  // Back from Song Handler
-  const handleBackFromSong = () => {
-    setViewingSongId(null);
-    setCurrentView('create');
-    window.history.pushState({}, '', '/');
-  };
-
   // Theme Effect
   useEffect(() => {
     localStorage.setItem('theme', theme);
@@ -386,32 +536,11 @@ function AppContent() {
       const path = window.location.pathname;
       const params = new URLSearchParams(window.location.search);
 
-      // Handle ?song= query parameter
-      const songParam = params.get('song');
-      if (songParam) {
-        setViewingSongId(songParam);
-        setCurrentView('song');
-        window.history.replaceState({}, '', `/song/${songParam}`);
-        return;
-      }
-
       if (path === '/create' || path === '/') {
         setCurrentView('create');
         setMobileShowList(false);
       } else if (path === '/library') {
         setCurrentView('library');
-      } else if (path.startsWith('/@')) {
-        const username = path.substring(2);
-        if (username) {
-          setViewingUsername(username);
-          setCurrentView('profile');
-        }
-      } else if (path.startsWith('/song/')) {
-        const songId = path.substring(6);
-        if (songId) {
-          setViewingSongId(songId);
-          setCurrentView('song');
-        }
       } else if (path.startsWith('/playlist/')) {
         const playlistId = path.substring(10);
         if (playlistId) {
@@ -431,104 +560,16 @@ function AppContent() {
     return () => window.removeEventListener('popstate', handleUrlChange);
   }, []);
 
-  // Load Songs Effect
+  // Load the native library once at start and whenever the studio signals a
+  // change: generation import, replay, audio import, a cover or karaoke timings
+  // that finish after the track is already on screen.
   useEffect(() => {
-    if (!isAuthenticated || !token) return;
+    void refreshNativeLibrary();
+    const reload = () => { void refreshNativeLibrary(); };
+    window.addEventListener('studio:library-changed', reload);
+    return () => window.removeEventListener('studio:library-changed', reload);
+  }, [refreshNativeLibrary]);
 
-    const loadSongs = async () => {
-      try {
-        const mapSong = (s: any): Song => ({
-          id: s.id,
-          title: s.title,
-          lyrics: s.lyrics,
-          style: s.style,
-          // Prefer the real cover saved by the audio-gen pipeline (Pollinations).
-          // Fallback to a seeded picsum for legacy songs without cover_url.
-          coverUrl: s.cover_url || s.coverUrl || `https://picsum.photos/seed/${s.id}/400/400`,
-          duration: s.duration && s.duration > 0 ? `${Math.floor(s.duration / 60)}:${String(Math.floor(s.duration % 60)).padStart(2, '0')}` : '0:00',
-          createdAt: new Date(s.created_at || s.createdAt),
-          tags: s.tags || [],
-          audioUrl: getAudioUrl(s.audio_url, s.id),
-          isPublic: s.is_public,
-          likeCount: s.like_count || 0,
-          viewCount: s.view_count || 0,
-          userId: s.user_id,
-          creator: s.creator,
-          ditModel: s.dit_model || s.ditModel,
-          lmModel: s.lm_model || s.lmModel,
-          lmBackend: s.lm_backend || s.lmBackend,
-          generationTime: s.generation_time || s.generationTime,
-          lrcContent: s.lrc_content || s.lrcContent,
-          openrouterModel: s.openrouter_model || s.openrouterModel,
-          bpm: s.bpm || (s as any).bpm || 0,
-          keyScale: s.key_scale || (s as any).keyScale || '',
-          timeSignature: s.time_signature || (s as any).timeSignature || '',
-          generationParams: (() => {
-            try {
-              if (!s.generation_params) return undefined;
-              return typeof s.generation_params === 'string' ? JSON.parse(s.generation_params) : s.generation_params;
-            } catch {
-              return undefined;
-            }
-          })(),
-        });
-
-        // Load my songs (always works)
-        const mySongsRes = await songsApi.getMySongs(token);
-        const mySongs = mySongsRes.songs.map(mapSong);
-
-        // Load liked songs (may fail — don't block)
-        let likedSongs: Song[] = [];
-        try {
-          const likedSongsRes = await songsApi.getLikedSongs(token);
-          likedSongs = (likedSongsRes.songs || []).map(mapSong);
-        } catch {}
-
-        const songsMap = new Map<string, Song>();
-        // Liked first, then my songs overwrite — my songs have full data (lrc, bpm, etc)
-        [...likedSongs, ...mySongs].forEach(s => songsMap.set(s.id, s));
-
-        setSongs(prev => {
-          const generatingSongs = prev.filter(s => s.isGenerating);
-          const loadedSongs = Array.from(songsMap.values());
-          return [...generatingSongs, ...loadedSongs];
-        });
-
-        const likedIds = new Set(likedSongs.map(s => s.id));
-        setLikedSongIds(likedIds);
-
-      } catch (error) {
-        console.error('Failed to load songs:', error);
-      }
-    };
-
-    loadSongs();
-  }, [isAuthenticated, token]);
-
-  const loadReferenceTracks = useCallback(async () => {
-    if (!isAuthenticated || !token) return;
-    try {
-      const response = await fetch('/api/reference-tracks', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!response.ok) return;
-      const data = await response.json();
-      setReferenceTracks(data.tracks || []);
-    } catch (error) {
-      console.error('Failed to load reference tracks:', error);
-    }
-  }, [isAuthenticated, token]);
-
-  // Load reference tracks for Library
-  useEffect(() => {
-    loadReferenceTracks();
-  }, [loadReferenceTracks]);
-
-  useEffect(() => {
-    if (currentView === 'library') {
-      loadReferenceTracks();
-    }
-  }, [currentView, loadReferenceTracks]);
 
   // Player Logic
   const getActiveQueue = (song?: Song) => {
@@ -799,42 +840,29 @@ function AppContent() {
   // `song.id` (= tempId) and `song.jobId`; a pre-flight card has tempId but
   // no jobId, so the cancel button passes whatever it has and we figure it
   // out here.
-  const cancelGeneration = useCallback(async (id: string) => {
-    if (!token) return;
+  /// One handler for both card kinds: a pre-flight placeholder only has a
+  /// tempId (no engine job yet, so there is nothing to cancel remotely), while
+  /// a submitted card carries the mm-server job id.
+  const stopEngineJob = useCallback(async (jobId: string) => {
+    try {
+      await fetch(`/v1/music/jobs/${encodeURIComponent(jobId)}`, { method: 'POST' });
+    } catch (error) {
+      console.error('Cancel request failed:', error);
+    }
+  }, []);
 
-    // First check: is this a pre-flight tempId? If so, abort and bail —
-    // there's no backend job yet to call /cancel on.
+  const cancelGeneration = useCallback(async (id: string) => {
     const preflightAc = preflightAbortersRef.current.get(id);
     if (preflightAc) {
       preflightAc.abort();
       preflightAbortersRef.current.delete(id);
-      // Mark the placeholder as cancelled so the user can hit Reset (X)
-      // to remove it. Same pattern as the audio-cancel branch below.
-      setSongs(prev => prev.map(s =>
-        s.id === id ? { ...s, isGenerating: false, stage: 'cancelled' } : s
-      ));
-      // Release the slot the click claimed; without this the N/10 badge
-      // stays inflated.
+      setSongs(prev => prev.map(song => song.id === id ? { ...song, isGenerating: false, stage: 'cancelled' } : song));
       decrementPendingClicks(1);
-      // Wake any other parked pre-flight in the FIFO chain so it can take
-      // its turn. The chain itself doesn't re-enter `waitForJobsToDrain`
-      // for the same click, but other queued clicks may be waiting.
       drainQueueWaiters();
       return;
     }
 
-    // Otherwise treat as a backend jobId.
-    try {
-      await fetch(`/api/generate/cancel/${id}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    } catch { /* ignore */ }
-
-    // Stop polling but keep the card (user can click "Reset" next).
-    // Remove the job from activeJobsRef so waitForJobsToDrain can resolve;
-    // without this, the cancelled job sits there forever blocking every
-    // subsequent click's pre-flight from starting.
+    await stopEngineJob(id);
     const jobData = activeJobsRef.current.get(id);
     if (jobData) {
       clearInterval(jobData.pollInterval);
@@ -842,526 +870,183 @@ function AppContent() {
       setActiveJobCount(activeJobsRef.current.size);
       if (activeJobsRef.current.size === 0) setIsGenerating(false);
       drainQueueWaiters();
-      // Mark song as cancelled (not generating, show reset option)
-      setSongs(prev => prev.map(s =>
-        s.id === jobData.tempId ? { ...s, isGenerating: false, stage: 'cancelled' } : s
+      setSongs(prev => prev.map(song =>
+        song.id === jobData.tempId ? { ...song, isGenerating: false, stage: 'cancelled' } : song
       ));
     }
-  }, [token, drainQueueWaiters, decrementPendingClicks]);
+  }, [drainQueueWaiters, decrementPendingClicks, stopEngineJob]);
 
-  // Reset a single job — hard cancel (interrupt Gradio GPU + remove card).
-  // `id` may be either a backend jobId or a pre-flight tempId (placeholder
-  // that was already cancelled at pre-flight time and now sits with stage
-  // 'cancelled'). Pre-flight reset is just card removal — there's no GPU
-  // job to interrupt.
+  /// Reset drops the card as well as the job: the engine is asked to stop, then
+  /// the placeholder is removed so the list matches reality.
   const resetSingleJob = useCallback(async (id: string) => {
-    if (!token) return;
-
     const jobData = activeJobsRef.current.get(id);
-
-    // Pre-flight tempId path — no Gradio call, just drop the card.
     if (!jobData) {
-      // Defensive: if the placeholder still has an aborter (user clicks
-      // Reset on a card that was never cancelled), abort it now.
-      const ac = preflightAbortersRef.current.get(id);
-      if (ac) {
-        ac.abort();
+      const aborter = preflightAbortersRef.current.get(id);
+      if (aborter) {
+        aborter.abort();
         preflightAbortersRef.current.delete(id);
       }
-      setSongs(prev => prev.filter(s => s.id !== id));
+      setSongs(prev => prev.filter(song => song.id !== id));
       drainQueueWaiters();
       return;
     }
 
-    // Real-job path — send cancel to Gradio to interrupt diffusion
-    try {
-      await fetch('/api/generate/reset', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    } catch { /* ignore */ }
-
+    await stopEngineJob(id);
+    clearInterval(jobData.pollInterval);
     activeJobsRef.current.delete(id);
-    setSongs(prev => prev.filter(s => s.id !== jobData.tempId));
+    setSongs(prev => prev.filter(song => song.id !== jobData.tempId));
     setActiveJobCount(activeJobsRef.current.size);
-    if (activeJobsRef.current.size === 0) {
-      setIsGenerating(false);
-    }
-    // Wake parked pre-flight clicks — without this the FIFO chain hangs
-    // forever and the next click never fires its LLM.
+    if (activeJobsRef.current.size === 0) setIsGenerating(false);
     drainQueueWaiters();
-  }, [token, drainQueueWaiters]);
+  }, [drainQueueWaiters, stopEngineJob]);
 
-  // Cancel all generation jobs
   const cancelAllGenerations = useCallback(async () => {
-    if (!token) return;
-    try {
-      await fetch('/api/generate/cancel-all', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    } catch { /* ignore */ }
-
-    // Abort every in-flight pre-flight LLM call. Without this, an
-    // OpenRouter request that's already 15 s into its 60 s response
-    // would still complete after Cancel-all, fire `onGenerate`, and spawn
-    // a new audio job — i.e. cancel-all wouldn't actually cancel.
-    preflightAbortersRef.current.forEach(ac => ac.abort());
+    preflightAbortersRef.current.forEach(aborter => aborter.abort());
     preflightAbortersRef.current.clear();
 
-    // Clean up all active jobs
-    activeJobsRef.current.forEach(({ tempId, pollInterval }) => {
-      clearInterval(pollInterval);
-    });
-    const tempIds = new Set([...activeJobsRef.current.values()].map(j => j.tempId));
+    const running = [...activeJobsRef.current.entries()];
+    await Promise.all(running.map(([jobId]) => stopEngineJob(jobId)));
+    running.forEach(([, { pollInterval }]) => clearInterval(pollInterval));
+    const tempIds = new Set(running.map(([, job]) => job.tempId));
     activeJobsRef.current.clear();
-    // Drop both active-job placeholders AND any pre-flight cards still in
-    // the songs[] (they have isGenerating=true but no jobId yet — match by
-    // `isGenerating && !jobId` so we don't accidentally remove songs that
-    // legitimately just finished).
-    setSongs(prev => prev.filter(s => !tempIds.has(s.id) && !(s.isGenerating && !s.jobId)));
+    setSongs(prev => prev.filter(song => !tempIds.has(song.id) && !(song.isGenerating && !song.jobId)));
     setActiveJobCount(0);
     setIsGenerating(false);
-    // Wake up any pre-flight clicks that were waiting for this drained queue.
-    // Without this, after cancel-all the FIFO chain stays parked forever and
-    // the next click hangs on waitForJobsToDrain → no LLM ever fires.
-    drainQueueWaiters();
-    // Reset the visual click-pending counter too — same reasoning.
-    setPendingClickCount(0);
-  }, [token, drainQueueWaiters]);
-
-  // Hard reset — cancel + interrupt GPU generation
-  const resetGeneration = useCallback(async () => {
-    if (!token) return;
-    try {
-      await fetch('/api/generate/reset', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    } catch { /* ignore */ }
-
-    // Abort every in-flight pre-flight LLM call (same reason as in
-    // cancelAllGenerations — without this, the OR request keeps running
-    // and would spawn a new audio job after Reset-all).
-    preflightAbortersRef.current.forEach(ac => ac.abort());
-    preflightAbortersRef.current.clear();
-
-    // Clean up all active jobs
-    activeJobsRef.current.forEach(({ tempId, pollInterval }) => {
-      clearInterval(pollInterval);
-    });
-    const tempIds = new Set([...activeJobsRef.current.values()].map(j => j.tempId));
-    activeJobsRef.current.clear();
-    // Drop active-job placeholders AND any pre-flight cards (no jobId yet).
-    setSongs(prev => prev.filter(s => !tempIds.has(s.id) && !(s.isGenerating && !s.jobId)));
-    setActiveJobCount(0);
-    setIsGenerating(false);
-    // Mirror cancelAllGenerations: wake parked pre-flight clicks and reset the
-    // visual click-pending counter. Without this, after Reset-all the FIFO
-    // chain stays parked forever and the next click hangs on
-    // waitForJobsToDrain → no LLM ever fires; the N/10 badge also gets stuck
-    // showing whatever pendingClickCount was at the moment of reset.
     drainQueueWaiters();
     setPendingClickCount(0);
-  }, [token, drainQueueWaiters]);
+  }, [drainQueueWaiters, stopEngineJob]);
+
+  const resetGeneration = cancelAllGenerations;
 
   // Refresh songs list (called when any job completes successfully)
   const refreshSongsList = useCallback(async () => {
-    if (!token) return;
-    try {
-      const response = await songsApi.getMySongs(token);
-      const loadedSongs: Song[] = response.songs.map(s => ({
-        id: s.id,
-        title: s.title,
-        lyrics: s.lyrics,
-        style: s.style,
-        // Prefer real cover saved by Pollinations integration.
-        coverUrl: (s as any).cover_url || (s as any).coverUrl || `https://picsum.photos/seed/${s.id}/400/400`,
-        duration: s.duration && s.duration > 0 ? `${Math.floor(s.duration / 60)}:${String(Math.floor(s.duration % 60)).padStart(2, '0')}` : '0:00',
-        createdAt: new Date(s.created_at),
-        tags: s.tags || [],
-        audioUrl: getAudioUrl(s.audio_url, s.id),
-        isPublic: s.is_public,
-        likeCount: s.like_count || 0,
-        viewCount: s.view_count || 0,
-        userId: s.user_id,
-        creator: s.creator,
-        ditModel: s.dit_model || s.ditModel,
-        lmModel: s.lm_model || s.lmModel,
-        lmBackend: s.lm_backend || s.lmBackend,
-        generationTime: s.generation_time || s.generationTime,
-        lrcContent: s.lrc_content || s.lrcContent,
-        openrouterModel: s.openrouter_model || s.openrouterModel,
-        bpm: s.bpm || (s as any).bpm || 0,
-        keyScale: s.key_scale || (s as any).keyScale || '',
-        timeSignature: s.time_signature || (s as any).timeSignature || '',
-        generationParams: (() => {
-          try {
-            if (!s.generation_params) return undefined;
-            return typeof s.generation_params === 'string' ? JSON.parse(s.generation_params) : s.generation_params;
-          } catch {
-            return undefined;
-          }
-        })(),
-      }));
-
-      // Preserve any generating songs that aren't in the loaded list
-      setSongs(prev => {
-        // Keep only generating songs that aren't in the loaded list
-        const stillGenerating = prev.filter(s => s.isGenerating && !loadedSongs.some(l => l.id === s.id));
-        const mergedSongs = [...stillGenerating, ...loadedSongs];
-        // Sort by creation date, newest first
-        return mergedSongs.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-      });
-
-      // If the current selection was a temp/generating song, replace it with newest real song
-      const current = selectedSongRef.current;
-      if (current?.isGenerating || (current && !loadedSongs.some(s => s.id === current.id))) {
-        setSelectedSong(loadedSongs[0] ?? null);
-      }
-    } catch (error) {
-      console.error('Failed to refresh songs:', error);
-    }
-  }, [token]);
+    await refreshNativeLibrary();
+  }, [refreshNativeLibrary]);
 
   const beginPollingJob = useCallback((jobId: string, tempId: string) => {
-    if (!token) return;
     if (activeJobsRef.current.has(jobId)) return;
 
     const pollInterval = setInterval(async () => {
       try {
-        const status = await generateApi.getStatus(jobId, token);
-        const normalizedProgress = Number.isFinite(Number(status.progress))
-          ? (Number(status.progress) > 1 ? Number(status.progress) / 100 : Number(status.progress))
-          : undefined;
+        const response = await fetch(`/v1/music/jobs/${encodeURIComponent(jobId)}`);
+        if (!response.ok) throw new Error(`Job status request failed (${response.status})`);
+        const job: AceJob = await response.json();
 
-        setSongs(prev => {
-          const song = prev.find(s => s.id === tempId);
-          if (!song) return prev;
-          const newQueuePos = status.status === 'queued' ? status.queuePosition : undefined;
-          const newProgress = normalizedProgress ?? song.progress;
-          const newStage = status.stage ?? song.stage;
-          // Skip update if nothing changed to avoid unnecessary re-renders
-          if (newProgress === song.progress && newStage === song.stage && newQueuePos === song.queuePosition) {
-            return prev;
-          }
-          return prev.map(s => {
-            if (s.id !== tempId) return s;
-            return { ...s, queuePosition: newQueuePos, progress: newProgress, stage: newStage };
-          });
-        });
-
-        if (status.status === 'succeeded' && status.result) {
+        // The stage comes from the engine-log poll, which knows the one job the
+        // engine is rendering; this poll only reacts to the terminal states.
+        if (job.status === 'completed') {
           cleanupJob(jobId, tempId);
+          setSongs(prev => prev.filter(song => song.id !== tempId));
           await refreshSongsList();
-
-          if (window.innerWidth < 768) {
-            setMobileShowList(true);
-          }
-        } else if (status.status === 'failed') {
+          const finished = job.songs?.[0] ?? job.song;
+          if (finished?.id) setSelectedSong(current => current?.id === tempId ? null : current);
+          showToast(job.songs && job.songs.length > 1
+            ? `${job.songs.length} ${t('tracksReady') || 'tracks ready'}`
+            : (t('trackReady') || 'Track ready'));
+          if (window.innerWidth < 768) setMobileShowList(true);
+        } else if (job.status === 'failed' || job.status === 'cancelled') {
           cleanupJob(jobId, tempId);
-          console.error(`Job ${jobId} failed:`, status.error);
-          const err = status.error || 'Unknown error';
-          if (err.includes('VRAM') || err.includes('Insufficient free')) {
-            showToast(t('vramError') || 'Not enough GPU VRAM. Reduce duration, batch size, or switch to a lighter model.', 'error');
-          } else {
-            showToast(`${t('generationFailed')}: ${err}`, 'error');
-          }
+          setSongs(prev => prev.filter(song => song.id !== tempId));
+          showToast(job.message || `${t('generationFailed')}`, job.status === 'failed' ? 'error' : 'info');
         }
-      } catch (pollError) {
-        console.error(`Polling error for job ${jobId}:`, pollError);
+      } catch (error) {
+        console.error(`Polling error for job ${jobId}:`, error);
         cleanupJob(jobId, tempId);
+        setSongs(prev => prev.filter(song => song.id !== tempId));
+        showToast(error instanceof Error ? error.message : String(error), 'error');
       }
-    }, 2000);
+    }, 1500);
 
     activeJobsRef.current.set(jobId, { tempId, pollInterval });
     setActiveJobCount(activeJobsRef.current.size);
-    // No client-side timeout — backend reports status='failed' if something goes wrong.
-    // Long generations (XL SFT 50 steps, batch, covers) can take 15+ minutes legitimately.
-  }, [token, cleanupJob, refreshSongsList]);
+  }, [cleanupJob, refreshSongsList, t]);
 
-  const buildTempSongFromParams = (params: GenerationParams, tempId: string, createdAt?: string) => ({
-    id: tempId,
-    title: params.title || t('generating') || 'Generating...',
-    lyrics: '',
-    style: params.style || params.songDescription || '',
-    coverUrl: 'https://picsum.photos/200/200?blur=10',
-    duration: '--:--',
-    createdAt: createdAt ? new Date(createdAt) : new Date(),
-    isGenerating: true,
-    tags: params.customMode ? ['custom'] : ['simple'],
-    isPublic: true,
-  });
-
-  // Handlers
-  const handleGenerate = async (params: GenerationParams) => {
-    if (!isAuthenticated || !token) {
-      // CreatePanel pre-allocated a placeholder card + bumped pendingClickCount
-      // before calling onGenerate. If we bail here without cleanup, the card
-      // sticks around as a ghost (no jobId, never promoted) and the N/10 badge
-      // stays inflated by 1 until reload.
-      if (params._tempId) {
-        setSongs(prev => prev.filter(s => s.id !== params._tempId));
-      }
-      decrementPendingClicks(1);
-      setShowUsernameModal(true);
-      return;
-    }
-
-    setIsGenerating(true);
-    setCurrentView('create');
-    setMobileShowList(false);
-
-    // If CreatePanel already created an instant placeholder card via
-    // createTempSongForClick (so the user sees something AT click time, not
-    // after the 20s LLM pre-flight), reuse that card. Otherwise create one
-    // here as before.
-    const preCreatedId = params._tempId;
-    const tempId = preCreatedId || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    if (preCreatedId) {
-      // Promote the placeholder with whatever metadata the pre-flight produced.
-      setSongs(prev => prev.map(s => s.id === tempId ? {
-        ...s,
-        title: params.title || s.title,
-        style: params.style || s.style,
-        tags: params.customMode ? ['custom'] : ['simple'],
-        stage: 'stageStartingTrack',
-      } : s));
-      setSelectedSong(prev => prev?.id === tempId ? { ...prev, title: params.title || prev.title, style: params.style || prev.style } : prev);
-    } else {
-      const tempSong: Song = {
-        id: tempId,
-        title: params.title || t('generating') || 'Generating...',
-        lyrics: '',
-        style: params.style,
-        coverUrl: 'https://picsum.photos/200/200?blur=10',
-        duration: '--:--',
-        createdAt: new Date(),
-        isGenerating: true,
-        tags: params.customMode ? ['custom'] : ['simple'],
-        isPublic: true
-      };
-      setSongs(prev => [tempSong, ...prev]);
-      setSelectedSong(tempSong);
-      setShowRightSidebar(true);
-    }
-
-    try {
-      // Simple mode: LLM generates caption + lyrics + metadata from description
-      let enrichedParams = { ...params };
-      if (!params.customMode && params.songDescription && token) {
-        try {
-          // Use the i18n KEY here (SongList does t(song.stage)) so the label
-          // tracks language switches mid-generation. Storing the resolved
-          // string would freeze the label in the locale active at click time.
-          setSongs(prev => prev.map(s => s.id === tempId ? { ...s, stage: 'writingLyricsAndStyle' } : s));
-          const sample = await generateApi.createSample({
-            query: params.songDescription,
-            instrumental: params.instrumental,
-            vocalLanguage: params.vocalLanguage,
-          }, token);
-          if (sample.caption) {
-            enrichedParams = {
-              ...enrichedParams,
-              customMode: true,
-              style: sample.caption,
-              lyrics: sample.lyrics || '',
-              instrumental: sample.instrumental,
-              vocalLanguage: sample.vocalLanguage || params.vocalLanguage,
-              bpm: sample.bpm > 0 ? sample.bpm : undefined,
-              duration: sample.duration > 0 ? sample.duration : undefined,
-              keyScale: sample.keyScale || undefined,
-              timeSignature: sample.timeSignature || undefined,
-              thinking: true,
-              isFormatCaption: true,
-            };
-            setSongs(prev => prev.map(s => s.id === tempId ? { ...s, title: String(sample.caption || '').slice(0, 50) || s.title, style: String(sample.caption || '') } : s));
-          }
-        } catch (err) {
-          // create_sample failed — block generation, remove temp song.
-          // Release the pending-click slot so the N/10 badge doesn't stick.
-          console.error('[Simple] create_sample failed:', err);
-          setSongs(prev => prev.filter(s => s.id !== tempId));
-          showToast('LLM not available — model may be loading or Gradio restarting. Wait and try again.', 'error');
-          setIsGenerating(false);
-          decrementPendingClicks(1);
-          return;
-        }
-      }
-
-      const job = await generateApi.startGeneration({
-        customMode: enrichedParams.customMode,
-        songDescription: enrichedParams.songDescription,
-        lyrics: enrichedParams.lyrics,
-        style: enrichedParams.style,
-        title: enrichedParams.title,
-        instrumental: enrichedParams.instrumental,
-        vocalLanguage: enrichedParams.vocalLanguage,
-        duration: enrichedParams.duration && enrichedParams.duration > 0 ? enrichedParams.duration : undefined,
-        bpm: enrichedParams.bpm,
-        keyScale: enrichedParams.keyScale,
-        timeSignature: enrichedParams.timeSignature,
-        inferenceSteps: params.inferenceSteps,
-        guidanceScale: params.guidanceScale,
-        batchSize: params.batchSize,
-        randomSeed: params.randomSeed,
-        seed: params.seed,
-        thinking: enrichedParams.thinking ?? params.thinking,
-        enhance: params.enhance,
-        audioFormat: params.audioFormat,
-        inferMethod: params.inferMethod,
-        shift: params.shift,
-        lmTemperature: params.lmTemperature,
-        lmCfgScale: params.lmCfgScale,
-        lmTopK: params.lmTopK,
-        lmTopP: params.lmTopP,
-        lmNegativePrompt: params.lmNegativePrompt,
-        lmBackend: params.lmBackend,
-        lmModel: params.lmModel,
-        referenceAudioUrl: params.referenceAudioUrl,
-        sourceAudioUrl: params.sourceAudioUrl,
-        referenceAudioTitle: params.referenceAudioTitle,
-        sourceAudioTitle: params.sourceAudioTitle,
-        audioCodes: params.audioCodes,
-        repaintingStart: params.repaintingStart,
-        repaintingEnd: params.repaintingEnd,
-        instruction: params.instruction,
-        audioCoverStrength: params.audioCoverStrength,
-        taskType: params.taskType,
-        useAdg: params.useAdg,
-        cfgIntervalStart: params.cfgIntervalStart,
-        cfgIntervalEnd: params.cfgIntervalEnd,
-        customTimesteps: params.customTimesteps,
-        useCotMetas: params.useCotMetas,
-        useCotCaption: params.useCotCaption,
-        useCotLanguage: params.useCotLanguage,
-        autogen: params.autogen,
-        constrainedDecodingDebug: params.constrainedDecodingDebug,
-        allowLmBatch: params.allowLmBatch,
-        getScores: params.getScores,
-        getLrc: params.getLrc,
-        scoreScale: params.scoreScale,
-        lmBatchChunkSize: params.lmBatchChunkSize,
-        trackName: params.trackName,
-        completeTrackClasses: params.completeTrackClasses,
-        isFormatCaption: enrichedParams.isFormatCaption ?? params.isFormatCaption,
-        coverNoiseStrength: params.coverNoiseStrength,
-        samplerMode: params.samplerMode as 'euler' | 'heun',
-        schedulerType: params.schedulerType,
-        velocityNormThreshold: params.velocityNormThreshold,
-        velocityEmaFactor: params.velocityEmaFactor,
-        mp3Bitrate: params.mp3Bitrate,
-        mp3SampleRate: params.mp3SampleRate,
-        enableNormalization: params.enableNormalization,
-        normalizationDb: params.normalizationDb,
-        fadeInDuration: params.fadeInDuration,
-        fadeOutDuration: params.fadeOutDuration,
-        latentShift: params.latentShift,
-        latentRescale: params.latentRescale,
-        repaintMode: params.repaintMode,
-        repaintStrength: params.repaintStrength,
-        ditModel: params.ditModel,
-        // Fields the CreatePanel customPayload IIFE builds — must be mirrored
-        // explicitly here because `generateApi.startGeneration` whitelists the
-        // payload and any field not listed is silently dropped.
-        prompt: params.prompt,
-        dcwEnabled: params.dcwEnabled,
-        dcwMode: params.dcwMode,
-        dcwScaler: params.dcwScaler,
-        dcwHighScaler: params.dcwHighScaler,
-        dcwWavelet: params.dcwWavelet,
-        retakeSeed: params.retakeSeed,
-        retakeVariance: params.retakeVariance,
-        flowEditMorph: params.flowEditMorph,
-        flowEditSourceCaption: params.flowEditSourceCaption,
-        flowEditSourceLyrics: params.flowEditSourceLyrics,
-        flowEditNMin: params.flowEditNMin,
-        flowEditNMax: params.flowEditNMax,
-        flowEditNAvg: params.flowEditNAvg,
-        loraLoaded: params.loraLoaded,
-        // OpenRouter — model id used for the AI lyric/caption run (persisted on song row).
-        openrouterModel: params.openrouterModel,
-        // Pollinations.ai cover-gen config — opaque blob mirrored to backend.
-        pollinations: params.pollinations,
-        // Pre-created placeholder card id (instant feedback at click time).
-        _tempId: params._tempId,
-      }, token);
-
-      // Store jobId on the temp song so cancel button works
-      setSongs(prev => prev.map(s => s.id === tempId ? { ...s, jobId: job.jobId } : s));
-
-      beginPollingJob(job.jobId, tempId);
-      // Hand off the click counter to the active counter — keeps the UI badge
-      // continuous instead of blinking 1→0→1 between pre-flight and polling.
-      decrementPendingClicks(1);
-
-    } catch (e) {
-      console.error('Generation error:', e);
-      setSongs(prev => prev.filter(s => s.id !== tempId));
-      // Failure path: release the pending click slot so the badge accurately
-      // reflects "nothing in flight" instead of being stuck.
-      decrementPendingClicks(1);
-
-      // Only set isGenerating to false if no other jobs are running
-      if (activeJobsRef.current.size === 0) {
-        setIsGenerating(false);
-      }
-      showToast(t('generationFailed'), 'error');
-    }
-  };
-
-  // Resume active jobs on refresh so progress keeps updating
+  /// The engine reports a job's state, not a percentage, but its log counts the
+  /// language model's code steps and the DiT steps. Reading that gives the
+  /// generating card a real progress bar instead of an invented one.
   useEffect(() => {
-    if (!isAuthenticated || !token) return;
+    if (activeJobCount === 0) return;
+    let cancelled = false;
 
-    const resumeJobs = async () => {
+    const poll = async () => {
       try {
-        const history = await generateApi.getHistory(token);
-        const jobs = Array.isArray(history.jobs) ? history.jobs : [];
-
-        const activeStatuses = new Set(['pending', 'queued', 'running']);
-        const jobsToResume = jobs.filter((job: any) => activeStatuses.has(job.status));
-
-        if (jobsToResume.length === 0) return;
-
+        const response = await fetch('/v1/engine/logs');
+        if (!response.ok) return;
+        const body: { lines?: string[] } = await response.json();
+        const progressOf = aceLogProgress(body.lines ?? []);
+        const progress = progressOf?.progress;
+        const stage = progressOf?.stage;
+        if (cancelled || progress === undefined) return;
+        // The engine renders one job at a time, in the order they were submitted,
+        // and its log reports that one job. Only the oldest still-generating song
+        // is actually being worked on; the rest wait at nought.
         setSongs(prev => {
-          const existingIds = new Set(prev.map(s => s.id));
-          const next = [...prev];
-
-          for (const job of jobsToResume) {
-            const jobId = job.id || job.jobId;
-            if (!jobId) continue;
-            const tempId = `job_${jobId}`;
-            if (existingIds.has(tempId)) continue;
-
-            const params = (() => {
-              try {
-                if (!job.params) return {};
-                return typeof job.params === 'string' ? JSON.parse(job.params) : job.params;
-              } catch {
-                return {};
-              }
-            })();
-
-            next.unshift(buildTempSongFromParams(params, tempId, job.created_at));
-            existingIds.add(tempId);
-          }
-          return next;
+          const generating = prev.filter(song => song.isGenerating && song.jobId);
+          if (generating.length === 0) return prev;
+          const active = generating.reduce((oldest, song) =>
+            (song.createdAt?.getTime() ?? 0) < (oldest.createdAt?.getTime() ?? 0) ? song : oldest,
+          );
+          return prev.map(song => {
+            if (!song.isGenerating || !song.jobId) return song;
+            if (song.id === active.id) return { ...song, progress, stage: stage ?? song.stage };
+            return { ...song, progress: 0, stage: 'stageWaitingInQueue' };
+          });
         });
-
-        for (const job of jobsToResume) {
-          const jobId = job.id || job.jobId;
-          if (!jobId) continue;
-          const tempId = `job_${jobId}`;
-          beginPollingJob(jobId, tempId);
-        }
-      } catch (error) {
-        console.error('Failed to resume jobs:', error);
+      } catch {
+        // Progress detail is a nicety; the job status poll remains the truth.
       }
     };
 
-    resumeJobs();
-  }, [isAuthenticated, token, beginPollingJob]);
+    void poll();
+    const timer = window.setInterval(poll, 2000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [activeJobCount]);
+
+  const handleGenerate = async (params: AceCreateRequest & { _tempId?: string }) => {
+    const tempId = params._tempId || `temp_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    if (!params._tempId) {
+      setSongs(prev => [{
+        id: tempId,
+        title: params.title?.trim() || t('generating') || 'Generating...',
+        lyrics: params.lyrics || '',
+        style: params.caption || '',
+        coverUrl: '',
+        duration: '--:--',
+        createdAt: new Date(),
+        isGenerating: true,
+        stage: 'stageWaitingInQueue',
+        tags: [STUDIO.slug],
+      }, ...prev]);
+    } else {
+      setSongs(prev => prev.map(song => song.id === tempId
+        ? { ...song, title: params.title?.trim() || song.title, style: params.caption || song.style, lyrics: params.lyrics || song.lyrics }
+        : song));
+    }
+
+    setIsGenerating(true);
+    try {
+      const { _tempId, ...request } = params;
+      const response = await fetch('/v1/music/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+      });
+      const job: AceJob & { error?: string; message?: string } = await response.json().catch(() => ({}) as AceJob);
+      if (!response.ok || job.status === 'failed') {
+        throw new Error(job.message || job.error || `The engine rejected this request (${response.status})`);
+      }
+      setSongs(prev => prev.map(song => song.id === tempId ? { ...song, jobId: job.id } : song));
+      beginPollingJob(job.id, tempId);
+      decrementPendingClicks(1);
+    } catch (error) {
+      console.error('Generation error:', error);
+      setSongs(prev => prev.filter(song => song.id !== tempId));
+      decrementPendingClicks(1);
+      if (activeJobsRef.current.size === 0) setIsGenerating(false);
+      showToast(error instanceof Error ? error.message : t('generationFailed'), 'error');
+    }
+  };
+
 
   const togglePlay = () => {
     const song = currentSong || selectedSong;
@@ -1401,7 +1086,6 @@ function AppContent() {
       setSelectedSong(updatedSong);
       setIsPlaying(true);
       setSongs(prev => prev.map(s => s.id === song.id ? updatedSong : s));
-      songsApi.trackPlay(song.id, token).catch(err => console.error('Failed to track play:', err));
     } else {
       togglePlay();
     }
@@ -1410,6 +1094,88 @@ function AppContent() {
     }
     setShowRightSidebar(true);
   };
+
+  // An agent connected over MCP works this window like a user
+  const VIEWS: View[] = ['create', 'library', 'tools', 'adapters', 'playlist', 'search', 'news'];
+  const songById = (id: unknown) => {
+    const song = songs.find(entry => entry.id === id);
+    if (!song) throw new Error(`No song ${String(id)} in the library; library_songs_list gives the ids.`);
+    return song;
+  };
+  useBridgeCommand('navigate', ({ view }) => {
+    if (!VIEWS.includes(view as View)) throw new Error(`Pages: ${VIEWS.join(', ')}.`);
+    setCurrentView(view as View);
+    return { text: `On ${String(view)}.` };
+  });
+  useBridgeCommand('notify', ({ text, tone }) => {
+    const kind: ToastType = tone === 'error' || tone === 'success' ? tone : 'info';
+    showToast(String(text ?? ''), kind);
+    return { text: 'Shown.' };
+  });
+  useBridgeCommand('open_settings', ({ section }) => {
+    setSettingsSection(typeof section === 'string' ? section : null);
+    setShowSettingsModal(true);
+    return { text: 'Settings are open.' };
+  });
+  useBridgeCommand('player_state', () => ({
+    song: currentSong ? { id: currentSong.id, title: currentSong.title } : null,
+    playing: isPlaying,
+    position_seconds: Math.round(currentTime * 10) / 10,
+    duration_seconds: Math.round(duration * 10) / 10,
+    volume,
+    shuffle: isShuffle,
+    repeat: repeatMode,
+    queue: playQueue.length,
+  }));
+  useBridgeCommand('player_play', ({ song_id, stem }) => {
+    if (song_id && stem) {
+      // one separated stem of the song, played on its own
+      const song = songById(song_id);
+      const take: Song = { ...song, id: `${song.id}#${String(stem)}`, title: `${song.title} · ${String(stem)}`, audioUrl: apiUrl(`/v1/library/songs/${encodeURIComponent(song.id)}/stems/${encodeURIComponent(String(stem))}`) };
+      playSong(take, [take]);
+      return { text: `Playing the ${String(stem)} stem of ${song.title}.` };
+    }
+    if (song_id) {
+      const song = songById(song_id);
+      if (currentSong?.id !== song.id) playSong(song);
+      else setIsPlaying(true);
+      return { text: `Playing ${song.title}.` };
+    }
+    if (!currentSong) throw new Error('Nothing is loaded; pass song_id.');
+    setIsPlaying(true);
+    return { text: `Playing ${currentSong.title}.` };
+  });
+  useBridgeCommand('player_pause', () => {
+    setIsPlaying(false);
+    return { text: 'Paused.' };
+  });
+  useBridgeCommand('player_seek', ({ seconds }) => {
+    handleSeek(Number(seconds) || 0);
+    return { text: `At ${Number(seconds) || 0} s.` };
+  });
+  useBridgeCommand('player_next', () => {
+    playNext();
+    return { text: 'Next song.' };
+  });
+  useBridgeCommand('player_previous', () => {
+    playPrevious();
+    return { text: 'Previous song.' };
+  });
+  useBridgeCommand('player_set', ({ volume: level, shuffle, repeat }) => {
+    if (level !== undefined) setVolume(Math.max(0, Math.min(1, Number(level))));
+    if (shuffle !== undefined) setIsShuffle(Boolean(shuffle));
+    if (repeat === 'none' || repeat === 'all' || repeat === 'one') setRepeatMode(repeat);
+    return { text: 'Set.' };
+  });
+  useBridgeCommand('video_open', ({ song_id }) => {
+    const song = songById(song_id);
+    setSongForVideo(song);
+    return { text: `The video editor is open for ${song.title}.` };
+  });
+  useBridgeCommand('video_close', () => {
+    setSongForVideo(null);
+    return { text: 'The video editor is closed.' };
+  });
 
   const handleSeek = (time: number) => {
     const audio = audioRef.current;
@@ -1422,47 +1188,18 @@ function AppContent() {
     setCurrentTime(time);
   };
 
-  const toggleLike = async (songId: string) => {
-    if (!token) return;
-
+  /// Favourites are a local library flag: the desktop studio has no social
+  /// service, so the star is persisted next to the library instead of being
+  /// posted to a server that does not exist.
+  const toggleLike = (songId: string) => {
     const isLiked = likedSongIds.has(songId);
-
-    // Optimistic update
     setLikedSongIds(prev => {
       const next = new Set(prev);
       if (isLiked) next.delete(songId);
       else next.add(songId);
+      saveNativeLikedSongIds(next as Set<string>);
       return next;
     });
-
-    setSongs(prev => prev.map(s => {
-      if (s.id === songId) {
-        const newCount = (s.likeCount || 0) + (isLiked ? -1 : 1);
-        return { ...s, likeCount: Math.max(0, newCount) };
-      }
-      return s;
-    }));
-
-    if (selectedSong?.id === songId) {
-      setSelectedSong(prev => prev ? {
-        ...prev,
-        likeCount: Math.max(0, (prev.likeCount || 0) + (isLiked ? -1 : 1))
-      } : null);
-    }
-
-    // Persist to database
-    try {
-      await songsApi.toggleLike(songId, token);
-    } catch (error) {
-      console.error('Failed to toggle like:', error);
-      // Revert on error
-      setLikedSongIds(prev => {
-        const next = new Set(prev);
-        if (isLiked) next.add(songId);
-        else next.delete(songId);
-        return next;
-      });
-    }
   };
 
   const handleDeleteSong = (song: Song) => {
@@ -1470,7 +1207,7 @@ function AppContent() {
   };
 
   const handleDeleteSongs = (songsToDelete: Song[]) => {
-    if (!token || songsToDelete.length === 0) return;
+    if (songsToDelete.length === 0) return;
 
     const isSingle = songsToDelete.length === 1;
     const title = isSingle ? t('confirmDeleteTitle') : t('confirmDeleteManyTitle');
@@ -1490,7 +1227,7 @@ function AppContent() {
 
         for (const song of songsToDelete) {
           try {
-            await songsApi.deleteSong(song.id, token!);
+            await deleteNativeSong(song.id);
             succeeded.push(song.id);
           } catch (error) {
             console.error('Failed to delete song:', error);
@@ -1534,43 +1271,11 @@ function AppContent() {
     });
   };
 
-  const handleDeleteReferenceTrack = (trackId: string) => {
-    if (!token) return;
-
-    setConfirmDialog({
-      title: t('delete'),
-      message: t('deleteUploadConfirm'),
-      onConfirm: async () => {
-        setConfirmDialog(null);
-        try {
-          const response = await fetch(`/api/reference-tracks/${trackId}`, {
-            method: 'DELETE',
-            headers: { Authorization: `Bearer ${token!}` }
-          });
-          if (!response.ok) {
-            throw new Error('Failed to delete upload');
-          }
-          setReferenceTracks(prev => prev.filter(track => track.id !== trackId));
-          showToast(t('songDeleted'));
-        } catch (error) {
-          console.error('Failed to delete upload:', error);
-          showToast(t('failedToDeleteSong'), 'error');
-        }
-      },
-    });
-  };
-
   const createPlaylist = async (name: string, description: string) => {
-    if (!token) return;
     try {
-      const res = await playlistsApi.create(name, description, true, token);
-      setPlaylists(prev => [res.playlist, ...prev]);
-
-      if (songToAddToPlaylist) {
-        await playlistsApi.addSong(res.playlist.id, songToAddToPlaylist.id, token);
-        setSongToAddToPlaylist(null);
-        playlistsApi.getMyPlaylists(token).then(r => setPlaylists(r.playlists)).catch(() => {});
-      }
+      const playlist = await createNativePlaylist(name, description, songToAddToPlaylist ? [songToAddToPlaylist.id] : []);
+      setPlaylists(prev => [playlist, ...prev]);
+      if (songToAddToPlaylist) setSongToAddToPlaylist(null);
       showToast(t('playlistCreated'));
     } catch (error) {
       console.error('Create playlist error:', error);
@@ -1584,12 +1289,15 @@ function AppContent() {
   };
 
   const addSongToPlaylist = async (playlistId: string) => {
-    if (!songToAddToPlaylist || !token) return;
+    if (!songToAddToPlaylist) return;
     try {
-      await playlistsApi.addSong(playlistId, songToAddToPlaylist.id, token);
+      const playlist = playlists.find(item => item.id === playlistId);
+      if (!playlist) throw new Error('Playlist was not found in the local library');
+      const songIds = Array.from(new Set([...(playlist.songIds || []), songToAddToPlaylist.id]));
+      const updated = await updateNativePlaylist(playlist.id, playlist, songIds);
+      setPlaylists(prev => prev.map(item => item.id === updated.id ? updated : item));
       setSongToAddToPlaylist(null);
       showToast(t('songAddedToPlaylist'));
-      playlistsApi.getMyPlaylists(token).then(r => setPlaylists(r.playlists)).catch(() => {});
     } catch (error) {
       console.error('Add song error:', error);
       showToast(t('failedToAddSong'), 'error');
@@ -1602,39 +1310,9 @@ function AppContent() {
     window.history.pushState({}, '', `/playlist/${playlistId}`);
   };
 
-  const handleUseAsReference = (song: Song) => {
-    if (!song.audioUrl) return;
-    setPendingAudioSelection({ target: 'reference', url: song.audioUrl, title: song.title });
-    setCurrentView('create');
-    setMobileShowList(false);
-  };
 
-  const handleCoverSong = (song: Song) => {
-    if (!song.audioUrl) return;
-    setPendingAudioSelection({ target: 'source', url: song.audioUrl, title: song.title });
-    setCurrentView('create');
-    setMobileShowList(false);
-  };
 
-  const handleUseUploadAsReference = (track: { audio_url: string; filename: string }) => {
-    setPendingAudioSelection({
-      target: 'reference',
-      url: track.audio_url,
-      title: track.filename.replace(/\.[^/.]+$/, ''),
-    });
-    setCurrentView('create');
-    setMobileShowList(false);
-  };
 
-  const handleCoverUpload = (track: { audio_url: string; filename: string }) => {
-    setPendingAudioSelection({
-      target: 'source',
-      url: track.audio_url,
-      title: track.filename.replace(/\.[^/.]+$/, ''),
-    });
-    setCurrentView('create');
-    setMobileShowList(false);
-  };
 
   const handleBackFromPlaylist = () => {
     setViewingPlaylistId(null);
@@ -1642,18 +1320,8 @@ function AppContent() {
     window.history.pushState({}, '', '/library');
   };
 
-  const openVideoGenerator = (song: Song) => {
-    if (isPlaying) {
-      setIsPlaying(false);
-      if (audioRef.current) audioRef.current.pause();
-    }
-    setSongForVideo(song);
-    setIsVideoModalOpen(true);
-  };
-
   const openCoverRegen = (song: Song) => {
-    // Don't pause playback here — cover regen is non-destructive and the
-    // modal is small enough that the user may want to keep listening.
+    // Cover work is non-destructive, so playback deliberately keeps running.
     setSongForCoverRegen(song);
   };
 
@@ -1666,53 +1334,46 @@ function AppContent() {
     setSelectedSong(prev => prev?.id === songId ? { ...prev, coverUrl: bust } : prev);
   }, []);
 
-  // Handle username setup
-  const handleUsernameSubmit = async (username: string) => {
-    await setupUser(username);
-    setShowUsernameModal(false);
-  };
+
+  // Background work reports its outcome here once, and the toast goes away.
+  useEffect(() => {
+    const onToast = (event: Event) => {
+      const { message, type } = (event as CustomEvent<{ message: string; type?: ToastType }>).detail;
+      showToast(message, type ?? 'info');
+    };
+    window.addEventListener('studio:toast', onToast);
+    return () => window.removeEventListener('studio:toast', onToast);
+  }, []);
 
   // Render Layout Logic
-  const renderContent = () => {
-    switch (currentView) {
+  // The create page stays mounted once the engine is up, hidden while another
+  // page shows: leaving it for the library used to throw away the style, the
+  // lyrics, the score and every setting typed into it.
+  const createKept = nativeModels !== 'offline' && nativeSetupReady;
+  const showingCreate = !['tools', 'adapters', 'library', 'playlist', 'search', 'news'].includes(currentView);
+
+  const renderContent = (view: typeof currentView = currentView) => {
+    switch (view) {
+      case 'tools':
+        return <StudioToolsPanel initialSongId={stemsSongId} />;
+
       case 'library': {
-        const allSongs = user ? songs.filter(s => s.userId === user.id) : [];
+        const allSongs = songs;
         return (
           <LibraryView
             allSongs={allSongs}
             likedSongs={songs.filter(s => likedSongIds.has(s.id))}
             playlists={playlists}
-            referenceTracks={referenceTracks}
             onPlaySong={playSong}
             onCreatePlaylist={() => {
               setSongToAddToPlaylist(null);
               setIsCreatePlaylistModalOpen(true);
             }}
             onSelectPlaylist={(p) => handleNavigateToPlaylist(p.id)}
-            onAddToPlaylist={openAddToPlaylistModal}
-            onOpenVideo={openVideoGenerator}
-            onReusePrompt={handleReuse}
-            onDeleteSong={handleDeleteSong}
-            onDeleteReferenceTrack={handleDeleteReferenceTrack}
+            onImported={() => { void refreshNativeLibrary(); }}
           />
         );
       }
-
-      case 'profile':
-        if (!viewingUsername) return null;
-        return (
-          <UserProfile
-            username={viewingUsername}
-            onBack={handleBackFromProfile}
-            onPlaySong={playSong}
-            onNavigateToProfile={handleNavigateToProfile}
-            onNavigateToPlaylist={handleNavigateToPlaylist}
-            currentSong={currentSong}
-            isPlaying={isPlaying}
-            likedSongIds={likedSongIds}
-            onToggleLike={toggleLike}
-          />
-        );
 
       case 'playlist':
         if (!viewingPlaylistId) return null;
@@ -1725,55 +1386,49 @@ function AppContent() {
               setSelectedSong(s);
               setShowRightSidebar(true);
             }}
-            onNavigateToProfile={handleNavigateToProfile}
-          />
-        );
-
-      case 'song':
-        if (!viewingSongId) return null;
-        return (
-          <SongProfile
-            songId={viewingSongId}
-            onBack={handleBackFromSong}
-            onPlay={playSong}
-            onNavigateToProfile={handleNavigateToProfile}
-            currentSong={currentSong}
-            isPlaying={isPlaying}
-            likedSongIds={likedSongIds}
-            onToggleLike={toggleLike}
           />
         );
 
       case 'search':
         return (
           <SearchPage
+            songs={songs}
+            playlists={playlists}
             onPlaySong={playSong}
             currentSong={currentSong}
             isPlaying={isPlaying}
-            onNavigateToProfile={handleNavigateToProfile}
-            onNavigateToSong={handleNavigateToSong}
             onNavigateToPlaylist={handleNavigateToPlaylist}
           />
         );
 
-      case 'training':
-        return <TrainingPanel />;
-
-      case 'tools':
-        return <ToolsPanel />;
-
       case 'news':
         return <NewsPage />;
 
+      case 'adapters':
+        return <AdaptersPage />;
+
       case 'create':
       default:
+        // Two different situations, two different screens: nothing installed
+        // is a decision to make, and an engine coming up is a wait to sit
+        // through. They used to be the same page, which made a running studio
+        // look like it owed 26 GB.
+        if (nativeModels === 'offline') return <StudioOffline />;
+        if (!nativeSetupReady) {
+          // Until the studio has answered, and while the engine is coming up,
+          // this is a wait - not a decision. The download page appears only
+          // when components are genuinely missing.
+          return nativeModels === 'missing'
+            ? <SetupGate onReady={() => setNativeSetupReady(true)} />
+            : <EngineStarting onReady={() => setNativeSetupReady(true)} />;
+        }
         return (
-          <div className="flex h-full overflow-hidden relative w-full">
+          <div className="relative flex h-full min-h-0 min-w-0 w-full overflow-hidden">
             {/* Create Panel */}
             <div
               className={`
                 ${mobileShowList ? 'hidden md:block' : 'w-full'}
-                md:block flex-shrink-0 h-full bg-zinc-50 dark:bg-suno-panel relative z-10 transition-colors duration-300
+                md:block min-h-0 min-w-0 flex-shrink-0 h-full bg-zinc-50 dark:bg-suno-panel relative z-10 transition-colors duration-300
               `}
               style={{ width: window.innerWidth >= 768 ? leftPanel.width : undefined }}
             >
@@ -1782,17 +1437,6 @@ function AppContent() {
                 isGenerating={isGenerating}
                 activeJobCount={activeJobCount + pendingClickCount}
                 initialData={reuseData}
-                createdSongs={songs}
-                pendingAudioSelection={pendingAudioSelection}
-                onAudioSelectionApplied={() => setPendingAudioSelection(null)}
-                waitForJobsToDrain={waitForJobsToDrain}
-                incrementPendingClicks={incrementPendingClicks}
-                decrementPendingClicks={decrementPendingClicks}
-                createTempSongForClick={createTempSongForClick}
-                updateTempSongForClick={updateTempSongForClick}
-                removeTempSongForClick={removeTempSongForClick}
-                registerPreflightAbort={registerPreflightAbort}
-                unregisterPreflightAbort={unregisterPreflightAbort}
               />
             </div>
             {leftPanel.handle}
@@ -1800,7 +1444,7 @@ function AppContent() {
             {/* Song List */}
             <div className={`
               ${!mobileShowList ? 'hidden md:flex' : 'flex'}
-              flex-1 flex-col h-full overflow-hidden bg-white dark:bg-suno-DEFAULT transition-colors duration-300
+              min-h-0 min-w-0 flex-1 flex-col h-full overflow-hidden bg-white dark:bg-suno transition-colors duration-300
             `}>
               <SongList
                 songs={songs}
@@ -1808,7 +1452,6 @@ function AppContent() {
                 selectedSong={selectedSong}
                 likedSongIds={likedSongIds}
                 isPlaying={isPlaying}
-                referenceTracks={referenceTracks}
                 onPlay={playSong}
                 onSelect={(s) => {
                   setSelectedSong(s);
@@ -1816,17 +1459,9 @@ function AppContent() {
                 }}
                 onToggleLike={toggleLike}
                 onAddToPlaylist={openAddToPlaylistModal}
-                onOpenVideo={openVideoGenerator}
                 onOpenCoverRegen={openCoverRegen}
                 onShowDetails={handleShowDetails}
-                onNavigateToProfile={handleNavigateToProfile}
-                onReusePrompt={handleReuse}
-                onDelete={handleDeleteSong}
                 onDeleteMany={handleDeleteSongs}
-                onUseAsReference={handleUseAsReference}
-                onCoverSong={handleCoverSong}
-                onUseUploadAsReference={handleUseUploadAsReference}
-                onCoverUpload={handleCoverUpload}
                 onSongUpdate={handleSongUpdate}
                 onCancelJob={cancelGeneration}
                 onResetJob={resetSingleJob}
@@ -1841,21 +1476,17 @@ function AppContent() {
               <>
               {rightPanel.handle}
               <div
-                className="hidden xl:block flex-shrink-0 h-full bg-zinc-50 dark:bg-suno-panel relative z-10 transition-colors duration-300"
+                className="hidden xl:block min-h-0 min-w-0 flex-shrink-0 h-full bg-zinc-50 dark:bg-suno-panel relative z-10 transition-colors duration-300"
                 style={{ width: rightPanel.width }}
               >
                 <RightSidebar
                   song={selectedSong}
                   onClose={() => setShowRightSidebar(false)}
-                  onOpenVideo={() => selectedSong && openVideoGenerator(selectedSong)}
                   onOpenCoverRegen={() => selectedSong && openCoverRegen(selectedSong)}
                   onReuse={handleReuse}
                   onSongUpdate={handleSongUpdate}
-                  onNavigateToProfile={handleNavigateToProfile}
-                  onNavigateToSong={handleNavigateToSong}
                   isLiked={selectedSong ? likedSongIds.has(selectedSong.id) : false}
                   onToggleLike={toggleLike}
-                  onDelete={handleDeleteSong}
                   onPlay={playSong}
                   isPlaying={isPlaying}
                   currentSong={currentSong}
@@ -1879,15 +1510,30 @@ function AppContent() {
     }
   };
 
+  // Every song menu and song button takes its actions from here. The value
+  // keeps one identity, so the playing clock does not re-render every row.
+  const songActionsLatest = useRef<Required<SongActions>>(null as never);
+  songActionsLatest.current = {
+    reusePrompt: handleReuse,
+    replay: handleNativeReplay,
+    exportVideo: setSongForVideo,
+    addToPlaylist: openAddToPlaylistModal,
+    remove: handleDeleteSong,
+    update: handleSongUpdate,
+  };
+  const songActions = useMemo<SongActions>(() => ({
+    reusePrompt: song => songActionsLatest.current.reusePrompt(song),
+    replay: song => songActionsLatest.current.replay(song),
+    exportVideo: song => songActionsLatest.current.exportVideo(song),
+    addToPlaylist: song => songActionsLatest.current.addToPlaylist(song),
+    remove: song => songActionsLatest.current.remove(song),
+    update: song => songActionsLatest.current.update(song),
+  }), []);
+
   return (
-    <div className="flex flex-col h-screen bg-white dark:bg-suno-DEFAULT text-zinc-900 dark:text-white font-sans antialiased selection:bg-pink-500/30 transition-colors duration-300">
-      {authLoading && (
-        <div className="bg-zinc-800 text-zinc-300 text-xs text-center py-1.5 flex items-center justify-center gap-2 flex-shrink-0">
-          <div className="w-3 h-3 border-2 border-pink-500 border-t-transparent rounded-full animate-spin" />
-          {t('connectingToServer') || 'Connecting to server...'}
-        </div>
-      )}
-      <div className="flex-1 flex overflow-hidden">
+    <SongActionsProvider value={songActions}>
+    <div className="flex h-[100dvh] min-h-0 min-w-0 flex-col overflow-hidden bg-white dark:bg-suno text-zinc-900 dark:text-white font-sans antialiased selection:bg-pink-500/30 transition-colors duration-300">
+      <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
         <Sidebar
           currentView={currentView}
           onNavigate={(v) => {
@@ -1901,21 +1547,22 @@ function AppContent() {
               window.history.pushState({}, '', '/search');
             } else if (v === 'news') {
               window.history.pushState({}, '', '/news');
+            } else if (v === 'tools') {
+              window.history.pushState({}, '', '/tools');
             }
             if (isMobile) setShowLeftSidebar(false);
           }}
           theme={theme}
           onToggleTheme={toggleTheme}
           user={user}
-          onLogin={() => setShowUsernameModal(true)}
-          onLogout={logout}
           onOpenSettings={() => setShowSettingsModal(true)}
           isOpen={showLeftSidebar}
           onToggle={() => setShowLeftSidebar(!showLeftSidebar)}
         />
 
-        <main className="flex-1 flex overflow-hidden relative">
-          {renderContent()}
+        <main className="relative ml-[72px] flex min-h-0 min-w-0 flex-1 overflow-hidden md:ml-0">
+          {createKept && <Activity mode={showingCreate ? 'visible' : 'hidden'}>{renderContent('create')}</Activity>}
+          {!(createKept && showingCreate) && renderContent()}
         </main>
       </div>
 
@@ -1939,11 +1586,6 @@ function AppContent() {
         onToggleRepeat={() => setRepeatMode(prev => prev === 'none' ? 'all' : prev === 'all' ? 'one' : 'none')}
         isLiked={currentSong ? likedSongIds.has(currentSong.id) : false}
         onToggleLike={() => currentSong && toggleLike(currentSong.id)}
-        onNavigateToSong={handleNavigateToSong}
-        onOpenVideo={() => currentSong && openVideoGenerator(currentSong)}
-        onReusePrompt={() => currentSong && handleReuse(currentSong)}
-        onAddToPlaylist={() => currentSong && openAddToPlaylistModal(currentSong)}
-        onDelete={() => currentSong && handleDeleteSong(currentSong)}
         onPlayFirst={playFirst}
       />}
 
@@ -1969,32 +1611,41 @@ function AppContent() {
         onClose={closeToast}
         duration={toast.type === 'error' ? 8000 : 3000}
       />
-      <VideoGeneratorModal
-        isOpen={isVideoModalOpen}
-        onClose={() => setIsVideoModalOpen(false)}
-        song={songForVideo}
-      />
       {/* Cover regen modal — only mounted while a song is selected for regen.
           Unmounting on close revokes blob URLs (see CoverRegenModal cleanup
           effect) so generated previews don't leak across modal opens. */}
-      {songForCoverRegen && token && (
+      <VideoGeneratorModal
+        isOpen={Boolean(songForVideo)}
+        song={songForVideo}
+        onClose={() => setSongForVideo(null)}
+      />
+      {songToProcess && (
+        <ProcessingModal
+          song={songToProcess}
+          onClose={() => setSongToProcess(null)}
+          onKept={() => { void refreshNativeLibrary(); }}
+        />
+      )}
+      {songForReplay && (
+        <ReplayModal
+          song={songForReplay}
+          onClose={() => setSongForReplay(null)}
+          onQueued={trackReplayJob}
+        />
+      )}
+      {songForCoverRegen && (
         <CoverRegenModal
           song={songForCoverRegen}
-          token={token}
           onClose={() => setSongForCoverRegen(null)}
           onCoverSaved={applyCoverUpdate}
         />
       )}
-      <UsernameModal
-        isOpen={showUsernameModal}
-        onSubmit={handleUsernameSubmit}
-      />
       <SettingsModal
         isOpen={showSettingsModal}
-        onClose={() => setShowSettingsModal(false)}
+        initialSection={settingsSection}
+        onClose={() => { setShowSettingsModal(false); setSettingsSection(null); }}
         theme={theme}
         onToggleTheme={toggleTheme}
-        onNavigateToProfile={handleNavigateToProfile}
       />
 
       {/* Mobile Details Modal */}
@@ -2008,15 +1659,11 @@ function AppContent() {
             <RightSidebar
               song={selectedSong}
               onClose={() => setShowMobileDetails(false)}
-              onOpenVideo={() => selectedSong && openVideoGenerator(selectedSong)}
               onOpenCoverRegen={() => selectedSong && openCoverRegen(selectedSong)}
               onReuse={handleReuse}
               onSongUpdate={handleSongUpdate}
-              onNavigateToProfile={handleNavigateToProfile}
-              onNavigateToSong={handleNavigateToSong}
               isLiked={selectedSong ? likedSongIds.has(selectedSong.id) : false}
               onToggleLike={toggleLike}
-              onDelete={handleDeleteSong}
               onPlay={playSong}
               isPlaying={isPlaying}
               currentSong={currentSong}
@@ -2033,6 +1680,7 @@ function AppContent() {
         onCancel={() => setConfirmDialog(null)}
       />
     </div>
+    </SongActionsProvider>
   );
 }
 

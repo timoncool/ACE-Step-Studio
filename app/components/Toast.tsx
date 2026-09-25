@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import { useI18n } from '../context/I18nContext';
+import React, { useEffect, useRef } from 'react';
 import { CheckCircle, AlertCircle, X } from 'lucide-react';
 
 export type ToastType = 'success' | 'error' | 'info';
@@ -18,14 +19,18 @@ export const Toast: React.FC<ToastProps> = ({
     onClose,
     duration = 3000
 }) => {
+    const { t } = useI18n();
+    const onCloseRef = useRef(onClose);
+    useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+
     useEffect(() => {
         if (isVisible && duration > 0) {
             const timer = setTimeout(() => {
-                onClose();
+                onCloseRef.current();
             }, duration);
             return () => clearTimeout(timer);
         }
-    }, [isVisible, duration, onClose]);
+    }, [isVisible, duration, message]);
 
     if (!isVisible) return null;
 
@@ -42,12 +47,14 @@ export const Toast: React.FC<ToastProps> = ({
     };
 
     return (
-        <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-6 py-4 rounded-full shadow-2xl border ${bgColors[type]} animate-in slide-in-from-top-4 fade-in duration-300`}>
-            {icons[type]}
-            <span className="font-medium text-sm">{message}</span>
-            <button onClick={onClose} className="ml-2 hover:opacity-70">
-                <X size={16} />
-            </button>
+        <div className="pointer-events-none fixed inset-x-3 top-3 z-[100] flex justify-center sm:top-6">
+            <div role={type === 'error' ? 'alert' : 'status'} className={`pointer-events-auto flex max-w-full items-center gap-3 rounded-2xl border px-4 py-3 shadow-2xl ${bgColors[type]} animate-in slide-in-from-top-4 fade-in duration-300 sm:rounded-full sm:px-6 sm:py-4`}>
+                {icons[type]}
+                <span className="min-w-0 break-words text-sm font-medium">{message}</span>
+                <button type="button" onClick={onClose} className="ml-1 shrink-0 rounded-full p-0.5 hover:opacity-70" aria-label={t('closeNotification')}>
+                    <X size={16} />
+                </button>
+            </div>
         </div>
     );
 };

@@ -1,0 +1,23 @@
+﻿{
+    "version":  "__RELEASE_VERSION__",
+    "plugins":  {
+                    "updater":  {
+                                    "pubkey":  "__TAURI_UPDATER_PUBKEY__",
+                                    "endpoints":  [
+                                                      "https://github.com/timoncool/MiniMax-Music3-Studio/releases/latest/download/latest.json"
+                                                  ],
+                                    "windows":  {
+                                                    "installMode":  "passive"
+                                                }
+                                }
+                },
+    "bundle":  {
+                   "resources":  {
+                                     "resources/minimaxmusic-cpp":  "resources/minimaxmusic-cpp",
+                                     "resources/vst-host":  "resources/vst-host"
+                                 },
+                   "targets":  [
+                                   "nsis"
+                               ]
+               }
+}

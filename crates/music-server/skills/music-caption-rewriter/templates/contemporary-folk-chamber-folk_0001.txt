@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 136. key is C, and scale is minor. Contemporary Folk / Chamber Folk.
+Global Emotional Progression: The piece opens with a somber, reflective atmosphere established by a solitary bowed instrument, setting a tone of quiet introspection. As the vocals enter, the mood shifts to one of humble storytelling and grounded resilience. The emotional intensity builds subtly through the repetition of lyrical motifs, creating a sense of unwavering conviction rather than dramatic climax, before resolving into a peaceful, accepting stillness in the final section.
+Application Scenarios & Imagery: A solitary walk through an ancient, mist-covered landscape, a scene in a historical drama depicting a craftsman's quiet pride, or a contemplative moment in a documentary about geology and time.
+Sonics & Production Profile: The soundstage is intimate and focused, with a natural, acoustic warmth dominating the frequency spectrum. The low-mids are rich due to the cello, while the highs are soft and rolled-off, avoiding harshness. The production aesthetic is organic and uncompressed, preserving the natural dynamics and breath of the performance.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Male). The vocalist possesses a warm, resonant baritone with a slightly weathered texture that conveys maturity and sincerity.
+Vocal Style: The delivery is narrative and earnest, employing a clean, unadorned folk style. The phrasing is deliberate and measured, emphasizing the weight of the words without resorting to vocal theatrics or significant dynamic shifts.
+Harmony/Backing Vocals: Self-layered harmonies appear during the refrain sections, where the lead vocal is doubled at the third and fifth intervals to create a choral, hymn-like thickness that reinforces the lyrical mantra.
+Vocal FX: The vocal track is treated with a subtle, short-room reverb to place the voice in a natural acoustic space, enhancing intimacy without creating a sense of distance. No heavy modulation or delay effects are utilized.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: A solo cello serves as the harmonic and melodic anchor throughout the entire track. It alternates between playing sustained, bowing-heavy chords that provide a drone-like foundation and intricate, counter-melodic lines that weave around the vocal phrases.
+Secondary: There are no secondary instruments; the arrangement relies exclusively on the interplay between the solo cello and the human voice.
+Groove & Foundation Progression: The track lacks traditional percussion. Instead, the rhythmic momentum is driven entirely by the articulation of the cello—shifting between long, legato bows in the verses and more staccato, rhythmic plucking or shorter bow strokes during the refrains to propel the song forward.
+Embellishments, Textures & Spatial FX: The primary textural element is the natural resonance and slight friction noise of the cello strings, which adds an organic grit to the sound. Occasional dynamic swells in the cello's volume act as emotional punctuation marks, replacing the need for cymbal crashes or electronic transitions.

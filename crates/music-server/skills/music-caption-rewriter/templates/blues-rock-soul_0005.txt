@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 83. key is C, and scale is minor. Blues Rock / Soul.
+Global Emotional Progression: The piece opens with a solitary, contemplative mood established by a clean guitar line, which transitions into a grounded, gritty groove as the full band enters. The emotional intensity builds steadily through the verses, reaching a passionate and raw peak during the extended instrumental solo section where the energy is at its most volatile. The track concludes by stripping back to the core rhythm before fading out, leaving a lingering sense of resolve and melancholy.
+Application Scenarios & Imagery: A dimly lit, smoke-filled blues club, a late-night drive through a rainy city, or a scene depicting a lone traveler reflecting on a difficult journey.
+Sonics & Production Profile: The production favors an organic, live-room aesthetic with a warm, slightly vintage tonal balance. The soundstage is moderately wide, placing the lead guitar and vocals centrally while spreading the rhythm section for depth. Dynamics are preserved to allow the natural attack of the drums and the sustain of the guitar solos to breathe, avoiding heavy compression in favor of a natural, breathing mix.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Male). The vocalist possesses a rich, gravelly baritone with a distinct soulful texture that conveys weariness and experience.
+Vocal Style: The performance is deeply emotive and storytelling-driven, utilizing a relaxed, conversational phrasing in the verses that swells into a powerful, belted delivery during the choruses. The singer employs expressive melisma and vocal cracks to heighten the emotional impact, particularly towards the climax of the song.
+Harmony/Backing Vocals: Subtle, low-register backing harmonies appear sparingly in the choruses, doubling the lead melody to add weight and thickness without detracting from the primary vocal line.
+Vocal FX: The vocal is treated with a moderate amount of plate reverb to create a sense of space, complemented by a subtle slapback delay that enhances the retro blues-rock vibe.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: A clean electric guitar with a slight overdrive serves as the melodic anchor, present from the very beginning with an intro riff and continuing throughout as the main harmonic driver.
+Secondary: A warm, round-toned electric bass locks in with the drums to form the rhythmic foundation, entering shortly after the intro. A Hammond-style organ provides sustained chordal pads that swell in the background during the choruses and bridge, adding harmonic richness.
+Groove & Foundation Progression: The rhythm section establishes a laid-back, shuffle-feel groove with a live drum kit, characterized by a crisp snare on beats 2 and 4 and a steady kick pattern. This foundation remains consistent but gains intensity through more aggressive cymbal work and fills during the guitar solo and final choruses, driving the song's dynamic arc.
+Embellishments, Textures & Spatial FX: Expressive electric guitar solos featuring bends, slides, and vibrato dominate the middle section, acting as the primary emotional release. Occasional organ swells and subtle percussive accents fill the gaps between vocal phrases, enhancing the atmospheric depth without cluttering the mix.

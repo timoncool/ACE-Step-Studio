@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 120. key is G, and scale is major. Retro Soul / Blues Rock.
+Global Emotional Progression: The piece opens with a solitary, atmospheric mood that quickly establishes a driving, narrative momentum. The verses maintain a storytelling restraint, which bursts into an anthemic, communal energy during the choruses through layered vocal harmonies and fuller instrumentation. A brief instrumental interlude provides a moment of melodic release before the track returns to its driving groove, concluding with a lingering, atmospheric fade that mirrors the opening isolation.
+Application Scenarios & Imagery: A dramatic scene in a coastal film noir, a road trip along a foggy shoreline at twilight, or a lively gathering in a rustic tavern contrasting with a storm outside.
+Sonics & Production Profile: The production features a warm, vintage-inspired soundstage with a balanced frequency response; the low-mids are rich to support the baritone vocals, while the highs are crisp but not harsh. The mix is moderately compressed to maintain a consistent, radio-ready loudness without sacrificing the natural dynamics of the drum kit and piano.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Male). The vocalist possesses a deep, resonant baritone with a slightly gravelly texture, evoking a classic blues or soul crooner style.
+Vocal Style: The delivery is narrative and expressive, shifting from a contemplative, almost spoken-word tone in the verses to a powerful, belted projection in the choruses. The phrasing is rhythmic and syncopated, locking tightly with the groove.
+Harmony/Backing Vocals: Rich, multi-part male backing harmonies enter prominently during the choruses, creating a "gang vocal" or choir effect that amplifies the anthemic quality. These harmonies often engage in call-and-response patterns with the lead line.
+Vocal FX: The lead vocal is treated with a moderate amount of plate reverb to add depth and space, while the backing vocals feature a slightly longer decay to enhance the sense of a large group. Subtle compression keeps the dynamic range of the powerful delivery consistent.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: A bright, percussive acoustic piano drives the harmonic rhythm throughout the entire track, playing syncopated chords that define the song's bounce.
+Secondary: A clean electric guitar adds rhythmic stabs and occasional melodic fills, entering after the intro. A warm, walking bass line underpins the harmony from start to finish. An alto saxophone takes the lead during the instrumental break, delivering a soulful solo before receding to support the final choruses.
+Groove & Foundation Progression: The rhythm section is anchored by a live drum kit featuring a steady backbeat with a crisp snare on beats 2 and 4. Finger snaps are layered prominently in the verses to create an intimate, organic feel, which are replaced or reinforced by a fuller drum pattern and tambourine in the choruses to heighten the energy.
+Embellishments, Textures & Spatial FX: Atmospheric wind sound effects and distant chimes appear in the intro and outro to establish the coastal setting. Occasional cymbal swells mark transitions between sections, while subtle room ambience on the drums and piano creates a cohesive, live-band spatial feel.

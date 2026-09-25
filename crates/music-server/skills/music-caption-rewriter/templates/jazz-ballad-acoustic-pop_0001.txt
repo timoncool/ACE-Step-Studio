@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 59. key is F, and scale is minor. Jazz Ballad / Acoustic Pop.
+Global Emotional Progression: The piece opens with an intimate, hushed atmosphere that suggests a quiet, private moment. As the arrangement gradually thickens with the entrance of the full rhythm section, the emotion deepens into a warm, nostalgic comfort, maintaining a steady, soothing intensity throughout the verses before gently receding into a reflective, fading conclusion.
+Application Scenarios & Imagery: A lazy Sunday afternoon in a sunlit living room, a quiet coffee shop on a rainy day, or a scene depicting tender companionship and domestic tranquility.
+Sonics & Production Profile: The soundstage is intimate and focused, with a warm, analog-like frequency response that emphasizes the mid-range richness of the vocals and acoustic instruments. The dynamics are natural and uncompressed, allowing for subtle breath noises and instrumental nuances to create a highly breathable, "live-in-the-room" aesthetic.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Male). The vocalist possesses a soft, breathy baritone texture with a slightly husky quality, delivering the melody with a sense of closeness and vulnerability.
+Vocal Style: The performance is characterized by a relaxed, conversational delivery that borders on whispering in the verses. The phrasing is fluid and slightly behind the beat, enhancing the laid-back groove, while maintaining a consistent, gentle dynamic level without aggressive projection.
+Harmony/Backing Vocals: No distinct backing vocals or harmony layers are present; the vocal line remains a solitary, unaccompanied lead throughout the track to preserve the intimate narrative feel.
+Vocal FX: The vocal is treated with a subtle, short-decay plate reverb to add a sense of space without losing intimacy, along with light compression to smooth out the dynamic variations of the breathy delivery.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: A clean electric guitar with a warm, rounded tone plays sparse, jazz-inflected chord voicings and melodic fills, serving as the harmonic anchor from the Intro through to the Outro.
+Secondary: An upright bass enters shortly after the intro, providing a walking bassline that grounds the harmony with a woody, resonant low end. A brushed drum kit joins in the first verse, offering a soft, swishing rhythmic texture that supports the groove without overpowering the mix.
+Groove & Foundation Progression: The rhythm foundation is established by the interplay between the walking upright bass and the brushed snare/kick pattern of the drums. This creates a gentle, swinging pulse that remains consistent in tempo and intensity, providing a stable, lulling backdrop that never disrupts the song's tranquil mood.
+Embellishments, Textures & Spatial FX: Occasional melodic fills from the electric guitar act as conversational responses to the vocal lines, adding textural interest during instrumental gaps. The overall mix utilizes natural room ambience rather than synthetic effects, creating a cohesive, organic spatial environment where each instrument sits clearly within a narrow but deep stereo field.

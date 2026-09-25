@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 103. key is D, and scale is minor. Jazz / Vocal Blues.
+Global Emotional Progression: The piece opens with a solitary, introspective mood established by sparse instrumentation, evoking a sense of quiet longing. As the arrangement builds into the main sections, the emotional weight deepens through richer harmonic layering and a more pronounced rhythmic swing, creating a bittersweet atmosphere of yearning. The track maintains this melancholic tension throughout, resolving gently in the outro with a return to the initial sparsity, leaving a lingering feeling of wistful solitude.
+Application Scenarios & Imagery: A dimly lit jazz club late at night, a solitary figure walking along a foggy harbor, or a contemplative scene in a film noir setting.
+Sonics & Production Profile: The soundstage is intimate and warm, with a natural acoustic ambience that places the listener close to the performers. The frequency response favors the mid-range warmth of the woodwinds and vocals, supported by a rounded low end from the upright bass. The dynamic aesthetic is organic and uncompressed, preserving the subtle nuances of brushwork and breath sounds.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Female). The vocalist possesses a smoky, resonant alto texture with a slightly breathy quality that enhances the song's intimate and melancholic character.
+Vocal Style: The delivery is smooth and conversational, employing a classic jazz phrasing style that lingers behind the beat. The performance remains consistently restrained and emotive throughout, using subtle dynamic swells to emphasize key lyrical moments without breaking the overall cool demeanor.
+Harmony/Backing Vocals: No distinct backing vocals or harmony layers are present; the vocal line remains a solo performance throughout the track.
+Vocal FX: The vocal is treated with a light, natural-sounding plate reverb that adds spatial depth without obscuring clarity, maintaining an authentic, live-room feel.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: A clean-toned electric guitar plays arpeggiated chords and melodic fills, serving as the primary harmonic and melodic anchor from the Intro through to the Outro.
+Secondary: An expressive clarinet enters shortly after the first vocal phrase, weaving countermelodies and taking a featured solo in the middle section before receding to support the final verses. An upright bass provides a steady walking bassline throughout, grounding the harmony.
+Groove & Foundation Progression: A brushed drum kit establishes a soft, swinging rhythm from the beginning, utilizing snare brushes and a light ride cymbal pattern. The groove remains consistent in tempo and intensity, providing a gentle, propulsive undercurrent that supports the vocal narrative without overpowering it.
+Embellishments, Textures & Spatial FX: Subtle piano comping appears intermittently in the background, adding harmonic color during vocal pauses. Occasional cymbal swells and soft percussive accents mark transitions between sections, enhancing the atmospheric depth without disrupting the laid-back flow.

@@ -1,0 +1,586 @@
+{
+  "hub": {
+    "minimaxmusic-cpp": {
+      "tags": [
+        "base_model:adapter:MiniMaxAI/MiniMax-Music3"
+      ],
+      "also": [
+        [
+          "minimaxmusic",
+          "lora"
+        ],
+        [
+          "minimax-music-3",
+          "lora"
+        ],
+        [
+          "minimax-music3",
+          "lora"
+        ]
+      ]
+    }
+  },
+  "version": 1,
+  "adapters": [
+    {
+      "id": "mm3-slider-female",
+      "engine": "minimaxmusic-cpp",
+      "kind": "slider",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "name": {
+        "en": "Female",
+        "ru": "Женский вокал",
+        "zh": "女声",
+        "ja": "女性ボーカル",
+        "ko": "여성 보컬"
+      },
+      "description": {
+        "en": "One adult female lead, with the song's phrasing and timbre intact",
+        "ru": "Одна взрослая солистка, фразировка и тембр песни сохраняются",
+        "zh": "一位成年女主唱，保留歌曲的乐句与音色",
+        "ja": "成人女性のリードボーカル1人。曲のフレージングと音色はそのまま",
+        "ko": "성인 여성 리드 보컬 한 명, 곡의 프레이징과 음색은 유지"
+      },
+      "scales": {
+        "lm": 1
+      },
+      "range": [
+        0,
+        1
+      ],
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/female_step1000_comfyui.safetensors",
+          "file": "female_step1000_comfyui.safetensors",
+          "bytes": 15388872
+        }
+      ]
+    },
+    {
+      "id": "mm3-slider-lofi",
+      "engine": "minimaxmusic-cpp",
+      "kind": "slider",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "name": {
+        "en": "Lo-fi",
+        "ru": "Лоу-фай",
+        "zh": "Lo-fi",
+        "ja": "ローファイ",
+        "ko": "로파이"
+      },
+      "description": {
+        "en": "Soft swung drums, mellow keys and gentle tape warmth",
+        "ru": "Мягкие свинговые барабаны, спокойные клавиши и тёплая плёнка",
+        "zh": "柔和的摇摆鼓、温润的键盘与温暖的磁带质感",
+        "ja": "柔らかいスウィングのドラム、穏やかな鍵盤、温かいテープ感",
+        "ko": "부드러운 스윙 드럼, 차분한 건반, 따뜻한 테이프 질감"
+      },
+      "scales": {
+        "lm": 1
+      },
+      "range": [
+        0,
+        1
+      ],
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/lofi_step3000_comfyui.safetensors",
+          "file": "lofi_step3000_comfyui.safetensors",
+          "bytes": 15388872
+        }
+      ]
+    },
+    {
+      "id": "mm3-slider-male",
+      "engine": "minimaxmusic-cpp",
+      "kind": "slider",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "name": {
+        "en": "Male",
+        "ru": "Мужской вокал",
+        "zh": "男声",
+        "ja": "男性ボーカル",
+        "ko": "남성 보컬"
+      },
+      "description": {
+        "en": "One adult male lead, with the song's phrasing and timbre intact",
+        "ru": "Один взрослый солист, фразировка и тембр песни сохраняются",
+        "zh": "一位成年男主唱，保留歌曲的乐句与音色",
+        "ja": "成人男性のリードボーカル1人。曲のフレージングと音色はそのまま",
+        "ko": "성인 남성 리드 보컬 한 명, 곡의 프레이징과 음색은 유지"
+      },
+      "scales": {
+        "lm": 1
+      },
+      "range": [
+        0,
+        1
+      ],
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/male_step3400_comfyui.safetensors",
+          "file": "male_step3400_comfyui.safetensors",
+          "bytes": 15388872
+        }
+      ]
+    },
+    {
+      "id": "mm3-slider-pop",
+      "engine": "minimaxmusic-cpp",
+      "kind": "slider",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "name": {
+        "en": "Pop",
+        "ru": "Поп",
+        "zh": "流行",
+        "ja": "ポップ",
+        "ko": "팝"
+      },
+      "description": {
+        "en": "Clear hooks, crisp drums and a polished chorus",
+        "ru": "Яркие хуки, чёткие барабаны и отполированный припев",
+        "zh": "清晰的抓耳旋律、利落的鼓与精致的副歌",
+        "ja": "明快なフック、歯切れのいいドラム、磨かれたサビ",
+        "ko": "선명한 훅, 또렷한 드럼, 세련된 후렴"
+      },
+      "scales": {
+        "lm": 1
+      },
+      "range": [
+        0,
+        1
+      ],
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/pop_step2000_comfyui.safetensors",
+          "file": "pop_step2000_comfyui.safetensors",
+          "bytes": 15388872
+        }
+      ]
+    },
+    {
+      "id": "mm3-slider-hiphop",
+      "engine": "minimaxmusic-cpp",
+      "kind": "slider",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "name": {
+        "en": "Hip-Hop",
+        "ru": "Хип-хоп",
+        "zh": "嘻哈",
+        "ja": "ヒップホップ",
+        "ko": "힙합"
+      },
+      "description": {
+        "en": "Rapped verses, deep sub bass and nimble hats",
+        "ru": "Читка в куплетах, глубокий саб-бас и подвижные хэты",
+        "zh": "说唱主歌、深沉的超低音与灵活的踩镲",
+        "ja": "ラップのヴァース、深いサブベース、軽快なハット",
+        "ko": "랩 벌스, 깊은 서브 베이스, 경쾌한 하이햇"
+      },
+      "scales": {
+        "lm": 1
+      },
+      "range": [
+        0,
+        1
+      ],
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/hiphop_step3000_comfyui.safetensors",
+          "file": "hiphop_step3000_comfyui.safetensors",
+          "bytes": 15388872
+        }
+      ]
+    },
+    {
+      "id": "mm3-slider-rnb",
+      "engine": "minimaxmusic-cpp",
+      "kind": "slider",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "name": {
+        "en": "R&B",
+        "ru": "R&B",
+        "zh": "R&B",
+        "ja": "R&B",
+        "ko": "R&B"
+      },
+      "description": {
+        "en": "Warm keys, deep pocket and fluid vocal phrasing",
+        "ru": "Тёплые клавиши, глубокий грув и плавная фразировка вокала",
+        "zh": "温暖的键盘、深沉的律动与流畅的人声",
+        "ja": "温かいキーボード、深いグルーヴ、滑らかなボーカル",
+        "ko": "따뜻한 건반, 깊은 그루브, 유려한 보컬"
+      },
+      "scales": {
+        "lm": 1
+      },
+      "range": [
+        0,
+        1
+      ],
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/rnb_step3400_comfyui.safetensors",
+          "file": "rnb_step3400_comfyui.safetensors",
+          "bytes": 15388872
+        }
+      ]
+    },
+    {
+      "id": "mm3-slider-indie-rock",
+      "engine": "minimaxmusic-cpp",
+      "kind": "slider",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "name": {
+        "en": "Indie Rock",
+        "ru": "Инди-рок",
+        "zh": "独立摇滚",
+        "ja": "インディーロック",
+        "ko": "인디 록"
+      },
+      "description": {
+        "en": "Chiming guitars, moving bass and a human drum kit",
+        "ru": "Звенящие гитары, подвижный бас и живые барабаны",
+        "zh": "清脆的吉他、灵动的贝斯与真实鼓组",
+        "ja": "きらめくギター、動くベース、人間味のあるドラム",
+        "ko": "맑게 울리는 기타, 움직이는 베이스, 사람 냄새 나는 드럼"
+      },
+      "scales": {
+        "lm": 1
+      },
+      "range": [
+        0,
+        1
+      ],
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/indie-rock_step1000_comfyui.safetensors",
+          "file": "indie-rock_step1000_comfyui.safetensors",
+          "bytes": 15388872
+        }
+      ]
+    },
+    {
+      "id": "mm3-slider-pop-punk",
+      "engine": "minimaxmusic-cpp",
+      "kind": "slider",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "name": {
+        "en": "Pop Punk",
+        "ru": "Поп-панк",
+        "zh": "流行朋克",
+        "ja": "ポップパンク",
+        "ko": "팝 펑크"
+      },
+      "description": {
+        "en": "Palm-muted power chords and driving chorus drums",
+        "ru": "Глушёные пауэр-аккорды и напористые барабаны в припеве",
+        "zh": "闷音强力和弦与推进感十足的副歌鼓",
+        "ja": "パームミュートのパワーコードと疾走するサビのドラム",
+        "ko": "팜뮤트 파워 코드와 몰아치는 후렴 드럼"
+      },
+      "scales": {
+        "lm": 1
+      },
+      "range": [
+        0,
+        1
+      ],
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/pop-punk_step3400_comfyui.safetensors",
+          "file": "pop-punk_step3400_comfyui.safetensors",
+          "bytes": 15388872
+        }
+      ]
+    },
+    {
+      "id": "mm3-slider-metal",
+      "engine": "minimaxmusic-cpp",
+      "kind": "slider",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "name": {
+        "en": "Metal",
+        "ru": "Метал",
+        "zh": "金属",
+        "ja": "メタル",
+        "ko": "메탈"
+      },
+      "description": {
+        "en": "Heavy guitar riffs, tight kicks and big melodic choruses",
+        "ru": "Тяжёлые гитарные риффы, плотная бочка и большие мелодичные припевы",
+        "zh": "沉重的吉他连复段、紧实的底鼓与宏大的旋律副歌",
+        "ja": "ヘヴィなギターリフ、タイトなキック、壮大なメロディックなサビ",
+        "ko": "묵직한 기타 리프, 타이트한 킥, 웅장한 멜로디 후렴"
+      },
+      "scales": {
+        "lm": 1
+      },
+      "range": [
+        0,
+        1
+      ],
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/metal_step2000_comfyui.safetensors",
+          "file": "metal_step2000_comfyui.safetensors",
+          "bytes": 15388872
+        }
+      ]
+    },
+    {
+      "id": "mm3-slider-country",
+      "engine": "minimaxmusic-cpp",
+      "kind": "slider",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "name": {
+        "en": "Country",
+        "ru": "Кантри",
+        "zh": "乡村",
+        "ja": "カントリー",
+        "ko": "컨트리"
+      },
+      "description": {
+        "en": "Acoustic strum, twangy fills and an easy backbeat",
+        "ru": "Акустический бой, твэнговые сбивки и лёгкий бэкбит",
+        "zh": "原声扫弦、鼻音感的加花与轻松的反拍",
+        "ja": "アコースティックのストローク、トワンギーなフィル、軽いバックビート",
+        "ko": "어쿠스틱 스트럼, 트왱한 필, 편안한 백비트"
+      },
+      "scales": {
+        "lm": 1
+      },
+      "range": [
+        0,
+        1
+      ],
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/country_step1000_comfyui.safetensors",
+          "file": "country_step1000_comfyui.safetensors",
+          "bytes": 15388872
+        }
+      ]
+    },
+    {
+      "id": "mm3-slider-acoustic-folk",
+      "engine": "minimaxmusic-cpp",
+      "kind": "slider",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "name": {
+        "en": "Acoustic Folk",
+        "ru": "Акустический фолк",
+        "zh": "原声民谣",
+        "ja": "アコースティック・フォーク",
+        "ko": "어쿠스틱 포크"
+      },
+      "description": {
+        "en": "Fingerpicked strings and a warm small-room performance",
+        "ru": "Перебор струн и тёплое исполнение в небольшой комнате",
+        "zh": "指弹与温暖的小房间演奏",
+        "ja": "フィンガーピッキングと温かい小部屋の演奏",
+        "ko": "핑거피킹과 따뜻한 작은 방 연주"
+      },
+      "scales": {
+        "lm": 1
+      },
+      "range": [
+        0,
+        1
+      ],
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/acoustic-folk_step2000_comfyui.safetensors",
+          "file": "acoustic-folk_step2000_comfyui.safetensors",
+          "bytes": 15388872
+        }
+      ]
+    },
+    {
+      "id": "mm3-slider-house",
+      "engine": "minimaxmusic-cpp",
+      "kind": "slider",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "name": {
+        "en": "House",
+        "ru": "Хаус",
+        "zh": "浩室",
+        "ja": "ハウス",
+        "ko": "하우스"
+      },
+      "description": {
+        "en": "Steady club kick, offbeat hats and a rolling bass line",
+        "ru": "Ровная клубная бочка, хэты в офбит и катящийся бас",
+        "zh": "稳定的俱乐部底鼓、反拍踩镲与滚动的贝斯",
+        "ja": "一定のクラブキック、裏拍のハット、転がるベース",
+        "ko": "일정한 클럽 킥, 오프비트 하이햇, 굴러가는 베이스"
+      },
+      "scales": {
+        "lm": 1
+      },
+      "range": [
+        0,
+        1
+      ],
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/house_step1000_comfyui.safetensors",
+          "file": "house_step1000_comfyui.safetensors",
+          "bytes": 15388872
+        }
+      ]
+    },
+    {
+      "id": "mm3-slider-disco-funk",
+      "engine": "minimaxmusic-cpp",
+      "kind": "slider",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "name": {
+        "en": "Disco Funk",
+        "ru": "Диско-фанк",
+        "zh": "迪斯科放克",
+        "ja": "ディスコ・ファンク",
+        "ko": "디스코 펑크"
+      },
+      "description": {
+        "en": "Elastic bass, clipped guitar and bright dance-floor strings",
+        "ru": "Упругий бас, рубленая гитара и яркие танцевальные струнные",
+        "zh": "弹性的贝斯、切音吉他与明亮的舞池弦乐",
+        "ja": "弾むベース、カッティングギター、華やかなストリングス",
+        "ko": "탄력 있는 베이스, 커팅 기타, 화려한 댄스 스트링"
+      },
+      "scales": {
+        "lm": 1
+      },
+      "range": [
+        0,
+        1
+      ],
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/disco-funk_step2000_comfyui.safetensors",
+          "file": "disco-funk_step2000_comfyui.safetensors",
+          "bytes": 15388872
+        }
+      ]
+    },
+    {
+      "id": "mm3-slider-kpop",
+      "engine": "minimaxmusic-cpp",
+      "kind": "slider",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "name": {
+        "en": "K-pop",
+        "ru": "K-pop",
+        "zh": "K-pop",
+        "ja": "K-POP",
+        "ko": "K-pop"
+      },
+      "description": {
+        "en": "Sharp synth hooks, tight edits and a big chorus lift",
+        "ru": "Острые синт-хуки, плотный монтаж и мощный подъём в припеве",
+        "zh": "尖锐的合成器旋律、紧凑的剪辑与副歌的大提升",
+        "ja": "鋭いシンセフック、タイトな編集、サビの大きな盛り上がり",
+        "ko": "날카로운 신스 훅, 타이트한 편집, 후렴의 큰 상승"
+      },
+      "scales": {
+        "lm": 1
+      },
+      "range": [
+        0,
+        1
+      ],
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/kpop_step2000_comfyui.safetensors",
+          "file": "kpop_step2000_comfyui.safetensors",
+          "bytes": 15388872
+        }
+      ]
+    },
+    {
+      "id": "mm3-slider-reggaeton",
+      "engine": "minimaxmusic-cpp",
+      "kind": "slider",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "name": {
+        "en": "Reggaeton",
+        "ru": "Реггетон",
+        "zh": "雷鬼动",
+        "ja": "レゲトン",
+        "ko": "레게톤"
+      },
+      "description": {
+        "en": "Dembow drums, rounded sub bass and clipped melodic hooks",
+        "ru": "Барабаны дембоу, округлый саб-бас и рубленые мелодичные хуки",
+        "zh": "Dembow 鼓、圆润的超低音与切分旋律",
+        "ja": "デンボウのドラム、丸いサブベース、刻むメロディフック",
+        "ko": "뎀보우 드럼, 둥근 서브 베이스, 끊어지는 멜로디 훅"
+      },
+      "scales": {
+        "lm": 1
+      },
+      "range": [
+        0,
+        1
+      ],
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/reggaeton_step1000_comfyui.safetensors",
+          "file": "reggaeton_step1000_comfyui.safetensors",
+          "bytes": 15388872
+        }
+      ]
+    },
+    {
+      "id": "mm3-slider-afrobeats",
+      "engine": "minimaxmusic-cpp",
+      "kind": "slider",
+      "author": "ntc-ai",
+      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "name": {
+        "en": "Afrobeats",
+        "ru": "Афробит",
+        "zh": "非洲节拍",
+        "ja": "アフロビーツ",
+        "ko": "아프로비트"
+      },
+      "description": {
+        "en": "Interlocking percussion, melodic bass and buoyant guitar",
+        "ru": "Переплетённая перкуссия, мелодичный бас и лёгкая гитара",
+        "zh": "交织的打击乐、旋律性贝斯与轻快的吉他",
+        "ja": "絡み合うパーカッション、メロディックなベース、軽やかなギター",
+        "ko": "얽히는 퍼커션, 멜로딕한 베이스, 경쾌한 기타"
+      },
+      "scales": {
+        "lm": 1
+      },
+      "range": [
+        0,
+        1
+      ],
+      "files": [
+        {
+          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/afrobeats_step1000_comfyui.safetensors",
+          "file": "afrobeats_step1000_comfyui.safetensors",
+          "bytes": 15388872
+        }
+      ]
+    }
+  ]
+}

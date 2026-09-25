@@ -1,4 +1,6 @@
 export interface Song {
+  /** A track a tool made from another: which one, by which tool, how. */
+  derived?: { from: string; fromTitle: string; tool: string; settings?: Record<string, unknown> } | null;
   id: string;
   title: string;
   lyrics: string;
@@ -29,6 +31,19 @@ export interface Song {
   bpm?: number;
   keyScale?: string;
   timeSignature?: string;
+  /** Native provenance is complete enough for POST /v1/music/replay. */
+  nativeReplayAvailable?: boolean;
+  /** Processed versions kept beside the original; the active one plays. */
+  audioVersions?: SongVersion[];
+  /** `original`, a version id, or absent for a track never processed. */
+  activeVersion?: string;
+}
+
+export interface SongVersion {
+  id: string;
+  label: string;
+  createdAt: string;
+  settings?: Record<string, unknown>;
 }
 
 export interface Playlist {
@@ -56,139 +71,91 @@ export interface Comment {
   createdAt: Date;
 }
 
-export interface GenerationParams {
-  // Mode
-  customMode: boolean;
-
-  // Simple Mode
-  songDescription?: string;
-
-  // Custom Mode
-  prompt: string;
+/**
+ * A song request: acestep.cpp's own `AceRequest` fields, flat, plus what the
+ * studio does around them (title, cover, the source and reference tracks,
+ * adapters, fades). The server checks every engine field by name.
+ */
+export interface AceCreateRequest {
+  caption: string;
   lyrics: string;
-  style: string;
-  title: string;
-  ditModel?: string;
-
-  // Common
-  instrumental: boolean;
-  vocalLanguage: string;
-
-  // Music Parameters
-  bpm: number;
-  keyScale: string;
-  timeSignature: string;
-  duration: number;
-
-  // Generation Settings
-  inferenceSteps: number;
-  guidanceScale: number;
-  batchSize: number;
-  randomSeed: boolean;
-  seed: number;
-  thinking: boolean;
-  enhance?: boolean;
-  audioFormat: 'mp3' | 'flac';
-  inferMethod: 'ode' | 'sde';
-  shift: number;
-
-  // LM Parameters
-  lmTemperature: number;
-  lmCfgScale: number;
-  lmTopK: number;
-  lmTopP: number;
-  lmNegativePrompt: string;
-  lmBackend?: 'pt' | 'vllm';
-  lmModel?: string;
-
-  // Expert Parameters
-  referenceAudioUrl?: string;
-  sourceAudioUrl?: string;
-  referenceAudioTitle?: string;
-  sourceAudioTitle?: string;
-  audioCodes?: string;
-  repaintingStart?: number;
-  repaintingEnd?: number;
-  instruction?: string;
-  audioCoverStrength?: number;
-  taskType?: string;
-  useAdg?: boolean;
-  cfgIntervalStart?: number;
-  cfgIntervalEnd?: number;
-  customTimesteps?: string;
-  useCotMetas?: boolean;
-  useCotCaption?: boolean;
-  useCotLanguage?: boolean;
-  autogen?: boolean;
-  constrainedDecodingDebug?: boolean;
-  allowLmBatch?: boolean;
-  getScores?: boolean;
-  getLrc?: boolean;
-  scoreScale?: number;
-  lmBatchChunkSize?: number;
-  trackName?: string;
-  completeTrackClasses?: string[];
-  isFormatCaption?: boolean;
-
-  // v1.5 XL parameters
-  coverNoiseStrength?: number;
-  samplerMode?: string;
-  schedulerType?: string;
-  velocityNormThreshold?: number;
-  velocityEmaFactor?: number;
-  mp3Bitrate?: string;
-  mp3SampleRate?: number;
-  enableNormalization?: boolean;
-  normalizationDb?: number;
-  fadeInDuration?: number;
-  fadeOutDuration?: number;
-  latentShift?: number;
-  latentRescale?: number;
-  repaintMode?: 'conservative' | 'balanced' | 'aggressive';
-  repaintStrength?: number;
-
-  // OpenRouter
-  openrouterModel?: string | null;
-
-  // DCW (Differential Correction in Wavelet domain) — present at runtime,
-  // typed here so the App.tsx whitelist can drop the `as any` casts.
-  dcwEnabled?: boolean;
-  dcwMode?: 'low' | 'high' | 'double' | 'pix';
-  dcwScaler?: number;
-  dcwHighScaler?: number;
-  dcwWavelet?: string;
-
-  // Retake / Flow-edit
-  retakeSeed?: number;
-  retakeVariance?: number;
-  flowEditMorph?: boolean;
-  flowEditSourceCaption?: string;
-  flowEditSourceLyrics?: string;
-  flowEditNMin?: number;
-  flowEditNMax?: number;
-  flowEditNAvg?: number;
-
-  // LoRA loaded flag
-  loraLoaded?: boolean;
-
-  // Pre-created placeholder card id from CreatePanel — App.tsx promotes the
-  // existing card instead of creating a duplicate.
-  _tempId?: string;
-
-  // Pollinations.ai cover-generation config — opaque blob mirrored to backend.
-  pollinations?: {
-    enabled: boolean;
-    apiKey?: string;
-    model?: string;
-    width?: number;
-    height?: number;
-    seedMode?: 'song' | 'random';
-    enhance?: boolean;
-    nologo?: boolean;
-    safe?: boolean;
-    prompt?: string;
-  };
+  task_type?: 'text2music' | 'cover' | 'cover-nofsq' | 'repaint' | 'lego' | 'extract' | 'complete';
+  track?: string;
+  think?: boolean;
+  use_cot_caption?: boolean;
+  bpm?: number;
+  duration?: number;
+  keyscale?: string;
+  timesignature?: string;
+  vocal_language?: string;
+  seed?: number;
+  lm_seed?: number;
+  lm_batch_size?: number;
+  synth_batch_size?: number;
+  lm_temperature?: number;
+  lm_cfg_scale?: number;
+  lm_top_p?: number;
+  lm_top_k?: number;
+  lm_negative_prompt?: string;
+  audio_codes?: string;
+  inference_steps?: number;
+  guidance_scale?: number;
+  shift?: number;
+  solver?: string;
+  scheduler?: string;
+  guidance?: string;
+  apg_momentum?: number;
+  apg_norm_threshold?: number;
+  cfg_interval_start?: number;
+  cfg_interval_end?: number;
+  retake_seed?: number;
+  retake_variance?: number;
+  dcw_mode?: string;
+  dcw_scaler?: number;
+  dcw_high_scaler?: number;
+  custom_timesteps?: string;
+  latent_shift?: number;
+  latent_rescale?: number;
+  audio_cover_strength?: number;
+  cover_noise_strength?: number;
+  repainting_start?: number;
+  repainting_end?: number;
+  synth_model?: string;
+  lm_model?: string;
+  vae?: string;
+  peak_clip?: number;
+  output_format: 'mp3' | 'wav16' | 'wav24' | 'wav32';
+  mp3_bitrate?: number;
+  adapter_group_scales?: Record<string, number>;
+  /** Studio fields, never sent to the engine as such. */
+  title?: string;
+  cover_prompt?: string;
+  source_song_id?: string;
+  reference_song_id?: string;
+  adapters?: { id: string; scales: Record<string, number> }[];
+  fade_in?: number;
+  fade_out?: number;
 }
+
+export interface AceJobSong {
+  id: string;
+  audio_url: string;
+}
+
+export interface AceJob {
+  id: string;
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+  phase: string;
+  message: string;
+  title?: string;
+  caption: string;
+  lyrics: string;
+  duration_seconds: number;
+  generation_settings: Record<string, unknown>;
+  song?: AceJobSong;
+  songs?: AceJobSong[];
+}
+
 
 export interface PlayerState {
   currentSong: Song | null;
@@ -220,4 +187,4 @@ export interface UserProfile {
 }
 
 // Simplified views for ACE-Step UI
-export type View = 'create' | 'library' | 'training' | 'tools' | 'profile' | 'song' | 'playlist' | 'search' | 'news';
+export type View = 'create' | 'library' | 'tools' | 'adapters' | 'playlist' | 'search' | 'news';

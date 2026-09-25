@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 125. key is Bb, and scale is minor. Vocal Jazz / Cool Jazz.
+Global Emotional Progression: The piece opens with a sophisticated, laid-back swing feel that establishes an intimate and contemplative mood. As the track progresses, the emotional intensity subtly rises during the vocal peaks, driven by more assertive piano comping and dynamic drum accents, before settling back into a relaxed, reflective state for the outro, maintaining a consistent atmosphere of cool introspection throughout.
+Application Scenarios & Imagery: A dimly lit jazz club late at night, a rainy window view in a city apartment, or a sophisticated cocktail lounge setting where conversation is hushed and thoughtful.
+Sonics & Production Profile: The soundstage is warm and organic, with a clear separation between instruments that mimics a live small-combo recording. The frequency response favors rich mid-tones and a rounded low end from the upright bass, while the high frequencies are smooth rather than piercing. The dynamic aesthetic is natural and uncompressed, preserving the subtle nuances of the brushwork and vocal phrasing.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Male). The vocalist possesses a smooth, resonant baritone timbre with a slightly husky texture that conveys maturity and ease.
+Vocal Style: The delivery is characterized by a relaxed, conversational phrasing typical of classic jazz crooners. The singer employs subtle rhythmic syncopation against the swing groove, maintaining a steady, understated emotional tone that occasionally swells with gentle vibrato on sustained notes during climactic phrases.
+Harmony/Backing Vocals: No distinct harmony or backing vocal layers are present; the vocal line remains a solitary lead throughout the arrangement.
+Vocal FX: The vocal is treated with a light, natural-sounding plate reverb to enhance intimacy without obscuring articulation. There is no noticeable pitch correction or heavy processing, preserving the organic character of the performance.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: An acoustic piano serves as the harmonic and melodic core, providing lush, extended jazz chords and melodic fills from the Intro through to the Outro.
+Secondary: An upright bass plays a walking bassline that anchors the harmony and drives the momentum, present continuously throughout the track. A drum kit, primarily utilizing brushes on the snare and a ride cymbal pattern, provides the rhythmic foundation from start to finish.
+Groove & Foundation Progression: The groove is established immediately by the interplay between the walking upright bass and the brushed drum kit, creating a steady, swinging pulse. The energy remains consistent, with slight dynamic lifts in the drum intensity and piano voicing density during the vocal peaks, but the fundamental swing rhythm never breaks.
+Embellishments, Textures & Spatial FX: Subtle piano fills and occasional chordal stabs act as embellishments between vocal phrases. The spatial mix places the piano slightly wide, the bass centered and warm, and the drums spread naturally across the stereo field, creating a cohesive, live-room ambience. No synthetic textures or electronic effects are utilized; all sounds are acoustic and organic.

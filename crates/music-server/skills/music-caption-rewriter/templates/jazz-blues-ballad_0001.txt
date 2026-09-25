@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 61. key is Eb, and scale is minor. Jazz / Blues Ballad.
+Global Emotional Progression: The piece opens with a somber, cinematic atmosphere that establishes a mood of isolation and longing. As the vocals enter, the emotion deepens into a personal narrative of loss, maintaining a restrained intensity through the verses. The arrangement swells slightly during the bridge sections, introducing more harmonic tension before resolving back into the melancholic refrain, ultimately fading out with a lingering sense of unresolved yearning.
+Application Scenarios & Imagery: A dimly lit jazz club late at night, a solitary figure watching a stormy ocean from a cliffside, or a noir film scene depicting introspection and heartbreak.
+Sonics & Production Profile: The soundstage is intimate and warm, with a focus on mid-range frequencies to highlight the vocal and acoustic instruments. The production favors a natural, organic feel with minimal processing, allowing the dynamics of the performance to breathe. There is a subtle use of reverb to create a sense of space without obscuring the clarity of individual instruments.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Female). The vocalist possesses a rich, smoky alto timbre with a slight rasp that adds texture and emotional weight to the delivery.
+Vocal Style: The performance is deeply expressive, utilizing a blues-inflected phrasing that emphasizes the lyrical content. The singer employs dynamic control, moving from soft, breathy whispers in the verses to powerful, resonant belts in the climactic moments, effectively conveying vulnerability and strength.
+Harmony/Backing Vocals: No distinct backing vocals are present; the focus remains entirely on the solo lead vocal to maintain the intimate narrative tone.
+Vocal FX: The vocal is treated with a modest amount of plate reverb and a touch of delay, enhancing the sense of space and melancholy without detracting from the raw emotional delivery.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: A grand piano provides the core harmonic structure, playing lush, extended chords and melodic fills throughout the track. Its presence is constant, anchoring the song's emotional arc.
+Secondary: An upright bass enters early, offering a warm, walking bassline that grounds the rhythm section. Acoustic brass instruments, specifically a muted trumpet and saxophone, weave in and out, providing counter-melodies and atmospheric swells that heighten the dramatic tension.
+Groove & Foundation Progression: The rhythm is driven by a live drum kit featuring brushed snares and soft cymbal work, creating a gentle, swinging pulse that supports the ballad tempo. The percussion remains understated, allowing the melodic instruments and vocals to take center stage, with occasional accents on the snare to mark phrase transitions.
+Embellishments, Textures & Spatial FX: Subtle string pads appear in the background during the bridge, adding a layer of cinematic depth. Occasional piano flourishes and brass stabs serve as transitional elements, guiding the listener through the song's structural shifts while maintaining the overall moody aesthetic.

@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 130. key is Bb, and scale is minor. Vocal Jazz / Big Band Swing.
+Global Emotional Progression: The piece opens with a suave, intimate atmosphere that feels both romantic and slightly melancholic. As the arrangement progresses, the emotional tone shifts from personal reflection to confident declaration, culminating in an exuberant, high-energy climax during the instrumental break before settling back into a warm, resolved conclusion.
+Application Scenarios & Imagery: A dimly lit, upscale cocktail lounge, a vintage film noir scene featuring a determined protagonist, or a sophisticated evening gathering where nostalgia meets celebration.
+Sonics & Production Profile: The mix offers a classic, warm soundstage with a clear separation between the rhythm section and the horn ensemble. The frequency response emphasizes rich mid-range warmth for the vocals and brass, supported by a tight, woody low end from the upright bass. The dynamic aesthetic is lively and organic, capturing the natural swing of a live ensemble without excessive compression.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Male). The vocalist possesses a smooth, resonant baritone with a velvety texture and precise diction, reminiscent of classic crooners.
+Vocal Style: The performance begins with a relaxed, storytelling delivery that conveys intimacy and vulnerability. As the song builds towards the bridge and final chorus, the delivery becomes more assertive and dynamically powerful, matching the rising energy of the band, before returning to a gentle, reflective tone for the outro.
+Harmony/Backing Vocals: No distinct backing vocal layers are present; the focus remains entirely on the solo lead vocal throughout the track.
+Vocal FX: The vocal is treated with a subtle, short-decay plate reverb to add depth and place the singer within the acoustic space of the ensemble, maintaining a natural and unprocessed character.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: An acoustic piano provides the core harmonic foundation with lush, extended jazz voicings, present from the Intro through to the Outro. An upright bass delivers a steady walking bassline that anchors the groove throughout the entire piece.
+Secondary: A full brass and woodwind ensemble (trumpets, trombones, saxophones) enters subtly during the verses with soft swells, then expands into powerful, punctuated hits and melodic counter-lines during the choruses and the instrumental break. A clean electric guitar adds rhythmic comping and occasional melodic fills, primarily audible in the verses and bridge.
+Groove & Foundation Progression: The rhythm section establishes a classic swing feel immediately, driven by a live drum kit using brushes on the snare for a softer texture in the verses. As the energy lifts in the choruses and the instrumental break, the drummer switches to sticks, introducing a sharper ride cymbal pattern and crisp snare accents that drive the momentum forward.
+Embellishments, Textures & Spatial FX: Subtle cymbal swells and brass "shouts" act as transitional markers between sections. The instrumental break features a soaring saxophone solo that takes center stage, surrounded by responsive hits from the rest of the horn section, creating a dynamic call-and-response texture before the vocals return.

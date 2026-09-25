@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 82. key is Bb, and scale is major. Mandopop / Orchestral Ballad.
+Global Emotional Progression: The piece opens with a tender, intimate atmosphere that gradually accumulates emotional weight through the verses. As the arrangement expands into the chorus, the sentiment shifts from quiet introspection to a sweeping, dramatic declaration of devotion, reaching a powerful climax before receding into a gentle, reflective resolution in the outro.
+Application Scenarios & Imagery: Ideal for cinematic moments of romantic realization, wedding montages, or scenes depicting deep emotional bonding against a backdrop of vast, scenic landscapes.
+Sonics & Production Profile: The production features a wide, cinematic soundstage with a lush frequency balance; the low end is warm and supportive, while the high frequencies are polished to let the strings and vocals shine without harshness. The dynamic range is carefully managed, starting with a breathable, sparse texture and evolving into a richly compressed, full-bodied wall of sound during the peak sections.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Male). The vocalist possesses a warm, resonant baritone with a slightly breathy texture in the lower register that transitions into a clear, ringing tenor quality during the higher melodic peaks.
+Vocal Style: The performance begins with a restrained, conversational delivery that emphasizes lyrical intimacy. As the song progresses, the style evolves into a powerful, emotive belt with controlled vibrato, particularly evident in the choruses where the singer pushes for maximum emotional impact before returning to a softer, fading tone at the end.
+Harmony/Backing Vocals: Subtle, multi-tracked self-harmonies appear in the second half of the choruses, thickening the texture and adding depth to the main melody without overshadowing the lead line.
+Vocal FX: The vocal track is treated with a tasteful amount of plate reverb to create a sense of space, complemented by a subtle delay on sustained notes during the climactic sections to enhance the lingering emotional effect.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: A grand piano serves as the harmonic backbone throughout the entire track, playing arpeggiated figures in the verses that shift to fuller block chords in the choruses to drive the momentum.
+Secondary: A full string ensemble (violins, violas, cellos) enters subtly during the first pre-chorus, swelling to become a dominant melodic force in the choruses with soaring legato lines. A clean electric bass provides a warm, rounded low-end foundation, locking in with the drums once they enter.
+Groove & Foundation Progression: The track begins without percussion, relying solely on the piano's rhythm. A soft, brushed drum kit pattern enters at the first verse to establish a gentle pulse, which evolves into a more defined pop ballad beat with a crisp snare and steady kick drum by the second chorus, significantly boosting the energy and forward drive.
+Embellishments, Textures & Spatial FX: Atmospheric synth pads sit low in the mix, filling the sonic gaps between the piano and strings to add warmth. Occasional cymbal swells and reverse reverb effects are used as transitional markers leading into the choruses, enhancing the sense of lift and anticipation.

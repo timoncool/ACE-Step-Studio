@@ -1,0 +1,1002 @@
+[
+{
+"description": "a soft Bengali love song for a quiet evening",
+"instrumental": false,
+"vocal_language": "bn"
+},
+{
+"description": "an upbeat summer pop song with catchy hooks",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "epic orchestral cinematic music for a movie trailer",
+"instrumental": true,
+"vocal_language": "unknown"
+},
+{
+"description": "一首深情的中文抒情歌曲，适合夜晚独自聆听",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "Japanese city pop with nostalgic 80s vibes",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "lo-fi hip hop beats for studying and relaxing",
+"instrumental": true,
+"vocal_language": "unknown"
+},
+{
+"description": "energetic K-pop dance track with powerful vocals",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "romantic Spanish guitar ballad with heartfelt lyrics",
+"instrumental": false,
+"vocal_language": "es"
+},
+{
+"description": "中国风电子舞曲，融合古典乐器与现代节拍",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "peaceful piano melody for meditation and relaxation",
+"instrumental": true,
+"vocal_language": "unknown"
+},
+{
+"description": "Kraftvoller deutscher Metal-Anthem mit aggressivem Gesang und Double-Bass-Drums",
+"instrumental": false,
+"vocal_language": "de"
+},
+{
+"description": "Energiegeladene Neue Deutsche Welle mit Retro-Synths und punkiger Attitüde",
+"instrumental": false,
+"vocal_language": "de"
+},
+{
+"description": "Entspannter deutscher Hip-Hop mit lässigem Flow und jazzigen Samples",
+"instrumental": false,
+"vocal_language": "de"
+},
+{
+"description": "Atmosphärische deutsche Elektronik mit Ambient-Texturen und sanftem Gesang",
+"instrumental": false,
+"vocal_language": "de"
+},
+{
+"description": "Chanson française romantique avec accordéon et cordes nostalgiques",
+"instrumental": false,
+"vocal_language": "fr"
+},
+{
+"description": "French house groovy avec samples disco et ligne de basse funky",
+"instrumental": true,
+"vocal_language": "fr"
+},
+{
+"description": "Rap français poétique avec samples jazz et flow smooth",
+"instrumental": false,
+"vocal_language": "fr"
+},
+{
+"description": "Pop française rêveuse avec voix éthérées et synthés luxuriants",
+"instrumental": false,
+"vocal_language": "fr"
+},
+{
+"description": "Style yé-yé rétro avec rythme entraînant et voix enjouées",
+"instrumental": false,
+"vocal_language": "fr"
+},
+{
+"description": "Ballade française mélancolique avec piano et émotion",
+"instrumental": false,
+"vocal_language": "fr"
+},
+{
+"description": "a melancholic indie rock ballad with atmospheric guitars and dreamy reverb",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Électropop française énergique avec hooks accrocheurs",
+"instrumental": false,
+"vocal_language": "fr"
+},
+{
+"description": "Britpop anthem with jangly guitars, catchy hooks, and witty lyrics about working-class life in modern Britain, featuring a driving rhythm section and melodic vocal harmonies",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Raw garage rock track with fuzzy distorted guitars, primal drumming, and aggressive vocals delivering rebellious lyrics about teenage angst and urban decay",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Psychedelic rock journey with swirling organ, phased guitars, and trippy effects, featuring dreamy vocals singing about cosmic exploration and altered consciousness",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Energetic surf rock instrumental with reverb-drenched twangy guitars, driving drums, and a catchy melody evoking sun-soaked beaches and crashing waves",
+"instrumental": true,
+"vocal_language": "en"
+},
+{
+"description": "Flamboyant glam rock anthem with stomping beats, glittery guitar riffs, and theatrical vocals celebrating self-expression and rock and roll excess",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Experimental art rock composition with unconventional song structures, avant-garde instrumentation, and introspective vocals exploring themes of identity and alienation",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Complex math rock instrumental with intricate time signatures, angular guitar riffs, and precise polyrhythmic drumming creating a technically demanding sonic puzzle",
+"instrumental": true,
+"vocal_language": "en"
+},
+{
+"description": "Abrasive noise rock track with dissonant guitar feedback, pounding bass, and shouted vocals expressing frustration and chaos in an industrial urban landscape",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Heavy stoner rock groove with thick fuzzy riffs, slow hypnotic tempo, and hazy vocals singing about desert highways and transcendental experiences",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "energetic EDM festival anthem with heavy bass drops and euphoric synth leads",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Soulful southern rock ballad with slide guitar, Hammond organ, and heartfelt vocals telling stories of small-town life and lost love in the American South",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Anthemic heartland rock song with ringing guitars, driving rhythm, and earnest vocals celebrating blue-collar values and the American working-class spirit",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Infectious power pop track with crunchy guitars, tight harmonies, and an irresistible chorus about summer romance and youthful optimism",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Shimmering jangle pop tune with chiming arpeggiated guitars, upbeat tempo, and breezy vocals singing about nostalgic memories and bittersweet longing",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Ornate baroque pop arrangement with harpsichord, string quartet, and lush orchestration, featuring elegant vocals weaving tales of aristocratic romance and melancholy",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Sophisticated chamber pop piece with piano, woodwinds, and sweeping strings, featuring intimate vocals exploring themes of existential wonder and quiet introspection",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Aggressive dubstep track with heavy wobble bass, distorted synths, and intense drops that shake the speakers",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "High-energy drum and bass anthem with rolling breakbeats, deep sub-bass, and euphoric vocal chops",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Classic house music with four-on-the-floor beats, soulful piano chords, and uplifting female vocals",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Dark industrial techno with pounding kicks, hypnotic synth loops, and relentless mechanical rhythms",
+"instrumental": true,
+"vocal_language": "en"
+},
+{
+"description": "smooth R&B love song with soulful vocals and silky piano chords",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Uplifting trance with soaring melodies, ethereal pads, and emotional breakdowns that build to euphoric climaxes",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Hardstyle banger with distorted kicks, reverse bass, and anthemic vocals that ignite the crowd",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Colorful future bass with lush synth chords, pitched vocal samples, and emotional melodic drops",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Sunny tropical house with steel drums, marimba melodies, and breezy summer vocals",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Smooth deep house groove with warm basslines, subtle percussion, and hypnotic late-night atmosphere",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Epic progressive house journey with layered synths, gradual builds, and massive festival-ready drops",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Vintage electro swing with jazzy brass samples, swinging rhythms, and playful retro vocals",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Funky breakbeat track with chopped drum breaks, funky basslines, and energetic vocal hooks",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Chilled downtempo with ambient textures, slow grooves, and dreamy atmospheric soundscapes",
+"instrumental": true,
+"vocal_language": "en"
+},
+{
+"description": "Experimental IDM with complex polyrhythms, glitchy textures, and intricate sound design",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "uplifting country road trip anthem with acoustic guitar and harmonica",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Chaotic glitch hop with stuttering beats, digital artifacts, and fragmented vocal samples",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "轻快的国风电子舞曲，融合古筝与现代节拍",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "深情的粤语情歌，带有港式复古风情",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "热血沸腾的电竞主题曲，激昂的电子音效",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "空灵的禅意音乐，适合瑜伽冥想",
+"instrumental": true,
+"vocal_language": "zh"
+},
+{
+"description": "欢快的儿童歌曲，充满童真童趣",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "激情四射的摇滚现场版，吉他solo燃爆全场",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "温馨的家庭主题曲，充满爱与温暖",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "神秘的武侠风格配乐，刀光剑影江湖梦",
+"instrumental": true,
+"vocal_language": "zh"
+},
+{
+"description": "动感的健身房音乐，节奏强劲充满力量",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "dark trap beat with haunting melodies and 808 bass",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "古典戏曲风格流行歌曲，京剧元素与现代编曲融合",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "浪漫的校园民谣，青春回忆满满",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "悠扬的草原风情歌曲，马头琴与长调交织",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "时尚的都市R&B，慵懒性感的夜生活氛围",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "古风仙侠主题曲，飘逸空灵如临仙境",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "励志的毕业季歌曲，告别与祝福",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "深沉的蓝调爵士，午夜酒吧的忧郁情调",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "欢乐的新年贺岁歌曲，喜庆热闹迎新春",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "唯美的古典钢琴曲，如诗如画的江南水乡",
+"instrumental": true,
+"vocal_language": "zh"
+},
+{
+"description": "热情的拉丁风格华语歌曲，异域风情与中文歌词碰撞",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "groovy funk jam with slap bass and wah-wah guitar riffs",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "磅礴大气的史诗级电影配乐，气势恢宏震撼人心",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "疾走感のあるアニソンロック、熱いギターリフとパワフルなボーカル",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "切ない冬のバラード、ピアノと弦楽器が織りなす感動的なメロディー",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "ノスタルジックな昭和歌謡、レトロなサウンドと哀愁漂うメロディー",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "キラキラしたアイドルポップ、元気いっぱいのダンスナンバー",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "ダークで激しいメタルコア、重厚なリフとシャウトボーカル",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "おしゃれなジャズヒップホップ、スムースなビートとクールなラップ",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "感動的な卒業ソング、合唱とオーケストラの壮大なアレンジ",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "夏祭りをイメージした和風ポップ、太鼓と笛が響く祭囃子",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "幻想的な和風インストゥルメンタル、琴と尺八が奏でる静寂の世界",
+"instrumental": true,
+"vocal_language": "ja"
+},
+{
+"description": "chill lo-fi hip-hop beats for late night studying",
+"instrumental": true,
+"vocal_language": "en"
+},
+{
+"description": "エモーショナルなビジュアル系ロック、美しいメロディーと激しいサウンド",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "爽やかなシティポップ、80年代風のグルーヴィーなサウンド",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "泣けるアコースティックバラード、ギターの弾き語りで綴る恋の歌",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "アップテンポなボカロ風エレクトロポップ、キャッチーなシンセサウンド",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "壮大なオーケストラインストゥルメンタル、映画音楽のような感動的なサウンドトラック",
+"instrumental": true,
+"vocal_language": "ja"
+},
+{
+"description": "チルアウトなローファイヒップホップ、深夜の勉強BGMにぴったりな癒し系ビート",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "청량한 여름 느낌의 K-Pop",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "감성적인 새벽 감성 발라드",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "파워풀한 걸그룹 댄스곡",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "레트로 감성의 시티팝",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "vintage disco groove with funky bassline and shimmering strings",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "힙한 느낌의 K-R&B",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "신나는 EDM 파티 트랙",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "잔잔한 어쿠스틱 포크",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "웅장한 영화 OST 스타일",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "몽환적인 K-Pop 인스트루멘탈",
+"instrumental": true,
+"vocal_language": "ko"
+},
+{
+"description": "트렌디한 보이그룹 힙합 트랙",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "애절한 이별 감성 트로트",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "서정적인 피아노 재즈 인스트루멘탈",
+"instrumental": true,
+"vocal_language": "ko"
+},
+{
+"description": "Romantischer deutscher Pop mit sanfter Melodie",
+"instrumental": false,
+"vocal_language": "de"
+},
+{
+"description": "Energiegeladener deutscher Punk-Rock",
+"instrumental": false,
+"vocal_language": "de"
+},
+{
+"description": "laid-back reggae summer vibes with offbeat guitar and warm organ",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Entspannter deutscher Reggae mit Sommergefühl",
+"instrumental": false,
+"vocal_language": "de"
+},
+{
+"description": "Epischer deutscher Symphonic Metal",
+"instrumental": true,
+"vocal_language": "de"
+},
+{
+"description": "Deutscher Schlager mit fröhlichem Rhythmus",
+"instrumental": false,
+"vocal_language": "de"
+},
+{
+"description": "Melancholischer deutscher Indie-Folk",
+"instrumental": false,
+"vocal_language": "de"
+},
+{
+"description": "Kraftvoller deutscher Hip-Hop mit tiefem Bass",
+"instrumental": false,
+"vocal_language": "de"
+},
+{
+"description": "Chanson d'amour française douce et romantique",
+"instrumental": false,
+"vocal_language": "fr"
+},
+{
+"description": "Électro française moderne avec beats énergiques",
+"instrumental": false,
+"vocal_language": "fr"
+},
+{
+"description": "Jazz manouche avec guitare acoustique",
+"instrumental": true,
+"vocal_language": "fr"
+},
+{
+"description": "Rock français alternatif avec paroles poétiques",
+"instrumental": false,
+"vocal_language": "fr"
+},
+{
+"description": "Variété française nostalgique avec accordéon",
+"instrumental": false,
+"vocal_language": "fr"
+},
+{
+"description": "aggressive thrash metal with shredding guitar solos and double bass drums",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "Pop française contemporaine avec synthétiseurs",
+"instrumental": false,
+"vocal_language": "fr"
+},
+{
+"description": "smoky jazz club ballad with brushed drums and mellow saxophone",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "raw delta blues with slide guitar and gritty harmonica",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "ethereal ambient soundscape with floating pads and gentle textures",
+"instrumental": true,
+"vocal_language": "en"
+},
+{
+"description": "heartfelt acoustic folk storytelling with fingerpicked guitar and soft harmonies",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "classic Motown soul with rich brass section and driving rhythm",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "warm acoustic folk ballad with fingerpicked guitar and heartfelt vocals",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "powerful gospel choir anthem with soaring harmonies and uplifting spirit",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "raw punk rock anthem with aggressive energy and rebellious attitude",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "dark grunge track with heavy distorted guitars and melancholic vocals",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "energetic new wave dance track with punchy synths and catchy hooks",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "nostalgic synthwave journey with retro 80s arpeggios and neon vibes",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "hazy chillwave sunset track with lo-fi textures and dreamy pads",
+"instrumental": true,
+"vocal_language": "en"
+},
+{
+"description": "ethereal dream pop with shimmering guitars and whispered vocals",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "dreamy shoegaze wall of sound with layered reverb guitars and distant vocals",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "expansive post-rock soundscape with crescendoing guitars and cinematic atmosphere",
+"instrumental": true,
+"vocal_language": "en"
+},
+{
+"description": "complex progressive rock epic with shifting time signatures and virtuoso solos",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "moody alternative rock with introspective lyrics and dynamic builds",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "emotional emo ballad with confessional lyrics and soaring chorus",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "upbeat ska punk with bouncy brass section and infectious energy",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "deep dub reggae with heavy bass drops and spacey echo effects",
+"instrumental": true,
+"vocal_language": "en"
+},
+{
+"description": "intimate acoustic singer-songwriter piece with gentle strumming and poetic lyrics",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "driving synthwave chase theme with pulsing bass and dramatic tension",
+"instrumental": true,
+"vocal_language": "en"
+},
+{
+"description": "soulful gospel-influenced R&B with powerful vocal runs and spiritual depth",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "gritty grunge revival with fuzzy riffs and angst-filled screams",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "melancholic dream pop lullaby with soft synths and ethereal harmonies",
+"instrumental": false,
+"vocal_language": "en"
+},
+{
+"description": "一首充满青春活力的校园流行歌曲，适合毕业季",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "古风仙侠风格的唯美歌曲，带有琵琶和笛子元素",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "深夜电台风格的慢摇情歌，诉说着都市人的孤独",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "激昂的摇滚励志歌曲，唱出不服输的精神",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "温柔的民谣小调，适合午后阳光下的慵懒时光",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "带有中国风元素的现代流行曲，融合古典与时尚",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "甜蜜的恋爱告白歌曲，充满粉红泡泡的氛围",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "伤感的分手情歌，带有淡淡的忧伤和释然",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "节奏感强烈的说唱歌曲，展现街头文化态度",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "慵懒的爵士风格歌曲，适合咖啡馆的悠闲午后",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "动感的电子舞曲，适合派对和夜店氛围",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "怀旧的八九十年代港风情歌，复古浪漫",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "柔美的R&B情歌，带有丝滑的和声编排",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "宁静的古筝轻音乐，适合冥想和放松",
+"instrumental": true,
+"vocal_language": "zh"
+},
+{
+"description": "热血的二次元风格动漫主题曲",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "治愈系的温暖民谣，讲述平凡生活中的小确幸",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "大气磅礴的史诗级纯音乐，适合影视配乐",
+"instrumental": true,
+"vocal_language": "zh"
+},
+{
+"description": "清新的夏日海边风格流行歌曲，充满阳光气息",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "深情的钢琴伴奏抒情曲，诉说思念与等待",
+"instrumental": false,
+"vocal_language": "zh"
+},
+{
+"description": "悠扬的竹笛与钢琴交织的中国风纯音乐",
+"instrumental": true,
+"vocal_language": "zh"
+},
+{
+"description": "エネルギッシュなJ-Rockアニメオープニング、力強いボーカルとドライブ感のあるギターリフ",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "切ないピアノバラード、感情的な女性ボーカル",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "懐かしい80年代シティポップ、ファンキーなベースとスムースなサックス",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "アップビートなカワイイフューチャーベース、キュートなボーカルチョップとキラキラシンセ",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "ドラマチックなビジュアル系ロック、オーケストラ要素と劇的な男性ボーカル",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "伝統的な演歌バラード、モダンなプロダクションとソウルフルな男性ボーカル",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "ハイエナジーなボカロ風エレクトロポップ、速いテンポとロボティックなボーカル加工",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "チルな日本語ヒップホップ、ローファイビートとリラックスしたラップフロー",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "ドリーミーな渋谷系インディーポップ、フレンチハウスの影響と息づかいのある女性ボーカル",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "壮大なアニメバトルテーマ、シンフォニックメタル要素とコーラス",
+"instrumental": true,
+"vocal_language": "ja"
+},
+{
+"description": "明るいJ-Popアイドルグループソング、キャッチーなフックとシンクロダンスビート",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "幻想的な和風アンビエント、伝統的な琴とモダンなエレクトロニックテクスチャー",
+"instrumental": true,
+"vocal_language": "ja"
+},
+{
+"description": "激しい日本語メタルコア、スクリームボーカルとブレイクダウンセクション",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "ロマンチックなアニメエンディングテーマ、アコースティックギターと優しい女性ボーカル",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "グルーヴィーな日本語ファンクロック、スラップベースとエネルギッシュなブラスセクション",
+"instrumental": false,
+"vocal_language": "ja"
+},
+{
+"description": "중독성 있는 후렴구와 신나는 K-Pop 댄스곡",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "현악 편곡이 아름다운 감성적인 K-드라마 OST 발라드",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "부드러운 보컬의 세련된 K-R&B",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "강렬한 트랩 비트의 K-힙합",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "몽환적인 K-인디 포크송",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "트로피컬 하우스 바이브의 상쾌한 K-Pop 여름 앤썸",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "파워풀한 기타 리프의 K-Rock",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "모던한 감각의 레트로 트로트",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "웅장한 오케스트라의 시네마틱 한국 OST 인스트루멘탈",
+"instrumental": true,
+"vocal_language": "ko"
+},
+{
+"description": "레트로 신스와 디스코 베이스라인의 그루비한 K-펑크",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "파워풀한 보컬 클라이맥스의 애절한 K-발라드",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "강렬한 EDM 드롭의 파워풀한 K-Pop 걸그룹 앤썸",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "잔잔한 비트의 감성적인 K-R&B 로파이",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "몽환적인 앰비언트 텍스처의 K-인디 인스트루멘탈",
+"instrumental": true,
+"vocal_language": "ko"
+},
+{
+"description": "랩 버스와 멜로딕 훅의 다이나믹한 K-Pop 보이그룹 트랙",
+"instrumental": false,
+"vocal_language": "ko"
+},
+{
+"description": "Fröhlicher deutscher Schlager mit eingängiger Melodie und mitreißendem Refrain",
+"instrumental": false,
+"vocal_language": "de"
+},
+{
+"description": "Dunkler deutscher Industrial-Rock mit verzerrten Gitarren",
+"instrumental": false,
+"vocal_language": "de"
+},
+{
+"description": "Berliner Techno mit treibenden Beats und hypnotischen Synth-Mustern",
+"instrumental": true,
+"vocal_language": "de"
+},
+{
+"description": "Melancholischer deutscher Indie-Pop mit nachdenklichen Texten",
+"instrumental": false,
+"vocal_language": "de"
+}
+]

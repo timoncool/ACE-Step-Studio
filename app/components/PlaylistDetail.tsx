@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Song, Playlist, playlistsApi, songsApi, getAudioUrl } from '../services/api';
+import { Song, Playlist } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
 import { ArrowLeft, Play, MoreHorizontal, Clock, Calendar, Shuffle, Trash2, Mic2, Music } from 'lucide-react';
+import { deleteNativePlaylist, getNativePlaylist, loadNativeLibrarySongs, updateNativePlaylist } from '../services/nativeLibrary';
 
 interface PlaylistDetailProps {
     playlistId: string;
@@ -13,11 +14,12 @@ interface PlaylistDetailProps {
 }
 
 export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBack, onPlaySong, onSelect, onNavigateToProfile }) => {
-    const { user: currentUser, token } = useAuth();
+    const { user: currentUser } = useAuth();
     const { t } = useI18n();
     const [playlist, setPlaylist] = useState<Playlist & { creator_avatar?: string } | null>(null);
     const [songs, setSongs] = useState<Song[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isNativePlaylist, setIsNativePlaylist] = useState(false);
 
     useEffect(() => {
         loadPlaylist();
@@ -26,29 +28,22 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
     const loadPlaylist = async () => {
         setLoading(true);
         try {
-            const res = await playlistsApi.getPlaylist(playlistId, token);
-            // res.playlist comes from DB row, which now includes creator_avatar
-            setPlaylist(res.playlist as any);
+            const nativePlaylist = await getNativePlaylist(playlistId);
+            if (nativePlaylist) {
+                const nativeSongs = await loadNativeLibrarySongs();
+                const songIds = nativePlaylist.songIds || [];
+                const nativeById = new Map(nativeSongs.map(song => [song.id, song]));
+                const orderedSongs = songIds.flatMap(id => {
+                    const song = nativeById.get(id);
+                    return song ? [song] : [];
+                });
+                setPlaylist({ ...nativePlaylist, user_id: '__native__' } as Playlist & { creator_avatar?: string });
+                setSongs(orderedSongs as unknown as Song[]);
+                setIsNativePlaylist(true);
+                return;
+            }
 
-            const mappedSongs: Song[] = res.songs.map((s: any) => ({
-                id: s.id,
-                title: s.title,
-                lyrics: s.lyrics,
-                style: s.style,
-                coverUrl: s.cover_url || s.coverUrl || `https://picsum.photos/seed/${s.id}/400/400`,
-                audioUrl: getAudioUrl(s.audio_url || s.audioUrl, s.id),
-                duration: s.duration,
-                bpm: s.bpm,
-                tags: s.tags || [],
-                is_public: s.is_public || false,
-                likeCount: s.like_count || 0,
-                viewCount: s.view_count || 0,
-                creator: s.creator,
-                created_at: s.created_at,
-                addedAt: s.added_at
-            }));
-
-            setSongs(mappedSongs);
+            throw new Error('Playlist was not found in the local library');
         } catch (error) {
             console.error('Failed to load playlist:', error);
         } finally {
@@ -58,9 +53,11 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
 
     // ... (retaining methods handleRemove, handleDelete) ...
     const handleRemoveSong = async (songId: string) => {
-        if (!token || !playlist) return;
+        if (!playlist) return;
         try {
-            await playlistsApi.removeSong(playlist.id, songId, token);
+            const songIds = (playlist.songIds || []).filter(id => id !== songId);
+            const updated = await updateNativePlaylist(playlist.id, playlist, songIds);
+            setPlaylist({ ...updated, user_id: '__native__' } as Playlist & { creator_avatar?: string });
             setSongs(prev => prev.filter(s => s.id !== songId));
         } catch (error) {
             console.error('Failed to remove song:', error);
@@ -68,10 +65,10 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
     };
 
     const handleDeletePlaylist = async () => {
-        if (!token || !playlist) return;
+        if (!playlist) return;
         if (!confirm(t('deletePlaylistConfirm'))) return;
         try {
-            await playlistsApi.delete(playlist.id, token);
+            await deleteNativePlaylist(playlist.id);
             onBack();
         } catch (error) {
             console.error('Failed to delete playlist:', error);
@@ -96,7 +93,7 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
         </div>
     );
 
-    const isOwner = currentUser?.id === playlist.user_id;
+    const isOwner = isNativePlaylist || currentUser?.id === playlist.user_id;
 
     // Gradient based on ID/Name
     const gradients = [

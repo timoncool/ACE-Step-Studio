@@ -1,0 +1,17 @@
+Global Metadata
+Basic Attributes: bpm is 85. key is Eb, and scale is minor. Cinematic Orchestral / Musical Theatre Ballad.
+Global Emotional Progression: The piece opens with a mysterious and submerged atmosphere, characterized by low-frequency tension and restraint. As the arrangement builds, the emotion shifts from introspective curiosity to a powerful, commanding release in the climactic sections, before resolving into a serene, expansive tranquility in the outro.
+Application Scenarios & Imagery: Deep-sea exploration narratives, pivotal transformation scenes in fantasy cinema, or theatrical moments depicting a character surrendering to a greater force of nature.
+Sonics & Production Profile: The soundstage is exceptionally wide and deep, utilizing extensive reverb to simulate a vast underwater cavern or open ocean. The frequency response is rich in the low-mids to support the orchestral weight, while the high frequencies are polished but not piercing, creating a lush, immersive "wall of sound" that remains clear enough to distinguish individual instrumental layers.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Male). The vocalist possesses a rich, resonant baritone with a warm, theatrical texture capable of intimate breathiness and powerful, sustained projection.
+Vocal Style: The performance begins with a soft, narrative delivery that feels close and personal, gradually evolving into a soaring, operatic style with significant dynamic range. The singer employs controlled vibrato and dramatic phrasing to convey a sense of awe and command as the song progresses.
+Harmony/Backing Vocals: Multi-layered choral harmonies enter during the climactic sections, providing a massive, ethereal backdrop that supports the lead vocal. These backing parts are mixed widely to enhance the sense of scale and grandeur.
+Vocal FX: The vocal track is treated with a long-decay hall reverb throughout, reinforcing the aquatic theme. Subtle delay is applied to specific phrases in the quieter sections to add depth, while the chorus features heavier compression to maintain presence against the dense orchestration.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: A full string ensemble serves as the harmonic backbone, starting with sustained, low-register pads that create tension, then expanding into sweeping, high-register melodic lines during the climax.
+Secondary: A grand piano provides delicate arpeggiated figures in the verses, adding rhythmic motion without overpowering the vocals. A deep, resonant bass guitar (or upright bass) underpins the harmony, becoming more active and driving during the build-up.
+Tertiary: Synthesized pads and atmospheric textures fill the sonic space between the acoustic instruments, enhancing the "underwater" feeling.
+Groove & Foundation Progression: The track begins without a defined percussive groove, relying on the ebb and flow of the strings and piano. A subtle, heartbeat-like kick drum and soft timpani rolls enter during the pre-chorus to establish momentum. By the climax, a full orchestral percussion section, including cymbal swells and booming drums, drives the rhythm with a majestic, slow-tempo pulse.
+Embellishments, Textures & Spatial FX: Water-like sound design elements, such as filtered white noise sweeps and bubble textures, are woven into the background to reinforce the thematic imagery. Reverse cymbal swells act as transitional bridges between sections, while brass stabs punctuate key lyrical moments in the chorus to add dramatic emphasis.

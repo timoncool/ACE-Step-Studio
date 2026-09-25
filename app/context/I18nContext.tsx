@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { translations, Language, TranslationKey } from '../i18n/translations';
+import { STUDIO } from '../studio';
 
 interface I18nContextType {
   language: Language;
@@ -7,7 +8,12 @@ interface I18nContextType {
   t: (key: TranslationKey) => string;
 }
 
-const I18nContext = createContext<I18nContextType | undefined>(undefined);
+// One context object for the life of the page: when a strings file changes in
+// development, this module is evaluated again, and a second context would leave
+// every consumer outside the provider that is already mounted.
+const I18nContext: React.Context<I18nContextType | undefined> =
+  import.meta.hot?.data.i18nContext ?? createContext<I18nContextType | undefined>(undefined);
+if (import.meta.hot) import.meta.hot.data.i18nContext = I18nContext;
 
 export const I18nProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [language, setLanguage] = useState<Language>(() => {
@@ -22,9 +28,8 @@ export const I18nProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.setItem('language', lang);
   };
 
-  const t = (key: TranslationKey): string => {
-    return translations[language][key] || key;
-  };
+  // `{studio}` is the studio's own name, so the strings are shared by every studio.
+  const t = (key: TranslationKey): string => (translations[language][key] || key).replaceAll('{studio}', STUDIO.name);
 
   return (
     <I18nContext.Provider value={{ language, setLanguage: handleSetLanguage, t }}>

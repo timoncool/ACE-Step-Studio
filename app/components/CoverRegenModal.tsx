@@ -1,577 +1,388 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { X, Loader2, Sparkles, Save, RefreshCw, Upload, Search } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, Image as ImageIcon, Loader2, Maximize2, Sparkles, Upload, X } from 'lucide-react';
+import { Song } from '../types';
+import { AlbumCover } from './AlbumCover';
+import { ImageLightbox } from './ImageLightbox';
+import { apiUrl } from '../services/apiBase';
 import { useI18n } from '../context/I18nContext';
-import { pollinationsStorage } from '../services/pollinations/storage';
-import { getPollinationsModels } from '../services/pollinations/client';
-import type { PolModelInfo } from '../services/pollinations/types';
-import { songsApi } from '../services/api';
-import type { Song } from '../types';
 
 /**
- * Manual cover regeneration modal.
+ * Cover art for a library track.
  *
- * Layout follows the convention used by image-generation tools (Civitai,
- * Krea, Midjourney web): controls on the LEFT (model + prompt + actions),
- * a large square preview + history strip on the RIGHT. On narrow screens
- * the two columns stack vertically.
+ * Two sources, both real: an image file from disk, or a generation through the
+ * catalog-verified OpenRouter image models the native server exposes. The
+ * result is stored by the studio server next to the track audio, so the cover
+ * belongs to the song rather than living in browser state.
  *
- * Pollinations knobs that are NOT in this modal (width/height, seed mode,
- * enhance/nologo/safe, API key) come from the persisted
- * pollinationsStorage.getConfig() — the user already configured those in
- * the main PollinationsPanel (auto-pipeline). This modal is just a quick
- * way to iterate on a single cover for an already-generated track.
- *
- * On Save the picked blob is uploaded to /api/songs/:id/regen-cover which
- * writes the file under the same `${userId}/covers/${songId}.{ext}` path
- * the auto-pipeline uses, so playback / downloads / sidebar all see the
- * new cover with no extra plumbing.
+ * ACE Studio generated covers through Pollinations. That path is gone with the
+ * ACE backend; this replacement is explicit about cost — nothing is generated
+ * until the user presses the button, and the button is disabled until a key and
+ * a catalog model exist.
  */
-interface Props {
+
+interface CoverRegenModalProps {
   song: Song;
-  token: string;
   onClose: () => void;
-  /** Called after successful save with the new cover URL so App.tsx can
-   *  update the local songs[] without a full refresh. */
   onCoverSaved: (songId: string, coverUrl: string) => void;
 }
 
-interface PreviewItem {
-  /** blob: URL for <img src> */
-  url: string;
-  /** raw blob — used by the save endpoint upload */
-  blob: Blob;
-  prompt: string;
-  model: string;
-  /** Pollinations seed used for this generation — surfaced as a small caption
-   *  so the user can re-roll knowing what changed. */
-  seed: number;
+interface CatalogModel {
+  id: string;
+  name: string;
+  capabilities: string[];
 }
 
-const POL_BASE = 'https://gen.pollinations.ai/image';
+/** A saved look, filled in from the track it is used on. */
+interface CoverTemplate {
+  id: string;
+  name: string;
+  template: string;
+}
 
-export const CoverRegenModal: React.FC<Props> = ({ song, token, onClose, onCoverSaved }) => {
+const CONTROL =
+  'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-pink-500 dark:border-white/10 dark:bg-black/20 dark:text-white';
+
+const defaultPrompt = (song: Song) =>
+  `Album cover artwork for a track titled "${song.title}". Style: ${song.style || 'contemporary'}. No text, no lettering, square composition.`;
+
+/** The words a template may stand in for, shown so they can be typed. */
+const PLACEHOLDERS = ['title', 'style', 'lyrics', 'excerpt', 'duration'];
+
+export const CoverRegenModal: React.FC<CoverRegenModalProps> = ({ song, onClose, onCoverSaved }) => {
   const { t } = useI18n();
-  const cfg = pollinationsStorage.getConfig();
+  const [models, setModels] = useState<CatalogModel[]>([]);
+  const [modelId, setModelId] = useState('');
+  const [keyConfigured, setKeyConfigured] = useState<boolean | null>(null);
+  const [prompt, setPrompt] = useState(() => defaultPrompt(song));
+  const [templates, setTemplates] = useState<CoverTemplate[]>([]);
+  const [templateId, setTemplateId] = useState('');
+  // The template as text, and what it becomes for this track. Editing the
+  // first updates the second, so what will be sent is never a guess.
+  const [templateText, setTemplateText] = useState('');
+  const [editingTemplate, setEditingTemplate] = useState(false);
+  const [preview, setPreview] = useState<{ dataUrl: string; base64: string; mediaType: string } | null>(null);
+  const [busy, setBusy] = useState<'generate' | 'save' | null>(null);
+  // The cover, as big as the screen allows.
+  const [zoomed, setZoomed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement | null>(null);
 
-  // Prompt prefill — derive a short visual hint from the song's caption / style.
-  // The user can override completely; we only seed something useful so that
-  // hitting "Generate" right away produces a reasonable image.
-  const initialPrompt = useMemo(() => {
-    const caption = (song.style || '').trim();
-    const bits: string[] = ['square album cover artwork'];
-    if (caption) bits.push(caption);
-    bits.push('no text, no watermark');
-    return bits.join(', ');
-  }, [song.style]);
-
-  const [prompt, setPrompt] = useState(initialPrompt);
-  const [model, setModel] = useState<string>(cfg.model || '');
-  const [models, setModels] = useState<PolModelInfo[]>([]);
-  const [modelsLoading, setModelsLoading] = useState(false);
-
-  // Custom-dropdown state — we ditched the native <select> because option
-  // styling is unreliable across browsers (white pop-out on dark theme,
-  // truncated descriptions). Pattern is borrowed from PollinationsPanel.tsx.
-  const [modelQuery, setModelQuery] = useState('');
-  const [modelPickerOpen, setModelPickerOpen] = useState(false);
-  const pickerRef = useRef<HTMLDivElement>(null);
-
-  const [generating, setGenerating] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string>('');
-
-  // Generation history. Keep latest first; cap at 6 to bound memory (each
-  // blob URL pins a 200-600KB Blob until revoked).
-  const [history, setHistory] = useState<PreviewItem[]>([]);
-  const [selectedIdx, setSelectedIdx] = useState(0);
-
-  // Mirror history into a ref so the unmount cleanup effect (deps=[]) reads
-  // the latest list, not the initial [] frozen at mount time. Without this
-  // the cleanup `history.forEach(revoke)` runs against an empty closure-
-  // captured array and every blob created during the modal session leaks.
-  const historyRef = useRef<PreviewItem[]>([]);
-  useEffect(() => { historyRef.current = history; }, [history]);
-
-  // AbortController so we can cancel an in-flight Pollinations call when the
-  // modal closes mid-generation; otherwise the bytes still come back and
-  // setState fires on an unmounted tree (warning + memory leak).
-  const abortRef = useRef<AbortController | null>(null);
-
-  // Hidden <input type=file> for the "Upload from disk" path. We trigger
-  // its click programmatically from the styled button so the UI stays clean.
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  // Load model list on mount. /image/models is cached for 1h inside the
-  // client module so this is essentially free if the user already opened
-  // PollinationsPanel earlier in the session.
   useEffect(() => {
-    let alive = true;
-    setModelsLoading(true);
-    getPollinationsModels(cfg.apiKey)
-      .then(list => { if (alive) setModels(list); })
-      .catch(() => { if (alive) setModels([]); })
-      .finally(() => { if (alive) setModelsLoading(false); });
-    return () => { alive = false; };
-  }, [cfg.apiKey]);
+    void fetch('/v1/openrouter/settings')
+      .then(response => response.json())
+      .then((settings: { configured?: boolean }) => setKeyConfigured(settings.configured === true))
+      .catch(() => setKeyConfigured(false));
 
-  // Revoke object URLs on unmount to free Blob memory. We read from
-  // historyRef so the cleanup sees the latest list (deps=[] would otherwise
-  // capture the initial empty array — see the ref-mirror effect above).
-  // We do not revoke on every history mutation — the <img> still references
-  // the URL while a previous generation is selected.
-  useEffect(() => {
-    return () => {
-      abortRef.current?.abort();
-      historyRef.current.forEach(h => URL.revokeObjectURL(h.url));
-    };
+    // The model is the one chosen for covers on the provider page; picking the
+    // first of four hundred was how this window ended up using a different
+    // model from the one the settings showed.
+    void Promise.all([
+      fetch('/v1/openrouter/catalog').then(response => response.json()).catch(() => null),
+      fetch('/v1/configuration').then(response => response.json()).catch(() => null),
+    ]).then(([catalog, configuration]) => {
+      const covers = ((catalog?.models ?? []) as CatalogModel[]).filter(model => model.capabilities.includes('cover_art'));
+      setModels(covers);
+      const chosen = (configuration?.selections ?? []).find(
+        (selection: { capability: string; cloud_model: string | null }) => selection.capability === 'cover_art',
+      )?.cloud_model;
+      const suggested = catalog?.suggested?.cover_art as string | undefined;
+      setModelId(current => current || chosen || suggested || covers[0]?.id || '');
+    });
   }, []);
 
-  // ESC closes the modal — common modal UX. We don't trap focus or block
-  // background scrolling beyond what the backdrop overlay already does.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+    void fetch('/v1/cover-templates')
+      .then(response => response.json())
+      .then((body: { templates?: CoverTemplate[]; default_id?: string | null }) => {
+        const list = body.templates ?? [];
+        setTemplates(list);
+        // Whatever was chosen in Settings is where a new cover starts.
+        const chosen = list.find(entry => entry.id === body.default_id);
+        if (chosen) {
+          setTemplateId(chosen.id);
+          setTemplateText(chosen.template);
+        }
+      })
+      .catch(() => setTemplates([]));
+  }, []);
 
-  // Click-outside closes the model picker. Same pattern as PollinationsPanel.
+  // A template is only useful once it is filled in, and the server does that
+  // with the same code that runs when the cover is generated.
   useEffect(() => {
-    if (!modelPickerOpen) return;
-    const onClick = (e: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        setModelPickerOpen(false);
-        setModelQuery('');
-      }
-    };
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
-  }, [modelPickerOpen]);
+    if (!templateText.trim()) return;
+    const timer = window.setTimeout(() => {
+      void fetch('/v1/cover-templates/render', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template: templateText, song_id: song.id }),
+      })
+        .then(response => response.json())
+        .then((body: { prompt?: string }) => { if (body.prompt) setPrompt(body.prompt); })
+        .catch(() => undefined);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [templateText, song.id]);
 
-  const handleGenerate = useCallback(async () => {
-    setError('');
-    if (!prompt.trim()) {
-      setError(t('coverRegen.errEmptyPrompt') || 'Prompt is empty');
-      return;
-    }
-    if (!model.trim()) {
-      setError(t('coverRegen.errPickModel') || 'Pick a model first');
-      return;
-    }
+  const saveTemplates = useCallback(async (next: CoverTemplate[]) => {
+    setTemplates(next);
+    await fetch('/v1/cover-templates', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ templates: next }),
+    }).catch(() => undefined);
+  }, []);
 
-    setGenerating(true);
+  const canGenerate = useMemo(() => keyConfigured === true && Boolean(modelId), [keyConfigured, modelId]);
 
-    // Each Generate click uses a fresh random seed — that is what gives the
-    // "Try again" feeling. The persisted seedMode='song' is intentionally
-    // ignored here: the user is iterating, not reproducing.
-    const seed = Math.floor(Math.random() * 0x7fffffff);
-
-    // Build URL — same shape as app/server/src/services/pollinations.ts uses
-    // (gen.pollinations.ai/image/{encoded-prompt}?model=…). Keeps behaviour
-    // consistent with the auto-pipeline.
-    const params = new URLSearchParams();
-    params.set('model', model);
-    params.set('width', String(cfg.width));
-    params.set('height', String(cfg.height));
-    params.set('seed', String(seed));
-    if (cfg.nologo) params.set('nologo', 'true');
-    if (cfg.enhance) params.set('enhance', 'true');
-    if (cfg.safe) params.set('safe', 'true');
-    const url = `${POL_BASE}/${encodeURIComponent(prompt)}?${params.toString()}`;
-
-    abortRef.current?.abort();
-    const ac = new AbortController();
-    abortRef.current = ac;
-
+  const generate = useCallback(async () => {
+    if (!canGenerate || busy) return;
+    setBusy('generate');
+    setError(null);
     try {
-      const headers: Record<string, string> = { Accept: 'image/jpeg,image/png,image/*' };
-      if (cfg.apiKey) headers.Authorization = `Bearer ${cfg.apiKey}`;
-      const res = await fetch(url, { headers, signal: ac.signal });
-      if (!res.ok) {
-        // 402 = Pollinations tier-gating: chosen model requires Flower/Nectar
-        // (paid), our token is Seed or Anonymous. Surface a concrete hint
-        // instead of the raw HTTP status — the user has no way to know that
-        // 402 means "switch model" otherwise.
-        if (res.status === 402) {
-          throw new Error(
-            t('coverRegen.errPaymentRequired') ||
-            `Model "${model}" requires a paid Pollinations tier. Try flux or sana, or upgrade your token at auth.pollinations.ai.`
-          );
-        }
-        if (res.status === 401 || res.status === 403) {
-          throw new Error(
-            t('coverRegen.errKeyInvalid') ||
-            'Pollinations API key invalid or unauthorized for this model.'
-          );
-        }
-        if (res.status === 429) {
-          throw new Error(
-            t('coverRegen.errRateLimited') ||
-            'Rate limit hit. Wait a few seconds and try again.'
-          );
-        }
-        throw new Error(`HTTP ${res.status} ${res.statusText}`);
-      }
-      const ct = (res.headers.get('content-type') || '').toLowerCase();
-      if (!ct.startsWith('image/')) {
-        throw new Error(`Non-image response: ${ct || 'unknown'}`);
-      }
-      const blob = await res.blob();
-      if (blob.size < 256) {
-        // Same lower-bound check as the server-side helper; tiny payloads
-        // are almost always a placeholder error tile.
-        throw new Error('Tiny response — model likely refused the prompt');
-      }
-      const objectUrl = URL.createObjectURL(blob);
-
-      setHistory(prev => {
-        const next = [{ url: objectUrl, blob, prompt, model, seed }, ...prev];
-        // Cap at 6 — revoke evicted blobs to free Blob memory.
-        const evicted = next.slice(6);
-        evicted.forEach(e => URL.revokeObjectURL(e.url));
-        return next.slice(0, 6);
+      const response = await fetch('/v1/openrouter/covers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model_id: modelId, prompt: prompt.trim() }),
       });
-      setSelectedIdx(0);
-      // Persist the model used as a recent so the dropdown surfaces it next time.
-      pollinationsStorage.pushRecentModel(model);
-    } catch (e: any) {
-      if (e?.name === 'AbortError') return; // benign — user closed/regenerated
-      console.warn('[cover-regen] generation failed:', e);
-      setError(e?.message || String(e));
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.error || `Cover generation failed (${response.status})`);
+      const image = body?.body?.data?.[0];
+      if (!image?.b64_json) throw new Error('OpenRouter returned no image data.');
+      const mediaType = typeof image.media_type === 'string' ? image.media_type : 'image/png';
+      setPreview({ base64: image.b64_json, mediaType, dataUrl: `data:${mediaType};base64,${image.b64_json}` });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Cover generation failed.');
     } finally {
-      setGenerating(false);
+      setBusy(null);
     }
-  }, [prompt, model, cfg.apiKey, cfg.width, cfg.height, cfg.nologo, cfg.enhance, cfg.safe, t]);
+  }, [busy, canGenerate, modelId, prompt]);
 
-  // Pick a local file and add it to the history so the existing preview /
-  // save flow handles it. We accept image/* here instead of a strict
-  // jpeg+png+webp whitelist because browsers' file pickers are inconsistent
-  // about MIME — the backend's coverUpload.fileFilter does the strict check
-  // and will reject anything else with a 400.
-  const handleUploadFile = useCallback((file: File) => {
-    setError('');
-    if (!file.type.startsWith('image/')) {
-      setError(t('coverRegen.errNotImage') || 'File is not an image');
+  const pickFile = useCallback(async (file: File) => {
+    setError(null);
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      setError('Use a PNG, JPEG or WebP image.');
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      // Backend cap is 10MB — fail fast in the UI.
-      setError(t('coverRegen.errTooLarge') || 'File too large (max 10MB)');
-      return;
+    const buffer = new Uint8Array(await file.arrayBuffer());
+    let binary = '';
+    for (let offset = 0; offset < buffer.length; offset += 0x8000) {
+      binary += String.fromCharCode(...buffer.subarray(offset, offset + 0x8000));
     }
-    const url = URL.createObjectURL(file);
-    setHistory(prev => {
-      const next = [{
-        url,
-        blob: file,
-        prompt: `[uploaded] ${file.name}`,
-        model: 'upload',
-        // Synthetic seed for display only — no Pollinations seed exists for uploads.
-        seed: 0,
-      }, ...prev];
-      const evicted = next.slice(6);
-      evicted.forEach(e => URL.revokeObjectURL(e.url));
-      return next.slice(0, 6);
-    });
-    setSelectedIdx(0);
-  }, [t]);
+    const base64 = btoa(binary);
+    setPreview({ base64, mediaType: file.type, dataUrl: `data:${file.type};base64,${base64}` });
+  }, []);
 
-  const handleSave = useCallback(async () => {
-    if (!history[selectedIdx]) return;
-    setSaving(true);
-    setError('');
+  const save = useCallback(async () => {
+    if (!preview || busy) return;
+    setBusy('save');
+    setError(null);
     try {
-      const item = history[selectedIdx];
-      const { coverUrl } = await songsApi.regenCover(song.id, item.blob, token);
-      onCoverSaved(song.id, coverUrl);
+      const response = await fetch(`/v1/library/songs/${encodeURIComponent(song.id)}/cover`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_base64: preview.base64, media_type: preview.mediaType }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.error || `Storing the cover failed (${response.status})`);
+      onCoverSaved(song.id, apiUrl(`/v1/library/songs/${encodeURIComponent(song.id)}/cover`));
       onClose();
-    } catch (e: any) {
-      console.warn('[cover-regen] save failed:', e);
-      setError(e?.message || String(e));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Storing the cover failed.');
     } finally {
-      setSaving(false);
+      setBusy(null);
     }
-  }, [history, selectedIdx, song.id, token, onCoverSaved, onClose]);
-
-  const current = history[selectedIdx];
-
-  // Recent + remaining models, dedup. Filtered by query when picker is open.
-  const filteredModels = useMemo(() => {
-    const recent = pollinationsStorage.getRecentModels();
-    const seen = new Set<string>();
-    const ordered: PolModelInfo[] = [];
-    for (const id of recent) {
-      const m = models.find(x => x.id === id);
-      if (m && !seen.has(m.id)) { seen.add(m.id); ordered.push(m); }
-    }
-    for (const m of models) {
-      if (!seen.has(m.id)) { seen.add(m.id); ordered.push(m); }
-    }
-    const q = modelQuery.toLowerCase().trim();
-    if (!q) return ordered;
-    return ordered.filter(m =>
-      m.id.toLowerCase().includes(q) ||
-      (m.description || '').toLowerCase().includes(q)
-    );
-  }, [models, modelQuery]);
-
-  // Resolved label for the selected model (with description) when the
-  // dropdown is closed and we want to show the current selection.
-  const selectedModelLabel = useMemo(() => {
-    const m = models.find(x => x.id === model);
-    if (!m) return model;
-    return m.description ? `${m.id} — ${m.description}` : m.id;
-  }, [models, model]);
+  }, [busy, onClose, onCoverSaved, preview, song.id]);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-4xl bg-white dark:bg-zinc-900 rounded-xl shadow-2xl border border-zinc-200 dark:border-white/5 flex flex-col max-h-[90vh] overflow-hidden"
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-white/5 flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <Sparkles size={16} className="text-pink-500" />
-            <h2 className="text-sm font-semibold">
-              {t('coverRegen.title') || 'Regenerate cover'}
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-white/5"
-            aria-label="Close"
-          >
-            <X size={16} />
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-zinc-900" onClick={event => event.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 dark:border-white/10">
+          <h3 className="flex items-center gap-2 text-base font-bold text-zinc-900 dark:text-white">
+            <ImageIcon size={18} className="text-pink-500" /> {t('coverArt')}
+          </h3>
+          <button type="button" onClick={onClose} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">
+            <X size={18} />
           </button>
         </div>
 
-        {/* Body — two-column layout on md+, stacked on mobile */}
-        <div className="flex-1 overflow-y-auto md:overflow-hidden md:flex md:flex-row">
-          {/* LEFT — settings column. Fixed width on desktop, full-width on mobile. */}
-          <div className="md:w-80 md:flex-shrink-0 md:border-r md:border-zinc-200 md:dark:border-white/5 p-4 space-y-3 md:overflow-y-auto md:custom-scrollbar">
-            {/* Model picker — custom dropdown so the option list inherits
-                our dark theme and doesn't truncate descriptions. */}
-            <div ref={pickerRef} className="relative">
-              <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                {t('coverRegen.model') || 'Model'}
-              </label>
-              <div className="relative mt-1">
-                <Search
-                  size={12}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none"
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
+          {/* The result is the point of this window, so it gets the middle of
+              it: a large square, and a click to see it at full size. */}
+          <div className="flex flex-col items-center">
+            <button
+              type="button"
+              onClick={() => { if (preview?.dataUrl || song.coverUrl) setZoomed(true); }}
+              className="group relative aspect-square w-full max-w-[360px] overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10"
+              title={t('coverOpenLarge')}
+            >
+              <AlbumCover seed={song.id} size="full" coverUrl={preview?.dataUrl || song.coverUrl} />
+              <span className="pointer-events-none absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-lg bg-black/60 px-2 py-1 text-[11px] text-white opacity-0 transition-opacity group-hover:opacity-100">
+                <Maximize2 size={12} /> {t('coverOpenLarge')}
+              </span>
+            </button>
+
+            <p className="mt-3 w-full truncate text-center text-sm font-semibold text-zinc-900 dark:text-white">{song.title}</p>
+            <button
+              type="button"
+              onClick={() => fileInput.current?.click()}
+              className="mt-2 inline-flex items-center gap-2 rounded-lg border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-700 hover:border-pink-400 hover:text-pink-600 dark:border-white/15 dark:text-zinc-200"
+            >
+              <Upload size={13} /> {t('useImageFile')}
+            </button>
+            <input
+              ref={fileInput}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={event => {
+                const file = event.target.files?.[0];
+                if (file) void pickFile(file);
+                event.target.value = '';
+              }}
+            />
+          </div>
+
+          <div className="rounded-xl border border-zinc-200 p-3 dark:border-white/10">
+            <label className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">{t('generateWithOpenRouter')}</label>
+            {keyConfigured === false && (
+              <p className="mt-2 flex items-start gap-2 text-xs text-amber-600 dark:text-amber-300">
+                <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+                {t('coverKeyRequired')}
+              </p>
+            )}
+            {keyConfigured === true && models.length === 0 && (
+              <p className="mt-2 flex items-start gap-2 text-xs text-amber-600 dark:text-amber-300">
+                <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+                {t('catalogNoImageModel')}
+              </p>
+            )}
+            <select value={modelId} onChange={event => setModelId(event.target.value)} disabled={models.length === 0} className={`${CONTROL} mt-2`}>
+              {models.length === 0 && <option value="">{t('noImageModel')}</option>}
+              {models.map(model => <option key={model.id} value={model.id}>{model.name}</option>)}
+            </select>
+            {/* A look, written once and reused: the style lives in the
+                template, the track fills in the rest. */}
+            <div className="mt-2 flex items-center gap-2">
+              <select
+                value={templateId}
+                onChange={event => {
+                  const next = templates.find(entry => entry.id === event.target.value);
+                  setTemplateId(event.target.value);
+                  setTemplateText(next?.template ?? '');
+                  if (!next) setPrompt(defaultPrompt(song));
+                }}
+                className={CONTROL}
+              >
+                <option value="">{t('coverPromptFree')}</option>
+                {templates.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+              </select>
+              <button
+                type="button"
+                onClick={() => setEditingTemplate(current => !current)}
+                className="shrink-0 rounded-lg border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-600 hover:border-pink-400 hover:text-pink-600 dark:border-white/15 dark:text-zinc-300"
+              >
+                {editingTemplate ? t('coverPromptDoneEditing') : t('coverPromptEditTemplate')}
+              </button>
+            </div>
+
+            {editingTemplate && (
+              <div className="mt-2 rounded-lg border border-dashed border-zinc-300 p-2 dark:border-white/15">
+                <textarea
+                  value={templateText}
+                  onChange={event => setTemplateText(event.target.value)}
+                  rows={6}
+                  placeholder={t('coverPromptTemplatePlaceholder')}
+                  className={CONTROL + ' resize-none'}
                 />
-                <input
-                  type="text"
-                  value={modelPickerOpen ? modelQuery : selectedModelLabel}
-                  onChange={e => { setModelQuery(e.target.value); setModelPickerOpen(true); }}
-                  onFocus={() => { setModelPickerOpen(true); setModelQuery(''); }}
-                  onKeyDown={e => {
-                    if (e.key === 'Escape') {
-                      setModelPickerOpen(false);
-                      setModelQuery('');
-                      (e.target as HTMLInputElement).blur();
-                    }
-                  }}
-                  placeholder={modelsLoading
-                    ? (t('coverRegen.modelsLoading') || 'Loading models…')
-                    : (t('coverRegen.modelsPick') || 'Pick a model…')}
-                  disabled={modelsLoading}
-                  className={`w-full bg-white dark:bg-black/40 border rounded pl-7 pr-2 py-1.5 text-xs truncate
-                    ${!model ? 'border-amber-500/60' : 'border-zinc-200 dark:border-white/10'}
-                    focus:outline-none focus:border-pink-500/60`}
-                />
-              </div>
-              {modelPickerOpen && (
-                <div className="absolute z-10 mt-1 w-full max-h-72 overflow-y-auto custom-scrollbar border border-zinc-200 dark:border-white/10 rounded bg-white dark:bg-zinc-900 shadow-lg">
-                  {filteredModels.length === 0 && (
-                    <div className="px-2 py-2 text-[11px] text-zinc-500">
-                      {modelsLoading
-                        ? (t('coverRegen.modelsLoading') || 'Loading models…')
-                        : (t('coverRegen.modelsPick') || 'No models found')}
-                    </div>
-                  )}
-                  {filteredModels.map(m => (
+                <div className="mt-2 flex flex-wrap items-center gap-1">
+                  <span className="mr-1 text-[10px] font-bold uppercase tracking-wide text-zinc-500">{t('coverPromptPlaceholders')}</span>
+                  {PLACEHOLDERS.map(name => (
                     <button
-                      key={m.id}
+                      key={name}
                       type="button"
-                      onClick={() => {
-                        setModel(m.id);
-                        setModelPickerOpen(false);
-                        setModelQuery('');
-                      }}
-                      className={`w-full text-left px-2 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-white/5
-                        ${m.id === model ? 'bg-pink-50 dark:bg-pink-500/10' : ''}`}
+                      onClick={() => setTemplateText(current => current + '{' + name + '}')}
+                      className="rounded-full bg-zinc-200/70 px-2 py-0.5 text-[10px] font-semibold text-zinc-600 hover:bg-pink-500/15 hover:text-pink-600 dark:bg-white/10 dark:text-zinc-300"
                     >
-                      <div className={`font-medium truncate ${m.id === model ? 'text-pink-600 dark:text-pink-400' : ''}`}>
-                        {m.id}
-                      </div>
-                      {m.description && (
-                        <div className="text-[10px] text-zinc-500 truncate">{m.description}</div>
-                      )}
+                      {'{' + name + '}'}
                     </button>
                   ))}
                 </div>
-              )}
-              {!cfg.apiKey && (
-                <p className="text-[10px] text-zinc-500 mt-1">
-                  {t('coverRegen.noKeyHint') ||
-                    'Anonymous tier — slower, may include watermark. Set API key in the Pollinations panel.'}
-                </p>
-              )}
-            </div>
-
-            {/* Prompt — taller textarea on desktop since we have the room */}
-            <div>
-              <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                {t('coverRegen.prompt') || 'Prompt'}
-              </label>
-              <textarea
-                value={prompt}
-                onChange={e => setPrompt(e.target.value)}
-                rows={6}
-                className="w-full mt-1 bg-white dark:bg-black/40 border border-zinc-200 dark:border-white/10 rounded px-2 py-1.5 text-xs resize-none focus:outline-none focus:border-pink-500/60"
-                placeholder={t('coverRegen.promptPlaceholder') || 'Describe the cover image…'}
-              />
-            </div>
-
-            {/* Action buttons. Generate is the primary CTA, Upload is an
-                alternate path that bypasses Pollinations entirely. */}
-            <button
-              type="button"
-              onClick={handleGenerate}
-              disabled={generating || saving || !model || !prompt.trim()}
-              className="w-full px-3 py-2 text-xs font-medium bg-pink-600 hover:bg-pink-700 disabled:bg-zinc-400 dark:disabled:bg-zinc-700 disabled:cursor-not-allowed text-white rounded transition-colors flex items-center justify-center gap-2"
-            >
-              {generating
-                ? (<><Loader2 size={12} className="animate-spin" />{t('coverRegen.generating') || 'Generating…'}</>)
-                : history.length > 0
-                  ? (<><RefreshCw size={12} />{t('coverRegen.tryAgain') || 'Try again'}</>)
-                  : (<><Sparkles size={12} />{t('coverRegen.generate') || 'Generate'}</>)
-              }
-            </button>
-
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={generating || saving}
-              title={t('coverRegen.uploadTooltip') || 'Upload your own image (JPEG/PNG/WEBP, max 10MB)'}
-              className="w-full px-3 py-2 text-xs font-medium bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-white/10 rounded transition-colors flex items-center justify-center gap-1.5"
-            >
-              <Upload size={12} />
-              {t('coverRegen.upload') || 'Upload'}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={e => {
-                const file = e.target.files?.[0];
-                // Reset value so picking the same file twice still fires onChange.
-                e.target.value = '';
-                if (file) handleUploadFile(file);
-              }}
-            />
-
-            {error && (
-              <p className="text-xs text-red-500 px-1">{error}</p>
-            )}
-          </div>
-
-          {/* RIGHT — preview column. Big square preview that scales to fill
-              the available space, with a history strip pinned at the bottom. */}
-          <div className="flex-1 p-4 flex flex-col gap-3 md:overflow-hidden bg-zinc-50/50 dark:bg-black/20">
-            {/* Big preview — flex-1 + min-h-0 lets it actually shrink to fit
-                the modal height instead of overflowing on small viewports. */}
-            <div className="flex-1 min-h-0 flex items-center justify-center">
-              {current ? (
-                <div className="relative aspect-square h-full max-h-full max-w-full bg-zinc-100 dark:bg-black/40 rounded-lg overflow-hidden border border-zinc-200 dark:border-white/5 shadow-sm">
-                  <img
-                    src={current.url}
-                    alt="Generated cover"
-                    className="w-full h-full object-cover"
-                  />
-                  {/* Generating-overlay so iterating ("Try again") doesn't make
-                      the user stare at a blank canvas while keeping context. */}
-                  {generating && (
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[2px]">
-                      <Loader2 size={32} className="animate-spin text-white" />
-                    </div>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const id = templateId || 'custom-' + Date.now().toString(36);
+                      const name = templates.find(entry => entry.id === templateId)?.name || t('coverPromptMyStyle');
+                      const next = templates.some(entry => entry.id === id)
+                        ? templates.map(entry => (entry.id === id ? { ...entry, template: templateText } : entry))
+                        : [...templates, { id, name, template: templateText }];
+                      setTemplateId(id);
+                      void saveTemplates(next);
+                    }}
+                    disabled={!templateText.trim()}
+                    className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50 dark:bg-white dark:text-zinc-900"
+                  >
+                    {t('coverPromptSaveTemplate')}
+                  </button>
+                  {templateId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void saveTemplates(templates.filter(entry => entry.id !== templateId));
+                        setTemplateId('');
+                        setTemplateText('');
+                      }}
+                      className="rounded-lg px-3 py-1.5 text-xs font-semibold text-zinc-500 hover:text-rose-600"
+                    >
+                      {t('coverPromptDeleteTemplate')}
+                    </button>
                   )}
                 </div>
-              ) : (
-                <div className="aspect-square h-full max-h-full max-w-full rounded-lg border border-dashed border-zinc-300 dark:border-white/10 flex flex-col items-center justify-center text-xs text-zinc-500 gap-2 p-6 text-center">
-                  {generating ? (
-                    <>
-                      <Loader2 size={32} className="animate-spin text-pink-500" />
-                      <span>{t('coverRegen.generating') || 'Generating…'}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles size={32} className="text-zinc-400" />
-                      <span>{t('coverRegen.noPreviewYet') || 'Press Generate or Upload to start'}</span>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Caption + history strip — only rendered when we have something */}
-            {current && (
-              <div className="flex-shrink-0 space-y-2">
-                <p className="text-[10px] text-zinc-500 text-center truncate">
-                  {current.model}
-                  {current.seed > 0 ? ` · seed ${current.seed}` : ''}
-                </p>
-                {history.length > 1 && (
-                  <div className="grid grid-cols-6 gap-1.5">
-                    {history.map((h, i) => (
-                      <button
-                        key={h.url}
-                        type="button"
-                        onClick={() => setSelectedIdx(i)}
-                        className={`aspect-square rounded overflow-hidden border-2 transition-colors
-                          ${i === selectedIdx
-                            ? 'border-pink-500'
-                            : 'border-transparent hover:border-zinc-300 dark:hover:border-white/10'}`}
-                      >
-                        <img src={h.url} alt={`Variant ${i + 1}`} className="w-full h-full object-cover" />
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
             )}
+
+            {/* The prompt is the work here, so it gets the room: ten lines,
+                and the user can drag it taller still. */}
+            <textarea
+              value={prompt}
+              onChange={event => setPrompt(event.target.value)}
+              rows={10}
+              className={`${CONTROL} mt-2 min-h-[220px] resize-y font-mono text-[13px] leading-5`}
+            />
+            <button
+              type="button"
+              onClick={() => void generate()}
+              disabled={!canGenerate || busy !== null || !prompt.trim()}
+              className="mt-2 inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-pink-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {busy === 'generate' ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} {t('generate')}
+            </button>
           </div>
+
+          {error && (
+            <p role="alert" className="flex items-center gap-2 rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-700 dark:text-rose-300">
+              <AlertTriangle size={14} /> {error}
+            </p>
+          )}
         </div>
 
-        {/* Footer — Save action only enabled when there's something to save */}
-        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-zinc-200 dark:border-white/5 flex-shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="px-3 py-1.5 text-xs rounded border border-zinc-200 dark:border-white/10 hover:bg-zinc-100 dark:hover:bg-white/5 disabled:opacity-50"
-          >
-            {t('coverRegen.cancel') || 'Cancel'}
+        <div className="flex justify-end gap-2 border-t border-zinc-200 px-5 py-4 dark:border-white/10">
+          <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200">
+            {t('cancel')}
           </button>
           <button
             type="button"
-            onClick={handleSave}
-            disabled={!current || saving || generating}
-            className="px-3 py-1.5 text-xs rounded bg-pink-600 hover:bg-pink-700 disabled:bg-zinc-400 dark:disabled:bg-zinc-700 disabled:cursor-not-allowed text-white flex items-center gap-1.5 transition-colors"
+            onClick={() => void save()}
+            disabled={!preview || busy !== null}
+            className="inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-50 dark:bg-white dark:text-zinc-900"
           >
-            {saving
-              ? (<><Loader2 size={12} className="animate-spin" />{t('coverRegen.saving') || 'Saving…'}</>)
-              : (<><Save size={12} />{t('coverRegen.saveAsCover') || 'Save as cover'}</>)
-            }
+            {busy === 'save' ? <Loader2 size={14} className="animate-spin" /> : null} {t('saveCover')}
           </button>
         </div>
       </div>
+      {zoomed && (preview?.dataUrl || song.coverUrl) && (
+        <ImageLightbox src={(preview?.dataUrl || song.coverUrl) as string} alt={song.title} onClose={() => setZoomed(false)} />
+      )}
     </div>
   );
 };

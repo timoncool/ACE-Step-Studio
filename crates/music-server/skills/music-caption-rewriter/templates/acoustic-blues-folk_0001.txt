@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 125. key is F, and scale is minor. Acoustic Blues / Folk.
+Global Emotional Progression: The piece opens with a solitary, introspective mood established by the instrumental introduction, maintaining a consistent atmosphere of wistful longing throughout. The emotional intensity remains restrained and intimate from verse to verse, relying on vocal nuance rather than dynamic shifts, before gently receding into a quiet, unresolved conclusion that mirrors the song's thematic yearning.
+Application Scenarios & Imagery: A solitary figure sitting on a porch at dusk, a quiet moment of reflection in a rustic cabin, or a soundtrack for a documentary focusing on migration or seasonal change.
+Sonics & Production Profile: The soundstage is narrow and focused, creating an intimate "room-tone" feel. The frequency response is warm and mid-range heavy, emphasizing the natural resonance of the acoustic instrument and the body of the voice, while lacking bright high-end sheen or deep sub-bass extension. The dynamic aesthetic is organic and uncompressed, preserving the natural attack and decay of the performance.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Male). The vocalist possesses a deep, gravelly baritone texture with a weathered, resonant quality that conveys age and experience.
+Vocal Style: The delivery is soulful and narrative-driven, characterized by a relaxed, almost conversational phrasing that occasionally stretches notes with a bluesy inflection. The performance remains consistently emotive and grounded, using subtle dynamic swells to emphasize key lyrical moments without resorting to belting or aggressive techniques.
+Harmony/Backing Vocals: No harmony or backing vocals are present; the track features a strictly monophonic vocal line.
+Vocal FX: The vocal is treated with minimal processing, retaining a raw, dry character with only a touch of natural room ambience to enhance intimacy.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: A solo acoustic guitar serves as the sole harmonic and melodic foundation, utilizing a fingerstyle technique that weaves bass lines, chords, and melodic fills simultaneously. It is present continuously from the Intro through to the Outro.
+Secondary: No secondary instruments are introduced; the arrangement relies entirely on the interplay between the single guitar and the voice.
+Groove & Foundation Progression: There is no percussion or drum kit present. The rhythmic drive is generated exclusively by the syncopated fingerpicking pattern of the acoustic guitar, which maintains a steady, hypnotic pulse throughout the track without variation in tempo or complexity.
+Embellishments, Textures & Spatial FX: The arrangement is devoid of non-continuous embellishments, synth pads, or transitional sound effects. The texture is defined by the natural sustain of the guitar strings and the subtle ambient noise of the recording space, creating a stark, unadorned sonic landscape.

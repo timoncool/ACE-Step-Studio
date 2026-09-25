@@ -1,1189 +1,1206 @@
-import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
-import {
-  Database, Play, Square, Download, FolderOpen, Save, Loader2, Music2,
-  Edit3, Upload, X, Volume2, FileAudio, ChevronRight, Zap, Search,
-  Cpu, Wand2, Settings, RefreshCw,
-} from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, BookOpen, Check, CheckSquare, ChevronDown, Clock, ChevronLeft, ChevronRight, Cpu, Download, FolderInput, FolderOpen, FolderOutput, Headphones, Library, Loader2, Mic2, MoreHorizontal, Music, Play, Plus, RotateCcw, Search, Square, Trash2, UploadCloud, Wand2, X } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
-import { trainingApi, getTrainingAudioUrl, TrainingSample, DatasetSettings } from '../services/api';
+import { ConfirmDialog } from './ConfirmDialog';
+import { StemPlayer } from './StemPlayer';
+import { TrainingGuide } from './TrainingGuide';
+import {
+  Dataset,
+  DatasetItem,
+  FieldCondition,
+  PickedFile,
+  PrepareRequest,
+  PrepareStatus,
+  Recipe,
+  RecipeField,
+  TrainingRun,
+  TrainingState,
+  addLibrarySongs,
+  addPicked,
+  cancelPrepare,
+  cancelRun,
+  continueRun,
+  cancelTrainingPack,
+  clock,
+  createDataset,
+  deleteDataset,
+  deleteItem,
+  deleteRun,
+  describeItem,
+  fetchTraining,
+  gigabytes,
+  importDataset,
+  installCheckpoint,
+  installListenPack,
+  installTrainingPack,
+  nameFromPicked,
+  pickedFromDrop,
+  pickedFromInput,
+  prepareDataset,
+  revealDataset,
+  setTrainAfter,
+  startRun,
+  updateDataset,
+  updateItem,
+  usable,
+} from '../services/training';
 
-type TrainingTab = 'dataset' | 'train' | 'export';
+/**
+ * Training a LoRA on the user's own songs: the optional pack, a dataset of
+ * songs with their style and lyrics, a recipe, and runs whose checkpoints go
+ * straight to the LoRA library.
+ */
 
-interface DataframeRow {
-  [key: string]: unknown;
+const CARD = 'rounded-2xl border border-zinc-200 bg-zinc-50 p-4 dark:border-white/10 dark:bg-white/[0.03]';
+const CONTROL =
+  'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-pink-500 disabled:opacity-50 dark:border-white/10 dark:bg-black/30 dark:text-white';
+const OUTLINE =
+  'inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:border-pink-400 hover:text-pink-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-zinc-200';
+const PRIMARY =
+  'inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-pink-600 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50';
+const LABEL = 'text-[11px] font-bold uppercase tracking-wide text-zinc-500';
+
+const HINT = 'mt-1 text-[11px] leading-4 text-zinc-500';
+
+/** A number typed freely: the text is kept as typed, a value inside the bounds
+ * is taken at once, and leaving the field brings it inside them. */
+const NumberField: React.FC<{ label: string; value: number; onChange: (value: number) => void; min?: number; max?: number; step?: number; integer?: boolean; disabled?: boolean; hint?: string }> = ({ label, value, onChange, min, max, step, integer, disabled, hint }) => {
+  const [text, setText] = useState(String(value));
+  useEffect(() => {
+    setText(current => (Number(current) === value && current.trim() !== '' ? current : String(value)));
+  }, [value]);
+  const inside = (next: number) => (min === undefined || next >= min) && (max === undefined || next <= max);
+  const settle = () => {
+    const parsed = Number(text);
+    if (text.trim() === '' || !Number.isFinite(parsed)) {
+      setText(String(value));
+      return;
+    }
+    const bounded = Math.min(max ?? parsed, Math.max(min ?? parsed, integer ? Math.round(parsed) : parsed));
+    setText(String(bounded));
+    if (bounded !== value) onChange(bounded);
+  };
+  return (
+    <label className="block">
+      <span className={LABEL}>{label}</span>
+      <input
+        type="number"
+        value={text}
+        min={min}
+        max={max}
+        step={step}
+        disabled={disabled}
+        onChange={event => {
+          setText(event.target.value);
+          const next = Number(event.target.value);
+          if (event.target.value.trim() !== '' && Number.isFinite(next) && inside(next) && (!integer || Number.isInteger(next))) onChange(next);
+        }}
+        onBlur={settle}
+        className={`${CONTROL} mt-1`}
+      />
+      {hint && <span className={`block ${HINT}`}>{hint}</span>}
+    </label>
+  );
+};
+
+const Choice = <T extends string>({ label, value, options, onChange }: { label: string; value: T; options: { value: T; label: string }[]; onChange: (value: T) => void }) => (
+  <label className="block">
+    <span className={LABEL}>{label}</span>
+    <select value={value} onChange={event => onChange(event.target.value as T)} className={`${CONTROL} mt-1`}>
+      {options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+    </select>
+  </label>
+);
+
+/** Every setting of a run, as the engine lists them, starting from its recipe. */
+const RecipeForm: React.FC<{ recipe: Recipe; defaults: Recipe; fields: RecipeField[]; onChange: (recipe: Recipe) => void; only?: string[]; except?: string[] }> = ({ recipe, defaults, fields, onChange, only, except }) => {
+  const { tt } = useStrings();
+  const holds = (condition?: FieldCondition) => condition !== undefined && condition.values.includes(String(recipe[condition.field]));
+  const groups: string[] = [];
+  for (const field of fields) {
+    const wanted = (!only || only.includes(field.group)) && !except?.includes(field.group);
+    if (wanted && !groups.includes(field.group)) groups.push(field.group);
+  }
+  const changed = JSON.stringify(recipe) !== JSON.stringify(defaults);
+  const control = (field: RecipeField) => {
+    const label = tt(`trainingField_${field.key}`);
+    const off = holds(field.off_when);
+    const hint = off ? tt(`trainingHint_${field.key}_off`) : undefined;
+    const value = recipe[field.key];
+    if (field.kind === 'toggle') {
+      return (
+        <label key={field.key} className="flex items-center gap-2 pb-2 text-sm text-zinc-700 dark:text-zinc-200">
+          <input type="checkbox" checked={value === true} onChange={event => onChange({ ...recipe, [field.key]: event.target.checked })} className="accent-pink-500" />
+          {label}
+        </label>
+      );
+    }
+    if (field.kind === 'choice') {
+      return (
+        <React.Fragment key={field.key}>
+          <Choice
+            label={label}
+            value={String(value)}
+            options={(field.choices ?? []).map(choice => ({ value: choice, label: tt(`trainingChoice_${choice}`) }))}
+            onChange={next => onChange({ ...recipe, [field.key]: next })}
+          />
+        </React.Fragment>
+      );
+    }
+    return (
+      <NumberField
+        key={field.key}
+        label={label}
+        value={Number(value)}
+        min={field.min}
+        max={field.max}
+        step={field.step}
+        integer={field.kind === 'integer'}
+        disabled={off}
+        hint={hint}
+        onChange={next => onChange({ ...recipe, [field.key]: next })}
+      />
+    );
+  };
+  return (
+    <div className="mt-3 space-y-4">
+      {groups.map(group => {
+        const shown = fields.filter(field => field.group === group && (field.shown_when === undefined || holds(field.shown_when)));
+        const hints = shown.map(field => ({ key: field.key, text: tt(`trainingHint_${field.key}`) })).filter(entry => entry.text !== `trainingHint_${entry.key}`);
+        return (
+          <div key={group}>
+            <p className={LABEL}>{tt(`trainingGroup_${group}`)}</p>
+            <div className="mt-1.5 grid items-end gap-2 sm:grid-cols-4">{shown.map(control)}</div>
+            {hints.map(entry => <p key={entry.key} className={HINT}>{entry.text}</p>)}
+          </div>
+        );
+      })}
+      {changed && (
+        <button type="button" onClick={() => onChange(defaults)} className={OUTLINE}>{tt('trainingResetRecipe')}</button>
+      )}
+    </div>
+  );
+};
+
+function useStrings() {
+  const { t, language } = useI18n();
+  const tt = t as unknown as (key: string) => string;
+  // "1 song", "3 песни", "61 песня": the form each language asks for
+  const songs = (count: number) => tt(`trainingSongs_${new Intl.PluralRules(language).select(count)}`).replace('{count}', String(count));
+  return { t, tt, songs };
 }
 
-const LANGUAGES = [
-  { value: 'instrumental', label: 'Instrumental' },
-  { value: 'en', label: 'English' },
-  { value: 'zh', label: 'Chinese' },
-  { value: 'ja', label: 'Japanese' },
-  { value: 'ko', label: 'Korean' },
-  { value: 'es', label: 'Spanish' },
-  { value: 'fr', label: 'French' },
-  { value: 'de', label: 'German' },
-  { value: 'pt', label: 'Portuguese' },
-  { value: 'ru', label: 'Russian' },
-  { value: 'unknown', label: 'Unknown' },
-];
+const errorText = (problem: unknown) => (problem instanceof Error ? problem.message : String(problem));
 
-const TIME_SIGS = ['', '2', '3', '4', '6', 'N/A'];
-
-const DEVICES = ['auto', 'cuda', 'mps', 'xpu', 'cpu'];
-const BACKENDS = ['pt', 'vllm', 'mlx'];
-
-// Pipeline step definitions
-const PIPELINE_STEPS = [
-  { key: 'upload', label: 'Upload', icon: Upload },
-  { key: 'edit', label: 'Edit', icon: Edit3 },
-  { key: 'save', label: 'Save', icon: Save },
-  { key: 'preprocess', label: 'Preprocess', icon: Zap },
-  { key: 'train', label: 'Train', icon: Play },
-  { key: 'export', label: 'Export', icon: Download },
-] as const;
-
-type PipelineStepKey = typeof PIPELINE_STEPS[number]['key'];
-
-export const TrainingPanel: React.FC = () => {
-  const { token } = useAuth();
-  const { t } = useI18n();
-
-  const [activeTab, setActiveTab] = useState<TrainingTab>('dataset');
-
-  // Pipeline completion tracking
-  const [completedSteps, setCompletedSteps] = useState<Set<PipelineStepKey>>(new Set());
-
-  // Model / Service config state
-  const [showModelConfig, setShowModelConfig] = useState(false);
-  const [modelCheckpoints, setModelCheckpoints] = useState<string[]>([]);
-  const [modelConfigs, setModelConfigs] = useState<string[]>([]);
-  const [selectedCheckpoint, setSelectedCheckpoint] = useState('');
-  const [selectedConfig, setSelectedConfig] = useState('');
-  const [selectedDevice, setSelectedDevice] = useState('auto');
-  const [selectedBackend, setSelectedBackend] = useState('pt');
-  const [initLlm, setInitLlm] = useState(false);
-  const [lmModelPath, setLmModelPath] = useState('');
-  const [useFlashAttention, setUseFlashAttention] = useState(false);
-  const [offloadToCpu, setOffloadToCpu] = useState(false);
-  const [offloadDitToCpu, setOffloadDitToCpu] = useState(false);
-  const [compileModel, setCompileModel] = useState(false);
-  const [quantization, setQuantization] = useState(false);
-  const [modelInitStatus, setModelInitStatus] = useState('');
-  const [modelInitializing, setModelInitializing] = useState(false);
-
-  // Upload state
-  const [queuedFiles, setQueuedFiles] = useState<File[]>([]);
-  const [uploadDatasetName, setUploadDatasetName] = useState('my_lora_dataset');
-  const [uploading, setUploading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState('');
-  const [isDragOver, setIsDragOver] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Scan directory state
-  const [scanDir, setScanDir] = useState('');
-  const [scanning, setScanning] = useState(false);
-  const [scanStatus, setScanStatus] = useState('');
-
-  // Dataset state
-  const [datasetPath, setDatasetPath] = useState('./datasets/my_lora_dataset.json');
-  const [datasetLoaded, setDatasetLoaded] = useState(false);
-  const [datasetLoading, setDatasetLoading] = useState(false);
-  const [sampleCount, setSampleCount] = useState(0);
-  const [currentSampleIdx, setCurrentSampleIdx] = useState(0);
-  const [currentSample, setCurrentSample] = useState<TrainingSample | null>(null);
-  const [datasetSettings, setDatasetSettings] = useState<DatasetSettings>({
-    datasetName: 'my_lora_dataset',
-    customTag: '',
-    tagPosition: 'replace',
-    allInstrumental: true,
-    genreRatio: 0,
-  });
-  const [datasetStatus, setDatasetStatus] = useState('');
-
-  // Dataset table state
-  const [dataframeHeaders, setDataframeHeaders] = useState<string[]>([]);
-  const [dataframeRows, setDataframeRows] = useState<DataframeRow[]>([]);
-
-  // Auto-label state
-  const [autoLabeling, setAutoLabeling] = useState(false);
-  const [autoLabelStatus, setAutoLabelStatus] = useState('');
-  const [skipMetas, setSkipMetas] = useState(false);
-  const [formatLyrics, setFormatLyrics] = useState(false);
-  const [transcribeLyrics, setTranscribeLyrics] = useState(false);
-  const [onlyUnlabeled, setOnlyUnlabeled] = useState(false);
-
-  // Editing sample state
-  const [editCaption, setEditCaption] = useState('');
-  const [editGenre, setEditGenre] = useState('');
-  const [editPromptOverride, setEditPromptOverride] = useState('Use Global Ratio');
-  const [editLyrics, setEditLyrics] = useState('');
-  const [editBpm, setEditBpm] = useState(120);
-  const [editKey, setEditKey] = useState('');
-  const [editTimeSig, setEditTimeSig] = useState('');
-  const [editDuration, setEditDuration] = useState(0);
-  const [editLanguage, setEditLanguage] = useState('instrumental');
-  const [editInstrumental, setEditInstrumental] = useState(true);
-  const [editRawLyrics, setEditRawLyrics] = useState('');
-
-  // Dataset save state
-  const [savePath, setSavePath] = useState('./datasets/my_lora_dataset.json');
-  const [saveStatus, setSaveStatus] = useState('');
-  const [editSaveStatus, setEditSaveStatus] = useState('');
-
-  // Preprocess state — has its own load-existing-dataset sub-section (matches Gradio)
-  const [preprocessDatasetPath, setPreprocessDatasetPath] = useState('./datasets/my_lora_dataset.json');
-  const [preprocessDatasetLoading, setPreprocessDatasetLoading] = useState(false);
-  const [preprocessDatasetStatus, setPreprocessDatasetStatus] = useState('');
-  const [preprocessOutputDir, setPreprocessOutputDir] = useState('./datasets/preprocessed_tensors');
-  const [preprocessing, setPreprocessing] = useState(false);
-  const [preprocessStatus, setPreprocessStatus] = useState('');
-
-  // Training state
-  const [trainingParams, setTrainingParams] = useState({
-    tensorDir: './datasets/preprocessed_tensors',
-    rank: 64,
-    alpha: 128,
-    dropout: 0.1,
-    learningRate: 0.0003,
-    epochs: 1000,
-    batchSize: 1,
-    gradientAccumulation: 1,
-    saveEvery: 200,
-    shift: 3.0,
-    seed: 42,
-    outputDir: './lora_output',
-    resumeCheckpoint: '' as string,
-  });
-  const [isTraining, setIsTraining] = useState(false);
-  const [trainingProgress, setTrainingProgress] = useState('');
-  const [trainingLog, setTrainingLog] = useState('');
-  const [trainingMetrics, setTrainingMetrics] = useState<unknown>(null);
-  const [trainingDatasetInfo, setTrainingDatasetInfo] = useState('');
-
-  // Export state
-  const [exportPath, setExportPath] = useState('./lora_output/final_lora');
-  const [exportOutputDir, setExportOutputDir] = useState('./lora_output');
-  const [exportStatus, setExportStatus] = useState('');
-
-  // Loading states
-  const [saving, setSaving] = useState(false);
-  const [exporting, setExporting] = useState(false);
-
-  // Audio preview URL
-  const audioPreviewUrl = useMemo(() => {
-    if (!currentSample?.audio) return undefined;
-    return getTrainingAudioUrl(currentSample.audio);
-  }, [currentSample?.audio]);
-
-  const markStep = useCallback((step: PipelineStepKey) => {
-    setCompletedSteps(prev => new Set([...prev, step]));
-  }, []);
-
-  const populateSampleFields = (sample: TrainingSample) => {
-    setEditCaption(sample.caption || '');
-    setEditGenre(sample.genre || '');
-    setEditPromptOverride(sample.promptOverride || 'Use Global Ratio');
-    setEditLyrics(sample.lyrics || '');
-    setEditBpm(sample.bpm || 120);
-    setEditKey(sample.key || '');
-    setEditTimeSig(sample.timeSignature || '');
-    setEditDuration(sample.duration || 0);
-    setEditLanguage(sample.language || 'instrumental');
-    setEditInstrumental(sample.instrumental ?? true);
-    setEditRawLyrics(sample.rawLyrics || '');
-  };
-
-  // Parse dataframe from Gradio response
-  const parseDataframe = (df: unknown) => {
-    if (!df || typeof df !== 'object') return;
-    const dfObj = df as { headers?: string[]; data?: unknown[][] };
-    if (dfObj.headers && Array.isArray(dfObj.data)) {
-      setDataframeHeaders(dfObj.headers);
-      setDataframeRows(dfObj.data.map(row => {
-        const obj: DataframeRow = {};
-        dfObj.headers!.forEach((h, i) => { obj[h] = row[i]; });
-        return obj;
-      }));
-    }
-  };
-
-  // Load checkpoints on mount
-  useEffect(() => {
-    if (!token) return;
-    trainingApi.getCheckpoints(token).then(result => {
-      setModelCheckpoints(result.checkpoints);
-      setModelConfigs(result.configs);
-      if (result.checkpoints.length > 0 && !selectedCheckpoint) {
-        setSelectedCheckpoint(result.checkpoints[0]);
-      }
-      if (result.configs.length > 0 && !selectedConfig) {
-        setSelectedConfig(result.configs[0]);
-      }
-    }).catch(() => { /* ignore */ });
-  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // === Model init ===
-  const handleRefreshCheckpoints = useCallback(async () => {
-    if (!token) return;
-    try {
-      const result = await trainingApi.getCheckpoints(token);
-      setModelCheckpoints(result.checkpoints);
-      setModelConfigs(result.configs);
-    } catch { /* ignore */ }
-  }, [token]);
-
-  const handleInitModel = useCallback(async () => {
-    if (!token) return;
-    setModelInitializing(true);
-    setModelInitStatus(t('initializingModel'));
-    try {
-      const result = await trainingApi.initModel({
-        checkpoint: selectedCheckpoint,
-        configPath: selectedConfig,
-        device: selectedDevice,
-        initLlm,
-        lmModelPath,
-        backend: selectedBackend,
-        useFlashAttention,
-        offloadToCpu,
-        offloadDitToCpu,
-        compileModel,
-        quantization,
-      }, token);
-      setModelInitStatus(result.status || result.error || '');
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Failed';
-      setModelInitStatus(msg.includes('501') ? 'Use Gradio UI to initialize model' : msg);
-    } finally {
-      setModelInitializing(false);
-    }
-  }, [token, selectedCheckpoint, selectedConfig, selectedDevice, initLlm, lmModelPath, selectedBackend, useFlashAttention, offloadToCpu, offloadDitToCpu, compileModel, quantization]);
-
-  // === Drop zone handlers ===
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
-    const files = Array.from(e.dataTransfer.files).filter((f: File) => {
-      const ext = f.name.toLowerCase().split('.').pop();
-      return ['wav', 'mp3', 'flac', 'ogg', 'opus'].includes(ext || '');
-    });
-    if (files.length > 0) {
-      setQueuedFiles(prev => [...prev, ...files]);
-    }
-  }, []);
-
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setQueuedFiles(prev => [...prev, ...Array.from(e.target.files!)]);
-    }
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  }, []);
-
-  const removeQueuedFile = useCallback((idx: number) => {
-    setQueuedFiles(prev => prev.filter((_, i) => i !== idx));
-  }, []);
-
-  // === Upload + Build Dataset ===
-  const handleUploadAndBuild = useCallback(async () => {
-    if (!token || queuedFiles.length === 0) return;
-    setUploading(true);
-    setUploadStatus('Uploading files...');
-    try {
-      await trainingApi.uploadAudio(queuedFiles, uploadDatasetName, token);
-      setUploadStatus(`Uploaded ${queuedFiles.length} files. Building dataset...`);
-      const result = await trainingApi.buildDataset({
-        datasetName: uploadDatasetName,
-        customTag: datasetSettings.customTag,
-        tagPosition: datasetSettings.tagPosition,
-        allInstrumental: datasetSettings.allInstrumental,
-      }, token);
-      setDatasetLoaded(true);
-      setSampleCount(result.sampleCount);
-      setCurrentSampleIdx(0);
-      if (result.sample) {
-        setCurrentSample(result.sample);
-        populateSampleFields(result.sample);
-      }
-      if (result.settings) setDatasetSettings(result.settings);
-      if (result.dataframe) parseDataframe(result.dataframe);
-      const dp = result.datasetPath || `./datasets/${uploadDatasetName}.json`;
-      setDatasetPath(dp);
-      setSavePath(dp);
-      setDatasetStatus(result.status as string);
-      setQueuedFiles([]);
-      markStep('upload');
-      setUploadStatus('');
-    } catch (error) {
-      setUploadStatus(`Error: ${error instanceof Error ? error.message : 'Upload failed'}`);
-    } finally {
-      setUploading(false);
-    }
-  }, [token, queuedFiles, uploadDatasetName, datasetSettings, markStep]);
-
-  // === Scan directory ===
-  const handleScanDirectory = useCallback(async () => {
-    if (!token || !scanDir) return;
-    setScanning(true);
-    setScanStatus('Scanning...');
-    try {
-      const result = await trainingApi.scanDirectory({
-        audioDir: scanDir,
-        datasetName: datasetSettings.datasetName,
-        customTag: datasetSettings.customTag,
-        tagPosition: datasetSettings.tagPosition,
-        allInstrumental: datasetSettings.allInstrumental,
-      }, token);
-      setScanStatus(result.status);
-      setSampleCount(result.sampleCount);
-      if (result.dataframe) parseDataframe(result.dataframe);
-    } catch (error) {
-      setScanStatus(`Error: ${error instanceof Error ? error.message : 'Scan failed'}`);
-    } finally {
-      setScanning(false);
-    }
-  }, [token, scanDir, datasetSettings]);
-
-  // === Load existing dataset ===
-  const handleLoadDataset = useCallback(async () => {
-    if (!token || !datasetPath) return;
-    setDatasetLoading(true);
-    setDatasetStatus(t('loadingDataset'));
-    try {
-      const result = await trainingApi.loadDataset(datasetPath, token);
-      setDatasetLoaded(true);
-      setSampleCount(result.sampleCount);
-      setCurrentSampleIdx(0);
-      setCurrentSample(result.sample);
-      populateSampleFields(result.sample);
-      setDatasetSettings(result.settings);
-      parseDataframe(result.dataframe);
-      setDatasetStatus(result.status as string);
-      setSavePath(datasetPath);
-      markStep('upload');
-    } catch (error) {
-      setDatasetStatus(`${t('error')}: ${error instanceof Error ? error.message : 'Failed'}`);
-    } finally {
-      setDatasetLoading(false);
-    }
-  }, [token, datasetPath, t, markStep]);
-
-  // === Auto-label ===
-  const handleAutoLabel = useCallback(async () => {
-    if (!token) return;
-    setAutoLabeling(true);
-    setAutoLabelStatus(t('autoLabeling'));
-    try {
-      const result = await trainingApi.autoLabel({
-        skipMetas,
-        formatLyrics,
-        transcribeLyrics,
-        onlyUnlabeled,
-      }, token);
-      if (result.dataframe) parseDataframe(result.dataframe);
-      setAutoLabelStatus(result.status || result.hint || '');
-      // Refresh current sample
-      if (token && sampleCount > 0) {
-        const sample = await trainingApi.getSamplePreview(currentSampleIdx, token);
-        setCurrentSample(sample);
-        populateSampleFields(sample);
-      }
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Failed';
-      setAutoLabelStatus(msg.includes('501') ? 'Auto-label requires model loaded in Gradio UI' : msg);
-    } finally {
-      setAutoLabeling(false);
-    }
-  }, [token, skipMetas, formatLyrics, transcribeLyrics, onlyUnlabeled, sampleCount, currentSampleIdx, t]);
-
-  // === Sample navigation ===
-  const handleSampleNavigate = useCallback(async (idx: number) => {
-    if (!token || idx < 0 || idx >= sampleCount) return;
-    setCurrentSampleIdx(idx);
-    try {
-      const sample = await trainingApi.getSamplePreview(idx, token);
-      setCurrentSample(sample);
-      populateSampleFields(sample);
-    } catch (error) {
-      console.error('Failed to load sample:', error);
-    }
-  }, [token, sampleCount]);
-
-  // === Save sample ===
-  const handleSaveSample = useCallback(async () => {
-    if (!token) return;
-    setSaving(true);
-    try {
-      const result = await trainingApi.saveSample({
-        sampleIdx: currentSampleIdx,
-        caption: editCaption,
-        genre: editGenre,
-        promptOverride: editPromptOverride,
-        lyrics: editLyrics,
-        bpm: editBpm,
-        key: editKey,
-        timeSignature: editTimeSig,
-        language: editLanguage,
-        instrumental: editInstrumental,
-      }, token);
-      if (result.dataframe) parseDataframe(result.dataframe);
-      setEditSaveStatus(result.status as string);
-      markStep('edit');
-    } catch (error) {
-      setEditSaveStatus(`${t('error')}: ${error instanceof Error ? error.message : 'Failed'}`);
-    } finally {
-      setSaving(false);
-    }
-  }, [token, currentSampleIdx, editCaption, editGenre, editPromptOverride, editLyrics, editBpm, editKey, editTimeSig, editLanguage, editInstrumental, t, markStep]);
-
-  // === Update settings ===
-  const handleUpdateSettings = useCallback(async () => {
-    if (!token) return;
-    try {
-      await trainingApi.updateSettings({
-        customTag: datasetSettings.customTag,
-        tagPosition: datasetSettings.tagPosition,
-        allInstrumental: datasetSettings.allInstrumental,
-        genreRatio: datasetSettings.genreRatio,
-      }, token);
-      setDatasetStatus('Settings updated');
-    } catch (error) {
-      setDatasetStatus(`${t('error')}: ${error instanceof Error ? error.message : 'Failed'}`);
-    }
-  }, [token, datasetSettings, t]);
-
-  // === Save dataset ===
-  const handleSaveDataset = useCallback(async () => {
-    if (!token) return;
-    setSaving(true);
-    setSaveStatus(t('savingDataset'));
-    try {
-      const result = await trainingApi.saveDataset({
-        savePath: savePath || `./datasets/${datasetSettings.datasetName}.json`,
-        datasetName: datasetSettings.datasetName,
-        customTag: datasetSettings.customTag,
-        tagPosition: datasetSettings.tagPosition,
-        allInstrumental: datasetSettings.allInstrumental,
-        genreRatio: datasetSettings.genreRatio,
-      }, token);
-      setSaveStatus(result.status as string);
-      if (result.path) setSavePath(result.path);
-      markStep('save');
-    } catch (error) {
-      setSaveStatus(`${t('error')}: ${error instanceof Error ? error.message : 'Failed'}`);
-    } finally {
-      setSaving(false);
-    }
-  }, [token, savePath, datasetSettings.datasetName, t, markStep]);
-
-  // === Load existing dataset for preprocessing (matches Gradio's load_existing_dataset_for_preprocess) ===
-  const handleLoadDatasetForPreprocess = useCallback(async () => {
-    if (!token) return;
-    setPreprocessDatasetLoading(true);
-    setPreprocessDatasetStatus('Loading dataset for preprocessing...');
-    try {
-      const result = await trainingApi.loadDataset(preprocessDatasetPath, token);
-      setPreprocessDatasetStatus(result.status || `Loaded ${result.sampleCount} samples`);
-      if (result.sampleCount) setSampleCount(result.sampleCount);
-      if (result.dataframe) parseDataframe(result.dataframe);
-    } catch (error) {
-      setPreprocessDatasetStatus(`Error: ${error instanceof Error ? error.message : 'Failed to load'}`);
-    } finally {
-      setPreprocessDatasetLoading(false);
-    }
-  }, [token, preprocessDatasetPath]);
-
-  // === Preprocess ===
-  const handlePreprocess = useCallback(async () => {
-    if (!token) return;
-    setPreprocessing(true);
-    setPreprocessStatus('Preprocessing...');
-    try {
-      const result = await trainingApi.preprocess({
-        datasetPath: preprocessDatasetPath || savePath || datasetPath,
-        outputDir: preprocessOutputDir,
-      }, token);
-      setPreprocessStatus(result.message || result.status);
-      markStep('preprocess');
-    } catch (error) {
-      setPreprocessStatus(`Error: ${error instanceof Error ? error.message : 'Preprocessing failed'}`);
-    } finally {
-      setPreprocessing(false);
-    }
-  }, [token, preprocessDatasetPath, savePath, datasetPath, preprocessOutputDir, markStep]);
-
-  // === Load tensors ===
-  const handleLoadTensors = useCallback(async () => {
-    if (!token) return;
-    try {
-      const result = await trainingApi.loadTensors(trainingParams.tensorDir, token);
-      setTrainingDatasetInfo(result.status);
-    } catch (error) {
-      setTrainingDatasetInfo(`Error: ${error instanceof Error ? error.message : 'Failed'}`);
-    }
-  }, [token, trainingParams.tensorDir]);
-
-  // === Training ===
-  const handleStartTraining = useCallback(async () => {
-    if (!token) return;
-    setIsTraining(true);
-    setTrainingProgress(t('startingTraining'));
-    setTrainingLog('');
-    setTrainingMetrics(null);
-    try {
-      const result = await trainingApi.startTraining({
-        ...trainingParams,
-        resumeCheckpoint: trainingParams.resumeCheckpoint || null,
-      }, token);
-      setTrainingProgress(result.progress as string);
-      setTrainingLog(result.log as string);
-      setTrainingMetrics(result.metrics);
-      markStep('train');
-    } catch (error) {
-      setTrainingProgress(`${t('error')}: ${error instanceof Error ? error.message : 'Failed'}`);
-    } finally {
-      setIsTraining(false);
-    }
-  }, [token, trainingParams, t, markStep]);
-
-  const handleStopTraining = useCallback(async () => {
-    if (!token) return;
-    try {
-      const result = await trainingApi.stopTraining(token);
-      setTrainingProgress(result.status as string);
-      setIsTraining(false);
-    } catch (error) {
-      console.error('Failed to stop training:', error);
-    }
-  }, [token]);
-
-  // === Export ===
-  const handleExportLora = useCallback(async () => {
-    if (!token) return;
-    setExporting(true);
-    setExportStatus('Exporting...');
-    try {
-      const result = await trainingApi.exportLora({
-        exportPath,
-        loraOutputDir: exportOutputDir,
-      }, token);
-      setExportStatus(result.status as string);
-      markStep('export');
-    } catch (error) {
-      setExportStatus(`${t('error')}: ${error instanceof Error ? error.message : 'Failed'}`);
-    } finally {
-      setExporting(false);
-    }
-  }, [token, exportPath, exportOutputDir, t, markStep]);
-
-  // === Loss chart ===
-  const lossChartSvg = useMemo(() => {
-    if (!trainingMetrics) return null;
-    let points: { step: number; loss: number }[] = [];
-    const m = trainingMetrics as any;
-    if (m?.data && Array.isArray(m.data)) {
-      points = m.data.map((row: unknown[]) => ({ step: Number(row[0]) || 0, loss: Number(row[1]) || 0 })).filter((p: { loss: number }) => p.loss > 0);
-    } else if (Array.isArray(m)) {
-      points = m.map((item: any, i: number) => ({ step: item.step ?? item.x ?? i, loss: item.loss ?? item.y ?? 0 })).filter((p: { loss: number }) => p.loss > 0);
-    }
-    if (points.length < 2) return null;
-    const width = 280, height = 100, pad = 4;
-    const minStep = Math.min(...points.map(p => p.step));
-    const maxStep = Math.max(...points.map(p => p.step));
-    const minLoss = Math.min(...points.map(p => p.loss));
-    const maxLoss = Math.max(...points.map(p => p.loss));
-    const rangeStep = maxStep - minStep || 1;
-    const rangeLoss = maxLoss - minLoss || 1;
-    const polyPoints = points.map(p => {
-      const x = pad + ((p.step - minStep) / rangeStep) * (width - 2 * pad);
-      const y = pad + (1 - (p.loss - minLoss) / rangeLoss) * (height - 2 * pad);
-      return `${x},${y}`;
-    }).join(' ');
-    return (
-      <svg width={width} height={height} className="w-full" viewBox={`0 0 ${width} ${height}`}>
-        <polyline points={polyPoints} fill="none" stroke="rgb(236 72 153)" strokeWidth="1.5" strokeLinejoin="round" />
-        <text x={pad} y={height - 2} fontSize="8" fill="rgb(113 113 122)" fontFamily="monospace">{minStep}</text>
-        <text x={width - pad} y={height - 2} fontSize="8" fill="rgb(113 113 122)" fontFamily="monospace" textAnchor="end">{maxStep}</text>
-        <text x={pad} y={10} fontSize="8" fill="rgb(113 113 122)" fontFamily="monospace">{minLoss.toFixed(4)}</text>
-      </svg>
-    );
-  }, [trainingMetrics]);
-
-  // Mutual exclusion: formatLyrics / transcribeLyrics
-  useEffect(() => {
-    if (formatLyrics && transcribeLyrics) setTranscribeLyrics(false);
-  }, [formatLyrics]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (transcribeLyrics && formatLyrics) setFormatLyrics(false);
-  }, [transcribeLyrics]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const tabs: { id: TrainingTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'dataset', label: t('datasetBuilder'), icon: <Database size={16} /> },
-    { id: 'train', label: t('trainLora'), icon: <Music2 size={16} /> },
-    { id: 'export', label: 'Export', icon: <Download size={16} /> },
-  ];
-
+/** The pack: what it holds, the requirements, and its download. */
+const PackCard: React.FC<{ state: TrainingState; onError: (message: string) => void; onChanged: () => void }> = ({ state, onError, onChanged }) => {
+  const { t } = useStrings();
+  const total = state.pack.reduce((sum, file) => sum + file.bytes, 0);
+  const missing = state.pack.filter(file => !file.installed).reduce((sum, file) => sum + file.bytes, 0);
+  const download = state.download && !state.download.done ? state.download : null;
+  const percent = download ? Math.min(100, (100 * download.downloaded_bytes) / Math.max(1, download.total_bytes)) : 0;
   return (
-    <div className="h-full w-full flex flex-col bg-zinc-50 dark:bg-suno-panel overflow-hidden">
-      {/* Header */}
-      <div className="px-4 pt-4 pb-2 flex-shrink-0">
-        <h2 className="text-lg font-bold text-zinc-900 dark:text-white">{t('loraTraining')}</h2>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{t('trainingDescription')}</p>
-      </div>
+    <section className={CARD}>
+      <p className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-white"><Download size={16} className="text-pink-500" />{t('trainingSetupTitle')}</p>
+      <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{t('trainingSetupNeeds').replace('{size}', gigabytes(total)).replace('{vram}', String(state.min_vram_gb))}</p>
+      <ul className="mt-3 space-y-1.5">
+        {state.pack.map(file => (
+          <li key={file.id} className="flex items-center justify-between gap-3 text-xs text-zinc-700 dark:text-zinc-200">
+            <span className="flex items-center gap-2">{file.installed ? <Check size={13} className="text-emerald-500" /> : <Square size={13} className="text-zinc-400" />}{file.label}</span>
+            <span className="tabular-nums text-zinc-500">{gigabytes(file.bytes)}</span>
+          </li>
+        ))}
+      </ul>
+      {download ? (
+        <div className="mt-3">
+          <div className="flex items-center justify-between text-xs text-zinc-500">
+            <span className="inline-flex items-center gap-1.5"><Loader2 size={13} className="animate-spin text-pink-500" />{percent.toFixed(1)}%</span>
+            <span className="tabular-nums">{gigabytes(download.downloaded_bytes)} / {gigabytes(download.total_bytes)}</span>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-white/10">
+            <div className="h-full bg-gradient-to-r from-orange-500 to-pink-600 transition-[width]" style={{ width: `${percent}%` }} />
+          </div>
+          <button type="button" onClick={() => void cancelTrainingPack().then(onChanged)} className={`${OUTLINE} mt-3`}><X size={13} />{t('adaptersCancel')}</button>
+        </div>
+      ) : (
+        !state.pack_ready && (
+          <button type="button" onClick={() => void installTrainingPack().then(onChanged).catch(problem => onError(errorText(problem)))} className={`${PRIMARY} mt-3`}>
+            <Download size={15} />{t('trainingDownload')} · {gigabytes(missing)}
+          </button>
+        )
+      )}
+      {state.download?.done && state.download.error && state.download.error !== 'cancelled' && (
+        <p role="alert" className="mt-3 text-xs text-rose-600 dark:text-rose-300">{state.download.error}</p>
+      )}
+    </section>
+  );
+};
 
-      {/* Pipeline Steps */}
-      <div className="flex items-center gap-0.5 px-4 pb-2 flex-shrink-0 overflow-x-auto scrollbar-hide">
-        {PIPELINE_STEPS.map((step, i) => {
-          const Icon = step.icon;
-          const done = completedSteps.has(step.key);
+/** The optional listening pack: songs described by ear instead of by hand. */
+const ListenCard: React.FC<{ state: TrainingState; onError: (message: string) => void; onChanged: () => void }> = ({ state, onError, onChanged }) => {
+  const { t } = useStrings();
+  const listen = state.listen;
+  if (!listen || listen.ready) return null;
+  const total = listen.pack.reduce((sum, file) => sum + file.bytes, 0);
+  const missing = listen.pack.filter(file => !file.installed).reduce((sum, file) => sum + file.bytes, 0);
+  const download = listen.download && !listen.download.done ? listen.download : null;
+  const percent = download ? Math.min(100, (100 * download.downloaded_bytes) / Math.max(1, download.total_bytes)) : 0;
+  return (
+    <section className={CARD}>
+      <p className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-white"><Headphones size={16} className="text-pink-500" />{t('trainingListenTitle')}</p>
+      <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{t('trainingListenIntro').replace('{size}', gigabytes(total))}</p>
+      <ul className="mt-3 space-y-1.5">
+        {listen.pack.map(file => (
+          <li key={file.id} className="flex items-center justify-between gap-3 text-xs text-zinc-700 dark:text-zinc-200">
+            <span className="flex items-center gap-2">{file.installed ? <Check size={13} className="text-emerald-500" /> : <Square size={13} className="text-zinc-400" />}{file.label}</span>
+            <span className="tabular-nums text-zinc-500">{gigabytes(file.bytes)}</span>
+          </li>
+        ))}
+      </ul>
+      {download ? (
+        <div className="mt-3">
+          <div className="flex items-center justify-between text-xs text-zinc-500">
+            <span className="inline-flex items-center gap-1.5"><Loader2 size={13} className="animate-spin text-pink-500" />{percent.toFixed(1)}%</span>
+            <span className="tabular-nums">{gigabytes(download.downloaded_bytes)} / {gigabytes(download.total_bytes)}</span>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-white/10">
+            <div className="h-full bg-gradient-to-r from-orange-500 to-pink-600 transition-[width]" style={{ width: `${percent}%` }} />
+          </div>
+          <button type="button" onClick={() => void cancelTrainingPack().then(onChanged)} className={`${OUTLINE} mt-3`}><X size={13} />{t('adaptersCancel')}</button>
+        </div>
+      ) : (
+        <button type="button" onClick={() => void installListenPack().then(onChanged).catch(problem => onError(errorText(problem)))} className={`${OUTLINE} mt-3`}>
+          <Download size={14} />{t('trainingDownload')} · {gigabytes(missing)}
+        </button>
+      )}
+      {listen.download?.done && listen.download.error && listen.download.error !== 'cancelled' && (
+        <p role="alert" className="mt-3 text-xs text-rose-600 dark:text-rose-300">{listen.download.error}</p>
+      )}
+    </section>
+  );
+};
+
+/** Library songs with audio, searchable, several picked at once. */
+const LibraryPicker: React.FC<{ exclude: string[]; onAdd: (ids: string[]) => void; onClose: () => void }> = ({ exclude, onAdd, onClose }) => {
+  const { t } = useStrings();
+  const [library, setLibrary] = useState<{ id: string; title: string; caption: string }[]>([]);
+  const [failed, setFailed] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [picked, setPicked] = useState<string[]>([]);
+  useEffect(() => {
+    void fetch('/v1/library/songs')
+      .then(async response => {
+        if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
+        return response.json() as Promise<{ id: string; title: string; caption: string; audio_path?: string | null }[]>;
+      })
+      .then(list => setLibrary(list.filter(song => song.audio_path)))
+      .catch((error: unknown) => setFailed(error instanceof Error ? error.message : String(error)));
+  }, []);
+  const needle = query.trim().toLowerCase();
+  const songs = library.filter(song => !exclude.includes(song.id));
+  const visible = needle ? songs.filter(song => song.title.toLowerCase().includes(needle) || song.caption.toLowerCase().includes(needle)) : songs;
+  return (
+    <div className="mt-3 rounded-xl border border-zinc-200 p-3 dark:border-white/10">
+      <div className="relative">
+        <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+        <input value={query} onChange={event => setQuery(event.target.value)} placeholder={t('trainingSearchLibrary')} aria-label={t('trainingSearchLibrary')} className={`${CONTROL} pl-9`} />
+      </div>
+      {failed && <p className="mt-2 text-xs text-red-500">{t('trainingLibraryFailed')} {failed}</p>}
+      <div className="mt-2 max-h-56 overflow-y-auto rounded-lg border border-zinc-200 dark:border-white/10">
+        {visible.map(song => {
+          const on = picked.includes(song.id);
           return (
-            <React.Fragment key={step.key}>
-              {i > 0 && <ChevronRight size={10} className="text-zinc-600 flex-shrink-0" />}
-              <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] flex-shrink-0 ${done ? 'bg-green-500/15 text-green-400' : 'bg-white/5 text-zinc-500'}`}>
-                <Icon size={10} />
-                {step.label}
-              </div>
-            </React.Fragment>
+            <button
+              key={song.id}
+              type="button"
+              role="checkbox"
+              aria-checked={on}
+              onClick={() => setPicked(current => (on ? current.filter(id => id !== song.id) : [...current, song.id]))}
+              className={`flex w-full items-center gap-2 border-b border-zinc-100 px-3 py-1.5 text-left text-sm last:border-b-0 dark:border-white/5 ${on ? 'bg-pink-500/10' : 'hover:bg-zinc-100 dark:hover:bg-white/5'}`}
+            >
+              {on ? <CheckSquare size={14} className="shrink-0 text-pink-500" /> : <Square size={14} className="shrink-0 text-zinc-400" />}
+              <span className="min-w-0 flex-1 truncate text-zinc-800 dark:text-zinc-200">{song.title}</span>
+            </button>
           );
         })}
       </div>
-
-      {/* Tab Bar */}
-      <div className="flex px-4 gap-1 flex-shrink-0">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${activeTab === tab.id ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30' : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'}`}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab Content */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 scrollbar-hide max-w-6xl mx-auto w-full">
-
-        {/* ===== MODEL CONFIGURATION (shown at top of all tabs) ===== */}
-        <Section title={
-          <button onClick={() => setShowModelConfig(!showModelConfig)} className="flex items-center gap-1.5 w-full text-left">
-            <Settings size={12} />
-            <span>{t('modelConfiguration')}</span>
-            <ChevronRight size={12} className={`ml-auto transition-transform ${showModelConfig ? 'rotate-90' : ''}`} />
-          </button>
-        }>
-          {showModelConfig && (
-            <div className="space-y-2 mt-2">
-              <div className="flex gap-2 items-center">
-                <FieldRow label="Checkpoint">
-                  <select value={selectedCheckpoint} onChange={e => setSelectedCheckpoint(e.target.value)} className="flex-1 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-2 py-1 text-xs text-zinc-900 dark:text-zinc-200 [&>option]:bg-white [&>option]:dark:bg-zinc-800 [&>option]:text-zinc-900 [&>option]:dark:text-white">
-                    {modelCheckpoints.map(c => <option key={c} value={c}>{c}</option>)}
-                    {modelCheckpoints.length === 0 && <option value="">{t('noCheckpointsFound')}</option>}
-                  </select>
-                </FieldRow>
-                <button onClick={handleRefreshCheckpoints} className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-zinc-400">
-                  <RefreshCw size={12} />
-                </button>
-              </div>
-              <FieldRow label="Config">
-                <select value={selectedConfig} onChange={e => setSelectedConfig(e.target.value)} className="flex-1 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-2 py-1 text-xs text-zinc-900 dark:text-zinc-200 [&>option]:bg-white [&>option]:dark:bg-zinc-800 [&>option]:text-zinc-900 [&>option]:dark:text-white">
-                  {modelConfigs.map(c => <option key={c} value={c}>{c}</option>)}
-                  {modelConfigs.length === 0 && <option value="">{t('noConfigsFound')}</option>}
-                </select>
-              </FieldRow>
-              <div className="grid grid-cols-2 gap-2">
-                <FieldRow label="Device">
-                  <select value={selectedDevice} onChange={e => setSelectedDevice(e.target.value)} className="flex-1 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-2 py-1 text-xs text-zinc-900 dark:text-zinc-200 [&>option]:bg-white [&>option]:dark:bg-zinc-800 [&>option]:text-zinc-900 [&>option]:dark:text-white">
-                    {DEVICES.map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                </FieldRow>
-                <FieldRow label="Backend">
-                  <select value={selectedBackend} onChange={e => setSelectedBackend(e.target.value)} className="flex-1 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-2 py-1 text-xs text-zinc-900 dark:text-zinc-200 [&>option]:bg-white [&>option]:dark:bg-zinc-800 [&>option]:text-zinc-900 [&>option]:dark:text-white">
-                    {BACKENDS.map(b => <option key={b} value={b}>{b}</option>)}
-                  </select>
-                </FieldRow>
-              </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1">
-                <label className="flex items-center gap-1.5 text-[10px] text-zinc-400">
-                  <input type="checkbox" checked={initLlm} onChange={e => setInitLlm(e.target.checked)} className="w-3 h-3 accent-pink-500" />
-                  Init LLM
-                </label>
-                <label className="flex items-center gap-1.5 text-[10px] text-zinc-400">
-                  <input type="checkbox" checked={useFlashAttention} onChange={e => setUseFlashAttention(e.target.checked)} className="w-3 h-3 accent-pink-500" />
-                  Flash Attention
-                </label>
-                <label className="flex items-center gap-1.5 text-[10px] text-zinc-400">
-                  <input type="checkbox" checked={offloadToCpu} onChange={e => setOffloadToCpu(e.target.checked)} className="w-3 h-3 accent-pink-500" />
-                  Offload CPU
-                </label>
-                <label className="flex items-center gap-1.5 text-[10px] text-zinc-400">
-                  <input type="checkbox" checked={offloadDitToCpu} onChange={e => setOffloadDitToCpu(e.target.checked)} className="w-3 h-3 accent-pink-500" />
-                  Offload DiT CPU
-                </label>
-                <label className="flex items-center gap-1.5 text-[10px] text-zinc-400">
-                  <input type="checkbox" checked={compileModel} onChange={e => setCompileModel(e.target.checked)} className="w-3 h-3 accent-pink-500" />
-                  Compile
-                </label>
-                <label className="flex items-center gap-1.5 text-[10px] text-zinc-400">
-                  <input type="checkbox" checked={quantization} onChange={e => setQuantization(e.target.checked)} className="w-3 h-3 accent-pink-500" />
-                  Quantization
-                </label>
-              </div>
-              {initLlm && (
-                <FieldRow label="LM Model">
-                  <input type="text" value={lmModelPath} onChange={e => setLmModelPath(e.target.value)} placeholder="LM model path" className="flex-1 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-2 py-1 text-xs text-zinc-900 dark:text-zinc-200 [&>option]:bg-white [&>option]:dark:bg-zinc-800 [&>option]:text-zinc-900 [&>option]:dark:text-white" />
-                </FieldRow>
-              )}
-              <button onClick={handleInitModel} disabled={modelInitializing} className="w-full py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 disabled:opacity-50">
-                {modelInitializing ? <Loader2 size={12} className="animate-spin" /> : <Cpu size={12} />}
-                {t('initializeService')}
-              </button>
-              {modelInitStatus && <p className="text-[10px] text-zinc-400 break-words">{modelInitStatus}</p>}
-            </div>
-          )}
-        </Section>
-
-        {activeTab === 'dataset' && (
-          <>
-            {/* Drop Zone */}
-            <Section title={t('uploadAudio')}>
-              <div
-                onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${isDragOver ? 'border-pink-500 bg-pink-500/10' : 'border-white/10 hover:border-white/20 hover:bg-white/[0.02]'}`}
-              >
-                <Upload size={24} className={`mx-auto mb-2 ${isDragOver ? 'text-pink-400' : 'text-zinc-500'}`} />
-                <p className="text-xs text-zinc-400">{t('dropAudioFiles')}</p>
-                <p className="text-[10px] text-zinc-600 mt-1">.wav, .mp3, .flac, .ogg, .opus</p>
-                <input ref={fileInputRef} type="file" multiple accept=".wav,.mp3,.flac,.ogg,.opus" onChange={handleFileSelect} className="hidden" />
-              </div>
-              {queuedFiles.length > 0 && (
-                <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
-                  {queuedFiles.map((f, i) => (
-                    <div key={`${f.name}-${i}`} className="flex items-center gap-2 bg-white/5 rounded-lg px-2 py-1">
-                      <FileAudio size={12} className="text-zinc-400 flex-shrink-0" />
-                      <span className="text-[11px] text-zinc-300 truncate flex-1">{f.name}</span>
-                      <span className="text-[10px] text-zinc-500">{(f.size / 1024 / 1024).toFixed(1)}MB</span>
-                      <button onClick={() => removeQueuedFile(i)} className="text-zinc-500 hover:text-red-400"><X size={12} /></button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {queuedFiles.length > 0 && (
-                <div className="mt-2 space-y-2">
-                  <FieldRow label={t('datasetName')}>
-                    <input type="text" value={uploadDatasetName} onChange={e => setUploadDatasetName(e.target.value)} className="flex-1 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50 [&>option]:bg-white [&>option]:dark:bg-zinc-800 [&>option]:text-zinc-900 [&>option]:dark:text-white" placeholder="my_lora_dataset" />
-                  </FieldRow>
-                  <button onClick={handleUploadAndBuild} disabled={uploading || !uploadDatasetName.trim()} className="w-full py-2 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white rounded-lg text-xs font-medium flex items-center justify-center gap-2 disabled:opacity-50">
-                    {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-                    Upload & Create Dataset ({queuedFiles.length} files)
-                  </button>
-                </div>
-              )}
-              {uploadStatus && <p className="text-xs text-zinc-400 mt-1.5 break-words">{uploadStatus}</p>}
-            </Section>
-
-            {/* Scan Directory + Load Existing Dataset — two columns */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-              <Section title={t('scanDirectory')}>
-                <div className="flex gap-2">
-                  <input type="text" value={scanDir} onChange={e => setScanDir(e.target.value)} className="flex-1 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50" placeholder="./path/to/audio/folder" />
-                  <button onClick={handleScanDirectory} disabled={scanning || !scanDir} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-zinc-300 rounded-lg text-xs font-medium flex items-center gap-1.5 disabled:opacity-50">
-                    {scanning ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-                    {t('scan')}
-                  </button>
-                </div>
-                {scanStatus && <p className="text-xs text-zinc-400 mt-1.5 break-words">{scanStatus}</p>}
-              </Section>
-
-              <Section title={t('loadExistingDataset')}>
-                <div className="flex gap-2">
-                  <input type="text" value={datasetPath} onChange={e => setDatasetPath(e.target.value)} className="flex-1 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50" placeholder="./datasets/my_dataset.json" />
-                  <button onClick={handleLoadDataset} disabled={datasetLoading} className="px-3 py-1.5 bg-pink-500/20 hover:bg-pink-500/30 text-pink-400 rounded-lg text-xs font-medium flex items-center gap-1.5 disabled:opacity-50">
-                    {datasetLoading ? <Loader2 size={14} className="animate-spin" /> : <FolderOpen size={14} />}
-                    {t('loadDataset')}
-                  </button>
-                </div>
-                {datasetStatus && <p className="text-xs text-zinc-400 mt-1.5 break-words">{datasetStatus}</p>}
-              </Section>
-            </div>
-
-            {/* Dataset Table */}
-            {dataframeRows.length > 0 && (
-              <Section title={`Dataset (${dataframeRows.length} samples)`}>
-                <div className="overflow-x-auto max-h-48 overflow-y-auto rounded-lg border border-white/5">
-                  <table className="w-full text-[10px]">
-                    <thead>
-                      <tr className="bg-white/5 sticky top-0">
-                        <th className="text-left px-2 py-1 text-zinc-400 font-medium">#</th>
-                        {dataframeHeaders.slice(0, 6).map(h => (
-                          <th key={h} className="text-left px-2 py-1 text-zinc-400 font-medium truncate max-w-[80px]">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {dataframeRows.map((row, i) => (
-                        <tr key={i} onClick={() => handleSampleNavigate(i)} className={`cursor-pointer transition-colors ${i === currentSampleIdx ? 'bg-pink-500/10 text-pink-300' : 'hover:bg-white/5 text-zinc-300'}`}>
-                          <td className="px-2 py-0.5 text-zinc-500">{i + 1}</td>
-                          {dataframeHeaders.slice(0, 6).map(h => (
-                            <td key={h} className="px-2 py-0.5 truncate max-w-[80px]">{String(row[h] ?? '')}</td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </Section>
-            )}
-
-            {/* Dataset Settings */}
-            {datasetLoaded && (
-              <>
-                {/* Dataset Settings + Auto-Label — two columns */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  <Section title={t('datasetSettings')}>
-                    <div className="space-y-2">
-                      <FieldRow label={t('datasetName')}>
-                        <input type="text" value={datasetSettings.datasetName} onChange={e => setDatasetSettings(s => ({ ...s, datasetName: e.target.value }))} className="flex-1 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50" />
-                      </FieldRow>
-                      <FieldRow label={t('customActivationTag')}>
-                        <input type="text" value={datasetSettings.customTag} onChange={e => setDatasetSettings(s => ({ ...s, customTag: e.target.value }))} className="flex-1 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50" placeholder="e.g. my_style" />
-                      </FieldRow>
-                      <FieldRow label={t('tagPosition')}>
-                        <select value={datasetSettings.tagPosition} onChange={e => setDatasetSettings(s => ({ ...s, tagPosition: e.target.value as DatasetSettings['tagPosition'] }))} className="flex-1 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50 [&>option]:bg-white [&>option]:dark:bg-zinc-800 [&>option]:text-zinc-900 [&>option]:dark:text-white">
-                          <option value="prepend">{t('tagPrepend')}</option>
-                          <option value="append">{t('tagAppend')}</option>
-                          <option value="replace">{t('tagReplace')}</option>
-                        </select>
-                      </FieldRow>
-                      <FieldRow label={t('allInstrumental')}>
-                        <input type="checkbox" checked={datasetSettings.allInstrumental} onChange={e => setDatasetSettings(s => ({ ...s, allInstrumental: e.target.checked }))} className="w-4 h-4 accent-pink-500" />
-                      </FieldRow>
-                      <FieldRow label={`${t('genreRatio')} (${datasetSettings.genreRatio}%)`}>
-                        <input type="range" min={0} max={100} value={datasetSettings.genreRatio} onChange={e => setDatasetSettings(s => ({ ...s, genreRatio: parseInt(e.target.value) }))} className="flex-1 accent-pink-500" />
-                      </FieldRow>
-                      <p className="text-[10px] text-zinc-500">{t('genreRatioHint')}</p>
-                      <button onClick={handleUpdateSettings} className="w-full py-1.5 bg-white/5 hover:bg-white/10 text-zinc-300 rounded-lg text-xs font-medium">
-                        {t('applySettings')}
-                      </button>
-                    </div>
-                  </Section>
-
-                  <Section title={t('autoLabelWithAI')}>
-                    <p className="text-[10px] text-zinc-500 mb-2">{t('autoLabelDescription')}</p>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 mb-2">
-                      <label className="flex items-center gap-1.5 text-[10px] text-zinc-400">
-                        <input type="checkbox" checked={skipMetas} onChange={e => setSkipMetas(e.target.checked)} className="w-3 h-3 accent-pink-500" />
-                        {t('skipMetas')}
-                      </label>
-                      <label className="flex items-center gap-1.5 text-[10px] text-zinc-400">
-                        <input type="checkbox" checked={formatLyrics} onChange={e => setFormatLyrics(e.target.checked)} className="w-3 h-3 accent-pink-500" />
-                        {t('formatLyrics')}
-                      </label>
-                      <label className="flex items-center gap-1.5 text-[10px] text-zinc-400">
-                        <input type="checkbox" checked={transcribeLyrics} onChange={e => setTranscribeLyrics(e.target.checked)} className="w-3 h-3 accent-pink-500" />
-                        Transcribe Lyrics
-                      </label>
-                      <label className="flex items-center gap-1.5 text-[10px] text-zinc-400">
-                        <input type="checkbox" checked={onlyUnlabeled} onChange={e => setOnlyUnlabeled(e.target.checked)} className="w-3 h-3 accent-pink-500" />
-                        {t('onlyUnlabeled')}
-                      </label>
-                    </div>
-                    <button onClick={handleAutoLabel} disabled={autoLabeling} className="w-full py-1.5 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 disabled:opacity-50">
-                      {autoLabeling ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
-                      {t('autoLabelAll')}
-                    </button>
-                    {autoLabelStatus && <p className="text-xs text-zinc-400 mt-1.5 break-words">{autoLabelStatus}</p>}
-                  </Section>
-                </div>
-
-                {/* Sample Editor */}
-                <Section title={`${t('editSample')} (${currentSampleIdx + 1}/${sampleCount})`}>
-                  {/* Sample Navigation */}
-                  <div className="flex items-center gap-2 mb-2">
-                    <button onClick={() => handleSampleNavigate(currentSampleIdx - 1)} disabled={currentSampleIdx <= 0} className="px-2 py-1 bg-white/5 hover:bg-white/10 text-zinc-300 rounded text-xs disabled:opacity-30">Prev</button>
-                    <input type="number" min={1} max={sampleCount} value={currentSampleIdx + 1} onChange={e => { const v = parseInt(e.target.value) - 1; if (v >= 0 && v < sampleCount) handleSampleNavigate(v); }} className="w-16 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded px-2 py-1 text-xs text-center text-zinc-900 dark:text-zinc-200" />
-                    <button onClick={() => handleSampleNavigate(currentSampleIdx + 1)} disabled={currentSampleIdx >= sampleCount - 1} className="px-2 py-1 bg-white/5 hover:bg-white/10 text-zinc-300 rounded text-xs disabled:opacity-30">Next</button>
-                    <span className="text-[10px] text-zinc-500 ml-auto truncate max-w-[100px]">{currentSample?.filename || ''}</span>
-                  </div>
-
-                  {/* Audio Preview */}
-                  {audioPreviewUrl && (
-                    <div className="mb-2 flex items-center gap-2 bg-white/5 rounded-lg px-2 py-1.5">
-                      <Volume2 size={14} className="text-pink-400 flex-shrink-0" />
-                      <audio controls src={audioPreviewUrl} className="w-full h-7 [&::-webkit-media-controls-panel]:bg-transparent" preload="metadata" />
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
-                    <FieldRow label={t('caption')}>
-                      <input type="text" value={editCaption} onChange={e => setEditCaption(e.target.value)} className="flex-1 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50 [&>option]:bg-white [&>option]:dark:bg-zinc-800 [&>option]:text-zinc-900 [&>option]:dark:text-white" placeholder={t('musicDescription')} />
-                    </FieldRow>
-                    <FieldRow label={t('genre')}>
-                      <input type="text" value={editGenre} onChange={e => setEditGenre(e.target.value)} className="flex-1 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50 [&>option]:bg-white [&>option]:dark:bg-zinc-800 [&>option]:text-zinc-900 [&>option]:dark:text-white" />
-                    </FieldRow>
-                    <FieldRow label={t('promptOverride')}>
-                      <select value={editPromptOverride} onChange={e => setEditPromptOverride(e.target.value)} className="flex-1 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50 [&>option]:bg-white [&>option]:dark:bg-zinc-800 [&>option]:text-zinc-900 [&>option]:dark:text-white">
-                        <option value="Use Global Ratio">{t('useGlobalRatio')}</option>
-                        <option value="Caption">{t('caption')}</option>
-                        <option value="Genre">{t('genre')}</option>
-                      </select>
-                    </FieldRow>
-                    <div>
-                      <label className="text-[11px] text-zinc-500 mb-0.5 block">Lyrics ({t('editableUsedForTraining')})</label>
-                      <textarea value={editLyrics} onChange={e => setEditLyrics(e.target.value)} rows={3} className="w-full bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50 resize-none" />
-                    </div>
-                    {editRawLyrics && (
-                      <div>
-                        <label className="text-[11px] text-zinc-500 mb-0.5 block">Raw Lyrics (read-only)</label>
-                        <textarea value={editRawLyrics} readOnly rows={3} className="w-full bg-zinc-100 dark:bg-black/10 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-500 dark:text-zinc-400 resize-none opacity-60" />
-                      </div>
-                    )}
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[11px] text-zinc-500 mb-0.5 block">BPM</label>
-                        <input type="number" value={editBpm} onChange={e => setEditBpm(parseInt(e.target.value) || 0)} className="w-full bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50 [&>option]:bg-white [&>option]:dark:bg-zinc-800 [&>option]:text-zinc-900 [&>option]:dark:text-white" />
-                      </div>
-                      <div>
-                        <label className="text-[11px] text-zinc-500 mb-0.5 block">Key</label>
-                        <input type="text" value={editKey} onChange={e => setEditKey(e.target.value)} className="w-full bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50 [&>option]:bg-white [&>option]:dark:bg-zinc-800 [&>option]:text-zinc-900 [&>option]:dark:text-white" placeholder="e.g. C major" />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <label className="text-[11px] text-zinc-500 mb-0.5 block">Time Sig</label>
-                        <select value={editTimeSig} onChange={e => setEditTimeSig(e.target.value)} className="w-full bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50 [&>option]:bg-white [&>option]:dark:bg-zinc-800 [&>option]:text-zinc-900 [&>option]:dark:text-white">
-                          {TIME_SIGS.map(ts => <option key={ts} value={ts}>{ts || 'Auto'}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-[11px] text-zinc-500 mb-0.5 block">Duration</label>
-                        <input type="number" value={editDuration} readOnly className="w-full bg-zinc-100 dark:bg-black/10 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-500 dark:text-zinc-400 opacity-60" />
-                      </div>
-                      <div>
-                        <label className="text-[11px] text-zinc-500 mb-0.5 block">Language</label>
-                        <select value={editLanguage} onChange={e => setEditLanguage(e.target.value)} className="w-full bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50 [&>option]:bg-white [&>option]:dark:bg-zinc-800 [&>option]:text-zinc-900 [&>option]:dark:text-white">
-                          {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                    <FieldRow label={t('allInstrumental')}>
-                      <input type="checkbox" checked={editInstrumental} onChange={e => setEditInstrumental(e.target.checked)} className="w-4 h-4 accent-pink-500" />
-                    </FieldRow>
-                    <button onClick={handleSaveSample} disabled={saving} className="w-full py-1.5 bg-pink-500/20 hover:bg-pink-500/30 text-pink-400 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 disabled:opacity-50">
-                      {saving ? <Loader2 size={14} className="animate-spin" /> : <Edit3 size={14} />}
-                      {t('saveSample')}
-                    </button>
-                    {editSaveStatus && <p className="text-xs text-zinc-400 mt-1.5 break-words">{editSaveStatus}</p>}
-                  </div>
-                </Section>
-
-                {/* Save Dataset + Preprocess — two columns */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  <Section title={t('saveDataset')}>
-                    <FieldRow label="Save Path">
-                      <input type="text" value={savePath} onChange={e => setSavePath(e.target.value)} className="flex-1 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50" />
-                    </FieldRow>
-                    <button onClick={handleSaveDataset} disabled={saving} className="w-full mt-2 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 disabled:opacity-50">
-                      {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                      {t('saveDataset')}
-                    </button>
-                    {saveStatus && <p className="text-xs text-zinc-400 mt-1.5 break-words">{saveStatus}</p>}
-                  </Section>
-
-                  <Section title={t('preprocessToTensors')}>
-                    <p className="text-[10px] text-zinc-500 mb-2">{t('preprocessDescription')}</p>
-                    <div className="mb-3 p-2 bg-white/[0.02] border border-white/5 rounded-lg space-y-2">
-                      <label className="text-[10px] text-zinc-500 font-medium">{t('loadExistingDatasetForPreprocess')}</label>
-                      <div className="flex gap-2">
-                        <input type="text" value={preprocessDatasetPath} onChange={e => setPreprocessDatasetPath(e.target.value)} placeholder="./datasets/my_lora_dataset.json" className="flex-1 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50" />
-                        <button onClick={handleLoadDatasetForPreprocess} disabled={preprocessDatasetLoading} className="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg text-xs font-medium flex items-center gap-1.5 disabled:opacity-50">
-                          {preprocessDatasetLoading ? <Loader2 size={14} className="animate-spin" /> : <FolderOpen size={14} />}
-                          Load
-                        </button>
-                      </div>
-                      {preprocessDatasetStatus && <p className="text-[10px] text-zinc-400 break-words">{preprocessDatasetStatus}</p>}
-                    </div>
-                    <FieldRow label="Output Dir">
-                      <input type="text" value={preprocessOutputDir} onChange={e => setPreprocessOutputDir(e.target.value)} className="flex-1 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50" />
-                    </FieldRow>
-                    <button onClick={handlePreprocess} disabled={preprocessing} className="w-full mt-2 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 disabled:opacity-50">
-                      {preprocessing ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
-                      {preprocessing ? 'Preprocessing...' : 'Preprocess'}
-                    </button>
-                    {preprocessStatus && <p className="text-xs text-zinc-400 mt-1.5 break-words">{preprocessStatus}</p>}
-                  </Section>
-                </div>
-              </>
-            )}
-          </>
-        )}
-
-        {activeTab === 'train' && (
-          <>
-            {/* Load Tensors */}
-            <Section title={t('preprocessedDataset')}>
-              <div className="flex gap-2">
-                <input type="text" value={trainingParams.tensorDir} onChange={e => setTrainingParams(p => ({ ...p, tensorDir: e.target.value }))} className="flex-1 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50 [&>option]:bg-white [&>option]:dark:bg-zinc-800 [&>option]:text-zinc-900 [&>option]:dark:text-white" />
-                <button onClick={handleLoadTensors} className="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg text-xs font-medium flex items-center gap-1.5">
-                  <FolderOpen size={14} />
-                  Load
-                </button>
-              </div>
-              {trainingDatasetInfo && <p className="text-xs text-zinc-400 mt-1.5 break-words whitespace-pre-wrap">{trainingDatasetInfo}</p>}
-            </Section>
-
-            {/* Two-column layout for LoRA + Training params */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-              {/* LoRA Settings */}
-              <Section title={t('loraSettings')}>
-                <div className="space-y-2">
-                  <ParamSlider label={`${t('loraRank')} (r)`} value={trainingParams.rank} min={4} max={256} step={4} onChange={v => setTrainingParams(p => ({ ...p, rank: v }))} />
-                  <ParamSlider label={`${t('loraAlpha')} (a)`} value={trainingParams.alpha} min={4} max={512} step={4} onChange={v => setTrainingParams(p => ({ ...p, alpha: v }))} />
-                  <ParamSlider label={`${t('dropout')}`} value={trainingParams.dropout} min={0} max={0.5} step={0.05} onChange={v => setTrainingParams(p => ({ ...p, dropout: v }))} />
-                  <FieldRow label="Seed">
-                    <input type="number" value={trainingParams.seed} onChange={e => setTrainingParams(p => ({ ...p, seed: parseInt(e.target.value) || 42 }))} className="w-24 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50" />
-                  </FieldRow>
-                  <FieldRow label="Shift">
-                    <input type="number" value={trainingParams.shift} onChange={e => setTrainingParams(p => ({ ...p, shift: parseFloat(e.target.value) || 3.0 }))} step={0.5} min={1.0} max={5.0} className="w-24 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50" />
-                  </FieldRow>
-                </div>
-              </Section>
-
-              {/* Training Parameters */}
-              <Section title={t('trainingParameters')}>
-                <div className="space-y-2">
-                  <FieldRow label={t('learningRate')}>
-                    <input type="number" value={trainingParams.learningRate} onChange={e => setTrainingParams(p => ({ ...p, learningRate: parseFloat(e.target.value) || 0.0003 }))} step={0.0001} className="w-28 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50" />
-                  </FieldRow>
-                  <ParamSlider label={t('maxEpochs')} value={trainingParams.epochs} min={1} max={4000} step={1} onChange={v => setTrainingParams(p => ({ ...p, epochs: v }))} />
-                  <ParamSlider label="Batch Size" value={trainingParams.batchSize} min={1} max={8} step={1} onChange={v => setTrainingParams(p => ({ ...p, batchSize: v }))} />
-                  <ParamSlider label={t('gradientAccumulation')} value={trainingParams.gradientAccumulation} min={1} max={16} step={1} onChange={v => setTrainingParams(p => ({ ...p, gradientAccumulation: v }))} />
-                  <ParamSlider label={`${t('saveEvery')} (${t('epochs')})`} value={trainingParams.saveEvery} min={50} max={1000} step={50} onChange={v => setTrainingParams(p => ({ ...p, saveEvery: v }))} />
-                </div>
-              </Section>
-            </div>
-
-            {/* Paths — full width below */}
-            <Section title={t('outputDirectory')}>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-                <FieldRow label={t('outputDirectory')}>
-                  <input type="text" value={trainingParams.outputDir} onChange={e => setTrainingParams(p => ({ ...p, outputDir: e.target.value }))} className="flex-1 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50" />
-                </FieldRow>
-                <FieldRow label="Resume Checkpoint">
-                  <input type="text" value={trainingParams.resumeCheckpoint} onChange={e => setTrainingParams(p => ({ ...p, resumeCheckpoint: e.target.value }))} className="flex-1 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50" placeholder="./lora_output/checkpoints/epoch_200" />
-                </FieldRow>
-              </div>
-            </Section>
-
-            {/* Training Controls */}
-            <div className="flex gap-2">
-              {!isTraining ? (
-                <button onClick={handleStartTraining} className="flex-1 py-2.5 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2">
-                  <Play size={16} />
-                  {t('startTraining')}
-                </button>
-              ) : (
-                <button onClick={handleStopTraining} className="flex-1 py-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
-                  <Square size={16} />
-                  {t('stopTraining')}
-                </button>
-              )}
-            </div>
-
-            {/* Training Progress + Loss Chart side by side */}
-            {(trainingProgress || trainingLog || lossChartSvg) && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                {(trainingProgress || trainingLog) && (
-                  <Section title={t('trainingProgress')}>
-                    {trainingProgress && <p className="text-xs text-zinc-300 mb-2 break-words">{trainingProgress}</p>}
-                    {trainingLog && (
-                      <pre className="text-[10px] text-zinc-400 bg-black/20 rounded-lg p-2 max-h-40 overflow-y-auto whitespace-pre-wrap">{trainingLog}</pre>
-                    )}
-                  </Section>
-                )}
-                {lossChartSvg && (
-                  <Section title="Training Loss">
-                    <div className="bg-black/20 rounded-lg p-2">{lossChartSvg}</div>
-                  </Section>
-                )}
-              </div>
-            )}
-          </>
-        )}
-
-        {activeTab === 'export' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <Section title={t('exportLora')}>
-              <div className="space-y-2">
-                <FieldRow label="Export Path">
-                  <input type="text" value={exportPath} onChange={e => setExportPath(e.target.value)} className="flex-1 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50" />
-                </FieldRow>
-                <FieldRow label="LoRA Output Dir">
-                  <input type="text" value={exportOutputDir} onChange={e => setExportOutputDir(e.target.value)} className="flex-1 bg-zinc-50 dark:bg-black/20 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-pink-500/50" />
-                </FieldRow>
-              </div>
-              <button onClick={handleExportLora} disabled={exporting} className="w-full mt-3 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50">
-                {exporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                {t('exportLora')}
-              </button>
-              {exportStatus && <p className="text-xs text-zinc-400 mt-2 break-words">{exportStatus}</p>}
-            </Section>
-
-            <Section title={t('loadLoraForInference')}>
-              <p className="text-xs text-zinc-500">
-                {t('loadLoraHint')}
-              </p>
-            </Section>
-          </div>
-        )}
+      <div className="mt-2 flex justify-end gap-2">
+        <button type="button" onClick={onClose} className={OUTLINE}>{t('adaptersCancel')}</button>
+        <button type="button" onClick={() => onAdd(picked)} disabled={picked.length === 0} className={OUTLINE}><Plus size={13} />{t('trainingAddSelected')}{picked.length ? ` · ${picked.length}` : ''}</button>
       </div>
     </div>
   );
 };
 
-// Reusable Section component (supports string or ReactNode title)
-const Section: React.FC<{ title: string | React.ReactNode; children: React.ReactNode }> = ({ title, children }) => (
-  <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3">
-    <h3 className="text-xs font-semibold text-zinc-300 mb-2">{title}</h3>
-    {children}
-  </div>
-);
+/** Where one song stands: in the job, failed, done, or missing something. */
+type SongState = { kind: 'queued' | 'working' | 'failed' | 'ready' | 'missing'; text: string };
 
-const FieldRow: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
-  <div className="flex items-center gap-2">
-    <label className="text-[11px] text-zinc-500 w-28 flex-shrink-0">{label}</label>
-    {children}
-  </div>
-);
+/** Moves vocal separation to the graphics card, keeping the rest of its settings. */
+const separateOnCard = async () => {
+  const current = await fetch('/v1/separation/settings').then(response => {
+    if (!response.ok) throw new Error(`Separation: HTTP ${response.status}`);
+    return response.json();
+  });
+  const response = await fetch('/v1/separation/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...current, runtime: 'cuda' }) });
+  if (!response.ok) throw new Error(`Separation: HTTP ${response.status}`);
+};
 
-const ParamSlider: React.FC<{
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (v: number) => void;
-}> = ({ label, value, min, max, step, onChange }) => (
-  <div>
-    <div className="flex items-center justify-between mb-0.5">
-      <label className="text-[11px] text-zinc-500">{label}</label>
-      <span className="text-[11px] text-zinc-400 font-mono">{step < 1 ? value.toFixed(2) : value}</span>
+/** Turns on the recogniser dataset lyrics need: Whisper large-v3, fetched on its first use. */
+const enableRecogniser = () =>
+  fetch('/v1/karaoke/status', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: true, provider: 'whisper', whisper_model: 'whisper-large-v3' }) }).then(response => {
+    if (!response.ok) throw new Error(`Karaoke: HTTP ${response.status}`);
+  });
+
+function songState(item: DatasetItem, job: PrepareStatus | null, datasetId: string, t: (key: string) => string): SongState {
+  const mine = job && job.dataset === datasetId ? job : null;
+  const failure = mine?.failures.find(entry => entry.item === item.id);
+  const at = mine && !mine.finished ? mine.stages.find(stage => stage.current === item.id) : undefined;
+  if (at) return { kind: 'working', text: t(`trainingJob_${at.name}`) };
+  if (mine && !mine.finished && mine.pending.includes(item.id)) {
+    return { kind: 'queued', text: t('trainingQueued') };
+  }
+  if (failure) return { kind: 'failed', text: failure.error };
+  const lacks = [
+    item.lyrics_state === 'wanted' ? t('trainingLacksLyrics') : '',
+    item.lyrics_state === 'found' ? t('trainingLacksSections') : '',
+    item.style_state !== 'done' ? t('trainingLacksStyle') : '',
+  ].filter(Boolean);
+  if (lacks.length) return { kind: 'missing', text: `${t('trainingLacks')} ${lacks.join(', ')}` };
+  return { kind: 'ready', text: t('trainingSongReady') };
+}
+
+const StateIcon: React.FC<{ state: SongState }> = ({ state }) => {
+  if (state.kind === 'working') return <Loader2 size={14} className="shrink-0 animate-spin text-pink-500" />;
+  if (state.kind === 'queued') return <Clock size={14} className="shrink-0 text-zinc-400" />;
+  if (state.kind === 'ready') return <Check size={14} className="shrink-0 text-emerald-500" />;
+  return <AlertTriangle size={14} className="shrink-0 text-amber-500" />;
+};
+
+/** A place to drop a folder of songs or single files, or click to choose them. */
+const DropZone: React.FC<{ onPicked: (files: PickedFile[]) => void; disabled?: boolean; large?: boolean; title: string; hint?: string }> = ({ onPicked, disabled, large, title, hint }) => {
+  const { t } = useStrings();
+  const [over, setOver] = useState(false);
+  const folderInput = useRef<HTMLInputElement | null>(null);
+  const fileInput = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    folderInput.current?.setAttribute('webkitdirectory', '');
+  }, []);
+  const take = (files: PickedFile[]) => {
+    const kept = usable(files);
+    if (kept.length > 0) onPicked(kept);
+  };
+  return (
+    <div
+      onDragOver={event => { event.preventDefault(); if (!disabled) setOver(true); }}
+      onDragLeave={() => setOver(false)}
+      onDrop={event => {
+        event.preventDefault();
+        setOver(false);
+        if (!disabled) void pickedFromDrop(event.dataTransfer.items).then(take);
+      }}
+      className={`rounded-2xl border-2 border-dashed text-center transition-colors ${large ? 'px-6 py-14' : 'px-4 py-4'} ${over ? 'border-pink-500 bg-pink-500/5' : 'border-zinc-300 dark:border-white/15'} ${disabled ? 'pointer-events-none opacity-50' : ''}`}
+    >
+      {large && <UploadCloud size={36} className="mx-auto mb-3 text-pink-500" />}
+      <p className={`${large ? 'text-base font-semibold text-zinc-900 dark:text-white' : 'flex items-center justify-center gap-2 text-sm text-zinc-600 dark:text-zinc-300'}`}>
+        {!large && <UploadCloud size={15} className="text-pink-500" />}{title}
+      </p>
+      {hint && <p className="mx-auto mt-1 max-w-xl text-xs text-zinc-500">{hint}</p>}
+      <div className={`${large ? 'mt-4' : 'mt-2'} flex flex-wrap justify-center gap-2`}>
+        <button type="button" onClick={() => folderInput.current?.click()} className={OUTLINE}><FolderOpen size={13} />{t('trainingDropFolder')}</button>
+        <button type="button" onClick={() => fileInput.current?.click()} className={OUTLINE}><Music size={13} />{t('trainingDropFiles')}</button>
+      </div>
+      <input ref={folderInput} type="file" multiple className="hidden" onChange={event => { take(pickedFromInput(event.target.files)); event.target.value = ''; }} />
+      <input ref={fileInput} type="file" multiple accept="audio/*,.wav,.mp3,.flac,.ogg,.m4a,.txt,.lrc,.cue" className="hidden" onChange={event => { take(pickedFromInput(event.target.files)); event.target.value = ''; }} />
     </div>
-    <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))} className="w-full accent-pink-500 h-1.5" />
-  </div>
-);
+  );
+};
+
+/** A small menu behind a "more" button. */
+const MoreMenu: React.FC<{ items: { label: string; icon: React.ReactNode; onClick: () => void; danger?: boolean; disabled?: boolean }[] }> = ({ items }) => {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent) => { if (!box.current?.contains(event.target as Node)) setOpen(false); };
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
+    window.addEventListener('mousedown', close);
+    window.addEventListener('keydown', escape);
+    return () => {
+      window.removeEventListener('mousedown', close);
+      window.removeEventListener('keydown', escape);
+    };
+  }, [open]);
+  return (
+    <div ref={box} className="relative">
+      <button type="button" onClick={() => setOpen(value => !value)} className={`${OUTLINE} px-2`} aria-expanded={open}><MoreHorizontal size={15} /></button>
+      {open && (
+        <div className="absolute right-0 z-30 mt-1 w-72 overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-xl dark:border-white/10 dark:bg-zinc-900">
+          {items.map(item => (
+            <button
+              key={item.label}
+              type="button"
+              disabled={item.disabled}
+              onClick={() => { setOpen(false); item.onClick(); }}
+              className={`flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-sm disabled:opacity-40 ${item.danger ? 'text-rose-600 hover:bg-rose-500/10 dark:text-rose-300' : 'text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-white/5'}`}
+            >
+              {item.icon}{item.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/** One song opened in the list: its recording, style and lyrics to check and
+ * fix, and its own "do again" buttons. */
+const SongEditor: React.FC<{
+  datasetId: string;
+  item: DatasetItem;
+  styleKind: 'style' | 'caption';
+  state: SongState;
+  listenReady: boolean;
+  jobBusy: boolean;
+  describing: boolean;
+  onPrepare: (request: PrepareRequest) => void;
+  onDescribe: () => void;
+  onChanged: (dataset: Dataset) => void;
+  onError: (message: string) => void;
+}> = ({ datasetId, item, styleKind, state, listenReady, jobBusy, describing, onPrepare, onDescribe, onChanged, onError }) => {
+  const { t } = useStrings();
+  const [title, setTitle] = useState(item.title);
+  const [artist, setArtist] = useState(item.artist);
+  const [style, setStyle] = useState(item.style);
+  const [lyrics, setLyrics] = useState(item.lyrics);
+  useEffect(() => { setTitle(item.title); setArtist(item.artist); setStyle(item.style); setLyrics(item.lyrics); }, [item.id, item.title, item.artist, item.style, item.lyrics]);
+  const save = (patch: Parameters<typeof updateItem>[2]) => void updateItem(datasetId, item.id, patch).then(onChanged).catch(problem => onError(errorText(problem)));
+  const working = state.kind === 'working' || state.kind === 'queued';
+  const redo = 'inline-flex items-center gap-1 text-[11px] font-semibold text-zinc-500 hover:text-pink-500 disabled:opacity-50';
+  return (
+    <div className="space-y-3 pb-4 pl-7 pr-1 pt-1">
+      {state.kind !== 'ready' && (
+        <div className="flex flex-wrap items-start gap-2">
+          <p className={`min-w-0 flex-1 text-xs ${state.kind === 'working' ? 'text-pink-600 dark:text-pink-300' : state.kind === 'queued' ? 'text-zinc-500' : 'text-amber-600 dark:text-amber-300'}`}>{state.text}</p>
+          {(state.kind === 'failed' || state.kind === 'missing') && (
+            <button type="button" onClick={() => onPrepare({ items: [item.id], lyrics: 'missing', style: 'missing' })} disabled={jobBusy} title={jobBusy ? t('trainingRedoBusy') : undefined} className={OUTLINE}>
+              <RotateCcw size={13} />{t(state.kind === 'failed' ? 'trainingRetrySong' : 'trainingFinishSong')}
+            </button>
+          )}
+        </div>
+      )}
+      <StemPlayer src={`/v1/training/datasets/${datasetId}/items/${item.id}/audio`} label={t('trainingRecording')} />
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="block">
+          <span className={LABEL}>{t('trainingSongTitle')}</span>
+          <input value={title} onChange={event => setTitle(event.target.value)} onBlur={() => title.trim() && title !== item.title && save({ title })} className={`${CONTROL} mt-1`} />
+        </label>
+        <label className="block">
+          <span className={LABEL}>{t('trainingSongArtist')}</span>
+          <input value={artist} onChange={event => setArtist(event.target.value)} onBlur={() => artist !== item.artist && save({ artist })} className={`${CONTROL} mt-1`} />
+        </label>
+      </div>
+      <label className="block">
+        <span className="flex items-center justify-between gap-2">
+          <span className={LABEL}>{styleKind === 'caption' ? t('trainingCaption') : t('trainingStyle')}</span>
+          {listenReady ? (
+            <button type="button" onClick={() => onPrepare({ items: [item.id], lyrics: 'none', style: 'all' })} disabled={jobBusy} title={jobBusy ? t('trainingRedoBusy') : undefined} className={redo}><Headphones size={12} />{t('trainingListenAgain')}</button>
+          ) : styleKind === 'caption' ? (
+            <button type="button" onClick={onDescribe} disabled={describing} className={redo}>{describing ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}{t('trainingDescribe')}</button>
+          ) : null}
+        </span>
+        <textarea value={style} disabled={working} onChange={event => setStyle(event.target.value)} onBlur={() => style !== item.style && save({ style })} rows={styleKind === 'caption' ? 10 : 3} className={`${CONTROL} mt-1 text-xs ${styleKind === 'caption' ? 'font-mono' : ''}`} />
+        {styleKind === 'caption' && <span className={`block ${HINT}`}>{t('trainingCaptionHint')}</span>}
+      </label>
+      <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-200">
+        <input type="checkbox" checked={item.instrumental} disabled={working} onChange={event => save({ instrumental: event.target.checked })} className="accent-pink-500" />
+        {t('trainingInstrumental')}
+      </label>
+      {!item.instrumental && (
+        <label className="block">
+          <span className="flex items-center justify-between gap-2">
+            <span className={LABEL}>
+              {t('trainingLyrics')}
+              {item.lyrics_source && <span className="ml-2 normal-case tracking-normal text-zinc-400">{item.lyrics_source === 'recognised' ? t('trainingLyricsRecognised') : t('trainingLyricsFrom').replace('{source}', item.lyrics_source)}</span>}
+            </span>
+            <button type="button" onClick={() => onPrepare({ items: [item.id], lyrics: 'all', style: 'none' })} disabled={jobBusy} title={jobBusy ? t('trainingRedoBusy') : undefined} className={redo}><Mic2 size={12} />{t('trainingRecogniseAgain')}</button>
+          </span>
+          <textarea value={lyrics} disabled={working} onChange={event => setLyrics(event.target.value)} onBlur={() => lyrics !== item.lyrics && save({ lyrics })} rows={14} className={`${CONTROL} mt-1 font-mono text-xs`} />
+        </label>
+      )}
+    </div>
+  );
+};
+
+/** Step one: the songs, prepared by themselves as soon as they arrive. */
+const SongsStep: React.FC<{
+  state: TrainingState;
+  dataset: Dataset;
+  job: PrepareStatus | null;
+  adding: { done: number; total: number } | null;
+  onAdd: (files: PickedFile[]) => void;
+  onAddLibrary: (ids: string[]) => void;
+  onPrepare: (request: PrepareRequest) => void;
+  onNext: () => void;
+  onTrainAfter: (on: boolean) => void;
+  onChanged: (dataset: Dataset) => void;
+  onRefresh: () => void;
+  onError: (message: string) => void;
+}> = ({ state, dataset, job, adding, onAdd, onAddLibrary, onPrepare, onNext, onTrainAfter, onChanged, onRefresh, onError }) => {
+  const { t, tt, songs } = useStrings();
+  const [open, setOpen] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
+  const [describing, setDescribing] = useState<string[]>([]);
+  const mine = job && job.dataset === dataset.id ? job : null;
+  const jobBusy = Boolean(job && !job.finished) || Boolean(state.active);
+  const listenReady = Boolean(state.listen?.ready);
+  const states = dataset.items.map(item => songState(item, job, dataset.id, tt));
+  const ready = states.filter(entry => entry.kind === 'ready').length;
+  const total = dataset.items.reduce((sum, item) => sum + item.seconds, 0);
+  const exclude = dataset.items.map(item => item.source.replace(/^song:/, ''));
+  const working = Boolean(mine && !mine.finished);
+  const stage = working ? mine!.stages[mine!.stages.length - 1] : undefined;
+  const describe = async (ids: string[]) => {
+    setDescribing(ids);
+    for (const id of ids) {
+      try {
+        onChanged(await describeItem(dataset.id, id));
+      } catch (problem) {
+        onError(errorText(problem));
+        break;
+      } finally {
+        setDescribing(current => current.filter(value => value !== id));
+      }
+    }
+  };
+
+  if (dataset.items.length === 0 && !adding) {
+    return (
+      <div className="space-y-3">
+        <DropZone large onPicked={onAdd} title={t('trainingDropTitle')} hint={t('trainingDropHint')} />
+        <div className="flex justify-center"><button type="button" onClick={() => setPicking(value => !value)} className={OUTLINE}><Library size={13} />{t('trainingAddLibrary')}</button></div>
+        {picking && <LibraryPicker exclude={exclude} onAdd={ids => { setPicking(false); onAddLibrary(ids); }} onClose={() => setPicking(false)} />}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {!listenReady && <ListenCard state={state} onError={onError} onChanged={onRefresh} />}
+      {mine?.notices.filter(notice => notice !== 'listen_missing').map(notice => (
+        <div key={notice} className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+          <p className="min-w-0 flex-1 text-xs text-amber-700 dark:text-amber-300">{tt(`trainingNotice_${notice}`)}</p>
+          {notice === 'separator_on_cpu' && (
+            <button type="button" onClick={() => void separateOnCard().catch(problem => onError(errorText(problem)))} className={OUTLINE}>
+              <Cpu size={13} />{t('trainingSeparateOnCard')}
+            </button>
+          )}
+          {notice === 'recogniser_missing' && (
+            <button type="button" onClick={() => void enableRecogniser().then(() => onPrepare({ lyrics: 'missing', style: 'none' })).catch(problem => onError(errorText(problem)))} disabled={jobBusy} className={OUTLINE}>
+              <Mic2 size={13} />{t('trainingEnableRecogniser')}
+            </button>
+          )}
+        </div>
+      ))}
+
+      <section className={CARD}>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-zinc-900 dark:text-white">
+              {adding
+                ? t('trainingUploading').replace('{done}', String(adding.done)).replace('{total}', String(adding.total))
+                : working
+                  ? stage
+                    ? `${tt(`trainingJob_${stage.name}`)}${stage.total ? ` · ${stage.done}/${stage.total}` : ''}`
+                    : tt('trainingJob_job')
+                  : t('trainingReadyCount').replace('{ready}', String(ready)).replace('{count}', String(dataset.items.length))}
+            </p>
+            <p className="text-[11px] text-zinc-500">{t('trainingSongsTotal').replace('{songs}', songs(dataset.items.length)).replace('{time}', clock(total))}</p>
+          </div>
+          {working && <button type="button" onClick={() => void cancelPrepare().then(onRefresh)} className={OUTLINE}><X size={13} />{t('trainingStop')}</button>}
+          {!working && !adding && ready < dataset.items.length && (
+            <button type="button" onClick={() => onPrepare({ lyrics: 'missing', style: 'missing' })} disabled={jobBusy} className={OUTLINE}><Wand2 size={13} />{t('trainingFillMissing')}</button>
+          )}
+          <MoreMenu
+            items={[
+              { label: t('trainingAddLibrary'), icon: <Library size={14} />, onClick: () => setPicking(true), disabled: Boolean(adding) },
+              { label: t('trainingAutofillAll'), icon: <Mic2 size={14} />, onClick: () => onPrepare({ lyrics: 'all', style: 'missing' }), disabled: jobBusy },
+              ...(listenReady ? [{ label: t('trainingListenAll'), icon: <Headphones size={14} />, onClick: () => onPrepare({ lyrics: 'missing', style: 'all' }), disabled: jobBusy }] : []),
+              ...(state.item_style === 'caption' && !listenReady ? [{ label: t('trainingDescribeAll'), icon: <Wand2 size={14} />, onClick: () => void describe(dataset.items.map(item => item.id)), disabled: describing.length > 0 }] : []),
+            ]}
+          />
+        </div>
+        {(working || adding) && (
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-white/10">
+            <div
+              className="h-full bg-gradient-to-r from-orange-500 to-pink-600 transition-[width]"
+              style={{ width: `${adding ? (100 * adding.done) / Math.max(1, adding.total) : stage ? (100 * stage.done) / Math.max(1, stage.total) : 0}%` }}
+            />
+          </div>
+        )}
+        {picking && <LibraryPicker exclude={exclude} onAdd={ids => { setPicking(false); onAddLibrary(ids); }} onClose={() => setPicking(false)} />}
+
+        <div className="mt-3 divide-y divide-zinc-200 dark:divide-white/10">
+          {dataset.items.map((item, index) => {
+            const expanded = open === item.id;
+            return (
+              <div key={item.id}>
+                <div className="flex items-center gap-3 py-2">
+                  <button type="button" onClick={() => setOpen(expanded ? null : item.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-expanded={expanded}>
+                    <ChevronDown size={14} className={`shrink-0 text-zinc-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                    <StateIcon state={states[index]} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm text-zinc-900 dark:text-zinc-100">{item.title}</span>
+                      {!expanded && (
+                        <span className={`block truncate text-[11px] ${states[index].kind === 'ready' ? 'text-zinc-500' : states[index].kind === 'working' ? 'text-pink-600 dark:text-pink-300' : states[index].kind === 'queued' ? 'text-zinc-500' : 'text-amber-600 dark:text-amber-300'}`}>
+                          {states[index].kind === 'ready' ? `${item.instrumental ? `${t('trainingInstrumental')} · ` : ''}${item.style}` : states[index].text}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                  <span className="shrink-0 text-[11px] tabular-nums text-zinc-500">{clock(item.seconds)}</span>
+                  <button
+                    type="button"
+                    disabled={states[index].kind === 'working'}
+                    onClick={() => void deleteItem(dataset.id, item.id).then(onChanged).catch(problem => onError(errorText(problem)))}
+                    className="shrink-0 p-1 text-zinc-400 hover:text-rose-500 disabled:opacity-40"
+                    title={t('trainingDelete')}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+                {expanded && (
+                  <SongEditor
+                    datasetId={dataset.id}
+                    item={item}
+                    styleKind={state.item_style}
+                    state={states[index]}
+                    listenReady={listenReady}
+                    jobBusy={jobBusy}
+                    describing={describing.includes(item.id)}
+                    onPrepare={onPrepare}
+                    onDescribe={() => void describe([item.id])}
+                    onChanged={onChanged}
+                    onError={onError}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-3">
+          <DropZone onPicked={onAdd} disabled={Boolean(adding)} title={t('trainingDropMore')} />
+        </div>
+      </section>
+
+      <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-3 rounded-2xl border border-zinc-200 bg-white/90 p-3 backdrop-blur dark:border-white/10 dark:bg-zinc-950/90">
+        {working && (
+          <label className="mr-auto flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-200">
+            <input type="checkbox" checked={Boolean(mine?.train_after)} disabled={!state.pack_ready} onChange={event => onTrainAfter(event.target.checked)} className="accent-pink-500" />
+            {state.pack_ready ? t('trainingTrainWhenReady') : t('trainingTrainWhenReadyNeedsPack')}
+          </label>
+        )}
+        <button type="button" onClick={onNext} className={PRIMARY}>{t('trainingNextTrain')}<ChevronRight size={15} /></button>
+      </div>
+
+    </div>
+  );
+};
+
+/** Step two: what will be trained, checked, and the button that starts it. */
+const TrainStep: React.FC<{ state: TrainingState; dataset: Dataset; job: PrepareStatus | null; onBack: () => void; onStarted: () => void; onChanged: (dataset: Dataset) => void; onRefresh: () => void; onError: (message: string) => void }> = ({ state, dataset, job, onBack, onStarted, onChanged, onRefresh, onError }) => {
+  const { t, songs } = useStrings();
+  const [advanced, setAdvanced] = useState(false);
+  const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [starting, setStarting] = useState(false);
+  const unsung = dataset.items.filter(item => item.lyrics_state !== 'done').length;
+  const unstyled = dataset.items.filter(item => item.style_state !== 'done').length;
+  const total = dataset.items.reduce((sum, item) => sum + item.seconds, 0);
+  const preparing = Boolean(job && !job.finished);
+  const blocker = !dataset.items.length ? t('trainingNeedSongs') : unsung ? t('trainingNeedLyrics').replace('{count}', String(unsung)) : preparing ? t('trainingWaitPrepare') : state.active ? t('trainingBusy') : null;
+  const start = async () => {
+    setStarting(true);
+    try {
+      await startRun(dataset.id, dataset.name, recipe ?? state.recipe_defaults);
+      onStarted();
+    } catch (problem) {
+      onError(errorText(problem));
+    } finally {
+      setStarting(false);
+    }
+  };
+  const check = (ok: boolean, text: string) => (
+    <li className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-200">{ok ? <Check size={14} className="text-emerald-500" /> : <AlertTriangle size={14} className="text-amber-500" />}{text}</li>
+  );
+  return (
+    <div className="space-y-3">
+      {!state.pack_ready && <PackCard state={state} onError={onError} onChanged={onRefresh} />}
+      <section className={CARD}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label>
+            <span className={LABEL}>{t('trainingLoraName')}</span>
+            <input key={`${dataset.id}-name`} defaultValue={dataset.name} onBlur={event => event.target.value.trim() && event.target.value !== dataset.name && void updateDataset(dataset.id, { name: event.target.value }).then(onChanged).catch(problem => onError(errorText(problem)))} className={`${CONTROL} mt-1`} />
+          </label>
+          <label>
+            <span className={LABEL}>{t('trainingTrigger')}</span>
+            <input key={`${dataset.id}-trigger`} defaultValue={dataset.trigger} onBlur={event => event.target.value !== dataset.trigger && void updateDataset(dataset.id, { trigger: event.target.value }).then(onChanged).catch(problem => onError(errorText(problem)))} className={`${CONTROL} mt-1`} />
+            <span className={`block ${HINT}`}>{t('trainingTriggerHint')}</span>
+          </label>
+        </div>
+        <ul className="mt-4 space-y-1.5">
+          {check(dataset.items.length > 0, t('trainingSongsTotal').replace('{songs}', songs(dataset.items.length)).replace('{time}', clock(total)))}
+          {check(unsung === 0, unsung ? t('trainingNeedLyrics').replace('{count}', String(unsung)) : t('trainingCheckLyrics'))}
+          {check(unstyled === 0, unstyled ? t('trainingNeedStyle').replace('{count}', String(unstyled)) : t('trainingCheckStyle'))}
+        </ul>
+        <RecipeForm recipe={recipe ?? state.recipe_defaults} defaults={state.recipe_defaults} fields={state.recipe_fields} onChange={setRecipe} only={['stop']} />
+        {(recipe ?? state.recipe_defaults).stop === 'epochs' && (
+          <p className={HINT}>
+            {t('trainingEpochSteps')
+              .replace('{epochs}', String((recipe ?? state.recipe_defaults).epochs))
+              .replace('{songs}', String(dataset.items.length))
+              .replace('{steps}', String(Number((recipe ?? state.recipe_defaults).epochs) * dataset.items.length))}
+          </p>
+        )}
+        <button type="button" onClick={() => setAdvanced(value => !value)} className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200" aria-expanded={advanced}>
+          <ChevronDown size={13} className={`transition-transform ${advanced ? 'rotate-180' : ''}`} />{t('trainingAdvanced')}
+        </button>
+        {advanced && <RecipeForm recipe={recipe ?? state.recipe_defaults} defaults={state.recipe_defaults} fields={state.recipe_fields} onChange={setRecipe} except={['stop']} />}
+      </section>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white/90 p-3 dark:border-white/10 dark:bg-zinc-950/90">
+        <button type="button" onClick={onBack} className={OUTLINE}><ChevronLeft size={14} />{t('trainingBackSongs')}</button>
+        <div className="flex items-center gap-3">
+          {blocker && <span className="text-xs text-zinc-500">{blocker}</span>}
+          <button type="button" onClick={() => void start()} disabled={Boolean(blocker) || !state.pack_ready || starting} className={PRIMARY}>
+            {starting ? <Loader2 size={15} className="animate-spin" /> : <Play size={15} />}{t('trainingStart')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/** The datasets as cards, and the drop zone that makes a new one. */
+const DatasetList: React.FC<{ state: TrainingState; busy: boolean; onOpen: (id: string) => void; onNew: (files: PickedFile[]) => void; onImport: (files: File[]) => void; importing: boolean }> = ({ state, busy, onOpen, onNew, onImport, importing }) => {
+  const { t, songs } = useStrings();
+  const importPicker = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    importPicker.current?.setAttribute('webkitdirectory', '');
+  }, []);
+  const job = state.prepare;
+  return (
+    <div className="space-y-4">
+      <DropZone large onPicked={onNew} disabled={busy} title={t('trainingDropTitle')} hint={t('trainingDropHint')} />
+      {state.datasets.length > 0 && (
+        <div className="flex items-center justify-between">
+          <p className={LABEL}>{t('trainingDatasets')}</p>
+          <button type="button" onClick={() => importPicker.current?.click()} disabled={importing} className={OUTLINE} title={t('trainingImportHint')}>
+            {importing ? <Loader2 size={13} className="animate-spin" /> : <FolderInput size={13} />}{t('trainingImport')}
+          </button>
+        </div>
+      )}
+      <input ref={importPicker} type="file" multiple className="hidden" onChange={event => { onImport(Array.from(event.target.files ?? [])); event.target.value = ''; }} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        {state.datasets.map(dataset => {
+          const ready = dataset.items.filter(item => item.lyrics_state === 'done' && item.style_state === 'done').length;
+          const preparing = job && !job.finished && job.dataset === dataset.id;
+          const training = state.runs.some(run => run.dataset_id === dataset.id && run.status === 'running');
+          const minutes = Math.round(dataset.items.reduce((sum, item) => sum + item.seconds, 0) / 60);
+          return (
+            <button key={dataset.id} type="button" onClick={() => onOpen(dataset.id)} className={`${CARD} text-left transition-colors hover:border-pink-400/60`}>
+              <p className="truncate text-sm font-semibold text-zinc-900 dark:text-white">{dataset.name}</p>
+              <p className="mt-1 text-xs text-zinc-500">{t('trainingCardSongs').replace('{songs}', songs(dataset.items.length)).replace('{minutes}', String(minutes))}</p>
+              <p className="mt-2 flex items-center gap-1.5 text-xs">
+                {preparing ? <><Loader2 size={12} className="animate-spin text-pink-500" /><span className="text-pink-600 dark:text-pink-300">{t('trainingCardPreparing')}</span></>
+                  : training ? <><Loader2 size={12} className="animate-spin text-pink-500" /><span className="text-pink-600 dark:text-pink-300">{t('trainingCardTraining')}</span></>
+                  : ready === dataset.items.length && ready > 0 ? <><Check size={12} className="text-emerald-500" /><span className="text-emerald-600 dark:text-emerald-400">{t('trainingCardReady')}</span></>
+                  : <><AlertTriangle size={12} className="text-amber-500" /><span className="text-amber-600 dark:text-amber-300">{t('trainingReadyCount').replace('{ready}', String(ready)).replace('{count}', String(dataset.items.length))}</span></>}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+/** The loss over the steps so far, as a line. */
+const LossLine: React.FC<{ steps: TrainingRun['steps'] }> = ({ steps }) => {
+  if (steps.length < 2) return null;
+  const losses = steps.map(step => step.loss);
+  const low = Math.min(...losses);
+  const high = Math.max(...losses);
+  const span = Math.max(1e-9, high - low);
+  const last = steps[steps.length - 1].step;
+  const points = steps.map(step => `${(100 * step.step) / last},${36 - (34 * (step.loss - low)) / span}`).join(' ');
+  return (
+    <svg viewBox="0 0 100 38" preserveAspectRatio="none" className="mt-2 h-16 w-full" aria-hidden>
+      <polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.2" vectorEffect="non-scaling-stroke" className="text-pink-500" />
+    </svg>
+  );
+};
+
+/** Trains a stopped or finished run further: the steps it is to reach in
+ *  all, from the checkpoint the server says it can go on from. */
+const ContinueRun: React.FC<{ run: TrainingRun; onChanged: () => void; onError: (message: string) => void }> = ({ run, onChanged, onError }) => {
+  const { t, tt } = useStrings();
+  const from = run.resume_step;
+  const [steps, setSteps] = useState('');
+  const [starting, setStarting] = useState(false);
+  if (from === undefined) {
+    return run.resume_refused && run.checkpoints.length > 0 ? <p className="mt-3 text-[11px] leading-4 text-zinc-500">{tt(`trainingResume_${run.resume_refused}`)}</p> : null;
+  }
+  const suggested = from + Math.max(Number(run.recipe.save_every) || 1, 1) * 4;
+  const target = Number(steps || suggested);
+  const valid = Number.isInteger(target) && target > from;
+  const start = () => {
+    if (!valid || starting) return;
+    setStarting(true);
+    void continueRun(run.id, target)
+      .then(onChanged)
+      .catch(problem => onError(errorText(problem)))
+      .finally(() => setStarting(false));
+  };
+  return (
+    <div className="mt-3 rounded-lg border border-zinc-200 p-2.5 dark:border-white/10">
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={start} disabled={!valid || starting} className={OUTLINE}>
+          {starting ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
+          {t('trainingContinue')}
+        </button>
+        <label className="flex items-center gap-1.5 text-[11px] text-zinc-500">
+          {t('trainingContinueTo')}
+          <input
+            value={steps}
+            onChange={event => setSteps(event.target.value.replace(/[^0-9]/g, ''))}
+            onKeyDown={event => { if (event.key === 'Enter') start(); }}
+            placeholder={String(suggested)}
+            inputMode="numeric"
+            aria-label={t('trainingContinueTo')}
+            className="w-24 rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs tabular-nums text-zinc-900 outline-none focus:border-pink-500 dark:border-white/10 dark:bg-black/30 dark:text-white"
+          />
+        </label>
+      </div>
+      <p className="mt-1.5 text-[11px] leading-4 text-zinc-500">{tt('trainingContinueHint').replace('{step}', String(from))}</p>
+    </div>
+  );
+};
+
+const RunCard: React.FC<{ run: TrainingRun; onChanged: () => void; onError: (message: string) => void; onDelete: () => void }> = ({ run, onChanged, onError, onDelete }) => {
+  const { t, tt } = useStrings();
+  const running = run.status === 'running';
+  const last = run.steps[run.steps.length - 1];
+  const cap = Number(run.recipe.steps) || 1;
+  // an engine that stops on drift reports it per step; the stop is on the mean of the last 20
+  const target = Number(run.recipe.target_kl ?? 0);
+  const window = run.steps.slice(-20).map(step => step.ar_kl).filter((kl): kl is number => typeof kl === 'number');
+  const kl = window.length ? window.reduce((a, b) => a + b, 0) / window.length : null;
+  const recent = run.steps.slice(-10).map(step => step.step_ms).filter((ms): ms is number => typeof ms === 'number');
+  const perStep = recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length / 1000 : 0;
+  const left = last && perStep && target <= 0 ? (cap - last.step) * perStep : 0;
+  const percent = last ? Math.min(100, 100 * Math.max(last.step / cap, target > 0 && kl !== null ? kl / target : 0)) : 0;
+  const stageIndex = run.stage ? run.stages.indexOf(run.stage) : run.status === 'done' ? run.stages.length : -1;
+  const tone = { running: 'text-pink-600 dark:text-pink-300', done: 'text-emerald-600 dark:text-emerald-400', failed: 'text-rose-600 dark:text-rose-300', cancelled: 'text-zinc-500', interrupted: 'text-amber-600 dark:text-amber-300' }[run.status];
+  return (
+    <section className={CARD}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-zinc-900 dark:text-white">{run.name}</p>
+          <p className="mt-0.5 text-[11px] text-zinc-500">{run.dataset_name}{run.trigger ? ` · ${run.trigger}` : ''} · {target > 0 ? `KL ${target} · ` : ''}{target > 0 ? '≤ ' : ''}{cap} {t('trainingSteps')}</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className={`inline-flex items-center gap-1 text-xs font-semibold ${tone}`}>{running && <Loader2 size={12} className="animate-spin" />}{tt(`trainingStatus_${run.status}`)}</span>
+          {running ? (
+            <button type="button" onClick={() => void cancelRun(run.id).then(onChanged).catch(problem => onError(errorText(problem)))} className={OUTLINE}><X size={13} />{t('trainingStop')}</button>
+          ) : (
+            <button type="button" onClick={onDelete} className={`${OUTLINE} hover:border-rose-400 hover:text-rose-600`} title={t('trainingDelete')}><Trash2 size={13} /></button>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-1">
+        {run.stages.map((stage, index) => (
+          <span
+            key={stage}
+            className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+              index < stageIndex ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : index === stageIndex ? 'bg-pink-500/15 text-pink-600 dark:text-pink-300' : 'bg-zinc-200/60 text-zinc-500 dark:bg-white/5'
+            }`}
+          >
+            {tt(`trainingStage_${stage}`)}
+          </span>
+        ))}
+      </div>
+
+      {last && (
+        <>
+          <div className="mt-3 flex items-baseline justify-between text-[11px] tabular-nums text-zinc-600 dark:text-zinc-300">
+            <span>{t('trainingStep')} {last.step} · {t('trainingLoss')} {last.loss.toFixed(3)}{kl !== null ? ` · KL ${kl.toFixed(2)}${target > 0 ? ` / ${target}` : ''}` : ''}</span>
+            {running && left > 0 && <span>{clock(left)} {t('trainingLeft')}</span>}
+          </div>
+          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-white/10">
+            <div className="h-full bg-gradient-to-r from-orange-500 to-pink-600 transition-[width]" style={{ width: `${percent}%` }} />
+          </div>
+          <LossLine steps={run.steps} />
+        </>
+      )}
+
+      {run.checkpoints.length > 0 && (
+        <div className="mt-3">
+          <p className={LABEL}>{t('trainingCheckpoints')}</p>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {[...run.checkpoints].sort((a, b) => a - b).map(step => {
+              const installed = run.installed.includes(step);
+              return (
+                <button
+                  key={step}
+                  type="button"
+                  disabled={installed}
+                  onClick={() =>
+                    void installCheckpoint(run.id, step)
+                      .then(() => {
+                        window.dispatchEvent(new CustomEvent('studio:adapters-changed'));
+                        window.dispatchEvent(new CustomEvent('studio:toast', { detail: { message: t('trainingAdded'), type: 'success' } }));
+                        onChanged();
+                      })
+                      .catch(problem => onError(errorText(problem)))
+                  }
+                  className={`${OUTLINE} ${installed ? 'text-emerald-600 dark:text-emerald-400' : ''}`}
+                >
+                  {installed ? <Check size={13} /> : <Plus size={13} />}
+                  {t('trainingStep')} {step} · {installed ? t('trainingInLora') : t('trainingToLora')}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {(run.continuations ?? []).length > 0 && (
+        <p className="mt-2 text-[11px] text-zinc-500">
+          {(run.continuations ?? []).map(({ from, to }) => tt('trainingContinued').replace('{from}', String(from)).replace('{to}', String(to))).join(' · ')}
+        </p>
+      )}
+
+      {!running && <ContinueRun run={run} onChanged={onChanged} onError={onError} />}
+
+      {run.error && <p role="alert" className="mt-3 text-xs text-rose-600 dark:text-rose-300">{run.error}</p>}
+      {run.log && run.log.length > 0 && (
+        <details className="mt-2">
+          <summary className="cursor-pointer text-[11px] text-zinc-500">{t('trainingLog')}</summary>
+          <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-zinc-100 p-2 text-[10px] leading-4 text-zinc-600 dark:bg-black/30 dark:text-zinc-400">{run.log.join('\n')}</pre>
+        </details>
+      )}
+    </section>
+  );
+};
+
+type Step = 'songs' | 'train' | 'result';
+
+export const TrainingPanel: React.FC = () => {
+  const { t } = useStrings();
+  const [state, setState] = useState<TrainingState | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [step, setStep] = useState<Step>('songs');
+  const [adding, setAdding] = useState<{ done: number; total: number } | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [deleting, setDeleting] = useState<{ kind: 'dataset' | 'run'; id: string } | null>(null);
+  const [guideOpen, setGuideOpen] = useState(false);
+
+  // the service being away is its own message, gone as soon as it answers again
+  const [offline, setOffline] = useState<string | null>(null);
+  const refresh = useCallback(async () => {
+    try {
+      setState(await fetchTraining());
+      setOffline(null);
+    } catch (problem) {
+      setOffline(errorText(problem));
+    }
+  }, []);
+
+  const job = state?.prepare ?? null;
+  const busy = Boolean(state?.active || (job && !job.finished) || adding || (state?.download && !state.download.done) || (state?.listen?.download && !state.listen.download.done));
+  useEffect(() => {
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), busy ? 1500 : 5000);
+    return () => window.clearInterval(timer);
+  }, [refresh, busy]);
+
+  // a run that starts by itself after preparation is shown where it runs
+  useEffect(() => {
+    if (job?.run && job.dataset === openId) setStep('result');
+  }, [job?.run, job?.dataset, openId]);
+
+  const dataset = state?.datasets.find(entry => entry.id === openId) ?? null;
+  const replace = (next: Dataset) => setState(current => (current ? { ...current, datasets: current.datasets.map(entry => (entry.id === next.id ? next : entry)) } : current));
+
+  const addAndPrepare = async (id: string, files: PickedFile[]) => {
+    setError(null);
+    try {
+      const next = await addPicked(id, files, (done, total) => setAdding({ done, total }));
+      if (next) replace(next);
+      setAdding(null);
+      await prepareDataset(id, { lyrics: 'missing', style: 'missing' });
+      await refresh();
+    } catch (problem) {
+      setAdding(null);
+      setError(errorText(problem));
+    }
+  };
+
+  const createFrom = async (files: PickedFile[]) => {
+    try {
+      const made = await createDataset(nameFromPicked(files) || t('trainingNewDataset'), '');
+      await refresh();
+      setOpenId(made.id);
+      setStep('songs');
+      await addAndPrepare(made.id, files);
+    } catch (problem) {
+      setError(errorText(problem));
+    }
+  };
+
+  const importFolder = async (files: File[]) => {
+    if (files.length === 0) return;
+    setImporting(true);
+    try {
+      const made = await importDataset(files);
+      await refresh();
+      setOpenId(made.id);
+      setStep('songs');
+    } catch (problem) {
+      setError(errorText(problem));
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const prepare = async (request: PrepareRequest) => {
+    if (!dataset) return;
+    setError(null);
+    try {
+      await prepareDataset(dataset.id, request);
+      await refresh();
+    } catch (problem) {
+      setError(errorText(problem));
+    }
+  };
+
+  const trainAfter = async (on: boolean) => {
+    if (!dataset || !state) return;
+    try {
+      await setTrainAfter(on ? { name: dataset.name, recipe: state.recipe_defaults } : null);
+      await refresh();
+    } catch (problem) {
+      setError(errorText(problem));
+    }
+  };
+
+  const confirmDelete = async () => {
+    const target = deleting;
+    setDeleting(null);
+    if (!target) return;
+    try {
+      if (target.kind === 'dataset') {
+        await deleteDataset(target.id);
+        setOpenId(null);
+      } else await deleteRun(target.id);
+      await refresh();
+    } catch (problem) {
+      setError(errorText(problem));
+    }
+  };
+
+  if (!state) return <p className="flex items-center gap-2 text-sm text-zinc-500"><Loader2 size={14} className="animate-spin" />{offline}</p>;
+  const runs = dataset ? state.runs.filter(run => run.dataset_id === dataset.id) : [];
+  // one step after another: training once there are songs, the result once there was a run
+  const steps: { id: Step; label: string; open: boolean }[] = [
+    { id: 'songs', label: t('trainingStepSongs'), open: true },
+    { id: 'train', label: t('trainingStepTrain'), open: Boolean(dataset?.items.length) },
+    { id: 'result', label: t('trainingStepResult'), open: runs.length > 0 },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        {dataset ? (
+          <>
+            <button type="button" onClick={() => setOpenId(null)} className={`${OUTLINE} px-2`} title={t('trainingDatasets')}><ChevronLeft size={15} /></button>
+            <p className="min-w-0 truncate text-base font-semibold text-zinc-900 dark:text-white">{dataset.name}</p>
+            <div className="flex items-center gap-1">
+              {steps.map((entry, index) => (
+                <React.Fragment key={entry.id}>
+                  {index > 0 && <span className="h-px w-4 bg-zinc-300 dark:bg-white/15" />}
+                  <button
+                    type="button"
+                    disabled={!entry.open}
+                    onClick={() => setStep(entry.id)}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${step === entry.id ? 'bg-pink-500/15 text-pink-600 dark:text-pink-300' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'}`}
+                  >
+                    {index + 1} · {entry.label}
+                  </button>
+                </React.Fragment>
+              ))}
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              <button type="button" onClick={() => setGuideOpen(value => !value)} className={OUTLINE} aria-pressed={guideOpen}><BookOpen size={13} />{t('trainingGuideOpen')}</button>
+              <MoreMenu
+                items={[
+                  { label: t('trainingExport'), icon: <FolderOutput size={14} />, onClick: () => void revealDataset(dataset.id).catch(problem => setError(errorText(problem))) },
+                  { label: t('trainingDeleteDataset'), icon: <Trash2 size={14} />, onClick: () => setDeleting({ kind: 'dataset', id: dataset.id }), danger: true, disabled: Boolean(job && !job.finished && job.dataset === dataset.id) },
+                ]}
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="min-w-0 flex-1 text-sm text-zinc-600 dark:text-zinc-400">{t('trainingIntro')}</p>
+            <button type="button" onClick={() => setGuideOpen(value => !value)} className={OUTLINE} aria-pressed={guideOpen}><BookOpen size={13} />{t('trainingGuideOpen')}</button>
+          </>
+        )}
+      </div>
+      {guideOpen && <TrainingGuide onClose={() => setGuideOpen(false)} />}
+
+      {!dataset && <DatasetList state={state} busy={Boolean(adding)} onOpen={id => { setOpenId(id); setStep(state.runs.some(run => run.dataset_id === id && run.status === 'running') ? 'result' : 'songs'); }} onNew={files => void createFrom(files)} onImport={files => void importFolder(files)} importing={importing} />}
+
+      {dataset && step === 'songs' && (
+        <SongsStep
+          state={state}
+          dataset={dataset}
+          job={job}
+          adding={adding}
+          onAdd={files => void addAndPrepare(dataset.id, files)}
+          onAddLibrary={ids => void addLibrarySongs(dataset.id, ids).then(next => { replace(next); return prepareDataset(dataset.id, { lyrics: 'missing', style: 'missing' }); }).then(refresh).catch(problem => setError(errorText(problem)))}
+          onPrepare={request => void prepare(request)}
+          onNext={() => setStep('train')}
+          onTrainAfter={on => void trainAfter(on)}
+          onChanged={replace}
+          onRefresh={() => void refresh()}
+          onError={setError}
+        />
+      )}
+      {dataset && step === 'train' && <TrainStep state={state} dataset={dataset} job={job} onBack={() => setStep('songs')} onStarted={() => { setStep('result'); void refresh(); }} onChanged={replace} onRefresh={() => void refresh()} onError={setError} />}
+      {dataset && step === 'result' && (
+        <div className="space-y-3">
+          {runs.length === 0 && <p className="text-sm text-zinc-500">{t('trainingNoRuns')}</p>}
+          {runs.map(run => <RunCard key={run.id} run={run} onChanged={() => void refresh()} onError={setError} onDelete={() => setDeleting({ kind: 'run', id: run.id })} />)}
+        </div>
+      )}
+
+      {offline && <p role="alert" className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">{offline}</p>}
+      {error && (
+        <div role="alert" className="flex items-start gap-3 rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">
+          <p className="min-w-0 flex-1">{error}</p>
+          <button type="button" onClick={() => setError(null)} className="shrink-0" aria-label={t('adaptersCancel')}><X size={14} /></button>
+        </div>
+      )}
+
+      <ConfirmDialog
+        isOpen={deleting !== null}
+        title={t('trainingDelete')}
+        message={deleting?.kind === 'dataset' ? t('trainingDeleteDatasetMessage') : t('trainingDeleteRunMessage')}
+        confirmLabel={t('trainingDelete')}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setDeleting(null)}
+      />
+    </div>
+  );
+};

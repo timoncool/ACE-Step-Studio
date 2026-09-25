@@ -1,0 +1,4 @@
+interface:
+  display_name: "Music Caption Rewriter"
+  short_description: "Rewrite music prompts through layered text references"
+  default_prompt: "Use $music-caption-rewriter to turn my music description and optional tagged lyrics into a concise, section-aware Music 3.0 caption."

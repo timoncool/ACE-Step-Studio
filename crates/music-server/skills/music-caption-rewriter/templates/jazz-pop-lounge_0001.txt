@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 143. key is C, and scale is major. Jazz Pop / Lounge.
+Global Emotional Progression: The piece opens with a gentle, nostalgic atmosphere that feels like a quiet reminiscence. As the arrangement builds into the main sections, the mood shifts to one of warm contentment and peaceful wandering, maintaining a consistent, soothing flow without sharp dynamic spikes, before gently receding into a reflective close.
+Application Scenarios & Imagery: Ideal for a relaxed afternoon in a sun-dappled café, a leisurely stroll through an autumn forest, or background music for a contemplative scene in a romantic film.
+Sonics & Production Profile: The mix features a clean, intimate soundstage with a focus on mid-range warmth. The frequency response is balanced, highlighting the natural resonance of acoustic instruments while keeping the low end tight and unobtrusive. The dynamics are moderately compressed to maintain a smooth, consistent listening experience suitable for background environments.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Female). The vocalist possesses a soft, airy, and delicate timbre with a light breathiness that enhances the intimate quality of the performance.
+Vocal Style: The delivery is consistently gentle and narrative, employing a smooth legato phrasing that mirrors the relaxed tempo. The singer maintains a restrained dynamic range throughout, prioritizing emotional nuance and clarity over power, creating a sense of closeness and whisper-like confidentiality.
+Harmony/Backing Vocals: Subtle, self-harmonized layers appear occasionally during the chorus sections, adding depth without disrupting the solo vocal's prominence. These harmonies are mixed low, serving as a textural cushion rather than a distinct melodic counterpoint.
+Vocal FX: The vocal track is treated with a moderate amount of plate reverb to create a sense of space and airiness, complemented by a very subtle delay that adds rhythmic cohesion without being overtly noticeable.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: A grand piano serves as the harmonic and melodic anchor, playing flowing arpeggios and chord voicings from the Intro through to the Outro, establishing the jazz-inflected tonal palette.
+Secondary: An upright bass enters shortly after the intro, providing a warm, walking bassline that grounds the harmony. An acoustic guitar adds rhythmic texture with soft strumming and occasional finger-picked fills, appearing primarily in the verses and choruses.
+Groove & Foundation Progression: The rhythm section is driven by a light jazz drum kit using brushes on the snare, creating a soft, swishing texture that defines the swing feel. The groove remains steady and understated throughout, with the hi-hat providing a consistent timekeeper and the kick drum offering a gentle pulse that never overwhelms the acoustic elements.
+Embellishments, Textures & Spatial FX: A clarinet (or similar woodwind) weaves melodic counter-lines and solos during instrumental breaks, adding a lyrical, woody color to the arrangement. Occasional cymbal swells and soft percussive accents mark transitions between sections, while a faint ambient room tone contributes to the overall organic and live-performance feel.

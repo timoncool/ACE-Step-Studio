@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 78. key is D, and scale is minor. Americana / Folk Rock.
+Global Emotional Progression: The piece opens with a solitary, reflective mood established by sparse instrumentation, gradually building into a resilient and communal anthem during the choruses. The emotional arc moves from quiet observation to a determined, uplifting declaration of duty, before settling back into a calm, resolved state for the outro.
+Application Scenarios & Imagery: A dimly lit coastal lighthouse at night, a gathering of community members around a fire, or a cinematic scene depicting steadfast guardianship against a stormy sea.
+Sonics & Production Profile: The mix features a warm, organic soundstage with a focus on mid-range clarity. The production is clean and spacious, allowing individual acoustic elements to breathe, while maintaining a cohesive, slightly compressed dynamic range that suits the storytelling nature of the genre.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Male). The vocalist possesses a deep, weathered baritone with a distinct gravelly texture that conveys experience and authority.
+Vocal Style: The delivery is narrative and grounded, employing a steady, storytelling cadence in the verses that shifts to a more projected, anthemic tone during the choruses to emphasize collective strength.
+Harmony/Backing Vocals: Rich, multi-part male harmonies enter prominently during the choruses, layering thirds and fifths above the lead vocal to create a choral, "sea shanty" effect that reinforces the theme of unity.
+Vocal FX: The lead vocal is treated with a moderate amount of plate reverb to add depth without obscuring the lyrical clarity, while the backing harmonies are slightly widened in the stereo field to enhance the sense of a group presence.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: A steel-string acoustic guitar provides the core rhythmic and harmonic foundation throughout the entire track, utilizing a steady strumming pattern that drives the song forward.
+Secondary: A mournful harmonica introduces the track and weaves melodic fills between vocal phrases, particularly in the intro and instrumental breaks. An electric bass guitar enters shortly after the first verse, offering a warm, rounded low-end support that anchors the harmony.
+Groove & Foundation Progression: The rhythm section begins with just the acoustic guitar, establishing a gentle pulse. A simple, understated drum kit (kick, snare, and brushed hi-hats) joins at the first chorus, adding momentum and weight. The percussion remains consistent but gains slight intensity through added cymbal crashes in subsequent choruses, supporting the rising emotional energy before stripping back for the final outro.
+Embellishments, Textures & Spatial FX: Subtle ambient textures, resembling distant wind or ocean swells, are layered very low in the mix to enhance the maritime atmosphere. Occasional slide guitar licks appear in the background during instrumental transitions, adding a bluesy color without dominating the arrangement.

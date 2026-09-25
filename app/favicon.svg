@@ -1,7 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-  <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ec4899"/><stop offset="100%" stop-color="#9333ea"/></linearGradient></defs>
-  <circle cx="16" cy="16" r="16" fill="url(#g)"/>
-  <g transform="translate(4,4)" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
-    <path d="M2 10v3"/><path d="M6 6v11"/><path d="M10 3v18"/><path d="M14 8v7"/><path d="M18 5v13"/><path d="M22 10v3"/>
+  <defs>
+    <linearGradient id="m3" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f97316"/>
+      <stop offset="55%" stop-color="#e0409a"/>
+      <stop offset="100%" stop-color="#8b2ee8"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="32" height="32" rx="7.5" fill="url(#m3)"/>
+  <g fill="#ffffff" fill-opacity="0.94">
+    <rect x="8.1" y="11.5" width="3.4" height="9" rx="1.7"/>
+    <rect x="14.3" y="7.4" width="3.4" height="17.2" rx="1.7"/>
+    <rect x="20.5" y="9.6" width="3.4" height="12.8" rx="1.7"/>
   </g>
 </svg>

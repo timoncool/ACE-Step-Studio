@@ -15,3 +15,14 @@ declare module '*.md?raw' {
   const content: string;
   export default content;
 }
+
+declare const __STUDIO__: {
+  name: string;
+  slug: string;
+  repo: string;
+  artist: string;
+  port: number;
+  engines: string[];
+};
+
+declare const __APP_VERSION__: string;

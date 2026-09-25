@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 103. key is A, and scale is minor. Americana / Folk Rock.
+Global Emotional Progression: The piece opens with a somber, reflective mood established by sparse instrumentation, gradually building narrative tension through the verses. The choruses introduce a surge of determination and weight, driven by fuller instrumentation and increased vocal intensity, before receding back into a contemplative state for the bridge and final outro, leaving a lingering sense of rugged endurance.
+Application Scenarios & Imagery: A solitary journey through a desolate landscape, scenes of geological formation or deep-sea exploration, or a character study of resilience against overwhelming natural forces.
+Sonics & Production Profile: The mix features a warm, organic soundstage with a focus on mid-range clarity. The frequency response is balanced, highlighting the grit of the acoustic instruments while maintaining a clean low end. Dynamics are preserved to allow the song to breathe, with subtle compression applied during the choruses to enhance impact without sacrificing the natural feel.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Male). The vocalist possesses a deep, resonant baritone with a slightly gravelly texture that conveys age and experience.
+Vocal Style: The delivery is primarily narrative and storytelling, characterized by a steady, deliberate pace in the verses. In the choruses, the style shifts to a more forceful and declarative tone, emphasizing key phrases with increased volume and emotional weight, while maintaining a grounded, earthy quality throughout.
+Harmony/Backing Vocals: Subtle, low-register harmony layers appear during the choruses, doubling the lead melody at the octave or third to add thickness and gravitas without detracting from the primary vocal line.
+Vocal FX: The vocal track is treated with a moderate amount of plate reverb to create a sense of space and depth, complemented by a light touch of delay on phrase endings to enhance the atmospheric quality.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: A steel-string acoustic guitar provides the core harmonic and rhythmic foundation, utilizing a mix of strumming and finger-picking patterns that persist from the intro through the outro.
+Secondary: An electric bass guitar enters shortly after the intro, offering a warm, rounded low-end support that locks in with the drums. A clean electric guitar adds melodic fills and textural swells, becoming more prominent in the choruses and bridge.
+Groove & Foundation Progression: The rhythm section begins with a simple, steady drum pattern featuring a kick on beats 1 and 3 and a snare on 2 and 4, establishing a solid backbeat. As the song progresses into the choruses, the drumming becomes more active with added hi-hat accents and occasional tom fills, driving the energy forward. The bass line remains consistent but gains presence in the mix during heavier sections.
+Embellishments, Textures & Spatial FX: Occasional slide guitar licks and subtle percussive elements like shakers or tambourine appear in the background to add texture. Reverb tails on the guitars and vocals create a spacious, cinematic atmosphere, while dynamic swells in the electric guitar parts serve as transitional markers between sections.

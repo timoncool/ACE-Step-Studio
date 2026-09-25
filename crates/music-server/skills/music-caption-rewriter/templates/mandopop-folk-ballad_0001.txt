@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 75. key is Bb, and scale is major. Mandopop / Folk Ballad.
+Global Emotional Progression: The piece opens with a solitary, nostalgic atmosphere that feels intimate and restrained. As the arrangement builds into the main sections, the emotion swells into a warm, heartfelt yearning, supported by fuller instrumentation, before gently receding back to a quiet, reflective state in the outro.
+Application Scenarios & Imagery: Ideal for scenes depicting quiet reminiscence, watching rain against a window, or storytelling moments in a period drama; evokes imagery of old photographs, fading light, and enduring memories.
+Sonics & Production Profile: The mix features a wide, open soundstage with a focus on mid-range warmth. The frequency response is balanced, highlighting the organic textures of acoustic instruments while keeping the low end clean and unobtrusive. The dynamic aesthetic is natural and breathable, avoiding heavy compression to preserve the emotional nuance of the performance.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Male). The vocalist possesses a smooth, clear tenor timbre with a gentle, slightly breathy quality that conveys vulnerability and sincerity.
+Vocal Style: The delivery is primarily melodic and narrative, starting with a soft, intimate tone in the verses. The intensity gradually increases in the choruses, where the voice becomes more resonant and expressive, employing subtle vibrato to emphasize emotional peaks without becoming forceful.
+Harmony/Backing Vocals: Subtle, self-harmonized layers appear during the choruses, thickening the texture and adding depth to the main melody. These harmonies are mixed lower than the lead, serving to support rather than distract.
+Vocal FX: The vocal track is treated with a moderate amount of plate reverb to create a sense of space and intimacy, complemented by a light delay that adds rhythmic tail to phrase endings. No aggressive pitch correction or distortion effects are evident.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: An acoustic guitar provides the foundational harmonic structure throughout the entire track, utilizing a finger-picking pattern in the verses that shifts to a fuller strumming technique in the choruses.
+Secondary: A cello enters early to provide a melancholic counter-melody and low-end warmth, remaining present through most of the song. A piano joins in the second half of the verses, adding harmonic richness, while a violin takes over melodic embellishments during the instrumental breaks and choruses.
+Groove & Foundation Progression: The rhythm section is minimal initially, relying on the guitar's percussive picking. A soft, brushed drum kit and a warm electric bass enter at the first chorus, establishing a gentle, steady pulse that drives the song forward without overpowering the acoustic elements. The drums drop out briefly in the bridge to create dynamic contrast before returning for the final chorus.
+Embellishments, Textures & Spatial FX: Subtle ambient pads and string swells are used sparingly to fill the sonic space during transitions. Occasional reverse reverb effects on the guitar and strings enhance the dreamy, nostalgic atmosphere, particularly leading into the choruses.

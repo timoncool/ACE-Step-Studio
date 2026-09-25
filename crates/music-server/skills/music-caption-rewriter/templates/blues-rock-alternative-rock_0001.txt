@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 86. key is G, and scale is minor. Blues Rock / Alternative Rock.
+Global Emotional Progression: The piece opens with a solitary, introspective mood that gradually accumulates tension through the verses. As the arrangement thickens, the emotion shifts from restrained contemplation to an explosive, defiant release in the choruses, maintaining a high-energy, gritty intensity before resolving into a raw, fading conclusion.
+Application Scenarios & Imagery: A solitary figure standing against a storm, scenes of geological upheaval or volcanic eruption, intense dramatic confrontations in film, or late-night driving through industrial landscapes.
+Sonics & Production Profile: The mix features a wide stereo image with the lead guitar panned slightly off-center and vocals anchored in the middle. The frequency response is characterized by a warm, saturated midrange and a punchy low-end, avoiding excessive brightness. The dynamic aesthetic is organic, preserving the natural attack of the instruments while applying moderate compression to glue the band together during high-intensity sections.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Male). The vocalist possesses a raspy, textured baritone with a distinct "grit" that conveys weariness and determination.
+Vocal Style: The performance begins with a low-volume, almost spoken-word delivery that feels intimate and grounded. As the song progresses into the choruses, the style evolves into a powerful, belted projection with noticeable strain and emotional urgency, utilizing dynamic swells to emphasize key phrases.
+Harmony/Backing Vocals: No distinct backing vocal layers are present; the track relies on a singular, focused lead vocal line to maintain its raw, unpolished character.
+Vocal FX: The vocal track is treated with a moderate amount of plate reverb to add spatial depth without washing out the articulation. A subtle slapback delay is audible during the more intense sections, enhancing the rhythmic drive and rock aesthetic.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: A clean electric guitar with a slight overdrive serves as the harmonic backbone, playing blues-inflected riffs and chord progressions from the Intro through the Outro. In the later sections, this guitar switches to a heavier distortion tone for lead fills and soloing.
+Secondary: A solid electric bass enters shortly after the intro, locking in with the drums to provide a thick, driving low-end foundation that persists throughout the track.
+Groove & Foundation Progression: The rhythm section initiates with a sparse, laid-back drum pattern featuring a prominent snare backbeat and steady kick. As the energy builds towards the chorus, the drumming becomes more aggressive, incorporating crash cymbals and busier hi-hat patterns to propel the momentum forward. The groove remains straight and heavy, typical of classic rock, providing a stable platform for the vocal intensity.
+Embellishments, Textures & Spatial FX: Occasional slide guitar licks and sustained feedback notes appear as textural embellishments, particularly during transitions between sections. Subtle room ambience and natural amp hum are left in the mix to enhance the live, authentic feel, while occasional cymbal swells mark the entry into the climactic chorus sections.

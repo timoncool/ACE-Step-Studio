@@ -1,0 +1,17 @@
+Global Metadata
+Basic Attributes: bpm is 61. key is F, and scale is minor. Folk Blues / Acoustic Ballad.
+Global Emotional Progression: The piece opens with a solitary, intimate atmosphere that feels raw and confessional. As the arrangement gradually thickens, the emotional tone shifts from quiet resignation to a desperate, swelling intensity, peaking during the instrumental climax before receding into a lingering, unresolved melancholy.
+Application Scenarios & Imagery: A dimly lit, smoke-filled tavern late at night, a solitary figure navigating a stormy sea, or a scene of introspection in a gritty period drama.
+Sonics & Production Profile: The production favors a warm, organic aesthetic with a slightly dark frequency response, emphasizing the mid-range warmth of the acoustic instruments. The soundstage is relatively narrow and centered, creating an intimate "in-the-room" feel, while maintaining high dynamic range to preserve the natural attack of the strings and the breathiness of the vocals.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Male). The vocalist possesses a deep, gravelly baritone with a distinctively raspy texture that conveys weariness and profound emotional weight.
+Vocal Style: The performance begins with a restrained, storytelling delivery that feels almost spoken in its intimacy. As the song progresses, the vocalist employs increased vocal fry and dynamic projection, moving from a whisper-like confession to a powerful, strained outcry that mirrors the rising instrumental tension.
+Harmony/Backing Vocals: No distinct harmony or backing vocal layers are present; the track relies entirely on the singular, unaccompanied lead vocal to drive the narrative.
+Vocal FX: The vocal is treated with a moderate amount of plate reverb to enhance the sense of space without obscuring the gritty texture of the voice. Subtle compression is applied to maintain consistency across the dynamic shifts from verses to the more intense sections.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: A steel-string acoustic guitar serves as the harmonic backbone throughout the entire track, utilizing a finger-picking style in the verses that transitions to a more rhythmic, percussive strumming pattern as the intensity builds.
+Secondary: A harmonica enters early in the first verse, providing mournful melodic fills between vocal phrases. It evolves into a primary melodic voice during the instrumental break, delivering a wailing, improvisational solo that defines the song's emotional peak.
+Secondary: An electric bass guitar joins after the first chorus, offering a deep, sustained low-end foundation that anchors the harmony without being overly busy.
+Groove & Foundation Progression: The track begins without percussion, relying solely on the rhythmic pulse of the acoustic guitar. A sparse drum kit enters subtly at the second verse, featuring a soft kick and brushed snare that establishes a slow, dragging blues shuffle. By the final chorus and instrumental solo, the drums become more assertive with a fuller snare hit and steady hi-hat, driving the momentum forward before dropping back to a minimal pattern for the outro.
+Embellishments, Textures & Spatial FX: Occasional slide guitar swells appear in the background during the bridge, adding a weeping texture that complements the harmonica. The mix utilizes natural room ambience rather than synthetic pads, allowing the resonance of the guitar body and the breath noise of the harmonica to fill the sonic space.

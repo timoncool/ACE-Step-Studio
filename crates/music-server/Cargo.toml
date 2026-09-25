@@ -1,0 +1,46 @@
+[package]
+name = "music-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "music_server"
+path = "src/lib.rs"
+
+[[bin]]
+name = "music-server"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+# The folder picker for "use models I already have", the same crate Dub Studio uses.
+rfd = "0.15"
+base64.workspace = true
+axum.workspace = true
+fs2.workspace = true
+futures-util.workspace = true
+include_dir.workspace = true
+audio-post = { path = "../audio-post" }
+music-core = { path = "../music-core" }
+music-engine = { path = "../music-engine" }
+flate2.workspace = true
+id3 = "1.17"
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+symphonia.workspace = true
+sysinfo.workspace = true
+ort.workspace = true
+realfft = "3.5"
+regex = "1"
+encoding_rs = "0.8"
+tempfile = "3"
+parakeet-rs.workspace = true
+rusqlite.workspace = true
+tokio.workspace = true
+tower-http.workspace = true
+tower = { version = "0.5", features = ["util"] }
+uuid.workspace = true
+zip.workspace = true

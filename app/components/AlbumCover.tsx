@@ -5,6 +5,12 @@ interface AlbumCoverProps {
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'full';
   className?: string;
   children?: React.ReactNode;
+  /**
+   * A stored cover image for this track. When absent — or when the file cannot
+   * be loaded — the deterministic generated artwork is used, so a track always
+   * has a cover and never shows a broken image.
+   */
+  coverUrl?: string;
 }
 
 // Seeded random number generator for consistent results
@@ -267,7 +273,9 @@ const generatePattern = (rng: SeededRandom, palette: typeof palettes[0]): React.
   }
 };
 
-export const AlbumCover: React.FC<AlbumCoverProps> = ({ seed, size = 'md', className = '', children }) => {
+export const AlbumCover: React.FC<AlbumCoverProps> = ({ seed, size = 'md', className = '', children, coverUrl }) => {
+  const [imageFailed, setImageFailed] = React.useState(false);
+  React.useEffect(() => { setImageFailed(false); }, [coverUrl]);
   const coverStyle = useMemo(() => {
     const rng = new SeededRandom(seed);
     const palette = rng.pick(palettes);
@@ -288,6 +296,15 @@ export const AlbumCover: React.FC<AlbumCoverProps> = ({ seed, size = 'md', class
       className={`${sizeClasses[size]} rounded-md shadow-lg flex-shrink-0 overflow-hidden relative ${className}`}
       style={coverStyle}
     >
+      {coverUrl && !imageFailed && (
+        <img
+          src={coverUrl}
+          alt=""
+          loading="lazy"
+          onError={() => setImageFailed(true)}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      )}
       {children}
     </div>
   );

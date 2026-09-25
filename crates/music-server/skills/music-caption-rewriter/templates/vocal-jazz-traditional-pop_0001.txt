@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 130. key is F, and scale is minor. Vocal Jazz / Traditional Pop.
+Global Emotional Progression: The piece establishes a wistful, nostalgic atmosphere from the outset, maintaining a steady, contemplative mood throughout the verses. The emotional intensity remains restrained and intimate, relying on lyrical delivery rather than dynamic swells, before gently receding into a reflective fade-out during the instrumental outro.
+Application Scenarios & Imagery: A dimly lit jazz lounge late at night, a solitary figure watching a harbor at dusk, or a cinematic scene depicting departure and longing in a film noir setting.
+Sonics & Production Profile: The soundstage is intimate and centered, with a warm, analog-style frequency response that emphasizes the mid-range richness of the vocals and upright bass. The production is clean and uncluttered, utilizing natural room reverb to create a sense of space without heavy compression, preserving the organic dynamics of the acoustic ensemble.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Male). The vocalist possesses a deep, resonant baritone with a smooth, slightly gravelly texture that conveys maturity and weariness.
+Vocal Style: The performance is characterized by a crooning, storytelling delivery. The singer employs a relaxed phrasing style with subtle rhythmic deviations behind the beat, enhancing the melancholic narrative. The dynamics remain consistently low and controlled, prioritizing emotional nuance over power.
+Harmony/Backing Vocals: No backing vocals or harmony layers are present; the vocal line is performed entirely as a solo.
+Vocal FX: The vocal is treated with a subtle, natural-sounding plate reverb that adds depth and warmth without obscuring articulation. No significant delay or modulation effects are applied.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: An acoustic piano serves as the harmonic core, playing lush, extended jazz chords and melodic fills from the Intro through to the Outro. An upright bass provides a walking bassline that anchors the harmony and rhythm continuously throughout the track.
+Secondary: A drum kit played with brushes enters immediately, providing a soft, swishing rhythmic texture that supports the groove without overpowering the melody. A vibraphone adds shimmering, sustained tones and counter-melodies, appearing prominently in the intro, interludes, and outro to enhance the atmospheric quality.
+Groove & Foundation Progression: The rhythm section maintains a steady swing feel at a moderate tempo. The brushed snare and soft kick drum create a gentle, pulsating foundation that remains consistent in intensity, allowing the walking bass and piano comping to drive the harmonic motion. There are no abrupt changes in the groove; instead, the energy ebbs and flows subtly with the vocal phrasing.
+Embellishments, Textures & Spatial FX: The vibraphone acts as the primary textural embellishment, filling the spaces between vocal lines with delicate, ringing notes. Occasional piano runs and bass slides add organic variation. The mix utilizes a moderate amount of ambient reverb to blend the instruments into a cohesive, room-like acoustic environment, particularly noticeable on the vibraphone and piano tails.

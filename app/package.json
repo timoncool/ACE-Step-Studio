@@ -1,5 +1,5 @@
 {
-  "name": "ace-step-ui",
+  "name": "ace-step-studio-ui",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -7,7 +7,6 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "cd server && npx tsx src/index.ts & npm run dev",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui"
@@ -17,7 +16,10 @@
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
     "@openrouter/sdk": "^0.12.26",
+    "@tauri-apps/api": "^2.9.1",
     "lucide-react": "^0.563.0",
+    "modern-screenshot": "^4.7.0",
+    "mp4-muxer": "^5.2.2",
     "partial-json": "^0.1.7",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
@@ -27,7 +29,10 @@
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "@vitest/ui": "^4.1.5",
+    "autoprefixer": "^10.5.4",
     "happy-dom": "^20.9.0",
+    "postcss": "^8.5.26",
+    "tailwindcss": "^3.4.19",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
     "vitest": "^4.1.5"

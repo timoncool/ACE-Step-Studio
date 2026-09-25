@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 87. key is E, and scale is major. Acoustic Folk / Singer-Songwriter.
+Global Emotional Progression: The piece opens with a quiet, introspective melancholy that remains consistent throughout the verses, creating a sense of stillness and reflection. As the song progresses, subtle layers of harmony and instrumentation gently swell, deepening the emotional resonance without breaking the tranquil atmosphere, eventually resolving into a soft, fading conclusion that leaves a lingering sense of peace.
+Application Scenarios & Imagery: Ideal for solitary moments of contemplation, reading by a window on a rainy day, or scenes depicting quiet nature and slow passage of time in a film.
+Sonics & Production Profile: The soundstage is intimate and focused, with a warm, natural frequency response that emphasizes the mid-range richness of the acoustic instruments. The production aesthetic is clean and uncompressed, allowing for significant dynamic breathing room and preserving the organic texture of the performance.
+Vocal Details
+Vocal Gender & Timbre: A single male vocalist delivers the lyrics with a soft, gentle baritone timbre that feels close and personal, characterized by a smooth, breathy quality.
+Vocal Style: The performance is understated and narrative-driven, maintaining a consistent, low-energy delivery that prioritizes emotional nuance over power. The phrasing is relaxed, with slight pauses that enhance the storytelling aspect, evolving only subtly in intensity during the harmonic peaks.
+Harmony/Backing Vocals: Multi-tracked self-harmonies appear intermittently, particularly during the melodic peaks and transitional sections, adding a lush, choral texture that supports the lead line without overpowering it. These harmonies are layered closely to create a warm, enveloping effect.
+Vocal FX: The vocal track is treated with a moderate amount of plate reverb to create a sense of space while retaining intimacy, along with a very subtle delay that adds depth to the sustained notes.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: A finger-picked acoustic guitar serves as the central harmonic and rhythmic foundation, present from the very beginning and continuing through to the end, providing a steady, arpeggiated pattern.
+Secondary: A warm, sustained synthesizer pad enters quietly after the first verse, filling out the background frequencies and adding atmospheric depth. A subtle electric piano joins in the later sections, playing sparse, high-register chords that complement the guitar without competing for space.
+Groove & Foundation Progression: The track relies entirely on the rhythmic pulse of the acoustic guitar's fingerpicking pattern; there is no traditional percussion or drum kit. This creates a fluid, organic groove that ebbs and flows naturally with the vocal phrasing rather than adhering to a rigid beat.
+Embellishments, Textures & Spatial FX: Occasional ambient textures, such as faint string swells and reversed cymbal washes, are used sparingly as transitional elements between sections. These effects are mixed low in the background to enhance the dreamlike quality and spatial width of the arrangement without drawing attention away from the core acoustic elements.

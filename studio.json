@@ -1,0 +1,8 @@
+{
+  "name": "ACE-Step Studio",
+  "slug": "ace-step-studio",
+  "repo": "timoncool/ACE-Step-Studio",
+  "artist": "ACE-Step",
+  "port": 8792,
+  "engines": ["acestep-cpp"]
+}

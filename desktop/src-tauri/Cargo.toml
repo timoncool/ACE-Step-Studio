@@ -1,0 +1,28 @@
+[package]
+name = "studio-desktop"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Native Tauri shell of the studio"
+
+[lib]
+name = "studio_desktop"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde_json = "1"
+tauri-plugin-opener = "2"
+tauri-plugin-updater = "2"
+music-core = { path = "../../crates/music-core" }
+music-engine = { path = "../../crates/music-engine" }
+music-server = { path = "../../crates/music-server" }
+tokio = { version = "1", features = ["rt-multi-thread"] }
+
+# The desktop shell is deliberately isolated from the engine workspace. Its
+# release cadence and Tauri dependency graph must not modify native engines.
+[workspace]

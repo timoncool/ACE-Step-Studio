@@ -1,0 +1,18 @@
+[package]
+name = "audio-post"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+audioadapter = "5.0"
+audioadapter-buffers = "5.2"
+mp3lame-encoder = "0.2.5"
+realfft = "3.5"
+rubato = "5.0"
+serde.workspace = true
+
+[dev-dependencies]
+hound = "3.5"
+serde_json.workspace = true

@@ -1,6 +1,11 @@
+import fs from 'fs';
 import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+
+const studio = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../studio.json'), 'utf-8'));
+const service = `http://127.0.0.1:${studio.port}`;
+const appVersion = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8')).version;
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
@@ -9,30 +14,33 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       host: '0.0.0.0',
       proxy: {
-        '/api': {
-          target: 'http://127.0.0.1:3001',
+        '/v1': {
+          target: service,
           changeOrigin: true,
         },
-        '/audio': {
-          target: 'http://127.0.0.1:3001',
+        '/setup': {
+          target: service,
           changeOrigin: true,
         },
-        '/editor': {
-          target: 'http://127.0.0.1:3001',
+        '/engine': {
+          target: service,
           changeOrigin: true,
         },
-        '/blog': {
-          target: 'http://127.0.0.1:3001',
+        '/health': {
+          target: service,
           changeOrigin: true,
         },
-        '/demucs-web': {
-          target: 'http://127.0.0.1:3001',
-          changeOrigin: true,
-        },
+        // There is deliberately no proxy for the retired ACE Node service:
+        // the studio talks to the native Rust server only, so a stray legacy
+        // request fails loudly in development instead of silently 500-ing.
       },
     },
     optimizeDeps: {
       exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
+    },
+    define: {
+      __STUDIO__: JSON.stringify(studio),
+      __APP_VERSION__: JSON.stringify(appVersion),
     },
     plugins: [react()],
     resolve: {

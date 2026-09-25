@@ -1,12 +1,14 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
+import { TRACK_ARTIST } from '../services/studio';
 import { Song } from '../types';
 import { Play, Pause, SkipBack, SkipForward, Repeat, Shuffle, Download, Heart, MoreVertical, Volume2, VolumeX, Maximize2, Repeat1, ChevronDown, ChevronUp } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
 import { useResponsive } from '../context/ResponsiveContext';
 import { useI18n } from '../context/I18nContext';
 import { SongDropdownMenu } from './SongDropdownMenu';
-import { ShareModal } from './ShareModal';
 import { AlbumCover } from './AlbumCover';
+import { downloadSongAudio } from '../services/songDownload';
+import { captionSummary } from '../services/examples';
+import { getCurrentLrcIndex, parseLrc } from '../services/lrc-parser';
 
 interface PlayerProps {
     currentSong: Song | null;
@@ -28,11 +30,6 @@ interface PlayerProps {
     onToggleRepeat: () => void;
     isLiked: boolean;
     onToggleLike: () => void;
-    onNavigateToSong?: (songId: string) => void;
-    onOpenVideo?: () => void;
-    onReusePrompt?: () => void;
-    onAddToPlaylist?: () => void;
-    onDelete?: () => void;
     onPlayFirst?: () => void;
 }
 
@@ -56,14 +53,8 @@ export const Player: React.FC<PlayerProps> = ({
     onToggleRepeat,
     isLiked,
     onToggleLike,
-    onNavigateToSong,
-    onOpenVideo,
-    onReusePrompt,
-    onAddToPlaylist,
-    onDelete,
-    onPlayFirst
+    onPlayFirst,
 }) => {
-    const { user } = useAuth();
     const { isMobile } = useResponsive();
     const { t } = useI18n();
     const progressBarRef = useRef<HTMLDivElement>(null);
@@ -72,7 +63,6 @@ export const Player: React.FC<PlayerProps> = ({
     const volumeHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [showDropdown, setShowDropdown] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
-    const [shareModalOpen, setShareModalOpen] = useState(false);
     const [showSpeedMenu, setShowSpeedMenu] = useState(false);
     const speedMenuRef = useRef<HTMLDivElement>(null);
 
@@ -122,19 +112,35 @@ export const Player: React.FC<PlayerProps> = ({
 
     const progressPercent = duration ? (currentTime / duration) * 100 : 0;
 
+    // The karaoke switch governs the whole feature: with it off, a track that
+    // already carries timings simply does not show them.
+    const [karaokeOn, setKaraokeOn] = useState(false);
+    useEffect(() => {
+        const read = () => void fetch('/v1/karaoke/status')
+            .then((response) => (response.ok ? response.json() : Promise.reject(new Error())))
+            .then((status: { enabled?: boolean }) => setKaraokeOn(status.enabled === true))
+            .catch(() => setKaraokeOn(false));
+        read();
+        const timer = window.setInterval(read, 15000);
+        return () => window.clearInterval(timer);
+    }, []);
+
+    // Karaoke: the line being sung right now, when this track has timings.
+    // Parsing is per track, not per tick.
+    const karaokeLines = useMemo(
+        () => (karaokeOn && currentSong?.lrcContent ? parseLrc(currentSong.lrcContent) : []),
+        [karaokeOn, currentSong?.lrcContent],
+    );
+    const karaokeLine = useMemo(() => {
+        if (karaokeLines.length === 0) return '';
+        const index = getCurrentLrcIndex(karaokeLines, currentTime);
+        return index >= 0 ? karaokeLines[index].text : '';
+    }, [karaokeLines, currentTime]);
+
     const handleDownload = async () => {
-        if (!currentSong?.audioUrl) return;
+        if (!currentSong) return;
         try {
-            const response = await fetch(currentSong.audioUrl);
-            const blob = await response.blob();
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `${currentSong.title || 'song'}.mp3`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
+            await downloadSongAudio(currentSong);
         } catch (error) {
             console.error('Download failed:', error);
         }
@@ -178,14 +184,13 @@ export const Player: React.FC<PlayerProps> = ({
                                 <h2
                                     onClick={() => {
                                         setIsFullscreen(false);
-                                        onNavigateToSong?.(currentSong.id);
                                     }}
                                     className="text-xl font-bold text-zinc-900 dark:text-white truncate"
                                 >
                                     {currentSong.title}
                                 </h2>
                                 <p className="text-sm text-zinc-500 dark:text-white/60 truncate mt-1">
-                                    {currentSong.creator || 'Unknown Artist'}
+                                    {currentSong.creator || TRACK_ARTIST}
                                 </p>
                             </div>
                             <button
@@ -278,11 +283,6 @@ export const Player: React.FC<PlayerProps> = ({
 
                     {/* Extra Actions */}
                     <div className="flex items-center justify-center gap-6 px-6 pb-6 text-zinc-400 dark:text-white/50">
-                        {onOpenVideo && (
-                            <button onClick={onOpenVideo} className="p-3 tap-highlight-none">
-                                <Maximize2 size={20} />
-                            </button>
-                        )}
                         <button
                             onClick={handleDownload}
                             className="p-3 tap-highlight-none"
@@ -304,23 +304,11 @@ export const Player: React.FC<PlayerProps> = ({
                                 song={currentSong}
                                 isOpen={showDropdown}
                                 onClose={() => setShowDropdown(false)}
-                                isOwner={user?.id === currentSong.userId}
                                 position="center"
                                 direction="up"
-                                onCreateVideo={onOpenVideo}
-                                onReusePrompt={onReusePrompt}
-                                onAddToPlaylist={onAddToPlaylist}
-                                onDelete={onDelete}
-                                onShare={() => setShareModalOpen(true)}
                             />
                         </div>
                     )}
-
-                    <ShareModal
-                        isOpen={shareModalOpen}
-                        onClose={() => setShareModalOpen(false)}
-                        song={currentSong}
-                    />
                 </div>
             );
         }
@@ -360,7 +348,7 @@ export const Player: React.FC<PlayerProps> = ({
                                 {currentSong.title}
                             </h4>
                             <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
-                                {currentSong.creator || 'Unknown Artist'}
+                                {currentSong.creator || TRACK_ARTIST}
                             </p>
                         </div>
                     </div>
@@ -439,14 +427,13 @@ export const Player: React.FC<PlayerProps> = ({
                                 <h2
                                     onClick={() => {
                                         setIsFullscreen(false);
-                                        onNavigateToSong?.(currentSong.id);
                                     }}
                                     className="text-2xl lg:text-3xl font-bold text-zinc-900 dark:text-white truncate cursor-pointer hover:underline"
                                 >
                                     {currentSong.title}
                                 </h2>
                                 <p className="text-base lg:text-lg text-zinc-500 dark:text-white/60 truncate mt-2">
-                                    {currentSong.creator || 'Unknown Artist'}
+                                    {currentSong.creator || TRACK_ARTIST}
                                 </p>
                             </div>
 
@@ -572,14 +559,6 @@ export const Player: React.FC<PlayerProps> = ({
                                 >
                                     <Heart size={22} fill={isLiked ? "currentColor" : "none"} />
                                 </button>
-                                {onOpenVideo && (
-                                    <button
-                                        onClick={onOpenVideo}
-                                        className="p-3 rounded-full hover:bg-zinc-200 dark:hover:bg-white/10 transition-colors"
-                                    >
-                                        <Maximize2 size={20} />
-                                    </button>
-                                )}
                                 <button
                                     onClick={handleDownload}
                                     className="p-3 rounded-full hover:bg-zinc-200 dark:hover:bg-white/10 transition-colors"
@@ -599,14 +578,8 @@ export const Player: React.FC<PlayerProps> = ({
                                             song={currentSong}
                                             isOpen={showDropdown}
                                             onClose={() => setShowDropdown(false)}
-                                            isOwner={user?.id === currentSong.userId}
                                             position="center"
                                             direction="up"
-                                            onCreateVideo={onOpenVideo}
-                                            onReusePrompt={onReusePrompt}
-                                            onAddToPlaylist={onAddToPlaylist}
-                                            onDelete={onDelete}
-                                            onShare={() => setShareModalOpen(true)}
                                         />
                                     )}
                                 </div>
@@ -614,12 +587,6 @@ export const Player: React.FC<PlayerProps> = ({
                         </div>
                     </div>
                 </div>
-
-                <ShareModal
-                    isOpen={shareModalOpen}
-                    onClose={() => setShareModalOpen(false)}
-                    song={currentSong}
-                />
             </div>
         );
     }
@@ -654,13 +621,12 @@ export const Player: React.FC<PlayerProps> = ({
                         {!currentSong.coverUrl && <AlbumCover seed={currentSong.id || currentSong.title} size="full" className="w-full h-full" />}
                     </div>
                     <div className="overflow-hidden min-w-0">
-                        <h4
-                            onClick={() => onNavigateToSong?.(currentSong.id)}
-                            className="text-xs sm:text-sm font-bold text-zinc-900 dark:text-white truncate cursor-pointer hover:underline"
-                        >
+                        <h4 className="text-xs sm:text-sm font-bold text-zinc-900 dark:text-white truncate">
                             {currentSong.title}
                         </h4>
-                        <p className="text-[10px] sm:text-xs text-zinc-500 dark:text-zinc-400 truncate hover:underline cursor-pointer">{currentSong.creator || 'Unknown Artist'}</p>
+                        <p className={`text-[10px] sm:text-xs truncate ${karaokeLine ? 'font-medium text-zinc-800 dark:text-zinc-100' : 'text-zinc-500 dark:text-zinc-400'}`}>
+                            {karaokeLine || captionSummary(currentSong.style || '')}
+                        </p>
                     </div>
                     <button
                         onClick={onToggleLike}
@@ -810,24 +776,12 @@ export const Player: React.FC<PlayerProps> = ({
                             song={currentSong}
                             isOpen={showDropdown}
                             onClose={() => setShowDropdown(false)}
-                            isOwner={user?.id === currentSong.userId}
                             position="right"
                             direction="up"
-                            onCreateVideo={onOpenVideo}
-                            onReusePrompt={onReusePrompt}
-                            onAddToPlaylist={onAddToPlaylist}
-                            onDelete={onDelete}
-                            onShare={() => setShareModalOpen(true)}
                         />
                     </div>
                 </div>
             </div>
-
-            <ShareModal
-                isOpen={shareModalOpen}
-                onClose={() => setShareModalOpen(false)}
-                song={currentSong}
-            />
         </div>
     );
 };

@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 158. key is Eb, and scale is major. Contemporary Folk / Singer-Songwriter.
+Global Emotional Progression: The piece opens with a gentle, wistful introspection that remains consistent through the verses, evoking a sense of quiet longing. As the arrangement thickens with string accompaniment in the later sections, the emotion swells into a warmer, more expansive nostalgia before gently receding into a peaceful, unresolved fade-out.
+Application Scenarios & Imagery: A solitary figure gazing at a misty coastline at dawn, a quiet moment of reflection by a fireplace, or a cinematic montage depicting a journey home after a long absence.
+Sonics & Production Profile: The soundstage is intimate and focused, with a warm, organic frequency response that emphasizes the mid-range richness of the acoustic instruments. The production aesthetic is clean and natural, utilizing moderate dynamic compression to maintain vocal presence while preserving the breathability of the acoustic performance.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Male). The vocalist possesses a soft, warm baritone timbre with a slightly breathy texture that conveys intimacy and sincerity.
+Vocal Style: The delivery is consistently gentle and narrative-driven, employing a storytelling approach that feels personal and reflective. The phrasing is relaxed, with subtle dynamic lifts on key emotional phrases, but never breaking the overall calm atmosphere.
+Harmony/Backing Vocals: Subtle, close-harmony backing vocals sung by the lead vocalist appear in the latter half of the track, specifically layering underneath the main melody during the final refrain to add depth and a choral warmth without overpowering the lead.
+Vocal FX: The vocal is treated with a light, short-decay plate reverb to create a sense of space while keeping the performance upfront and dry enough to retain lyrical clarity.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: A steel-string acoustic guitar played with a delicate finger-picking technique serves as the harmonic and rhythmic backbone, present from the very first second through to the final fade.
+Secondary: A cello enters subtly after the first verse, providing sustained, low-register counter-melodies that enrich the harmonic texture. By the bridge and final chorus, a full string section (violins and violas) joins, playing legato lines that swell in volume to support the emotional peak before retreating for the outro.
+Groove & Foundation Progression: The track relies entirely on the rhythmic pulse of the finger-picked guitar rather than percussion. There is no drum kit; instead, the "groove" is established by the steady arpeggiated pattern of the guitar, which remains constant in tempo but gains textural density as the bowed strings enter.
+Embellishments, Textures & Spatial FX: Occasional harmonic squeaks from the guitar strings and the natural resonance of the cello add organic texture. A subtle ambient room tone is mixed low to enhance the feeling of a live, small-room performance, while the strings are panned slightly wider than the guitar to create a gentle stereo envelopment.

@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 58. key is C, and scale is minor. Ambient / Ethereal Wave.
+Global Emotional Progression: The piece opens with a suspended, meditative stillness established by wordless vocal textures, creating an atmosphere of vast isolation. As the lead vocal enters, the emotion shifts toward a solemn, narrative melancholy, maintaining a consistent low-energy tension throughout. The track concludes without a dramatic release, allowing the emotional weight to linger and slowly dissipate into silence, reinforcing a sense of cosmic finality.
+Application Scenarios & Imagery: Drifting through deep space, scenes of ancient ruins under a starlit sky, or moments of profound introspection in a vast, empty landscape.
+Sonics & Production Profile: The soundstage is exceptionally wide and deep, utilizing extensive reverb to create a cavernous, immersive environment. The frequency response is dominated by warm mids and airy highs, with a deliberate absence of aggressive low-end frequencies, resulting in a floating, weightless dynamic aesthetic.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Female). The vocalist possesses a soft, breathy, and crystalline timbre that feels intimate yet distant due to heavy spatial processing.
+Vocal Style: The performance begins with sustained, wordless humming that establishes the melodic motif. Upon entering the lyrical section, the delivery remains gentle and legato, characterized by a whisper-like quality and minimal vibrato, prioritizing atmospheric texture over power or projection.
+Harmony/Backing Vocals: Dense, multi-tracked choral layers appear immediately in the intro, forming a continuous harmonic bed beneath the lead. These backing vocals, performed by the same singer, utilize close-interval harmonies to create a "choir of one" effect, swelling and receding dynamically to support the lead line without ever overpowering it.
+Vocal FX: The vocals are heavily treated with long-tail hall reverb and subtle delay, blurring the attack of each phrase to enhance the ethereal quality. A light chorus or modulation effect is applied to the layered harmonies to widen the stereo image and add a shimmering movement to the sustained notes.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: The human voice serves as the sole primary instrument, functioning simultaneously as the melodic lead, harmonic foundation, and rhythmic pulse through its phrasing.
+Secondary: No traditional instrumental accompaniment (guitars, keys, or synths) is present; the arrangement relies entirely on the layering of vocal tracks to construct the ensemble sections.
+Groove & Foundation Progression: There is no percussive groove or rhythmic foundation provided by drums or electronic beats. The sense of time and movement is dictated entirely by the slow, free-flowing cadence of the vocal lines and the natural decay of the reverberant tails.
+Embellishments, Textures & Spatial FX: The arrangement is defined by the interplay of vocal textures rather than distinct instrumental embellishments. Subtle dynamic swells in the background choral layers act as transitional elements, while the extensive use of reverb creates a continuous, evolving sonic cloud that fills the spatial void left by the absence of traditional instrumentation.

@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "capabilities": {
+    "music_generation": {
+      "local": { "engine": "minimaxmusic-cpp", "profile": "recommended-light" },
+      "openrouter": { "model": null }
+    },
+    "speech_to_text": {
+      "local": { "engine": "parakeet-tdt", "profile": "int8" },
+      "openrouter": { "model": null }
+    },
+    "prompt_enhancement": {
+      "local": { "engine": "local-llm", "profile": "q4" },
+      "openrouter": { "model": null }
+    },
+    "cover_art": {
+      "local": null,
+      "openrouter": { "model": null }
+    }
+  }
+}

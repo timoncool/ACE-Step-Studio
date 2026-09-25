@@ -4,6 +4,8 @@ server/node_modules/
 
 # Build outputs
 dist/
+!public/editor/dist/
+!public/editor/dist/**
 dist-ssr/
 build/
 *.tsbuildinfo

@@ -4,7 +4,12 @@ import { Song } from '../types';
 import { X, Play, Pause, Download, Wand2, Image as ImageIcon, Music, Video, Loader2, Palette, Layers, Zap, Type, Monitor, Aperture, Activity, Circle, Grid, Box, BarChart2, Waves, Disc, Upload, Plus, Trash2, Settings2, MousePointer2, Search, ExternalLink, Sun, Film, Minus } from 'lucide-react';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
+import { createHardwareEncoder, type HardwareEncoder } from '../services/videoEncoder';
+import { lineProgress } from '../services/lrc-parser';
 import { useResponsive } from '../context/ResponsiveContext';
+import { useBridgeCommand } from '../services/mcpBridge';
+import { apiUrl } from '../services/apiBase';
+import { STUDIO } from '../studio';
 
 interface VideoGeneratorModalProps {
   isOpen: boolean;
@@ -191,6 +196,10 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
   const [exportStage, setExportStage] = useState<'idle' | 'capturing' | 'encoding'>('idle');
   const [ffmpegLoaded, setFfmpegLoaded] = useState(false);
   const [ffmpegLoading, setFfmpegLoading] = useState(false);
+  // An export started by an agent goes to the studio's folder instead of a download
+  const exportTargetRef = useRef<((blob: Blob) => Promise<void>) | null>(null);
+  const [savedVideo, setSavedVideo] = useState<string | null>(null);
+  const [agentExportError, setAgentExportError] = useState<string | null>(null);
 
   // Config State
   const [config, setConfig] = useState<VisualizerConfig>({
@@ -259,7 +268,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
     if (song) {
         setTextLayers([
             { id: '1', text: song.title, x: 50, y: 85, size: 48, color: '#ffffff', font: 'Inter' },
-            { id: '2', text: song.creator || 'ACE-Step Studio', x: 50, y: 92, size: 24, color: '#a1a1aa', font: 'Inter' }
+            { id: '2', text: song.creator || STUDIO.name, x: 50, y: 92, size: 24, color: '#a1a1aa', font: 'Inter' }
         ]);
         // Parse LRC
         if (song.lrcContent) {
@@ -539,7 +548,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
 
     // Use proxy for external URLs to avoid CORS issues
     const isExternal = customAlbumArt.startsWith('http');
-    img.src = isExternal ? `/api/proxy/image?url=${encodeURIComponent(customAlbumArt)}` : customAlbumArt;
+    img.src = isExternal ? `/v1/proxy/image?url=${encodeURIComponent(customAlbumArt)}` : customAlbumArt;
 
     img.onload = () => {
       customAlbumArtImageRef.current = img;
@@ -623,7 +632,13 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
       await renderOffline();
     } catch (error) {
       console.error('Rendering failed:', error);
-      alert('Video rendering failed. Please try again.');
+      // an agent's render reports to the agent, not to a dialog nobody watches
+      if (exportTargetRef.current) {
+        exportTargetRef.current = null;
+        setAgentExportError(error instanceof Error ? error.message : String(error));
+      } else {
+        alert('Video rendering failed. Please try again.');
+      }
       setIsExporting(false);
       setExportStage('idle');
     }
@@ -676,7 +691,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
     try {
       // Use proxy for external URLs to avoid CORS issues
       const isExternal = url.startsWith('http') && !url.includes(window.location.host);
-      const fetchUrl = isExternal ? `/api/proxy/image?url=${encodeURIComponent(url)}` : url;
+      const fetchUrl = isExternal ? `/v1/proxy/image?url=${encodeURIComponent(url)}` : url;
 
       const response = await fetch(fetchUrl);
       const blob = await response.blob();
@@ -782,6 +797,8 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
     const currentIntensities = intensitiesRef.current;
     const currentTexts = textLayersRef.current;
     const capturedFrames: string[] = [];
+    // One GPU encoder for the whole export, or none and the JPEG path below.
+    const hardware: HardwareEncoder | null = await createHardwareEncoder({ width, height, fps }).catch(() => null);
 
     for (let frameIndex = 0; frameIndex < totalFrames; frameIndex++) {
       const time = frameIndex / fps;
@@ -972,7 +989,9 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
 
           if (lrcStyle === 'karaoke' && !(!lrcShowSections && lrcLine.isSection)) {
             const nextT = Math.min(lrcIdx + 1 < lrcLines.length ? lrcLines[lrcIdx + 1].time : lrcLine.time + 5, lrcLine.time + 5);
-            const prog = Math.min(1, (lrcTime - lrcLine.time) / (nextT - lrcLine.time));
+            // Word times drive the sweep when the file has them; a line time
+            // alone can only be swept linearly, and that is what drifts.
+            const prog = lineProgress(lrcLine, lrcTime, nextT);
             // Hide line if fully sung (prog=1) for more than 1s
             if (prog >= 1 && lrcTime > nextT + 1) { /* skip — line already sung */ } else {
             const m = ctx.measureText(lrcLine.text);
@@ -993,7 +1012,9 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
             }
           } else if (lrcStyle === 'scroll' && !(!lrcShowSections && lrcLine.isSection)) {
             const nextT = Math.min(lrcIdx + 1 < lrcLines.length ? lrcLines[lrcIdx + 1].time : lrcLine.time + 5, lrcLine.time + 5);
-            const prog = Math.min(1, (lrcTime - lrcLine.time) / (nextT - lrcLine.time));
+            // Word times drive the sweep when the file has them; a line time
+            // alone can only be swept linearly, and that is what drifts.
+            const prog = lineProgress(lrcLine, lrcTime, nextT);
             const m = ctx.measureText(lrcLine.text);
             const scrollOff = prog * (m.width + width * 0.5);
             ctx.fillStyle = `rgba(${parseInt(lyricsBgColorRef.current.slice(1,3),16)},${parseInt(lyricsBgColorRef.current.slice(3,5),16)},${parseInt(lyricsBgColorRef.current.slice(5,7),16)}, ${lyricsBgOpacityRef.current/100})`;
@@ -1139,9 +1160,14 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
         ctx.fillRect(0, height - barHeight, width, barHeight);
       }
 
-      // Capture frame as base64
-      const frameData = canvas.toDataURL('image/jpeg', 0.85);
-      capturedFrames.push(frameData.split(',')[1]);
+      // Straight to the GPU encoder when the machine has one; the JPEG round
+      // trip below is the fallback, and it is what made this slow.
+      if (hardware) {
+        await hardware.encode(canvas, frameIndex);
+      } else {
+        const frameData = canvas.toDataURL('image/jpeg', 0.85);
+        capturedFrames.push(frameData.split(',')[1]);
+      }
 
       // Update progress + yield to prevent Chrome "page not responding" alert
       if (frameIndex % 30 === 0) {
@@ -1153,84 +1179,120 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
     setExportStage('encoding');
     setExportProgress(70);
 
-    // Send frames to server in chunks for encoding with local ffmpeg
-    console.log(`[Video] Sending ${capturedFrames.length} frames to server...`);
+    /// Hands the finished file to the user and tears the export down. Both the
+    /// hardware and the WebAssembly path end here.
+    const finishExport = async (blob: Blob) => {
+      const target = exportTargetRef.current;
+      if (target) {
+        exportTargetRef.current = null;
+        try {
+          await target(blob);
+        } catch (problem) {
+          setAgentExportError(problem instanceof Error ? problem.message : String(problem));
+        }
+        await audioCtx.close().catch(() => undefined);
+        setExportProgress(100);
+        setIsExporting(false);
+        setExportStage('idle');
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.style.display = 'none';
+      link.href = url;
+      link.download = `${song.title || STUDIO.slug}.mp4`;
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 1000);
+      await audioCtx.close().catch(() => undefined);
+      setExportProgress(100);
+      setTimeout(() => {
+        setIsExporting(false);
+        setExportStage('idle');
+      }, 500);
+    };
 
-    // Start session
-    const startRes = await fetch('/api/render-video/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-    const { sessionId } = await startRes.json();
-
-    // Upload frames in chunks of 50
-    const CHUNK_SIZE = 50;
-    for (let i = 0; i < capturedFrames.length; i += CHUNK_SIZE) {
-      const chunk = capturedFrames.slice(i, i + CHUNK_SIZE);
-      await fetch('/api/render-video/frames', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, frames: chunk, startIndex: i }),
+    // The hardware path has already encoded the video; all that is left is
+    // putting the song next to it, which is a mux and a short audio encode
+    // rather than re-encoding every frame.
+    if (hardware) {
+      const silent = await hardware.finish();
+      const audioSource = song.audioUrl || (song as unknown as { audio_url?: string }).audio_url || '';
+      if (!audioSource) {
+        await finishExport(new Blob([silent], { type: 'video/mp4' }));
+        return;
+      }
+      const ffmpeg = new FFmpeg();
+      ffmpeg.on('progress', ({ progress: value }) => {
+        setExportProgress(80 + Math.round(Math.max(0, Math.min(1, value)) * 18));
       });
-      setExportProgress(70 + Math.round((i / capturedFrames.length) * 20));
+      await ffmpeg.load({
+        coreURL: await toBlobURL('/ffmpeg/ffmpeg-core.js', 'text/javascript'),
+        wasmURL: await toBlobURL('/ffmpeg/ffmpeg-core.wasm', 'application/wasm'),
+      });
+      const audioExtension = audioSource.toLowerCase().includes('.wav') ? 'wav' : 'mp3';
+      await ffmpeg.writeFile('video.mp4', silent);
+      await ffmpeg.writeFile(`audio.${audioExtension}`, new Uint8Array(await (await fetch(audioSource)).arrayBuffer()));
+      await ffmpeg.exec([
+        '-i', 'video.mp4',
+        '-i', `audio.${audioExtension}`,
+        // The picture is already H.264: copy it rather than encode it twice.
+        '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-shortest',
+        '-movflags', '+faststart',
+        'out.mp4',
+      ]);
+      const merged = (await ffmpeg.readFile('out.mp4')) as Uint8Array;
+      if (merged.length === 0) throw new Error('The encoder produced an empty file.');
+      await finishExport(new Blob([merged], { type: 'video/mp4' }));
+      return;
     }
 
-    setExportProgress(90);
-
-    // Encode
-    const response = await fetch('/api/render-video/finish', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId, audioUrl: song.audioUrl || song.audio_url || '', fps }),
+    // Assemble the captured frames locally. ffmpeg is compiled to WebAssembly
+    // and served from the application itself, so no service and no network is
+    // involved in producing the file.
+    const ffmpeg = new FFmpeg();
+    ffmpeg.on('progress', ({ progress: value }) => {
+      setExportProgress(70 + Math.round(Math.max(0, Math.min(1, value)) * 28));
+    });
+    await ffmpeg.load({
+      coreURL: await toBlobURL('/ffmpeg/ffmpeg-core.js', 'text/javascript'),
+      wasmURL: await toBlobURL('/ffmpeg/ffmpeg-core.wasm', 'application/wasm'),
     });
 
-    console.log('[Video] Server response:', response.status, response.headers.get('content-type'));
-
-    // Even if status is not 200, check if we got video data
-    const contentType = response.headers.get('content-type') || '';
-    if (!response.ok && !contentType.includes('video')) {
-      const err = await response.json().catch(() => ({ error: 'Encoding failed' }));
-      throw new Error(err.error || `Server encoding failed: ${response.status}`);
+    for (let index = 0; index < capturedFrames.length; index++) {
+      const binary = atob(capturedFrames[index]);
+      const bytes = new Uint8Array(binary.length);
+      for (let byte = 0; byte < binary.length; byte++) bytes[byte] = binary.charCodeAt(byte);
+      await ffmpeg.writeFile(`frame${String(index).padStart(6, '0')}.jpg`, bytes);
     }
 
-    setExportProgress(95);
+    const audioSource = song.audioUrl || (song as unknown as { audio_url?: string }).audio_url || '';
+    const audioExtension = audioSource.toLowerCase().includes('.wav') ? 'wav' : 'mp3';
+    if (audioSource) {
+      const audioBytes = new Uint8Array(await (await fetch(audioSource)).arrayBuffer());
+      await ffmpeg.writeFile(`audio.${audioExtension}`, audioBytes);
+    }
 
-    const outputData = new Uint8Array(await response.arrayBuffer());
-    console.log('[Video] Output file size:', outputData.length, 'bytes');
+    const encodeArguments = [
+      '-framerate', String(fps),
+      '-i', 'frame%06d.jpg',
+      ...(audioSource ? ['-i', `audio.${audioExtension}`] : []),
+      '-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p',
+      ...(audioSource ? ['-c:a', 'aac', '-b:a', '192k', '-shortest'] : []),
+      '-movflags', '+faststart',
+      'out.mp4',
+    ];
+    await ffmpeg.exec(encodeArguments);
 
+    const outputData = (await ffmpeg.readFile('out.mp4')) as Uint8Array;
     if (outputData.length === 0) {
-      throw new Error('FFmpeg produced an empty output file');
+      throw new Error('The encoder produced an empty file.');
     }
-
-    const blob = new Blob([outputData], { type: 'video/mp4' });
-    const url = URL.createObjectURL(blob);
-    console.log('[Video] Created blob URL:', url, 'Size:', blob.size);
-
-    // More reliable download method
-    const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = url;
-    a.download = `${song.title || 'suno-video'}.mp4`;
-    document.body.appendChild(a);
-    a.click();
-
-    // Delay cleanup to ensure download starts
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 1000);
-
-    console.log('[Video] Download triggered!');
-
-    // Cleanup done server-side
     setExportProgress(98);
-    // Server cleanup already handled
-    await audioCtx.close();
-
-    setExportProgress(100);
-
-    // Small delay before hiding the progress to show completion
-    setTimeout(() => {
-      setIsExporting(false);
-      setExportStage('idle');
-    }, 500);
+    await finishExport(new Blob([outputData], { type: 'video/mp4' }));
   };
 
   const stopRecording = () => {
@@ -1264,16 +1326,18 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
     setPexelsLoading(true);
     setPexelsError(null);
     try {
-      const endpoint = type === 'photos'
-        ? `/api/pexels/photos?query=${encodeURIComponent(query)}`
-        : `/api/pexels/videos?query=${encodeURIComponent(query)}`;
-
-      const headers: HeadersInit = {};
-      if (pexelsApiKey) {
-        headers['X-Pexels-Api-Key'] = pexelsApiKey;
+      // Pexels is called directly. The old server route existed only to attach
+      // the key; the key belongs to the user and is already stored locally.
+      if (!pexelsApiKey) {
+        setPexelsError('API key required');
+        setShowPexelsApiKeyInput(true);
+        return;
       }
+      const endpoint = type === 'photos'
+        ? `https://api.pexels.com/v1/search?per_page=24&query=${encodeURIComponent(query)}`
+        : `https://api.pexels.com/videos/search?per_page=24&query=${encodeURIComponent(query)}`;
 
-      const response = await fetch(endpoint, { headers });
+      const response = await fetch(endpoint, { headers: { Authorization: pexelsApiKey } });
       const data = await response.json();
 
       if (!response.ok) {
@@ -1473,7 +1537,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
         const rawAlbumArtUrl = customAlbumArt || song.coverUrl;
         // Proxy external URLs to avoid CORS issues in fallback
         const albumArtUrl = rawAlbumArtUrl.startsWith('http')
-            ? `/api/proxy/image?url=${encodeURIComponent(rawAlbumArtUrl)}`
+            ? `/v1/proxy/image?url=${encodeURIComponent(rawAlbumArtUrl)}`
             : rawAlbumArtUrl;
         drawAlbumArt(ctx, centerX, centerY, pulse, albumArtUrl, currentConfig.primaryColor, customAlbumArtImageRef.current);
     }
@@ -2178,6 +2242,112 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
   const removeTextLayer = (id: string) => {
       setTextLayers(textLayers.filter(l => l.id !== id));
   };
+
+  // What an agent connected over MCP reads and sets in the editor
+  const editorState = () => ({
+    song: song ? { id: song.id, title: song.title } : null,
+    presets: PRESETS.map(preset => preset.id),
+    aspect_ratios: Object.keys(RESOLUTIONS),
+    config,
+    effects,
+    intensities,
+    text_layers: textLayers,
+    lyrics: {
+      available: lrcLinesRef.current.length > 0,
+      enabled: lyricsEnabled, style: lyricsStyle, position: lyricsPosition, font_size: lyricsFontSize, lines: lyricsLines,
+      show_sections: lyricsShowSections, color: lyricsColor, background_color: lyricsBgColor, background_opacity: lyricsBgOpacity,
+      highlight_color: lyricsHighlightColor, offset_seconds: lyricsOffset,
+    },
+    background: { type: backgroundType, image: customImage ? 'set' : null, video: videoUrl || null },
+    album_art: customAlbumArt ? 'set' : 'the song cover',
+    playback: { playing: isPlaying, position_seconds: playbackTime, duration_seconds: playbackDuration || audioRef.current?.duration || 0 },
+    export: { running: isExporting, progress: exportProgress, stage: exportStage, saved: savedVideo, error: agentExportError },
+  });
+  const requireOpen = () => {
+    if (!isOpen || !song) throw new Error('The video editor is closed; video_open opens it for a song.');
+  };
+  useBridgeCommand('video_get', () => {
+    requireOpen();
+    return editorState();
+  });
+  useBridgeCommand('video_set', (args) => {
+    requireOpen();
+    const object = (value: unknown) => (value && typeof value === 'object' ? value as Record<string, unknown> : null);
+    // a name the editor does not have is refused before anything changes
+    const known = (given: Record<string, unknown> | null, current: object, what: string) => {
+      const unknown = Object.keys(given ?? {}).filter(key => !(key in current));
+      if (unknown.length) throw new Error(`Unknown ${what}: ${unknown.join(', ')}. The ${what} are: ${Object.keys(current).join(', ')}.`);
+    };
+    const nextConfig = object(args.config);
+    const nextEffects = object(args.effects);
+    const nextIntensities = object(args.intensities);
+    known(nextConfig, config, 'config fields');
+    known(nextEffects, effects, 'effects');
+    known(nextIntensities, intensities, 'intensities');
+    if (nextConfig?.preset !== undefined && !PRESETS.some(preset => preset.id === nextConfig.preset)) throw new Error(`Presets: ${PRESETS.map(preset => preset.id).join(', ')}.`);
+    if (nextConfig?.aspectRatio !== undefined && !(String(nextConfig.aspectRatio) in RESOLUTIONS)) throw new Error(`Aspect ratios: ${Object.keys(RESOLUTIONS).join(', ')}.`);
+    if (nextConfig) setConfig(current => ({ ...current, ...nextConfig }));
+    if (nextEffects) setEffects(current => ({ ...current, ...nextEffects }));
+    if (nextIntensities) setIntensities(current => ({ ...current, ...nextIntensities }));
+    if (Array.isArray(args.text_layers)) {
+      setTextLayers((args.text_layers as Partial<TextLayer>[]).map((layer, index) => ({ id: String(layer.id ?? index + 1), text: String(layer.text ?? ''), x: Number(layer.x ?? 50), y: Number(layer.y ?? 50), size: Number(layer.size ?? 36), color: String(layer.color ?? '#ffffff'), font: String(layer.font ?? 'Inter') })));
+    }
+    const lyrics = object(args.lyrics);
+    if (lyrics) {
+      if (lyrics.enabled !== undefined) setLyricsEnabled(Boolean(lyrics.enabled));
+      if (lyrics.style === 'lines' || lyrics.style === 'scroll' || lyrics.style === 'karaoke') setLyricsStyle(lyrics.style);
+      if (lyrics.position === 'bottom' || lyrics.position === 'center' || lyrics.position === 'top') setLyricsPosition(lyrics.position);
+      if (lyrics.font_size !== undefined) setLyricsFontSize(Number(lyrics.font_size));
+      if (lyrics.lines !== undefined) setLyricsLines(Number(lyrics.lines));
+      if (lyrics.show_sections !== undefined) setLyricsShowSections(Boolean(lyrics.show_sections));
+      if (typeof lyrics.color === 'string') setLyricsColor(lyrics.color);
+      if (typeof lyrics.background_color === 'string') setLyricsBgColor(lyrics.background_color);
+      if (lyrics.background_opacity !== undefined) setLyricsBgOpacity(Number(lyrics.background_opacity));
+      if (typeof lyrics.highlight_color === 'string') setLyricsHighlightColor(lyrics.highlight_color);
+      if (lyrics.offset_seconds !== undefined) setLyricsOffset(Number(lyrics.offset_seconds));
+    }
+    const background = object(args.background);
+    if (background) {
+      if (typeof background.image === 'string') { setCustomImage(background.image); setBackgroundType('custom'); }
+      else if (typeof background.video === 'string') { setVideoUrl(background.video); setBackgroundType('video'); }
+      else if (background.type === 'random') { setBackgroundType('random'); setBackgroundSeed(Date.now()); }
+    }
+    if (args.album_art === null) setCustomAlbumArt(null);
+    else if (typeof args.album_art === 'string') setCustomAlbumArt(args.album_art);
+    return { text: 'Set; video_get shows the result, ui_screenshot shows the frame.' };
+  });
+  useBridgeCommand('video_render', ({ name }) => {
+    requireOpen();
+    if (isExporting) throw new Error('A render is already running; video_get shows its progress.');
+    if (!canvasRef.current) throw new Error('The editor is still opening; call video_render again in a moment.');
+    setSavedVideo(null);
+    setAgentExportError(null);
+    exportTargetRef.current = async (blob: Blob) => {
+      const file = `${String(name || song?.title || 'clip').replace(/[\\/:*?"<>|]+/g, '_')}.mp4`;
+      const response = await fetch(apiUrl(`/v1/videos?name=${encodeURIComponent(file)}`), { method: 'POST', body: blob });
+      if (!response.ok) throw new Error(`The studio could not keep the video: HTTP ${response.status}`);
+      const saved = await response.json() as { path: string };
+      setSavedVideo(saved.path);
+    };
+    void startRecording();
+    return { text: 'Rendering; video_get shows the progress and, when done, the saved file under export.saved.' };
+  });
+  useBridgeCommand('video_play', async () => {
+    requireOpen();
+    if (!isPlaying) await togglePlay();
+    return { text: 'Playing.' };
+  });
+  useBridgeCommand('video_pause', async () => {
+    requireOpen();
+    if (isPlaying) await togglePlay();
+    return { text: 'Paused.' };
+  });
+  useBridgeCommand('video_seek', ({ seconds }) => {
+    requireOpen();
+    if (audioRef.current) audioRef.current.currentTime = Number(seconds) || 0;
+    setPlaybackTime(Number(seconds) || 0);
+    return { text: `At ${Number(seconds) || 0} s.` };
+  });
 
   if (!isOpen || !song) return null;
 

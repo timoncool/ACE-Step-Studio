@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 76. key is C, and scale is major. Ambient Pop / Cinematic Ballad.
+Global Emotional Progression: The piece opens with a solitary, ethereal vulnerability that establishes a contemplative mood. As the arrangement gradually thickens, the emotion shifts from quiet introspection to a swelling sense of resilience and grandeur, particularly as the harmonic layers expand. The track concludes by stripping back to its initial sparsity, leaving a lingering feeling of peaceful acceptance and stillness.
+Application Scenarios & Imagery: A solitary figure standing on a cliff edge during a foggy twilight, scenes of deep ocean exploration, or moments of profound personal reflection in a vast, empty space.
+Sonics & Production Profile: The soundstage is exceptionally wide and deep, utilizing extensive reverb to create a cavernous, immersive atmosphere. The frequency response favors the mid-to-low mids for warmth, with a soft, rolled-off high end that avoids harshness. The dynamic aesthetic is highly breathable, allowing significant space between phrases, with gentle compression that preserves the natural swell of the instruments.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Female). The vocalist possesses a soft, breathy, and airy timbre with a delicate lower-mid register that conveys intimacy and fragility.
+Vocal Style: The performance is characterized by a whisper-like, storytelling delivery that remains consistently gentle throughout. The singer employs subtle dynamic swells to emphasize emotional peaks without resorting to belting, maintaining a soothing and hypnotic quality from start to finish.
+Harmony/Backing Vocals: Self-layered harmonies appear subtly during the climactic sections, creating a choral, angelic texture that surrounds the lead line. These backing vocals are mixed low and drenched in reverb, functioning more as an atmospheric pad than a distinct melodic counterpoint.
+Vocal FX: The vocal is treated with a long-tail hall reverb and a subtle delay, enhancing the sense of distance and space. Light pitch correction is applied transparently to maintain the smooth, floating quality of the performance.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: A resonant grand piano plays sparse, arpeggiated chords that serve as the harmonic backbone, present from the very beginning and continuing through to the outro.
+Secondary: A warm, sustained string ensemble (violins and cellos) fades in during the first verse, providing a lush, legato bed that swells in volume during the emotional peak before receding. A deep, sub-bass synth enters quietly in the second half to anchor the low frequencies without drawing attention.
+Groove & Foundation Progression: The track is entirely devoid of traditional drums or percussion, relying on the rhythmic pacing of the piano and the natural ebb and flow of the vocal phrasing to establish tempo. This absence of a beat reinforces the floating, timeless quality of the composition.
+Embellishments, Textures & Spatial FX: Ethereal synth pads with slow attack and release times fill the stereo field, acting as a sonic glue between the piano and strings. Occasional reverse reverb swells are used as transitional elements leading into new lyrical phrases, adding a dreamlike texture to the soundscape.

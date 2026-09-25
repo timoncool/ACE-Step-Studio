@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Library, Disc, Search, LogIn, LogOut, Sun, Moon, GraduationCap, Newspaper, AudioLines, Wrench } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Disc, Layers, Library, Moon, Newspaper, Search, SlidersHorizontal, Sun } from 'lucide-react';
 import { View } from '../types';
 import { useI18n } from '../context/I18nContext';
-import { llmStorage } from '../services/llm/storage';
-import { pollinationsStorage } from '../services/pollinations/storage';
+import { ResourceMonitor } from './ResourceMonitor';
+import { STUDIO } from '../studio';
 
 interface SidebarProps {
   currentView: View;
@@ -11,197 +11,93 @@ interface SidebarProps {
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
   user?: { username: string; isAdmin?: boolean; avatar_url?: string } | null;
-  onLogin?: () => void;
-  onLogout?: () => void;
   onOpenSettings?: () => void;
   isOpen?: boolean;
   onToggle?: () => void;
 }
 
+type NativeSetupStatus = {
+  ready: boolean;
+  engine_ready: boolean;
+  engine_id: string;
+  selected_profile_id?: string | null;
+  selected_component_ids?: string[] | null;
+};
+
+const StatusLine: React.FC<{ active: boolean; pending?: boolean; label: string }> = ({ active, pending, label }) => (
+  <div className="flex min-w-0 items-center gap-1.5 text-zinc-500 dark:text-zinc-400" title={label}>
+    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${active ? 'bg-emerald-500' : pending ? 'animate-pulse bg-amber-400' : 'bg-zinc-400 dark:bg-zinc-600'}`} />
+    <span className="truncate">{label}</span>
+  </div>
+);
+
 const SystemWidget: React.FC<{ isOpen?: boolean }> = ({ isOpen }) => {
   const { t } = useI18n();
-  const [info, setInfo] = useState<any>({});
-  const [hidden, setHidden] = useState(() => localStorage.getItem('hide-system-widget') === '1');
+  const [setup, setSetup] = useState<NativeSetupStatus | null>(null);
+  const [unreachable, setUnreachable] = useState(false);
+  const [openRouter, setOpenRouter] = useState<{ configured?: boolean } | null>(null);
 
   useEffect(() => {
-    const poll = async () => {
+    const refresh = async () => {
       try {
-        const [sysRes, statusRes] = await Promise.all([
-          fetch('/api/generate/system-info').catch(() => null),
-          fetch('/api/generate/model-status').catch(() => null),
-        ]);
-        const sys = sysRes?.ok ? await sysRes.json() : {};
-        const status = statusRes?.ok ? await statusRes.json() : {};
-        const backendDown = !sysRes?.ok && !statusRes?.ok;
-        setInfo({ ...sys, ...status, backendDown });
+        const response = await fetch('/setup/status');
+        if (!response.ok) throw new Error(`Setup status ${response.status}`);
+        setSetup(await response.json());
+        setUnreachable(false);
       } catch {
-        setInfo((prev: any) => ({ ...prev, backendDown: true, connected: false }));
+        setSetup(null);
+        setUnreachable(true);
       }
     };
-    poll();
-    const id = setInterval(poll, 3000);
-    return () => clearInterval(id);
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 5000);
+    return () => window.clearInterval(timer);
   }, []);
 
-  const vramPct = info.vram_total > 0 ? Math.round((info.vram_used / info.vram_total) * 100) : 0;
-  const ramPct = info.ram_total > 0 ? Math.round((info.ram_used / info.ram_total) * 100) : 0;
-  const modelShort = (info.activeModel || '').replace('acestep-v15-', '').replace('marcorez8/', '');
-  const lmShort = (info.activeLmModel || '').replace('acestep-5Hz-lm-', '');
-  const lmBackend = info.activeLmBackend || '';
+  // Settings are intentionally local to the user. Polling causes this compact
+  // status to reflect a configuration change made in Settings without reload.
+  useEffect(() => {
+    const refresh = () => void fetch('/v1/openrouter/settings')
+      .then((response) => response.ok ? response.json() : null)
+      .then(setOpenRouter)
+      .catch(() => setOpenRouter(null));
+    refresh();
+    const timer = window.setInterval(refresh, 15000);
+    return () => window.clearInterval(timer);
+  }, []);
 
-  // OpenRouter status — derive on each poll tick (cheap localStorage reads)
-  const [orTick, setOrTick] = useState(0);
-  useEffect(() => { const i = setInterval(() => setOrTick(t => t + 1), 3000); return () => clearInterval(i); }, []);
-  const orEnabled = llmStorage.getUseOpenRouter() === true;
-  const orCfg = orEnabled ? llmStorage.getOpenRouter() : null;
-  const orReady = !!(orCfg && orCfg.apiKey && orCfg.model);
-  const orModelShort = orReady ? (orCfg!.model.length > 24 ? orCfg!.model.split('/').pop()! : orCfg!.model) : '';
-
-  // Pollinations cover-gen status (independent of LLM provider).
-  const polEnabled = pollinationsStorage.getUsePollinations() === true;
-  const polCfg = polEnabled ? pollinationsStorage.getConfig() : null;
-  const polReady = !!(polCfg && polCfg.model);
-  const polModelShort = polReady ? (polCfg!.model.length > 18 ? polCfg!.model.slice(0, 15) + '…' : polCfg!.model) : '';
-  void orTick; // re-renders only — values come straight from storage
+  // The credential lives in the native server, never in browser storage, so
+  // the badge asks the server whether one is configured.
+  const openRouterConfigured = openRouter?.configured === true;
+  const engineReady = setup?.engine_ready === true;
+  const modelReady = setup?.ready === true;
+  const profile = setup?.selected_profile_id || (setup?.selected_component_ids?.length ? t('customSet') : t('noProfile'));
+  const engineLabel = unreachable ? t('engineUnavailable') : engineReady ? t('engineReachable') : t('engineStarting');
+  const modelLabel = modelReady ? `${t('profileReady')}: ${profile}` : t('profileNotInstalled');
 
   if (!isOpen) {
     return (
-      <button onClick={() => { setHidden(!hidden); localStorage.setItem('hide-system-widget', hidden ? '0' : '1'); }}
-        className="flex flex-col items-center gap-1 py-2 w-full hover:bg-white/5 rounded-lg transition-colors"
-        title={`${info.gpu || 'GPU'} | VRAM ${vramPct}% | ${modelShort}`}>
-        <div className={`w-2 h-2 rounded-full ${
-          info.state === 'loading' || info.state === 'unloading' ? 'bg-orange-400 animate-pulse' :
-          info.backendDown ? 'bg-red-500' :
-          info.connected ? 'bg-green-600' :
-          'bg-yellow-500 animate-pulse'
-        }`}></div>
-        <div className="w-6 h-1 bg-zinc-700 rounded-full overflow-hidden">
-          <div className="h-full bg-zinc-500 rounded-full" style={{ width: `${vramPct}%` }}></div>
-        </div>
-      </button>
+      <div className="flex w-full justify-center py-2" title={`${engineLabel} · ${modelLabel}`}>
+        <span className={`h-2 w-2 rounded-full ${engineReady && modelReady ? 'bg-emerald-500' : unreachable ? 'bg-rose-500' : 'animate-pulse bg-amber-400'}`} />
+      </div>
     );
   }
 
-  if (hidden) {
+  // With nobody answering, the model and provider lines would be guesses. Say
+  // the one thing that is actually known: the service is not responding.
+  if (unreachable) {
     return (
-      <button onClick={() => { setHidden(false); localStorage.setItem('hide-system-widget', '0'); }}
-        className="px-3 py-1.5 text-[9px] text-zinc-600 hover:text-zinc-400 transition-colors">
-        {t('monitoring') || 'Monitoring'}
-      </button>
+      <div className="space-y-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[10px]">
+        <StatusLine active={false} label={t('serviceUnavailable')} />
+      </div>
     );
   }
-
-  const Bar = ({ value }: { value: number }) => (
-    <div className="flex-1 h-1 bg-zinc-800 rounded-full overflow-hidden">
-      <div className="h-full bg-zinc-500 rounded-full transition-all duration-500" style={{ width: `${value}%` }}></div>
-    </div>
-  );
 
   return (
-    <div className="px-3 py-2 rounded-xl bg-zinc-900/50 text-[10px] space-y-1.5">
-      {/* GPU */}
-      <div className="flex items-center justify-between text-zinc-500">
-        <span className="truncate">{(info.gpu || 'GPU').replace('NVIDIA GeForce ', '')}</span>
-        {info.gpu_temp > 0 && <span className="tabular-nums">{info.gpu_temp}°C</span>}
-      </div>
-
-      {/* VRAM */}
-      <div className="flex items-center gap-2 text-zinc-600">
-        <span className="w-8">VRAM</span>
-        <Bar value={vramPct} />
-        <span className="tabular-nums text-zinc-500 w-14 text-right">{(info.vram_used || 0).toFixed(1)}/{(info.vram_total || 0).toFixed(0)}</span>
-      </div>
-
-      {/* RAM */}
-      <div className="flex items-center gap-2 text-zinc-600">
-        <span className="w-8">RAM</span>
-        <Bar value={ramPct} />
-        <span className="tabular-nums text-zinc-500 w-14 text-right">{(info.ram_used || 0).toFixed(0)}/{(info.ram_total || 0).toFixed(0)}</span>
-      </div>
-
-      {/* GPU Load */}
-      <div className="flex items-center gap-2 text-zinc-600">
-        <span className="w-8">GPU</span>
-        <Bar value={info.gpu_util || 0} />
-        <span className="tabular-nums text-zinc-500 w-14 text-right">{info.gpu_util || 0}%</span>
-      </div>
-
-      {/* CPU Load */}
-      <div className="flex items-center gap-2 text-zinc-600">
-        <span className="w-8">CPU</span>
-        <Bar value={info.cpu_util || 0} />
-        <span className="tabular-nums text-zinc-500 w-14 text-right">{info.cpu_util || 0}%</span>
-      </div>
-
-      {/* Connection + Model */}
-      <div className="flex items-center justify-between text-zinc-600 pt-1 border-t border-zinc-800">
-        <span className="flex items-center gap-1">
-          <span className={`w-1.5 h-1.5 rounded-full ${
-            info.state === 'loading' || info.state === 'unloading' ? 'bg-orange-400 animate-pulse' :
-            info.backendDown ? 'bg-red-500' :
-            info.connected ? 'bg-green-600' :
-            'bg-yellow-500 animate-pulse'
-          }`}></span>
-          <span className="text-[9px]">{
-            info.backendDown ? (t('backendOff') || 'Backend off') :
-            info.state === 'loading' ? (t('modelLoading') || 'Loading...') :
-            info.state === 'unloading' ? (t('modelUnloading') || 'Unloading...') :
-            info.connected ? (t('connected') || 'connected') :
-            (t('gradioStarting') || 'Gradio starting...')
-          }</span>
-        </span>
-        <span className="truncate text-zinc-500">{modelShort || '—'}</span>
-      </div>
-
-      {/* LM Model — hidden entirely when OpenRouter is the active text
-          provider OR when no local LM is loaded (run-no-lm.bat). The OR
-          row right below already covers the "where text comes from" question
-          so showing 'LM: off' next to a green OR row is just noise. */}
-      {lmShort && !orReady && (
-        <div className="flex items-center justify-between text-zinc-600">
-          <span className="text-[9px] text-zinc-600">LM</span>
-          <span className="text-[9px] truncate text-zinc-500">
-            {`${lmShort}${lmBackend ? ` (${lmBackend})` : ''}`}
-          </span>
-        </div>
-      )}
-
-      {/* OpenRouter status */}
-      <div className="flex items-center justify-between text-zinc-600" title={orReady ? `OpenRouter ON · ${orCfg!.model}` : (orEnabled ? 'OpenRouter ON, but key/model not set' : 'OpenRouter OFF')}>
-        <span className="flex items-center gap-1">
-          <span className={`w-1.5 h-1.5 rounded-full ${orReady ? 'bg-green-500' : (orEnabled ? 'bg-yellow-500' : 'bg-zinc-700')}`}></span>
-          <span className="text-[9px] text-zinc-600">OR</span>
-        </span>
-        <span className={`text-[9px] truncate max-w-[120px] ${orReady ? 'text-zinc-500' : 'text-zinc-600'}`}>
-          {orReady ? orModelShort : (orEnabled ? 'no key/model' : 'off')}
-        </span>
-      </div>
-
-      {/* Pollinations cover generation status */}
-      <div className="flex items-center justify-between text-zinc-600" title={polReady ? `Pollinations ON · ${polCfg!.model}` : (polEnabled ? 'Pollinations ON, but model not picked' : 'Pollinations OFF')}>
-        <span className="flex items-center gap-1">
-          <span className={`w-1.5 h-1.5 rounded-full ${polReady ? 'bg-green-500' : (polEnabled ? 'bg-yellow-500' : 'bg-zinc-700')}`}></span>
-          <span className="text-[9px] text-zinc-600">IMG</span>
-        </span>
-        <span className={`text-[9px] truncate max-w-[120px] ${polReady ? 'text-zinc-500' : 'text-zinc-600'}`}>
-          {polReady ? polModelShort : (polEnabled ? 'no model' : 'off')}
-        </span>
-      </div>
-
-      {/* VRAM optimizations */}
-      {(info.offloadToCpu || info.chunkedFfn > 1 || info.pinnedMemory) && (
-        <div className="flex items-center gap-1 text-[8px] text-zinc-600 pt-0.5 border-t border-zinc-800/50 flex-wrap">
-          {info.offloadToCpu && <span className="bg-zinc-800/50 text-zinc-500 px-1 rounded">offload</span>}
-          {info.chunkedFfn > 1 && <span className="bg-zinc-800/50 text-zinc-500 px-1 rounded">FFN×{info.chunkedFfn}</span>}
-          {info.pinnedMemory && <span className="bg-zinc-800/50 text-zinc-500 px-1 rounded">pinned</span>}
-        </div>
-      )}
-
-      {/* Hide button */}
-      <button onClick={() => { setHidden(true); localStorage.setItem('hide-system-widget', '1'); }}
-        className="w-full text-center text-[8px] text-zinc-700 hover:text-zinc-500 transition-colors pt-0.5 opacity-50 hover:opacity-100">
-        {t('hide') || 'hide'}
-      </button>
+    <div className="space-y-1.5 rounded-xl border border-zinc-200/70 bg-zinc-50/80 px-3 py-2 text-[10px] dark:border-white/5 dark:bg-zinc-900/50">
+      <StatusLine active={engineReady && modelReady} pending={!unreachable && !(engineReady && modelReady)} label={engineLabel} />
+      <StatusLine active={modelReady} pending={!unreachable && !modelReady} label={modelLabel} />
+      <StatusLine active={openRouterConfigured} label={openRouterConfigured ? t('openRouterConfigured') : t('openRouterNotConfigured')} />
     </div>
   );
 };
@@ -212,8 +108,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   theme,
   onToggleTheme,
   user,
-  onLogin,
-  onLogout,
   onOpenSettings,
   isOpen = true,
   onToggle,
@@ -222,174 +116,58 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* Backdrop for mobile - only when expanded */}
       {isOpen && onToggle && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
-          onClick={onToggle}
-        />
+        <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden" onClick={onToggle} />
       )}
 
-      {/* Sidebar */}
-      <div className={`
-        flex flex-col h-full bg-white dark:bg-suno-sidebar border-r border-zinc-200 dark:border-white/5 flex-shrink-0 py-4 overflow-y-auto scrollbar-hide transition-all duration-300
-        fixed left-0 top-0 z-50 md:relative
-        ${isOpen ? 'w-[200px]' : 'w-[72px]'}
-      `}>
-      {/* Logo & Brand */}
-      <div className="px-3 mb-8 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center cursor-pointer shadow-lg hover:scale-105 transition-transform flex-shrink-0"
-            onClick={() => onNavigate('create')}
-            title={t('aceStepUI')}
-          >
-            <AudioLines size={22} className="text-white" />
-          </div>
-          {isOpen && (
-            <span className="text-sm font-bold text-zinc-900 dark:text-white whitespace-nowrap">ACE Step 1.5 XL</span>
-          )}
-        </div>
-        {/* Collapse/Expand Button */}
-        {onToggle && (
-          <button
-            onClick={onToggle}
-            className="w-8 h-8 rounded-lg hover:bg-zinc-100 dark:hover:bg-white/10 flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white transition-colors flex-shrink-0"
-            title={isOpen ? t('collapseSidebar') : t('expandSidebar')}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {isOpen ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              )}
-            </svg>
-          </button>
-        )}
-      </div>
-
-      <nav className="flex-1 flex flex-col gap-2 w-full px-3">
-        <NavItem
-          icon={<Disc size={20} />}
-          label={t('create')}
-          active={currentView === 'create'}
-          onClick={() => onNavigate('create')}
-          isExpanded={isOpen}
-        />
-        <NavItem
-          icon={<Library size={20} />}
-          label={t('library')}
-          active={currentView === 'library'}
-          onClick={() => onNavigate('library')}
-          isExpanded={isOpen}
-        />
-        <NavItem
-          icon={<Search size={20} />}
-          label={t('search')}
-          active={currentView === 'search'}
-          onClick={() => onNavigate('search')}
-          isExpanded={isOpen}
-        />
-        <NavItem
-          icon={<Wrench size={20} />}
-          label={t('tools')}
-          active={currentView === 'tools'}
-          onClick={() => onNavigate('tools')}
-          isExpanded={isOpen}
-        />
-        <NavItem
-          icon={<GraduationCap size={20} />}
-          label={t('training')}
-          active={currentView === 'training'}
-          onClick={() => onNavigate('training')}
-          isExpanded={isOpen}
-        />
-        <NavItem
-          icon={<Newspaper size={20} />}
-          label={t('news')}
-          active={currentView === 'news'}
-          onClick={() => onNavigate('news')}
-          isExpanded={isOpen}
-        />
-
-        <div className="mt-auto flex flex-col gap-2">
-          {/* System Status Widget */}
-          <SystemWidget isOpen={isOpen} />
-
-          {/* Theme Toggle */}
-          <button
-            onClick={onToggleTheme}
-            className={`
-              w-full rounded-xl flex items-center gap-3 transition-all duration-200 text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5
-              ${isOpen ? 'px-3 py-2.5 justify-start' : 'aspect-square justify-center'}
-            `}
-            title={theme === 'dark' ? t('lightMode') : t('darkMode')}
-          >
-            <div className="flex-shrink-0">{theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}</div>
+      <aside className={`fixed inset-y-0 left-0 z-50 flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-r border-zinc-200 bg-white py-4 transition-[width,transform] duration-300 dark:border-white/5 dark:bg-suno-sidebar md:relative md:inset-auto ${isOpen ? 'w-[min(20rem,calc(100vw-2.5rem))] md:w-[200px]' : 'w-[72px]'}`}>
+        <div className="mb-6 flex min-w-0 items-center justify-between gap-2 px-3">
+          <div className="flex min-w-0 items-center gap-3">
+            {/* The studio mark: three ascending bars in the accent ramp, the
+                same shape as the application icon. */}
+            <button type="button" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] shadow-lg transition-transform hover:scale-105" onClick={() => onNavigate('create')} title={STUDIO.name}>
+              {/* The application's own icon, so the window and the taskbar
+                  show the same mark. */}
+              <img src="/brand/studio.png" alt="" className="h-10 w-10 rounded-[11px]" />
+            </button>
             {isOpen && (
-              <span className="text-sm font-medium whitespace-nowrap">
-                {theme === 'dark' ? t('lightMode') : t('darkMode')}
+              <span className="min-w-0 text-[13px] font-bold leading-[1.15] text-zinc-900 dark:text-white" title={STUDIO.name}>
+                {STUDIO.name}
               </span>
             )}
-          </button>
-
-          {user ? (
-            <>
-              {/* User Settings */}
-              <button
-                onClick={onOpenSettings}
-                className={`
-                  w-full rounded-xl flex items-center gap-3 transition-all duration-200 text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5
-                  ${isOpen ? 'px-3 py-2.5 justify-start' : 'aspect-square justify-center'}
-                `}
-                title={`${user.username} - ${t('settings')}`}
-              >
-                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold border border-white/20 overflow-hidden flex-shrink-0">
-                  {user.avatar_url ? (
-                    <img src={user.avatar_url} alt={user.username} className="w-full h-full object-cover" />
-                  ) : (
-                    user.username.charAt(0).toUpperCase()
-                  )}
-                </div>
-                {isOpen && (
-                  <span className="text-sm font-medium whitespace-nowrap truncate flex-1 text-left">
-                    {user.username}
-                  </span>
-                )}
-              </button>
-              {/* Logout */}
-              <button
-                onClick={onLogout}
-                className={`
-                  w-full rounded-xl flex items-center gap-3 transition-all duration-200 text-zinc-500 hover:text-red-500 hover:bg-red-500/10
-                  ${isOpen ? 'px-3 py-2.5 justify-start' : 'aspect-square justify-center'}
-                `}
-                title={t('signOut')}
-              >
-                <div className="flex-shrink-0"><LogOut size={20} /></div>
-                {isOpen && (
-                  <span className="text-sm font-medium whitespace-nowrap">{t('signOut')}</span>
-                )}
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={onLogin}
-              className={`
-                w-full rounded-xl flex items-center gap-3 transition-all duration-200 text-zinc-500 dark:text-zinc-400 hover:text-pink-500 hover:bg-zinc-100 dark:hover:bg-white/5
-                ${isOpen ? 'px-3 py-2.5 justify-start' : 'aspect-square justify-center'}
-              `}
-              title={t('signIn')}
-            >
-              <div className="flex-shrink-0"><LogIn size={20} /></div>
-              {isOpen && (
-                <span className="text-sm font-medium whitespace-nowrap">{t('signIn')}</span>
-              )}
+          </div>
+          {onToggle && (
+            <button type="button" onClick={onToggle} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-black dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-white" title={isOpen ? t('collapseSidebar') : t('expandSidebar')}>
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {isOpen ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /> : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />}
+              </svg>
             </button>
           )}
         </div>
-      </nav>
-      </div>
+
+        <nav className="flex min-h-0 w-full flex-1 flex-col gap-2 overflow-y-auto px-3 scrollbar-hide">
+          <NavItem icon={<Disc size={20} />} label={t('create')} active={currentView === 'create'} onClick={() => onNavigate('create')} isExpanded={isOpen} />
+          <NavItem icon={<Library size={20} />} label={t('library')} active={currentView === 'library'} onClick={() => onNavigate('library')} isExpanded={isOpen} />
+          <NavItem icon={<Search size={20} />} label={t('search')} active={currentView === 'search'} onClick={() => onNavigate('search')} isExpanded={isOpen} />
+          <NavItem icon={<Newspaper size={20} />} label={t('news')} active={currentView === 'news'} onClick={() => onNavigate('news')} isExpanded={isOpen} />
+          <NavItem icon={<Layers size={20} />} label={t('adaptersNav')} active={currentView === 'adapters'} onClick={() => onNavigate('adapters')} isExpanded={isOpen} />
+          <NavItem icon={<SlidersHorizontal size={20} />} label={t('studioTools')} active={currentView === 'tools'} onClick={() => onNavigate('tools')} isExpanded={isOpen} />
+
+          <div className="mt-auto flex flex-col gap-2">
+            <ResourceMonitor isOpen={isOpen} />
+            <SystemWidget isOpen={isOpen} />
+            <button type="button" onClick={onToggleTheme} className={`flex w-full items-center gap-3 rounded-xl text-zinc-500 transition-all duration-200 hover:bg-zinc-100 hover:text-black dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white ${isOpen ? 'justify-start px-3 py-2.5' : 'aspect-square justify-center'}`} title={theme === 'dark' ? t('lightMode') : t('darkMode')}>
+              <span className="shrink-0">{theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}</span>
+              {isOpen && <span className="truncate text-sm font-medium">{theme === 'dark' ? t('lightMode') : t('darkMode')}</span>}
+            </button>
+
+              <button type="button" onClick={onOpenSettings} className={`flex w-full items-center gap-3 rounded-xl text-zinc-500 transition-all duration-200 hover:bg-zinc-100 hover:text-black dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white ${isOpen ? 'justify-start px-3 py-2.5' : 'aspect-square justify-center'}`} title={`${user.username} - ${t('settings')}`}>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-gradient-to-br from-pink-500 to-purple-600 text-xs font-bold text-white">{user.username.charAt(0).toUpperCase()}</span>
+                {isOpen && <span className="min-w-0 flex-1 truncate text-left text-sm font-medium">{user.username}</span>}
+              </button>
+          </div>
+        </nav>
+      </aside>
     </>
   );
 };
@@ -403,19 +181,9 @@ interface NavItemProps {
 }
 
 const NavItem: React.FC<NavItemProps> = ({ icon, label, active, onClick, isExpanded }) => (
-  <button
-    onClick={onClick}
-    className={`
-      w-full rounded-xl flex items-center gap-3 transition-all duration-200 group relative overflow-hidden
-      ${isExpanded ? 'px-3 py-2.5 justify-start' : 'aspect-square justify-center'}
-      ${active ? 'bg-zinc-100 dark:bg-white/10 text-black dark:text-white' : 'text-zinc-500 hover:text-black dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5'}
-    `}
-    title={label}
-  >
-    {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 bg-pink-500 rounded-r-full"></div>}
-    <div className="flex-shrink-0">{icon}</div>
-    {isExpanded && (
-      <span className="text-sm font-medium whitespace-nowrap">{label}</span>
-    )}
+  <button type="button" onClick={onClick} className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-xl transition-all duration-200 ${isExpanded ? 'justify-start px-3 py-2.5' : 'aspect-square justify-center'} ${active ? 'bg-zinc-100 text-black dark:bg-white/10 dark:text-white' : 'text-zinc-500 hover:bg-zinc-100 hover:text-black dark:hover:bg-white/5 dark:hover:text-white'}`} title={label}>
+    {active && <span className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-pink-500" />}
+    <span className="shrink-0">{icon}</span>
+    {isExpanded && <span className="truncate text-sm font-medium">{label}</span>}
   </button>
 );

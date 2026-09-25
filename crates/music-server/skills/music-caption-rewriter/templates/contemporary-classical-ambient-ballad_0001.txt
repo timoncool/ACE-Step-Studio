@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 76. key is Bb, and scale is major. Contemporary Classical / Ambient Ballad.
+Global Emotional Progression: The piece opens with a solitary, reflective atmosphere that gradually deepens into a poignant sense of longing as the string section swells. The emotional intensity peaks during the central vocal passages where the instrumentation becomes fuller and more resonant, before receding into a fragile, quiet dissolution in the outro, leaving a lingering feeling of wistful nostalgia.
+Application Scenarios & Imagery: Ideal for cinematic scenes depicting farewell, solitary reflection by a riverside at dusk, or moments of quiet grief and memory in a period drama.
+Sonics & Production Profile: The soundstage is intimate yet spacious, utilizing a wide stereo field for the strings while keeping the piano and vocals centered. The frequency response is warm and rounded, emphasizing the mid-range richness of the cello and the soft attack of the piano, with a gentle high-frequency roll-off to maintain a soothing, non-fatiguing listening experience. The dynamics are highly expressive, allowing for significant breathing room between phrases.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Male). The vocalist possesses a soft, breathy baritone timbre with a delicate, almost whispered quality that conveys vulnerability and intimacy.
+Vocal Style: The performance is characterized by a restrained, storytelling delivery that relies heavily on breath control and subtle dynamic shifts rather than power. The singer maintains a consistent, gentle tone throughout, employing slight vibrato only at the ends of long phrases to enhance the emotional weight without breaking the tranquil atmosphere.
+Harmony/Backing Vocals: No distinct backing vocals or harmonic layers are present; the vocal line remains a singular, unaccompanied melody against the instrumental bed, reinforcing the theme of solitude.
+Vocal FX: The vocal is treated with a lush, long-tail hall reverb that blends the voice into the ambient space created by the strings, creating an ethereal, distant effect. A subtle delay is applied to trail off the ends of phrases, enhancing the sense of emptiness.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: A grand piano with a felted, soft tone serves as the harmonic backbone, playing arpeggiated figures and sustained chords from the very beginning to the end.
+Secondary: A solo cello enters shortly after the intro, providing a mournful counter-melody that weaves around the piano. As the song progresses, a full string ensemble (violins and violas) fades in to add harmonic density and emotional swell during the vocal sections, then gradually withdraws towards the conclusion.
+Groove & Foundation Progression: There is no percussive groove or rhythmic foundation; the tempo is driven entirely by the rubato phrasing of the piano and the expressive bowing of the strings, creating a free-flowing, timeless feel.
+Embellishments, Textures & Spatial FX: Subtle atmospheric synth pads underpin the arrangement, adding a low-frequency warmth and depth that is felt more than heard. Occasional high-register piano flourishes act as delicate embellishments, while the natural resonance of the recording space provides a continuous ambient texture that binds the instruments together.

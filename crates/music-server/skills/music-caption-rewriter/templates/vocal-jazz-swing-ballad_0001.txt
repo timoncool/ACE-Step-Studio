@@ -1,0 +1,16 @@
+Global Metadata
+Basic Attributes: bpm is 107. key is C, and scale is major. Vocal Jazz / Swing Ballad.
+Global Emotional Progression: The piece opens with a relaxed, intimate atmosphere that establishes a sense of nostalgia and warmth. As the arrangement builds from the verse into the chorus, the emotional intensity lifts slightly, becoming more buoyant and expressive without losing its laid-back core. The instrumental break introduces a playful, improvisational energy before the track gently resolves back to its initial contemplative state for the outro.
+Application Scenarios & Imagery: A dimly lit jazz lounge in the evening, a romantic dinner setting, or a slow-motion scene in a period film depicting a leisurely afternoon.
+Sonics & Production Profile: The soundstage is balanced and organic, mimicking a live small-combo recording with a natural stereo spread. The frequency response favors warm midranges and rounded lows, avoiding harsh highs, while the dynamic aesthetic remains uncompressed and breathable, preserving the natural attack and decay of the acoustic instruments.
+Vocal Details
+Vocal Gender & Timbre: Singer A (Male). The vocalist possesses a smooth, mellow baritone with a slightly husky texture that conveys intimacy and sophistication.
+Vocal Style: The performance is characterized by a crooning, conversational delivery that leans heavily on swing phrasing. The singer employs subtle melodic variations and rhythmic flexibility, maintaining a consistent, relaxed tone throughout the verses and choruses, with slight dynamic swells during emotional peaks.
+Harmony/Backing Vocals: No distinct backing vocals or harmony layers are present; the vocal line remains a solo lead throughout the track.
+Vocal FX: The vocal is treated with a light, natural-sounding plate reverb to enhance presence and blend it with the acoustic space, free from heavy processing or noticeable delay effects.
+Arrangement
+Instrument Lifecycle Description (Primary/Secondary Layering):
+Primary: An acoustic piano serves as the harmonic and melodic anchor, playing syncopated chord voicings and melodic fills from the Intro through to the Outro.
+Secondary: An upright bass provides a walking bassline that enters immediately after the intro, driving the harmonic motion continuously. A clean electric guitar adds rhythmic comping and occasional melodic counter-lines, entering subtly in the first verse and becoming more prominent during the instrumental break.
+Groove & Foundation Progression: A brushed drum kit establishes a soft, swinging groove from the start, utilizing ride cymbal patterns and snare brushes to maintain a low-energy pulse. The percussion remains consistent in texture but increases slightly in dynamic intensity during the choruses and the instrumental solo section to support the musical lift.
+Embellishments, Textures & Spatial FX: Subtle finger snaps appear intermittently in the verses to accentuate the rhythm without cluttering the mix. Occasional piano flourishes and guitar licks act as transitional embellishments between vocal phrases, adding textural variety while maintaining the track's cohesive, intimate atmosphere.

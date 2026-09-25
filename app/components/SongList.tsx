@@ -1,12 +1,15 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Song } from '../types';
-import { Play, MoreHorizontal, Heart, ThumbsDown, ListPlus, Pause, Search, Filter, Check, Globe, Lock, Loader2, ThumbsUp, Share2, Video, Info, Clock, Timer, ImagePlus } from 'lucide-react';
+import { Play, MoreHorizontal, Heart, ThumbsDown, ListPlus, Pause, Search, Filter, Check, Globe, Lock, Loader2, ThumbsUp, Share2, Video, Info, Clock, Timer, ImagePlus, Pencil, Clapperboard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
+import type { TranslationKey } from '../i18n/translations';
 import { SongDropdownMenu } from './SongDropdownMenu';
-import { ShareModal } from './ShareModal';
 import { AlbumCover } from './AlbumCover';
-import { songsApi } from '../services/api';
+import { updateNativeSong } from '../services/nativeLibrary';
+import { SongActionsProvider, useSongActions } from '../context/SongActionsContext';
+import { captionSummary } from '../services/examples';
+import { TRACK_ARTIST } from '../services/studio';
 
 interface SongListProps {
     songs: Song[];
@@ -19,18 +22,11 @@ interface SongListProps {
     onSelect: (song: Song) => void;
     onToggleLike: (songId: string) => void;
     onAddToPlaylist: (song: Song) => void;
-    onOpenVideo?: (song: Song) => void;
     onOpenCoverRegen?: (song: Song) => void;
     onShowDetails?: (song: Song) => void;
     onNavigateToProfile?: (username: string) => void;
-    onReusePrompt?: (song: Song) => void;
-    onDelete?: (song: Song) => void;
     onSongUpdate?: (updatedSong: Song) => void;
     onDeleteMany?: (songs: Song[]) => void;
-    onUseAsReference?: (song: Song) => void;
-    onCoverSong?: (song: Song) => void;
-    onUseUploadAsReference?: (track: { audio_url: string; filename: string }) => void;
-    onCoverUpload?: (track: { audio_url: string; filename: string }) => void;
     onCancelJob?: (jobId: string) => void;
     onResetJob?: (jobId: string) => void;
     onCancelAll?: () => void;
@@ -45,16 +41,19 @@ interface SongListProps {
 // Define Filter Types
 type FilterType = 'liked' | 'public' | 'private' | 'generating';
 
-// Map model ID to short display name
-const getModelDisplayName = (modelId?: string): string => {
-    if (!modelId) return 'XL';
+/// The badge names the complete component set the track was rendered with —
+/// that is what actually determines its fidelity.
+const PROFILE_BADGE: Record<string, string> = {
+    native: 'Full',
+    'quality-q8': 'Q8',
+    balanced: 'Bal',
+    'recommended-light': 'Light',
+};
 
-    const mapping: Record<string, string> = {
-        'acestep-v15-xl-turbo': 'XL Turbo',
-        'acestep-v15-xl-sft': 'XL SFT',
-        'marcorez8/acestep-v15-xl-turbo-bf16': 'XL Turbo BF16',
-    };
-    return mapping[modelId] || 'XL';
+const getProfileBadge = (song: Song): string => {
+    if (song.ditModel === 'openrouter') return 'Cloud';
+    if (song.ditModel === 'imported-audio') return 'Import';
+    return song.lmModel ? PROFILE_BADGE[song.lmModel] ?? song.lmModel : TRACK_ARTIST;
 };
 
 const createDragPreview = (element: HTMLElement) => {
@@ -100,18 +99,11 @@ export const SongList: React.FC<SongListProps> = ({
     onSelect,
     onToggleLike,
     onAddToPlaylist,
-    onOpenVideo,
     onOpenCoverRegen,
     onShowDetails,
     onNavigateToProfile,
-    onReusePrompt,
-    onDelete,
     onSongUpdate,
     onDeleteMany,
-    onUseAsReference,
-    onCoverSong,
-    onUseUploadAsReference,
-    onCoverUpload,
     onCancelJob,
     onCancelAll,
     onResetJob,
@@ -172,6 +164,9 @@ export const SongList: React.FC<SongListProps> = ({
         });
     };
 
+    // the track a derived track was made from, found without a scan per row
+    const songsById = useMemo(() => new Map(songs.map(entry => [entry.id, entry])), [songs]);
+
     const filteredSongs = useMemo(() => {
         return songs.filter(song => {
             // 1. Search Logic
@@ -228,15 +223,18 @@ export const SongList: React.FC<SongListProps> = ({
     const selectedSongs = selectableSongs.filter(song => selectedIds.has(song.id));
 
     return (
-        <div className="flex-1 bg-white dark:bg-black h-full overflow-y-auto custom-scrollbar p-6 pb-32 transition-colors duration-300">
-            <div className="max-w-5xl mx-auto w-full"> {/* Container constraint */}
+        <div className="h-full min-w-0 flex-1 overflow-y-auto bg-white p-4 pb-32 transition-colors duration-300 dark:bg-black sm:p-6">
+            <div className="mx-auto w-full min-w-0 max-w-5xl"> {/* Container constraint */}
 
                 {/* Header */}
                 <div className="flex flex-col gap-6 mb-8">
+                    {/* The library is a real local store, so the header states what
+                        is in it rather than naming a workspace concept that this
+                        single-user desktop build does not have. */}
                     <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-                        <span className="hover:text-black dark:hover:text-white cursor-pointer transition-colors">{t('workspaces')}</span>
-                        <span className="text-zinc-400 dark:text-zinc-600">›</span>
-                        <span className="text-zinc-900 dark:text-white font-medium">{t('myWorkspace')}</span>
+                        <span className="font-medium text-zinc-900 dark:text-white">{t('library')}</span>
+                        <span className="text-zinc-400 dark:text-zinc-600">·</span>
+                        <span>{songs.length} {t('songs').toLowerCase()}</span>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -400,9 +398,13 @@ export const SongList: React.FC<SongListProps> = ({
                                     isChecked={selectedIds.has(item.song.id)}
                                     isLiked={likedSongIds.has(item.song.id)}
                                     isPlaying={isPlaying}
-                                    isOwner={user?.id === item.song.userId}
+                                    isOwner={item.song.nativeReplayAvailable || user?.id === item.song.userId}
                                     onPlay={() => onPlay(item.song)}
                                     onSelect={() => onSelect(item.song)}
+                                    onOpenOriginal={(() => {
+                                        const original = item.song.derived ? songsById.get(item.song.derived.from) : undefined;
+                                        return original ? () => onSelect(original) : undefined;
+                                    })()}
                                     onToggleSelect={() => {
                                         if (item.song.isGenerating) return;
                                         setSelectedIds(prev => {
@@ -414,15 +416,10 @@ export const SongList: React.FC<SongListProps> = ({
                                     }}
                                     onToggleLike={() => onToggleLike(item.song.id)}
                                     onAddToPlaylist={() => onAddToPlaylist(item.song)}
-                                    onOpenVideo={() => onOpenVideo && onOpenVideo(item.song)}
                                     onOpenCoverRegen={() => onOpenCoverRegen && onOpenCoverRegen(item.song)}
                                     onShowDetails={() => onShowDetails && onShowDetails(item.song)}
                                     onNavigateToProfile={onNavigateToProfile}
-                                    onReusePrompt={() => onReusePrompt?.(item.song)}
-                                    onDelete={() => onDelete?.(item.song)}
                                     onSongUpdate={onSongUpdate}
-                                    onUseAsReference={() => onUseAsReference?.(item.song)}
-                                    onCoverSong={() => onCoverSong?.(item.song)}
                                     // Cancel button is also available during pre-flight (placeholder
                                     // card with no jobId yet) — pass `song.id` (= tempId) and the
                                     // App.tsx handler routes to the registered AbortController.
@@ -458,8 +455,6 @@ export const SongList: React.FC<SongListProps> = ({
                                             isPublic: false,
                                         } as Song);
                                     }}
-                                    onUseAsReference={() => onUseUploadAsReference?.(item.track)}
-                                    onCoverSong={() => onCoverUpload?.(item.track)}
                                 />
                             )
                         ))
@@ -484,17 +479,14 @@ interface SongItemProps {
     onToggleSelect: () => void;
     onToggleLike: () => void;
     onAddToPlaylist: () => void;
-    onOpenVideo?: () => void;
     onOpenCoverRegen?: () => void;
     onShowDetails?: () => void;
     onNavigateToProfile?: (username: string) => void;
-    onReusePrompt?: () => void;
-    onDelete?: () => void;
     onSongUpdate?: (updatedSong: Song) => void;
-    onUseAsReference?: () => void;
-    onCoverSong?: () => void;
     onCancelJob?: () => void;
     onResetJob?: () => void;
+    /** Opens the track this one was made from; absent when it is gone. */
+    onOpenOriginal?: () => void;
 }
 
 const SongItem: React.FC<SongItemProps> = ({
@@ -511,24 +503,19 @@ const SongItem: React.FC<SongItemProps> = ({
     onToggleSelect,
     onToggleLike,
     onAddToPlaylist,
-    onOpenVideo,
     onOpenCoverRegen,
     onShowDetails,
     onNavigateToProfile,
-    onReusePrompt,
-    onDelete,
     onSongUpdate,
-    onUseAsReference,
-    onCoverSong,
     onCancelJob,
     onResetJob,
+    onOpenOriginal,
 }) => {
-    const { token } = useAuth();
     const { t } = useI18n();
     const [showDropdown, setShowDropdown] = useState(false);
-    const [shareModalOpen, setShareModalOpen] = useState(false);
     const [imageError, setImageError] = useState(false);
     const [isEditingTitle, setIsEditingTitle] = useState(false);
+    const songActions = useSongActions();
     const [editedTitle, setEditedTitle] = useState(song.title);
     const titleInputRef = useRef<HTMLInputElement>(null);
 
@@ -540,19 +527,16 @@ const SongItem: React.FC<SongItemProps> = ({
     }, [isEditingTitle]);
 
     const handleSaveTitle = async () => {
-        if (!token || !isOwner || !editedTitle.trim() || editedTitle === song.title) {
+        if (!isOwner || !editedTitle.trim() || editedTitle === song.title) {
             setIsEditingTitle(false);
             setEditedTitle(song.title);
             return;
         }
 
         try {
-            const response = await songsApi.updateSong(song.id, { title: editedTitle.trim() }, token);
+            const updated = await updateNativeSong(song, { title: editedTitle.trim() });
             setIsEditingTitle(false);
-            // Update the parent component's song list
-            if (onSongUpdate && response.song) {
-                onSongUpdate(response.song);
-            }
+            onSongUpdate?.(updated);
         } catch (error) {
             console.error('Failed to update title:', error);
             setEditedTitle(song.title);
@@ -572,6 +556,7 @@ const SongItem: React.FC<SongItemProps> = ({
     return (
         <>
         <div
+            data-mcp-context={`song ${song.id}: ${song.title}`}
             onClick={onSelect}
             draggable={Boolean(song.audioUrl) && !song.isGenerating}
             onDragStart={(e) => {
@@ -595,7 +580,7 @@ const SongItem: React.FC<SongItemProps> = ({
                     }
                 }, 0);
             }}
-            className={`group flex items-center gap-4 p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-[#18181b] transition-all cursor-pointer border ${isSelected ? 'bg-zinc-100 dark:bg-[#18181b] border-zinc-200 dark:border-white/10' : 'border-transparent bg-transparent'} ${song.audioUrl && !song.isGenerating ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            className={`group flex min-w-0 items-center gap-2 rounded-lg border p-2 transition-all hover:bg-zinc-100 dark:hover:bg-[#18181b] sm:gap-4 ${isSelected ? 'bg-zinc-100 dark:bg-[#18181b] border-zinc-200 dark:border-white/10' : 'border-transparent bg-transparent'} ${song.audioUrl && !song.isGenerating ? 'cursor-grab active:cursor-grabbing' : ''}`}
         >
             {isSelectionMode && (
                 <button
@@ -696,6 +681,29 @@ const SongItem: React.FC<SongItemProps> = ({
                                 {song.title || (song.isGenerating ? (song.queuePosition ? t('queued') || "Queued..." : (t(song.stage) || song.stage || t('creating') || "Creating...")) : t('untitled') || "Untitled")}
                             </h3>
                         )}
+                        {isOwner && !song.isGenerating && !isEditingTitle && (
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setIsEditingTitle(true); }}
+                                className="flex-shrink-0 rounded p-1 text-zinc-400 opacity-0 transition-opacity hover:text-black focus-visible:opacity-100 group-hover:opacity-100 dark:hover:text-white"
+                                title={t('renameSong')}
+                                aria-label={t('renameSong')}
+                            >
+                                <Pencil size={14} />
+                            </button>
+                        )}
+                        {song.derived && (
+                            <button
+                                type="button"
+                                disabled={!onOpenOriginal}
+                                onClick={(event) => { event.stopPropagation(); onOpenOriginal?.(); }}
+                                title={onOpenOriginal ? t('openOriginal') : t('originalGone')}
+                                className="inline-flex max-w-full items-center gap-1 truncate rounded-sm border border-zinc-300 px-1.5 py-0.5 text-[10px] text-zinc-600 hover:border-pink-400 hover:text-pink-600 disabled:cursor-default disabled:hover:border-zinc-300 disabled:hover:text-zinc-600 dark:border-white/15 dark:text-zinc-300"
+                            >
+                                {t('madeFrom')} «{song.derived.fromTitle}» · {t(`derivedTool_${song.derived.tool}` as TranslationKey)}
+                                {song.derived.tool === 'stems' && typeof song.derived.settings?.stem === 'string' ? `: ${song.derived.settings.stem}` : ''}
+                            </button>
+                        )}
                         <span
                           className="inline-flex items-center justify-center text-[9px] font-bold text-white bg-gradient-to-r from-pink-500 to-purple-500 px-1.5 py-0.5 rounded-sm shadow-sm"
                           title={[
@@ -708,7 +716,7 @@ const SongItem: React.FC<SongItemProps> = ({
                             song.openrouterModel ? `Text: openrouter (${song.openrouterModel})` : null,
                           ].filter(Boolean).join(' | ')}
                         >
-                            {getModelDisplayName(song.ditModel)}
+                            {getProfileBadge(song)}
                         </span>
                         {song.generationTime != null && song.generationTime > 0 && (
                             <span className="inline-flex items-center gap-0.5 text-[9px] text-zinc-400 dark:text-zinc-500" title={t('generationTime') || 'Generation time'}>
@@ -716,30 +724,13 @@ const SongItem: React.FC<SongItemProps> = ({
                                 {song.generationTime}s
                             </span>
                         )}
-                        {song.isPublic === false && (
-                            <Lock size={12} className="text-zinc-400 dark:text-zinc-500" />
-                        )}
                     </div>
-                    <div className="flex items-center gap-2">
-                        <div
-                            className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                if (song.creator && onNavigateToProfile) {
-                                    onNavigateToProfile(song.creator);
-                                }
-                            }}
-                        >
-                            <div className="w-4 h-4 rounded-full bg-purple-500 text-[8px] flex items-center justify-center font-bold text-white">
-                                {(song.creator?.[0] || 'U').toUpperCase()}
-                            </div>
-                            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors hover:underline">
-                                {song.creator || 'Unknown'}
-                            </span>
-                        </div>
+                    <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                        <span>{song.ditModel === 'imported-audio' ? t('importedAudio') : TRACK_ARTIST}</span>
+                        {song.nativeReplayAvailable && <span title={t('replayAvailable')} className="rounded bg-zinc-200/70 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide dark:bg-white/10">replay</span>}
                     </div>
                     <p className="text-xs text-zinc-500 dark:text-zinc-500 line-clamp-2 pt-1 font-medium max-w-2xl">
-                        {song.style}
+                        {captionSummary(song.style)}
                     </p>
                     {song.isGenerating && (
                         <div className="pt-2">
@@ -782,22 +773,6 @@ const SongItem: React.FC<SongItemProps> = ({
                             <ThumbsDown size={16} />
                         </button>
 
-                        <button
-                            className="p-2 rounded-full hover:bg-zinc-200 dark:hover:bg-white/5 text-zinc-400 hover:text-black dark:hover:text-white transition-colors"
-                            onClick={(e) => { e.stopPropagation(); setShareModalOpen(true); }}
-                            title={t('share')}
-                        >
-                            <Share2 size={16} />
-                        </button>
-
-                        <button
-                            className="p-2 rounded-full hover:bg-zinc-200 dark:hover:bg-white/5 text-zinc-400 hover:text-black dark:hover:text-white transition-colors"
-                            onClick={(e) => { e.stopPropagation(); if (onOpenVideo) onOpenVideo(); }}
-                            title={t('createVideo')}
-                        >
-                            <Video size={16} />
-                        </button>
-
                         {/* Manual cover regeneration — opens CoverRegenModal where the user can
                             pick a model + prompt and either generate via Pollinations or
                             upload a custom image from disk. Only shown for owned songs. */}
@@ -808,6 +783,16 @@ const SongItem: React.FC<SongItemProps> = ({
                                 title={t('coverRegen.openTooltip') || 'Regenerate cover'}
                             >
                                 <ImagePlus size={16} />
+                            </button>
+                        )}
+
+                        {songActions.exportVideo && song.audioUrl && !song.isGenerating && (
+                            <button
+                                className="p-2 rounded-full hover:bg-zinc-200 dark:hover:bg-white/5 text-zinc-400 hover:text-black dark:hover:text-white transition-colors"
+                                onClick={(e) => { e.stopPropagation(); songActions.exportVideo?.(song); }}
+                                title={t('videoExport')}
+                            >
+                                <Clapperboard size={16} />
                             </button>
                         )}
 
@@ -842,14 +827,6 @@ const SongItem: React.FC<SongItemProps> = ({
                                 song={song}
                                 isOpen={showDropdown}
                                 onClose={() => setShowDropdown(false)}
-                                isOwner={isOwner}
-                                onCreateVideo={() => onOpenVideo?.(song)}
-                                onReusePrompt={onReusePrompt ? () => onReusePrompt?.(song) : undefined}
-                                onAddToPlaylist={() => onAddToPlaylist?.(song)}
-                                onDelete={() => onDelete?.(song)}
-                                onShare={() => setShareModalOpen(true)}
-                                onUseAsReference={() => onUseAsReference?.()}
-                                onCoverSong={() => onCoverSong?.()}
                             />
                         </div>
                     </div>
@@ -885,27 +862,23 @@ const SongItem: React.FC<SongItemProps> = ({
                 ) : song.duration}
             </div>
         </div>
-
-        <ShareModal
-            isOpen={shareModalOpen}
-            onClose={() => setShareModalOpen(false)}
-            song={song}
-        />
         </>
     );
 };
 
+const NO_SONG_ACTIONS = {};
+
 const UploadItem: React.FC<{
     track: { id: string; filename: string; audio_url: string; duration?: number | null };
     onPlay: (audioUrl: string, title: string) => void;
-    onUseAsReference?: () => void;
-    onCoverSong?: () => void;
 }> = ({ track, onPlay, onUseAsReference, onCoverSong }) => {
     const title = track.filename.replace(/\.[^/.]+$/, '');
     const duration = track.duration
         ? `${Math.floor(track.duration / 60)}:${String(Math.floor(track.duration % 60)).padStart(2, '0')}`
         : '--:--';
+    // an upload is not a library song yet: none of the song actions apply to it
     return (
+        <SongActionsProvider value={NO_SONG_ACTIONS}>
         <SongItem
             song={{
                 id: `upload_${track.id}`,
@@ -931,13 +904,9 @@ const UploadItem: React.FC<{
             onToggleSelect={() => undefined}
             onToggleLike={() => undefined}
             onAddToPlaylist={() => undefined}
-            onOpenVideo={() => undefined}
             onShowDetails={() => undefined}
             onNavigateToProfile={() => undefined}
-            onReusePrompt={undefined}
-            onDelete={() => undefined}
-            onUseAsReference={onUseAsReference}
-            onCoverSong={onCoverSong}
         />
+        </SongActionsProvider>
     );
 };
