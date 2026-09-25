@@ -9,11 +9,10 @@ import { writeFileSync } from 'node:fs';
 const FIELD = '';
 const RECORD = '';
 
-// Where this project starts. The repository carries ACE-Step Studio's whole
-// history because it is a fork of it, but the changelog is a product changelog:
-// a user reading it wants to know what happened to *this* studio, not what
-// happened to a Python application whose code is no longer here.
-const FIRST_COMMIT = '1b70091';
+// Where the native studio starts. The repository keeps the Python studio's
+// history before it, but a user reading the changelog wants to know what
+// happened to the application they run.
+const FIRST_COMMIT = 'a5d909a';
 
 const raw = execFileSync(
   'git',
