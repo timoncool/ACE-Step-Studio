@@ -859,6 +859,7 @@ async fn serve_audio_file(path: &std::path::Path, headers: &HeaderMap) -> Result
     let content_type = match path.extension().and_then(|extension| extension.to_str()).map(|extension| extension.to_ascii_lowercase()).as_deref() {
         Some("mp3") => "audio/mpeg",
         Some("wav") => "audio/wav",
+        Some("flac") => "audio/flac",
         _ => return Err(api_error(StatusCode::UNSUPPORTED_MEDIA_TYPE, "Stored song has an unsupported audio extension".into())),
     };
     let total = bytes.len();
@@ -5607,8 +5608,24 @@ async fn setup_select(
             .model_manager
             .installed_component_files(&ids)
             .map_err(|error| api_error(StatusCode::BAD_REQUEST, error.to_string()))?;
-        *state.selected_profile_id.write().await = None;
-        *state.selected_component_ids.write().await = Some(ids);
+        // a hand-picked selection that is exactly a ready-made set is that set
+        let mut sorted = ids.clone();
+        sorted.sort();
+        let named = state.model_manager.catalog().profiles.iter().find(|profile| {
+            let mut components: Vec<String> = profile.components.iter().map(|id| id.to_string()).collect();
+            components.sort();
+            components == sorted
+        }).map(|profile| profile.id.to_string());
+        match named {
+            Some(profile_id) => {
+                *state.selected_profile_id.write().await = Some(profile_id);
+                *state.selected_component_ids.write().await = None;
+            }
+            None => {
+                *state.selected_profile_id.write().await = None;
+                *state.selected_component_ids.write().await = Some(ids);
+            }
+        }
     }
     let _ = persist_studio_settings(&state).await;
     let target = effective_install_target(&state).await;
@@ -6050,13 +6067,19 @@ async fn import_take(
                 return audio_pcm::wav_bytes(&stereo, "wav32");
             }
             audio_post::encode::normalize_peak(&mut stereo, peak_clip);
-            if target == "mp3" { audio_post::encode::mp3(&stereo, kbps) } else { audio_pcm::wav_bytes(&stereo, &target) }
+            match target.as_str() {
+                "mp3" => audio_post::encode::mp3(&stereo, kbps),
+                "flac" => audio_post::encode::flac(&stereo),
+                _ => audio_pcm::wav_bytes(&stereo, &target),
+            }
         })
         .await
         .context("the encoder stopped")??;
         if format == "mp3" {
             extension = "mp3";
             replay["mp3_bitrate"] = Value::from(audio_post::encode::mp3_bitrate(kbps));
+        } else if format == "flac" {
+            extension = "flac";
         }
         replay["output_format"] = Value::from(format);
     }
@@ -6271,8 +6294,8 @@ fn prepare_replay(mut replay: Value, overrides: &ReplayMusicJobRequest) -> Resul
         object.insert("seed".into(), Value::from(seed));
     }
     if let Some(format) = &overrides.output_format {
-        if !matches!(format.as_str(), "mp3" | "wav16" | "wav24" | "wav32") {
-            return Err("output_format must be mp3, wav16, wav24, or wav32".into());
+        if !matches!(format.as_str(), "mp3" | "wav16" | "wav24" | "wav32" | "flac") {
+            return Err("output_format must be mp3, wav16, wav24, wav32 or flac".into());
         }
         object.insert("output_format".into(), Value::from(format.clone()));
     }
@@ -6481,14 +6504,15 @@ const DEFAULT_PEAK_CLIP: u32 = 10;
 
 /// Whether the studio makes this track's MP3 itself; the engine's own default
 /// output is MP3, so a request naming no format counts.
-fn studio_encodes_mp3(settings: &Value) -> bool {
-    settings.get("output_format").and_then(Value::as_str).is_none_or(|format| format == "mp3")
+/// MP3 (LAME) and FLAC are encoded by the studio, not the engine.
+fn studio_encodes_format(settings: &Value) -> bool {
+    settings.get("output_format").and_then(Value::as_str).is_none_or(|format| format == "mp3" || format == "flac")
 }
 
-/// The studio makes the file itself (from the engine's float WAV) for MP3,
-/// which it encodes with LAME, and whenever it puts fades on.
+/// The studio makes the file itself (from the engine's float WAV) for the
+/// formats it encodes, and whenever it puts fades on.
 fn studio_encodes(settings: &Value, fades: (f32, f32)) -> bool {
-    studio_encodes_mp3(settings) || fades.0 > 0.0 || fades.1 > 0.0
+    studio_encodes_format(settings) || fades.0 > 0.0 || fades.1 > 0.0
 }
 
 

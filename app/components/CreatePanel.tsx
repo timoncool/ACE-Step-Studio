@@ -348,6 +348,15 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     setServiceDown(false);
   }, []);
 
+  // The ready-made sets by name, so the profile line reads as the model manager does.
+  const [profileNames, setProfileNames] = useState<Record<string, string>>({});
+  useEffect(() => {
+    void fetch('/setup/catalog')
+      .then(response => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
+      .then((body: { profiles?: Array<{ id: string; label: string }> }) => setProfileNames(Object.fromEntries((body.profiles ?? []).map(profile => [profile.id, profile.label]))))
+      .catch(() => undefined);
+  }, []);
+
   useEffect(() => {
     const poll = () => void refreshSetup().catch(() => { setSetup(null); setServiceDown(true); });
     poll();
@@ -833,7 +842,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   useBridgeCommand('create_set', (args) => {
     const fields = (args.fields && typeof args.fields === 'object' ? args.fields : args) as Record<string, unknown>;
     const extra = ['mode', 'instrumental', 'think', 'tracks', 'randomize_seed', 'adapters'];
-    const choices: Record<string, string[]> = { mode: ['studio', 'simple'], task_type: TASKS, output_format: ['mp3', 'wav16', 'wav24', 'wav32'] };
+    const choices: Record<string, string[]> = { mode: ['studio', 'simple'], task_type: TASKS, output_format: ['mp3', 'wav16', 'wav24', 'wav32', 'flac'] };
     const unknown = Object.keys(fields).filter(key => !formFields[key] && !extra.includes(key));
     if (unknown.length) throw new Error(`Unknown fields: ${unknown.join(', ')}. The form has: ${[...Object.keys(formFields), ...extra].join(', ')}.`);
     for (const [key, allowed] of Object.entries(choices)) {
@@ -859,8 +868,9 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
 
   const profileLabel = useMemo(() => {
     if (setup?.selected_component_ids?.length) return t('customSet');
-    return setup?.selected_profile_id ?? '—';
-  }, [setup, t]);
+    const id = setup?.selected_profile_id;
+    return id ? profileNames[id] ?? id : '—';
+  }, [setup, t, profileNames]);
 
   const roles: Array<{ key: 'synth_model' | 'lm_model' | 'vae'; label: string; options: string[] }> = [
     { key: 'synth_model', label: 'DiT', options: catalog?.models?.dit ?? [] },
@@ -1362,6 +1372,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
                           <option value="wav16">WAV16</option>
                           <option value="wav24">WAV24</option>
                           <option value="wav32">WAV32</option>
+                          <option value="flac">FLAC</option>
                         </select>
                       </Field>
                     </div>
@@ -1407,7 +1418,6 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
             </button>
             <button type="button" onClick={() => void refreshSetup().catch(() => undefined)} className="hover:text-pink-500">{t('refresh')}</button>
           </div>
-          {setup?.hardware?.reason && <p className="px-1 text-[10px] text-zinc-400">{setup.hardware.reason}</p>}
           {error && <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs leading-5 text-red-700 dark:text-red-200">{error}</div>}
         </div>
       </div>

@@ -6,7 +6,7 @@
   "commit": "5c942396bbd62671d7e3cffe6ff6706517f54bcd",
   "license": "MIT",
   "server": "ace-server",
-  "port": 8088,
+  "port": 8089,
   "tools": [],
   "worktree": "ace-engine"
 }

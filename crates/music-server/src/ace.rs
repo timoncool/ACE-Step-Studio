@@ -227,7 +227,14 @@ impl AceClient {
             .unwrap_or_else(|_| format!("http://127.0.0.1:{}", music_engine::server::default_port()))
             .trim_end_matches('/')
             .to_owned();
-        Self { base_url, http: reqwest::Client::new() }
+        // The engine is on loopback: a connection takes microseconds when it
+        // listens. Without a limit a closed port costs Windows two seconds per
+        // attempt, and a filtered one twenty, and the status polls pile up.
+        let http = reqwest::Client::builder()
+            .connect_timeout(Duration::from_millis(500))
+            .build()
+            .expect("the HTTP client builds with a connect timeout");
+        Self { base_url, http }
     }
 
     pub fn base_url(&self) -> &str {

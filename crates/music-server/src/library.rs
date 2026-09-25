@@ -121,7 +121,7 @@ impl Library {
  pub fn import_audio_song(&self,input:AudioImportInput)->Result<ImportedSong>{
   if input.audio.is_empty(){anyhow::bail!("cannot import an empty audio file")}
   let extension=input.audio_extension.trim().to_ascii_lowercase();
-  if !matches!(extension.as_str(), "mp3" | "wav"){anyhow::bail!("only MP3 and WAV audio can be imported")}
+  if !matches!(extension.as_str(), "mp3" | "wav" | "flac"){anyhow::bail!("only MP3, WAV and FLAC audio can be imported")}
   fs::create_dir_all(&self.media_dir).with_context(||format!("create media directory {}",self.media_dir.display()))?;
   let id=uuid::Uuid::now_v7().to_string(); let filename=format!("{id}.{extension}"); let target=self.media_dir.join(&filename); let temporary=self.media_dir.join(format!("{filename}.part"));
   {let mut file=fs::OpenOptions::new().create_new(true).write(true).open(&temporary)?;use std::io::Write;file.write_all(&input.audio)?;file.sync_all()?;}

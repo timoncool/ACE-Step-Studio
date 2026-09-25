@@ -630,11 +630,11 @@ fn part_path(path: &Path) -> PathBuf {
 
 fn profiles() -> Vec<Profile> {
     vec![
-        profile("minimal", "Minimal - 2B turbo Q4_K_M, LM 0.6B (6 GB cards)", false, &["dit-turbo-q4", "lm-0.6b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"]),
-        profile("recommended-light", "Light - XL turbo Q4_K_M, LM 1.7B (8 GB cards)", false, &["dit-xl-turbo-q4", "lm-1.7b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"]),
-        profile("balanced", "Balanced - XL turbo Q6_K, LM 1.7B (10 GB cards)", false, &["dit-xl-turbo-q6", "lm-1.7b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"]),
-        profile("quality-q8", "Recommended - XL turbo Q8_0, LM 4B Q8_0", true, &["dit-xl-turbo-q8", "lm-4b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"]),
-        profile("native", "Full native - XL turbo BF16, LM 4B BF16", false, &["dit-xl-turbo-bf16", "lm-4b-bf16", "te-qwen3-0.6b-bf16", "vae-standard-bf16"]),
+        profile("minimal", "Minimal - 2B turbo Q4_K_M, LM 0.6B (4 GB cards)", &["dit-turbo-q4", "lm-0.6b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"]),
+        profile("recommended-light", "Light - XL turbo Q4_K_M, LM 1.7B (8 GB cards)", &["dit-xl-turbo-q4", "lm-1.7b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"]),
+        profile("balanced", "Balanced - XL turbo Q6_K, LM 1.7B (10 GB cards)", &["dit-xl-turbo-q6", "lm-1.7b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"]),
+        profile("quality-q8", "Quality - XL turbo Q8_0, LM 4B Q8_0 (13 GB cards)", &["dit-xl-turbo-q8", "lm-4b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"]),
+        profile("native", "Full native - XL turbo BF16, LM 4B BF16 (24 GB cards)", &["dit-xl-turbo-bf16", "lm-4b-bf16", "te-qwen3-0.6b-bf16", "vae-standard-bf16"]),
     ]
 }
 
@@ -642,8 +642,9 @@ pub fn profile_exists(id: &str) -> bool {
     profiles().iter().any(|profile| profile.id == id && profile.installable && profile.backend == ENGINE_ID)
 }
 
-fn profile(id: &'static str, label: &'static str, recommended: bool, ids: &[&'static str]) -> Profile {
+fn profile(id: &'static str, label: &'static str, ids: &[&'static str]) -> Profile {
     let all = components();
+    let recommended = id == "quality-q8";
     Profile { id, label, backend: ENGINE_ID, installable: true, recommended, components: ids.to_vec(), total_bytes: ids.iter().filter_map(|id| all.iter().find(|component| component.id == *id)).map(|component| component.bytes).sum() }
 }
 

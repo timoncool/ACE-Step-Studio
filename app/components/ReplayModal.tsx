@@ -35,7 +35,7 @@ export const ReplayModal: React.FC<ReplayModalProps> = ({ song, onClose, onQueue
   const [solver, setSolver] = useState(textOr('solver', 'euler'));
   const [scheduler, setScheduler] = useState(textOr('scheduler', 'linear'));
   const [seed, setSeed] = useState<string>(typeof settings.seed === 'number' ? String(settings.seed) : '');
-  const [format, setFormat] = useState<'mp3' | 'wav16' | 'wav24' | 'wav32'>(
+  const [format, setFormat] = useState<'mp3' | 'wav16' | 'wav24' | 'wav32' | 'flac'>(
     typeof settings.output_format === 'string' ? (settings.output_format as 'mp3') : 'mp3',
   );
   const [busy, setBusy] = useState(false);
@@ -119,6 +119,7 @@ export const ReplayModal: React.FC<ReplayModalProps> = ({ song, onClose, onQueue
                 <option value="wav16">WAV 16-bit</option>
                 <option value="wav24">WAV 24-bit</option>
                 <option value="wav32">WAV 32-bit float</option>
+                <option value="flac">FLAC</option>
               </select>
             </label>
           </div>

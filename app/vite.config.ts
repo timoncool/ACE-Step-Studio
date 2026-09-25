@@ -42,7 +42,13 @@ export default defineConfig(({ mode }) => {
       __STUDIO__: JSON.stringify(studio),
       __APP_VERSION__: JSON.stringify(appVersion),
     },
-    plugins: [react()],
+    plugins: [
+      react(),
+      {
+        name: 'studio-identity',
+        transformIndexHtml: (html: string) => html.replaceAll('%STUDIO_NAME%', studio.name).replaceAll('%STUDIO_ARTIST%', studio.artist),
+      },
+    ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
