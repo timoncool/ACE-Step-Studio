@@ -68,7 +68,7 @@ pub fn snapshot() -> ResourceSnapshot {
         .values()
         .find(|process| {
             let name = process.name().to_string_lossy().to_ascii_lowercase();
-            name == "mm-server" || name == "mm-server.exe"
+            name == music_engine::server::executable_name().to_ascii_lowercase()
         })
         .map(|process| ProcessSnapshot {
             name: process.name().to_string_lossy().into_owned(),

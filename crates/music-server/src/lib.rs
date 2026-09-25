@@ -1,3 +1,4 @@
+#![recursion_limit = "256"]
 mod processing;
 mod vst;
 mod adapters;
@@ -2294,15 +2295,15 @@ async fn describe_training_item(
         description: String::new(),
         instruction: format!("{}. Describe this finished recording: {}", song.title.trim(), song.style.trim()),
         lyrics: if song.instrumental { String::new() } else { song.lyrics.clone() },
-        global_metadata: String::new(),
-        vocal_details: String::new(),
-        arrangement: String::new(),
+        caption: String::new(),
         duration_seconds: song.seconds,
         instrumental: song.instrumental,
+        vocal_language: String::new(),
+        recording: true,
     };
-    // A small local model now and then leaves a section out; it is asked once
-    // more, then the failure is the user's to see.
-    let mut parts = Vec::new();
+    // A small local model now and then answers without the caption; it is
+    // asked once more, then the failure is the user's to see.
+    let mut caption = String::new();
     for attempt in 0..2 {
         let draft = match assistant_write(State(state.clone()), Json(request.clone())).await {
             Ok(Json(draft)) => draft,
@@ -2312,16 +2313,14 @@ async fn describe_training_item(
             }
             Err(error) => return Err(error),
         };
-        let section = |key: &str| draft.get(key).and_then(Value::as_str).map(str::trim).unwrap_or_default().to_string();
-        parts = vec![("Global Metadata", section("global_metadata")), ("Vocal Details", section("vocal_details")), ("Arrangement", section("arrangement"))];
-        if parts.iter().all(|(_, body)| !body.is_empty()) {
+        caption = draft.get("caption").and_then(Value::as_str).map(str::trim).unwrap_or_default().to_string();
+        if !caption.is_empty() {
             break;
         }
     }
-    if parts.is_empty() || parts.iter().any(|(_, body)| body.is_empty()) {
-        return Err(api_error(StatusCode::BAD_GATEWAY, "the assistant left a caption section empty twice; try again or write the caption".into()));
+    if caption.is_empty() {
+        return Err(api_error(StatusCode::BAD_GATEWAY, "the assistant left the caption empty twice; try again or write the caption".into()));
     }
-    let caption = parts.iter().map(|(heading, body)| format!("{heading}\n{body}")).collect::<Vec<_>>().join("\n");
     state
         .training
         .update_item(&id, &item, training::ItemPatch { style: Some(caption), style_state: Some(training::StyleState::Done), heard: Some(None), ..Default::default() })
@@ -3867,7 +3866,7 @@ async fn engine_logs(State(state): State<AppState>) -> Result<Json<Value>, (Stat
         Err(error) => {
             let lines = music_engine::server::startup_log_tail(60);
             if lines.is_empty() {
-                return Err(api_error(StatusCode::SERVICE_UNAVAILABLE, format!("mm-server logs are unavailable: {error}")));
+                return Err(api_error(StatusCode::SERVICE_UNAVAILABLE, format!("the engine's logs are unavailable: {error}")));
             }
             Ok(Json(serde_json::json!({ "engine_id": PRIMARY_MUSIC_ENGINE_ID, "lines": lines, "source": "startup" })))
         }
@@ -5297,7 +5296,7 @@ struct GuideQuery {
     topic: String,
 }
 
-/// How to write for MiniMax Music 3, from the rules the studio's assistant follows.
+/// How to write for the engine, from the rules the studio's assistant follows.
 async fn writing_guide(Query(query): Query<GuideQuery>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
     let topics: Vec<Value> = assistant::GUIDE_TOPICS.iter().map(|(topic, about)| serde_json::json!({ "topic": topic, "about": about })).collect();
     match assistant::writing_guide(query.topic.trim()) {
@@ -5313,10 +5312,10 @@ struct ExamplesQuery {
     brief: String,
 }
 
-/// The reference captions of MiniMax's own prompting skill closest to a
+/// The official example requests closest to a
 /// brief, whole, to write in their shape.
 async fn writing_examples(Query(query): Query<ExamplesQuery>) -> Json<Value> {
-    Json(serde_json::json!({ "family": skill::routed_index(&query.brief), "examples": skill::references(&query.brief) }))
+    Json(serde_json::json!({ "examples": skill::references(&query.brief) }))
 }
 
 #[derive(Debug, Deserialize)]
@@ -5466,7 +5465,7 @@ async fn setup_adopt(State(state): State<AppState>, body: axum::body::Bytes) -> 
     let picked = match named {
         Some(folder) => Some(folder),
         None => tokio::task::spawn_blocking(move || {
-            rfd::FileDialog::new().set_title("Folder with Music3 models").pick_folder()
+            rfd::FileDialog::new().set_title(format!("Folder with {} models", music_core::studio().artist)).pick_folder()
         })
         .await
         .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?,
@@ -5570,14 +5569,35 @@ async fn persist_completed_download_profile(state: AppState, job_id: String) {
                     *state.selected_profile_id.write().await = Some(profile_id);
                     *state.selected_component_ids.write().await = None;
                 } else if state.model_manager.installed_component_files(&job.component_ids).is_ok() {
-                    *state.selected_profile_id.write().await = None;
-                    *state.selected_component_ids.write().await = Some(job.component_ids);
+                    select_components(&state, job.component_ids).await;
                 }
                 let _ = persist_studio_settings(&state).await;
                 return;
             }
             model_manager::DownloadStatus::Cancelled | model_manager::DownloadStatus::Failed => return,
             model_manager::DownloadStatus::Downloading => tokio::time::sleep(std::time::Duration::from_millis(250)).await,
+        }
+    }
+}
+
+/// Makes a set of components the studio's; one that is exactly a ready-made
+/// set is recorded as that set, so it is named as the model manager names it.
+async fn select_components(state: &AppState, ids: Vec<String>) {
+    let mut sorted = ids.clone();
+    sorted.sort();
+    let named = state.model_manager.catalog().profiles.iter().find(|profile| {
+        let mut components: Vec<String> = profile.components.iter().map(|id| id.to_string()).collect();
+        components.sort();
+        components == sorted
+    }).map(|profile| profile.id.to_string());
+    match named {
+        Some(profile_id) => {
+            *state.selected_profile_id.write().await = Some(profile_id);
+            *state.selected_component_ids.write().await = None;
+        }
+        None => {
+            *state.selected_profile_id.write().await = None;
+            *state.selected_component_ids.write().await = Some(ids);
         }
     }
 }
@@ -5608,24 +5628,7 @@ async fn setup_select(
             .model_manager
             .installed_component_files(&ids)
             .map_err(|error| api_error(StatusCode::BAD_REQUEST, error.to_string()))?;
-        // a hand-picked selection that is exactly a ready-made set is that set
-        let mut sorted = ids.clone();
-        sorted.sort();
-        let named = state.model_manager.catalog().profiles.iter().find(|profile| {
-            let mut components: Vec<String> = profile.components.iter().map(|id| id.to_string()).collect();
-            components.sort();
-            components == sorted
-        }).map(|profile| profile.id.to_string());
-        match named {
-            Some(profile_id) => {
-                *state.selected_profile_id.write().await = Some(profile_id);
-                *state.selected_component_ids.write().await = None;
-            }
-            None => {
-                *state.selected_profile_id.write().await = None;
-                *state.selected_component_ids.write().await = Some(ids);
-            }
-        }
+        select_components(&state, ids).await;
     }
     let _ = persist_studio_settings(&state).await;
     let target = effective_install_target(&state).await;
@@ -5684,7 +5687,7 @@ fn capability_engines_with(
     vec![
         EngineDescriptor {
             id: PRIMARY_MUSIC_ENGINE_ID.into(),
-            display_name: "MiniMax Music3 C++ Server".into(),
+            display_name: format!("{} ({})", music_core::studio().artist, music_engine::server::executable_name()),
             capabilities: vec![Capability::MusicGeneration],
             execution_mode: ExecutionMode::Local,
             installed: primary_installed,
@@ -5786,7 +5789,9 @@ async fn create_music_job(
         id: format!("ace-{}", uuid_suffix()),
         engine_id,
         cover_prompt: request.cover_prompt.clone(),
-        title: Some(titled(&request)),
+        // Without a name of the user's the song is named once the language
+        // model has written it: the lyrics it plans are not in the request.
+        title: request.title.as_deref().map(str::trim).filter(|value| !value.is_empty()).map(str::to_owned),
         status: MusicJobStatus::Queued,
         dispatch: MusicJobDispatch::Local,
         phase: MusicJobPhase::Queued,
@@ -6116,8 +6121,10 @@ async fn import_take(
         "derived": job.derived.clone(),
     });
     let profile_id = state.selected_profile_id.read().await.clone();
+    let instrumental = lyrics.trim().is_empty() || lyrics.trim() == "[Instrumental]";
+    let title = job.title.clone().unwrap_or_else(|| auto_title::auto_title(&caption, &lyrics, instrumental));
     let imported = state.library.import_generated_song(library::GeneratedSongInput {
-        title: job.title.clone(),
+        title: Some(title),
         metadata,
         caption,
         lyrics,

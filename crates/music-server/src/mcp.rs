@@ -828,7 +828,7 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "create_form_set",
-                description: "Fill the create page's form in the window, as if typed - the user sees every field change; fields not given stay. fields: title, caption (whole, split into its three parts) or global_metadata, vocal_details, arrangement, lyrics, instrumental, duration_seconds, steps, lm_seed, lm_cfg, lm_top_k, dit_cfg, synth_batch_size, seed, randomize_seed, audio_codes, cover_prompt, output_format, mp3_bitrate, peak_clip, adapters, mode (studio|simple). Use it when the user wants to see and adjust the song before it is made; song_create makes one directly.",
+                description: "Fill the create page's form in the window, as if typed - the user sees every field change; fields not given stay. fields: mode (simple|studio), title, caption, lyrics, instrumental, vocal_language, bpm, keyscale, timesignature, duration, task_type, source_song_id, reference_song_id, tracks, audio_cover_strength, cover_noise_strength, repainting_start, repainting_end, think, inference_steps, guidance_scale, shift, solver, scheduler, guidance, lm_temperature, lm_cfg_scale, lm_top_p, lm_top_k, lm_seed, lm_batch_size, synth_batch_size, seed, randomize_seed, audio_codes, adapters, cover_prompt, output_format, mp3_bitrate, peak_clip. Use it when the user wants to see and adjust the song before it is made; song_create makes one directly.",
                 schema: || object(json!({ "fields": { "type": "object", "description": "field -> value" } }), &["fields"]),
                 call: |args| window("create_set", args, 15),
             },
@@ -980,28 +980,71 @@ fn tools() -> &'static [Tool] {
             // ---------------------------------------------------------------- songs
             Tool {
                 name: "song_create",
-                description: "Generate a song with MiniMax Music 3. caption: the structured caption, three parts each under its heading on its own line - Global Metadata, Vocal Details, Arrangement (writing_guide topic caption). lyrics: sections tagged [verse], [chorus], [bridge]... each tag alone on its line, blank line between sections; the structure with no words for an instrumental. duration_seconds is required. adapters: installed LoRA ids with strengths per slot (see lora_list), and the LoRA's trigger word in the caption. Returns a job; studio_wait with its job_id, the song then is in the library.",
+                description: "Make a song with ACE-Step. caption: the sound as comma-separated English tags - genre, mood, instruments, vocals, production - never tempo, key or length (writing_guide topic caption). lyrics: sections tagged [Verse 1], [Chorus], [Bridge]... each tag alone on its line, a blank line between sections; exactly [Instrumental] for an instrumental; empty lets the engine's language model write them. Metadata goes in its own fields; what is left out the language model fills in when think is on. task_type other than text2music works on source_song_id (a library song): cover, cover-nofsq (remix), repaint (repainting_start/end seconds), lego/extract/complete (track, base model). adapters: installed LoRA ids with strengths (see lora_list), and the LoRA's trigger word in the caption. Returns a job; studio_wait with its job_id, the songs then are in the library.",
                 schema: || object(json!({
                     "caption": { "type": "string" },
                     "lyrics": { "type": "string" },
-                    "duration_seconds": { "type": "number" },
                     "title": { "type": "string" },
+                    "vocal_language": { "type": "string", "description": "en, ru, zh, ja, ko, es, fr, de, it, pt ... or unknown" },
+                    "duration": { "type": "number", "description": "seconds, up to 600; left out, the language model decides" },
+                    "bpm": { "type": "integer" },
+                    "keyscale": { "type": "string", "description": "\"A minor\", \"F# major\"" },
+                    "timesignature": { "type": "string", "enum": ["2", "3", "4", "6"] },
+                    "task_type": { "type": "string", "enum": ["text2music", "cover", "cover-nofsq", "repaint", "lego", "extract", "complete"] },
+                    "source_song_id": { "type": "string" },
+                    "reference_song_id": { "type": "string", "description": "a library song whose timbre the render follows" },
+                    "track": { "type": "string", "description": "lego/extract: one stem; complete: stems joined by \" | \"" },
+                    "audio_cover_strength": { "type": "number" },
+                    "cover_noise_strength": { "type": "number" },
+                    "repainting_start": { "type": "number" },
+                    "repainting_end": { "type": "number" },
+                    "think": { "type": "boolean", "description": "let the language model plan the song first (default true)" },
+                    "use_cot_caption": { "type": "boolean" },
+                    "inference_steps": { "type": "integer" },
+                    "guidance_scale": { "type": "number", "description": "CFG, for SFT/base models; turbo ignores it" },
+                    "shift": { "type": "number" },
+                    "solver": { "type": "string" },
+                    "scheduler": { "type": "string" },
+                    "guidance": { "type": "string", "enum": ["apg", "adg", "cfg_pp", "dynamic_cfg", "rescaled_cfg", "cfg_zero_star", "smc_cfg", "cfg_mp"] },
+                    "cfg_interval_start": { "type": "number" },
+                    "cfg_interval_end": { "type": "number" },
                     "seed": { "type": "integer" },
                     "lm_seed": { "type": "integer" },
-                    "steps": { "type": "integer" },
-                    "lm_cfg": { "type": "number" },
+                    "lm_temperature": { "type": "number" },
+                    "lm_cfg_scale": { "type": "number" },
+                    "lm_top_p": { "type": "number" },
                     "lm_top_k": { "type": "integer" },
-                    "dit_cfg": { "type": "number" },
-                    "lm_batch_size": { "type": "integer", "description": "compositions written from the request (1 by default)" },
-                    "synth_batch_size": { "type": "integer", "description": "performances rendered of each composition (1 by default)" },
-                    "peak_clip": { "type": "integer", "description": "peak limiter, dB below full scale" },
-                    "mp3_bitrate": { "type": "integer" },
-                    "models": { "type": "object", "description": "the five model files for this song, names from engine_options_get / models_status: lm_model, depth_model, cond_model, dit_model, vae_model", "properties": { "lm_model": { "type": "string" }, "depth_model": { "type": "string" }, "cond_model": { "type": "string" }, "dit_model": { "type": "string" }, "vae_model": { "type": "string" } } },
+                    "lm_negative_prompt": { "type": "string" },
+                    "lm_batch_size": { "type": "integer", "description": "songs planned from the request (1 by default)" },
+                    "synth_batch_size": { "type": "integer", "description": "takes rendered of each plan (1 by default); songs x takes up to 9" },
+                    "audio_codes": { "type": "string" },
+                    "synth_model": { "type": "string", "description": "a DiT file for this song only, from song_defaults" },
+                    "lm_model": { "type": "string" },
+                    "adapters": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "scales": { "type": "object", "description": "slot -> strength" } }, "required": ["id"] } },
+                    "adapter_group_scales": { "type": "object", "description": "self_attn, cross_attn, mlp, cond_embed, time_embed, proj_in -> strength of every LoRA there" },
                     "output_format": { "type": "string", "enum": ["mp3", "wav16", "wav24", "wav32", "flac"] },
-                    "cover_prompt": { "type": "string", "description": "what the cover should show; it is drawn only when an image model is set up (settings_get, covers), else the song has no cover" },
-                    "adapters": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "scales": { "type": "object", "description": "slot -> strength; left out, the LoRA's own strengths, else 1 on each slot it touches" } }, "required": ["id"] } }
-                }), &["caption", "lyrics", "duration_seconds"]),
+                    "mp3_bitrate": { "type": "integer" },
+                    "peak_clip": { "type": "integer" },
+                    "fade_in": { "type": "number" },
+                    "fade_out": { "type": "number" },
+                    "cover_prompt": { "type": "string", "description": "what the cover should show; drawn only when an image model is set up" }
+                }), &["caption"]),
                 call: |args| post("/v1/music/jobs".into(), args.clone()),
+            },
+            Tool {
+                name: "song_plan",
+                description: "ACE-Step's own language model writes on the card, nothing leaves the machine. mode inspire: request.caption is a one-line idea, the answer is a whole request - caption, lyrics, bpm, keyscale, timesignature, duration, vocal_language. mode format: request carries caption and lyrics, the answer completes the metadata and tidies them. Returns {plan}; song_create takes it as it is.",
+                schema: || object(json!({
+                    "mode": { "type": "string", "enum": ["inspire", "format"] },
+                    "request": { "type": "object", "description": "caption, lyrics, vocal_language, bpm, keyscale, timesignature, duration, lm_model" }
+                }), &["mode", "request"]),
+                call: |args| post("/v1/ace/plan".into(), args.clone()),
+            },
+            Tool {
+                name: "song_understand",
+                description: "The engine listens to a library song: returns {request} with its caption, lyrics, metadata and the audio codes that let a new render follow its structure (as audio_codes in song_create).",
+                schema: || id_only("song_id", "the library song to listen to"),
+                call: |args| post("/v1/ace/understand".into(), args.clone()),
             },
             Tool {
                 name: "song_job_get",
@@ -1023,20 +1066,20 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "song_replay",
-                description: "Render a library song again from its saved audio codes, bit for bit or with other steps, a new sound seed, another guidance or format - without composing again.",
-                schema: || object(json!({ "song_id": { "type": "string" }, "steps": { "type": "integer" }, "seed": { "type": "integer" }, "dit_cfg": { "type": "number" }, "output_format": { "type": "string" } }), &["song_id"]),
+                description: "Render a library song again from its saved audio codes - the same plan, without the language model - with other steps, a new seed, another format, or any other request field in changes (guidance_scale, solver, scheduler, synth_model...).",
+                schema: || object(json!({ "song_id": { "type": "string" }, "steps": { "type": "integer" }, "seed": { "type": "integer" }, "output_format": { "type": "string" }, "changes": { "type": "object", "description": "request field -> value" } }), &["song_id"]),
                 call: |args| post("/v1/music/replay".into(), args.clone()),
             },
             // ---------------------------------------------------------------- how to write for the model
             Tool {
                 name: "writing_guide",
-                description: "How MiniMax Music 3 wants to be written for - MiniMax's own caption rules, the ones the studio's assistant follows. Read it before writing a caption or lyrics yourself. topic: song, caption, lyrics, transcript, sections; none lists them.",
+                description: "How ACE-Step wants to be written for - the studio's song-writer contract its assistant follows. Read it before writing a caption or lyrics yourself. topic: song, caption, lyrics, transcript, sections; none lists them.",
                 schema: || object(json!({ "topic": { "type": "string", "enum": ["song", "caption", "lyrics", "transcript", "sections"] } }), &[]),
                 call: |args| get(format!("/v1/writing/guide?topic={}", segment(args.get("topic").and_then(Value::as_str).unwrap_or_default()))),
             },
             Tool {
                 name: "writing_examples",
-                description: "Whole reference captions from MiniMax's prompting skill for the genre family closest to a brief such as 'russian folk rock with accordion': write in their shape and density.",
+                description: "Official ACE-Step example requests (caption and lyrics) closest to a brief such as 'russian folk rock with accordion': write in their shape and density.",
                 schema: || id_only("brief", "the idea, genre or mood"),
                 call: |args| get(format!("/v1/writing/examples?brief={}", segment(&text(args, "brief")?))),
             },
@@ -1049,15 +1092,14 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "assistant_write",
-                description: "The studio's writing assistant, following MiniMax's own prompting skill. target: all (caption parts, lyrics, title and cover prompt from an idea in description), lyrics (rewrite the lyrics to fit the caption), prompt (write the caption for the lyrics), transcript (lay out recognised words as a lyric sheet). Returns a draft; join its caption parts under their headings for song_create.",
+                description: "The studio's writing assistant, following its ACE-Step song-writer contract. target: all (caption, lyrics, bpm, keyscale, timesignature, duration_seconds, title and cover prompt from an idea in description), lyrics (rewrite the lyrics to fit the caption), prompt (write the caption and metadata for the lyrics), transcript (lay out recognised words as a lyric sheet). Returns a draft whose fields go into song_create as they are (duration_seconds is its duration).",
                 schema: || object(json!({
                     "target": { "type": "string", "enum": ["all", "lyrics", "prompt", "transcript"] },
                     "description": { "type": "string", "description": "The idea, or the text to work on" },
                     "instruction": { "type": "string" },
                     "lyrics": { "type": "string" },
-                    "global_metadata": { "type": "string" },
-                    "vocal_details": { "type": "string" },
-                    "arrangement": { "type": "string" },
+                    "caption": { "type": "string" },
+                    "vocal_language": { "type": "string" },
                     "duration_seconds": { "type": "number" },
                     "instrumental": { "type": "boolean" }
                 }), &["target"]),
@@ -2315,7 +2357,7 @@ mod tests {
         let hello = reply(json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "protocolVersion": "2025-06-18" } })).await;
         assert_eq!(hello["result"]["capabilities"], json!({ "tools": {}, "resources": {}, "prompts": {} }));
         let resources = reply(json!({ "jsonrpc": "2.0", "id": 4, "method": "resources/read", "params": { "uri": "studio://guide/lyrics" } })).await;
-        assert!(resources["result"]["contents"][0]["text"].as_str().unwrap().contains("[verse]"));
+        assert!(resources["result"]["contents"][0]["text"].as_str().unwrap().contains("[Verse]"));
         let skill = reply(json!({ "jsonrpc": "2.0", "id": 5, "method": "prompts/get", "params": { "name": "studio" } })).await;
         assert!(skill["result"]["messages"][0]["content"]["text"].as_str().unwrap().contains("MCP"));
         let list = reply(json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/list" })).await;

@@ -366,12 +366,13 @@ mod tests {
             // is the normal state of a checkout that only touches the service.
             return;
         };
-        if !bundle.join("mm-server.exe").is_file() {
+        let executable = music_engine::server::executable_name();
+        if !bundle.join(&executable).is_file() {
             return;
         }
         // The CUDA backends load at run time from their folders and resolve
         // their imports from the executable's, so each is checked from there.
-        let mut entry_points = vec!["mm-server.exe".to_string()];
+        let mut entry_points = vec![executable.clone()];
         for build in [CudaBuild::Cuda13, CudaBuild::Cuda12] {
             let backend = format!("{}/ggml-cuda.dll", build.folder());
             if bundle.join(&backend).is_file() {
@@ -389,7 +390,7 @@ mod tests {
             assert!(
                 unexpected.is_empty(),
                 "{entry_point} imports libraries that are neither shipped nor installed on first start: {unexpected:?}. \
-                 Ship them next to mm-server.exe, or add them to this module so the studio fetches them."
+                 Ship them next to {executable}, or add them to this module so the studio fetches them."
             );
         }
     }

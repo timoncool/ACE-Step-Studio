@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { karaokeReason } from '../services/karaoke';
-import { AlertTriangle, ChevronDown, CircleAlert, Dices, Ear, FolderOpen, Loader2, Pause, Play, RotateCcw, Save, Sparkles, Square, Tags, Undo2, Upload, Wand2, Settings2, Lightbulb, ListChecks } from 'lucide-react';
+import { AlertTriangle, ChevronDown, CircleAlert, Dices, Ear, FolderOpen, Loader2, Pause, Play, RotateCcw, Save, Sparkles, Square, Tags, Undo2, Upload, Wand2, Lightbulb, ListChecks } from 'lucide-react';
 import type { AceCreateRequest, Song } from '../types';
 import { useI18n } from '../context/I18nContext';
 import { useBridgeCommand } from '../services/mcpBridge';
 import { AdapterPicker } from './AdapterPicker';
+import { ModelSwitcher, type SwitcherStatus } from './ModelSwitcher';
 import type { AdapterUse } from '../services/adapters';
 import { randomExample, randomIdea, someGenres } from '../services/examples';
 import { apiUrl } from '../services/apiBase';
@@ -30,7 +31,7 @@ interface CreatePanelProps {
 
 type ProfileFiles = { synth_model: string; lm_model: string; text_encoder: string; vae: string };
 
-type SetupStatus = {
+type SetupStatus = SwitcherStatus & {
   ready?: boolean;
   profile_files?: ProfileFiles | null;
   engine_ready?: boolean;
@@ -57,13 +58,24 @@ const LANGUAGES = ['', 'en', 'ru', 'zh', 'ja', 'ko', 'es', 'fr', 'de', 'it', 'pt
 const KEYS = ['', ...['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].flatMap(note => [`${note} major`, `${note} minor`])];
 const TIME_SIGNATURES = ['', '2', '3', '4', '6'];
 const GROUPS = ['self_attn', 'cross_attn', 'mlp', 'cond_embed', 'time_embed', 'proj_in'] as const;
+/** ACE-Step Studio's guidance presets: the CFG interval over t (1 = noise), or ADG. */
+const PRESETS: Array<{ id: string; start: number; end: number; mode: string }> = [
+  { id: 'default', start: 0, end: 1, mode: '' },
+  { id: 'clean', start: 0, end: 0.5, mode: '' },
+  { id: 'creative', start: 0.2, end: 0.8, mode: '' },
+  { id: 'cover', start: 0, end: 0.95, mode: '' },
+  { id: 'strict', start: 0, end: 0.75, mode: '' },
+  { id: 'adg', start: 0, end: 1, mode: 'adg' },
+];
 const MAX_DURATION_SECONDS = 600;
 const MAX_TAKES = 9;
 
 /** What the chosen DiT is, which decides its defaults. */
-type DitKind = 'turbo' | 'sft' | 'base';
+type DitKind = 'turbo' | 'sft' | 'base' | 'merge';
 const ditKind = (file: string | undefined): DitKind => {
   const name = (file ?? '').toLowerCase();
+  // scragnog's XL merges run in base mode whatever their parents are
+  if (name.includes('merge')) return 'merge';
   if (name.includes('turbo') && !name.includes('sftturbo') && !name.includes('base-turbo')) return 'turbo';
   if (name.includes('base')) return 'base';
   if (name.includes('turbo')) return 'turbo';
@@ -74,12 +86,14 @@ const ditKind = (file: string | undefined): DitKind => {
  * 3 with the Heun solver and the linear-quadratic schedule, which the ACE-Step
  * community reports as the cleaner turbo render (ace-step/ACE-Step-1.5#956);
  * SFT and base are guided models, rendered with 50 steps at CFG 7 as the
- * official interface does.
+ * official interface does; the community XL merges with 60 steps at CFG 5,
+ * inside the 60-100 steps and CFG 3-7 their author recommends.
  */
 const DIT_DEFAULTS: Record<DitKind, { steps: number; guidance: number; shift: number; solver: string; scheduler: string }> = {
   turbo: { steps: 8, guidance: 1, shift: 3, solver: 'heun', scheduler: 'linear_quadratic' },
   sft: { steps: 50, guidance: 7, shift: 1, solver: 'euler', scheduler: 'linear' },
   base: { steps: 50, guidance: 7, shift: 1, solver: 'euler', scheduler: 'linear' },
+  merge: { steps: 60, guidance: 5, shift: 1, solver: 'euler', scheduler: 'linear' },
 };
 
 const CONTROL =
@@ -177,17 +191,6 @@ const Card: React.FC<{ title: string; actions?: React.ReactNode; children: React
   </div>
 );
 
-const AutoTextarea: React.FC<React.TextareaHTMLAttributes<HTMLTextAreaElement> & { minRows?: number }> = ({ minRows = 3, value, ...rest }) => {
-  const node = useRef<HTMLTextAreaElement | null>(null);
-  useEffect(() => {
-    const element = node.current;
-    if (!element) return;
-    element.style.height = 'auto';
-    element.style.height = `${Math.max(element.scrollHeight, minRows * 20)}px`;
-  }, [value, minRows]);
-  return <textarea ref={node} value={value} rows={minRows} {...rest} />;
-};
-
 /** The adapters a stored request used, as the picker holds them. */
 const usesFromRequest = (settings: Record<string, unknown>): AdapterUse[] => {
   const uses: AdapterUse[] = [];
@@ -214,7 +217,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const [caption, setCaption] = useState('');
   const [lyrics, setLyrics] = useState('');
   const [instrumental, setInstrumental] = useState(false);
-  const [language, setLanguage] = useState('');
+  const [language, setLanguage] = useState('en');
   const [gender, setGender] = useState<'' | 'male' | 'female'>('');
   const [genres, setGenres] = useState<string[]>(() => someGenres());
   // What the language model or the assistant replaced, for the undo button.
@@ -303,7 +306,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const [activity, setActivity] = useState<Array<{ song_id: string; title: string; kind: string; state: string; detail?: string }>>([]);
   const [assistSeconds, setAssistSeconds] = useState(0);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [mode, setMode] = useState<'simple' | 'studio'>('studio');
+  const [mode, setMode] = useState<'simple' | 'studio'>('simple');
   const [idea, setIdea] = useState('');
   const [error, setError] = useState<string | null>(null);
   const promptFile = useRef<HTMLInputElement | null>(null);
@@ -348,14 +351,6 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     setServiceDown(false);
   }, []);
 
-  // The ready-made sets by name, so the profile line reads as the model manager does.
-  const [profileNames, setProfileNames] = useState<Record<string, string>>({});
-  useEffect(() => {
-    void fetch('/setup/catalog')
-      .then(response => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
-      .then((body: { profiles?: Array<{ id: string; label: string }> }) => setProfileNames(Object.fromEntries((body.profiles ?? []).map(profile => [profile.id, profile.label]))))
-      .catch(() => undefined);
-  }, []);
 
   useEffect(() => {
     const poll = () => void refreshSetup().catch(() => { setSetup(null); setServiceDown(true); });
@@ -450,7 +445,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   }, [initialData, applyRequest]);
 
   const reset = () => {
-    setName(''); setCaption(''); setLyrics(''); setInstrumental(false); setLanguage('');
+    setName(''); setCaption(''); setLyrics(''); setInstrumental(false); setLanguage('en');
     setBpm(''); setKeyscale(''); setTimesignature(''); setDuration(''); setAudioCodes('');
     setTask('text2music'); setSourceSong(''); setReferenceSong(''); setTracks([]);
     setAdapters([]); setGroups({}); setCoverPrompt(''); setError(null);
@@ -583,7 +578,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       const body = await response.json().catch(() => null);
       if (!response.ok || !body?.plan) throw new Error(body?.error || String(response.status));
       applyRequest(body.plan as Record<string, unknown>, { keepSource: true });
-      if (planMode === 'inspire' && !name.trim() && idea.trim()) setName(idea.trim().slice(0, 60));
+      if (planMode === 'inspire') setMode('studio');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
@@ -622,6 +617,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
           caption: caption.trim(),
           duration_seconds: numberOrUndefined(duration) ?? 120,
           instrumental,
+          vocal_language: language,
         }),
         signal: run.signal,
       });
@@ -665,6 +661,9 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       if (typeof body.title === 'string' && body.title.trim()) setName(body.title.trim());
       if (typeof body.cover_prompt === 'string' && body.cover_prompt.trim()) setCoverPrompt(body.cover_prompt.trim());
       if (typeof body.duration_seconds === 'number' && body.duration_seconds >= 10) setDuration(String(Math.min(MAX_DURATION_SECONDS, Math.round(body.duration_seconds))));
+      if (typeof body.bpm === 'number') setBpm(String(body.bpm));
+      if (typeof body.keyscale === 'string' && KEYS.includes(body.keyscale)) setKeyscale(body.keyscale);
+      if (typeof body.timesignature === 'string' && TIME_SIGNATURES.includes(body.timesignature)) setTimesignature(body.timesignature);
     } catch (reason) {
       const cancelled = reason instanceof DOMException && reason.name === 'AbortError';
       if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason));
@@ -701,6 +700,12 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     }
   };
 
+  /** A source makes the source tasks available; without one the song is made from text. */
+  const chooseSource = (id: string) => {
+    setSourceSong(id);
+    setTask(current => (id ? (current === 'text2music' ? 'cover' : current) : 'text2music'));
+  };
+
   /** Puts a file of the user's into the library and picks it as the source or the reference. */
   const upload = async (target: 'source' | 'reference', file: File) => {
     setUploading(target);
@@ -712,7 +717,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       const body = await response.json().catch(() => null);
       if (!response.ok || !body?.id) throw new Error(body?.error || String(response.status));
       setLibrary(current => [{ id: body.id, title: body.title }, ...current.filter(song => song.id !== body.id)]);
-      if (target === 'source') setSourceSong(body.id);
+      if (target === 'source') chooseSource(body.id);
       else setReferenceSong(body.id);
       window.dispatchEvent(new CustomEvent('studio:library-changed'));
     } catch (reason) {
@@ -775,8 +780,38 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
 
   const totalTracks = (numberOrUndefined(songs) ?? 1) * (numberOrUndefined(takes) ?? 1);
 
+  /** The simple form: the idea goes to the language model, which writes and plans the song in the same run. */
+  const buildSimpleRequest = (): AceCreateRequest => {
+    const genderLine = gender === 'male' ? 'Male vocals' : gender === 'female' ? 'Female vocals' : '';
+    const request: AceCreateRequest = {
+      caption: genderLine && !instrumental ? `${idea.trim()}\n${genderLine}` : idea.trim(),
+      lyrics: instrumental ? '[Instrumental]' : '',
+      task_type: 'text2music',
+      think: true,
+      use_cot_caption: true,
+      inference_steps: dit.steps,
+      shift: dit.shift,
+      solver: dit.solver,
+      scheduler: dit.scheduler,
+      output_format: format,
+      mp3_bitrate: numberOrUndefined(mp3Bitrate) ?? 320,
+    };
+    if (!turbo) request.guidance_scale = dit.guidance;
+    if (language) request.vocal_language = language;
+    const seconds = numberOrUndefined(duration);
+    if (seconds !== undefined) request.duration = Math.min(seconds, MAX_DURATION_SECONDS);
+    if (adapters.length) request.adapters = adapters;
+    return request;
+  };
+
   const submit = () => {
     if (!ready) { setError(t('downloadProfileFirst')); return; }
+    if (mode === 'simple') {
+      if (!idea.trim()) { setError(t('captionRequired')); return; }
+      setError(null);
+      onGenerate(buildSimpleRequest());
+      return;
+    }
     if (!caption.trim() && !baseOnly(task)) { setError(t('captionRequired')); return; }
     if (needsSource(task) && !sourceSong) { setError(tt('aceSourceRequired')); return; }
     if (baseOnly(task) && tracks.length === 0) { setError(tt('aceTrackRequired')); return; }
@@ -866,17 +901,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     return { text: 'Pressed Create. studio_status shows the new job; if the form refused, create_form_get says why under error.' };
   });
 
-  const profileLabel = useMemo(() => {
-    if (setup?.selected_component_ids?.length) return t('customSet');
-    const id = setup?.selected_profile_id;
-    return id ? profileNames[id] ?? id : '—';
-  }, [setup, t, profileNames]);
 
-  const roles: Array<{ key: 'synth_model' | 'lm_model' | 'vae'; label: string; options: string[] }> = [
-    { key: 'synth_model', label: 'DiT', options: catalog?.models?.dit ?? [] },
-    { key: 'lm_model', label: 'LM', options: catalog?.models?.lm ?? [] },
-    { key: 'vae', label: 'VAE', options: catalog?.models?.vae ?? [] },
-  ];
   const baseModels = (catalog?.models?.dit ?? []).filter(file => ditKind(file) === 'base');
   const songOptions = (value: string, onChange: (value: string) => void, empty: string, target: 'source' | 'reference') => (
     <div className="flex items-center gap-1.5">
@@ -895,6 +920,29 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       </label>
     </div>
   );
+  const languageField = (
+    <Field label={tt('aceLanguage')}>
+      <select value={language} onChange={event => setLanguage(event.target.value)} className={CONTROL}>
+        {LANGUAGES.map(code => <option key={code} value={code}>{code ? tt(`aceLang_${code}`) : tt('aceAuto')}</option>)}
+      </select>
+    </Field>
+  );
+  const voiceField = (
+    <div>
+      <span className={LABEL}>{tt('aceGender')}</span>
+      <div className="flex gap-1.5">
+        {(['', 'male', 'female'] as const).map(value => (
+          <button key={value || 'any'} type="button" onClick={() => setGender(value)} className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition-colors ${gender === value ? 'border-pink-500 bg-pink-500/10 text-pink-600 dark:text-pink-300' : 'border-zinc-200 text-zinc-600 hover:border-pink-300 dark:border-white/10 dark:text-zinc-300'}`}>
+            {tt(`aceGender_${value || 'any'}`)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+  const durationField = (
+    <Field label={tt('aceDuration')}><input value={duration} onChange={event => setDuration(event.target.value)} placeholder={tt('aceAuto')} inputMode="numeric" className={CONTROL} /></Field>
+  );
+  const activePreset = PRESETS.find(preset => (numberOrUndefined(cfgStart) ?? 0) === preset.start && (numberOrUndefined(cfgEnd) ?? 1) === preset.end && (guidanceMode || '') === preset.mode)?.id;
   const busy = assisting !== null || planning !== null;
 
   return (
@@ -924,8 +972,10 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
             </div>
           )}
 
+          {!serviceDown && setup?.ready && <ModelSwitcher status={setup} onChanged={() => void refreshSetup().catch(() => undefined)} />}
+
           <div className="flex items-center rounded-lg border border-zinc-300 bg-zinc-200 p-1 dark:border-white/5 dark:bg-black/40">
-            {(['studio', 'simple'] as const).map(value => (
+            {(['simple', 'studio'] as const).map(value => (
               <button
                 key={value}
                 type="button"
@@ -938,62 +988,6 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
           </div>
 
           <audio ref={preview} onEnded={() => setPlaying(null)} className="hidden" />
-          {mode === 'simple' && (
-            <Card title={t('songIdea')} actions={<button type="button" onClick={loadIdea} className={ICON} title={tt('aceRandomIdea')}><Dices size={14} /></button>}>
-              <AutoTextarea
-                value={idea}
-                minRows={3}
-                onChange={event => setIdea(event.target.value)}
-                placeholder={tt('aceIdeaPlaceholder')}
-                className={`${CONTROL} resize-none`}
-              />
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <Field label={tt('aceLanguage')}>
-                  <select value={language} onChange={event => setLanguage(event.target.value)} className={CONTROL}>
-                    {LANGUAGES.map(code => <option key={code} value={code}>{code ? tt(`aceLang_${code}`) : tt('aceAuto')}</option>)}
-                  </select>
-                </Field>
-                <div className="flex items-end pb-2"><Switch checked={instrumental} onChange={setInstrumental} label={t('instrumental')} /></div>
-              </div>
-              <p className="mt-2 text-[11px] leading-4 text-zinc-500">{tt('aceIdeaHint')}</p>
-              <button
-                type="button"
-                onClick={() => void plan('inspire')}
-                disabled={busy || !idea.trim() || !ready}
-                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-pink-600 py-2.5 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-50"
-              >
-                {planning === 'inspire' ? <Loader2 size={14} className="animate-spin" /> : <Lightbulb size={14} />}
-                {planning === 'inspire' ? `${tt('acePlanning')} · ${assistSeconds} ${t('secondsShort')}` : tt('aceInspire')}
-              </button>
-              {assistantReady && (
-                <button
-                  type="button"
-                  onClick={() => void askAssistant('all')}
-                  disabled={busy || !idea.trim()}
-                  className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 py-2 text-xs font-semibold text-zinc-600 transition-colors hover:border-pink-400 hover:text-pink-600 disabled:opacity-50 dark:border-white/15 dark:text-zinc-300"
-                >
-                  {assisting === 'all' ? <Loader2 size={13} className="animate-spin" /> : <Wand2 size={13} />}
-                  {assisting === 'all' ? `${t('assistantWriting')} · ${assistSeconds} ${t('secondsShort')}` : t('writeEverything')}
-                </button>
-              )}
-              {assisting === 'all' && (
-                <button type="button" onClick={stopAssistant} className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 py-2 text-xs font-semibold text-zinc-600 transition-colors hover:border-rose-400 hover:text-rose-600 dark:border-white/15 dark:text-zinc-300">
-                  <Square size={13} />
-                  {t('cancelDownload')}
-                </button>
-              )}
-              {!assistantReady && (
-                <button
-                  type="button"
-                  onClick={() => window.dispatchEvent(new CustomEvent('studio:open-settings', { detail: 'models' }))}
-                  className="mt-2 inline-flex items-center gap-1 text-[11px] text-zinc-500 hover:text-pink-500"
-                >
-                  <Settings2 size={12} />
-                  {t('setUpAssistant')}
-                </button>
-              )}
-            </Card>
-          )}
 
           {activity.filter(entry => entry.state !== 'done').slice(-3).map(entry => (
             <div key={`${entry.song_id}-${entry.kind}`} className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-[11px] dark:border-white/10 dark:bg-suno-card">
@@ -1019,201 +1013,267 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
               {assistDraft && (
                 <pre className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-zinc-50 p-2 font-mono text-[11px] leading-4 text-zinc-600 dark:bg-black/30 dark:text-zinc-300">{assistDraft.slice(-1200)}</pre>
               )}
+              <button type="button" onClick={stopAssistant} className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 py-1.5 text-[11px] font-semibold text-zinc-600 transition-colors hover:border-rose-400 hover:text-rose-600 dark:border-white/15 dark:text-zinc-300">
+                <Square size={12} />
+                {t('cancelDownload')}
+              </button>
             </div>
           )}
 
-          <Card title={tt('aceTask')}>
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-              {TASKS.map(value => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setTask(value)}
-                  className={`rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition-colors ${task === value ? 'border-pink-500 bg-pink-500/10 text-pink-600 dark:text-pink-300' : 'border-zinc-200 text-zinc-600 hover:border-pink-300 dark:border-white/10 dark:text-zinc-300'}`}
-                  title={tt(`aceTaskHint_${value}`)}
-                >
-                  {tt(`aceTask_${value}`)}
-                </button>
-              ))}
-            </div>
-            <p className="mt-2 text-[11px] leading-4 text-zinc-500">{tt(`aceTaskHint_${task}`)}</p>
-            {baseOnly(task) && kind !== 'base' && (
-              <p className="mt-2 rounded-lg bg-amber-500/10 p-2 text-[11px] leading-4 text-amber-700 dark:text-amber-300">
-                {baseModels.length ? tt('aceBaseOnlyPick') : tt('aceBaseOnlyInstall')}
-                {baseModels.length > 0 && (
-                  <select value="" onChange={event => event.target.value && setModels(current => ({ ...current, synth_model: event.target.value }))} className={`${CONTROL} mt-2`}>
-                    <option value="">{tt('aceChooseBase')}</option>
-                    {baseModels.map(file => <option key={file} value={file}>{file.replace(/\.gguf$/, '')}</option>)}
-                  </select>
-                )}
-              </p>
-            )}
-            {needsSource(task) && (
-              <div className="mt-3 space-y-3">
-                <Field label={tt('aceSource')} hint={tt('aceSourceHint')}>{songOptions(sourceSong, setSourceSong, tt('aceChooseTrack'), 'source')}</Field>
-                {sourceSong && (
-                  <div className="flex flex-wrap gap-1.5">
-                    <button type="button" onClick={() => void listen('describe')} disabled={listening !== null || !ready} className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-600 hover:border-pink-400 hover:text-pink-600 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300">
-                      {listening === 'describe' ? <Loader2 size={12} className="animate-spin" /> : <Ear size={12} />}{tt('aceDescribeSource')}
-                    </button>
-                    <button type="button" onClick={() => void listen('codes')} disabled={listening !== null || !ready} className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-600 hover:border-pink-400 hover:text-pink-600 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300">
-                      {listening === 'codes' ? <Loader2 size={12} className="animate-spin" /> : <ListChecks size={12} />}{tt('aceSourceCodes')}
-                    </button>
-                  </div>
-                )}
-                {(task === 'cover' || task === 'cover-nofsq') && (
-                  <>
-                    <SliderRow label={tt('aceCoverStrength')} value={coverStrength} fallback={1} min={0} max={1} step={0.05} onChange={setCoverStrength} />
-                    <SliderRow label={tt('aceCoverNoise')} value={coverNoise} fallback={0} min={0} max={1} step={0.05} onChange={setCoverNoise} />
-                    <p className="text-[11px] leading-4 text-zinc-500">{tt('aceCoverHint')}</p>
-                  </>
-                )}
-                {(task === 'repaint' || task === 'lego') && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <Field label={tt('aceRepaintStart')}><input value={repaintStart} onChange={event => setRepaintStart(event.target.value)} placeholder="0" inputMode="decimal" className={CONTROL} /></Field>
-                    <Field label={tt('aceRepaintEnd')}><input value={repaintEnd} onChange={event => setRepaintEnd(event.target.value)} placeholder={tt('aceToTheEnd')} inputMode="decimal" className={CONTROL} /></Field>
-                  </div>
-                )}
-                {(task === 'repaint' || task === 'lego') && <p className="text-[11px] leading-4 text-zinc-500">{tt('aceRepaintHint')}</p>}
-                {baseOnly(task) && (
-                  <div>
-                    <span className={LABEL}>{task === 'extract' ? tt('aceTrackExtract') : task === 'lego' ? tt('aceTrackAdd') : tt('aceTrackComplete')}</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {TRACKS.map(track => {
-                        const on = tracks.includes(track);
-                        return (
-                          <button
-                            key={track}
-                            type="button"
-                            onClick={() => setTracks(current => (task === 'complete' ? (on ? current.filter(item => item !== track) : [...current, track]) : on ? [] : [track]))}
-                            className={`rounded-full border px-2.5 py-1 text-[11px] ${on ? 'border-pink-500 bg-pink-500/10 text-pink-600 dark:text-pink-300' : 'border-zinc-200 text-zinc-600 dark:border-white/10 dark:text-zinc-300'}`}
-                          >
-                            {tt(`aceTrack_${track}`)}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-            <div className="mt-3">
-              <Field label={tt('aceReference')} hint={tt('aceReferenceHint')}>{songOptions(referenceSong, setReferenceSong, tt('aceNoReference'), 'reference')}</Field>
-            </div>
-          </Card>
+          {mode === 'simple' ? (
+            <>
+              <Card title={tt('aceSongIdea')} actions={<button type="button" onClick={loadIdea} className={ICON} title={tt('aceRandomIdea')}><Dices size={14} /></button>}>
+                <textarea
+                  value={idea}
+                  rows={5}
+                  onChange={event => setIdea(event.target.value)}
+                  placeholder={tt('aceIdeaPlaceholder')}
+                  className={`${CONTROL} max-h-72 resize-y`}
+                />
+                <p className="mt-2 text-[11px] leading-4 text-zinc-500">{tt('aceSimpleHint')}</p>
+              </Card>
 
-          <Card
-            title={tt('aceSong')}
-            actions={
-              <>
-                {undo && (
-                  <button type="button" onClick={() => { setCaption(undo.caption); setLyrics(undo.lyrics); setUndo(null); }} className={ICON} title={tt('aceUndo')}><Undo2 size={14} /></button>
-                )}
-                <button type="button" onClick={loadExample} className={ICON} title={t('examplePrompt')}><Dices size={14} /></button>
-                <button type="button" onClick={() => void plan('format')} disabled={busy || !ready || (!caption.trim() && !lyrics.trim())} className={ICON} title={tt('aceFormat')}>
-                  {planning === 'format' ? <Loader2 size={14} className="animate-spin" /> : <ListChecks size={14} className="text-pink-500" />}
+              <Card title={tt('aceSongParams')}>
+                <div className="space-y-3">
+                  <Switch checked={instrumental} onChange={setInstrumental} label={t('instrumental')} />
+                  <div className="grid grid-cols-2 gap-2">
+                    {!instrumental && languageField}
+                    {durationField}
+                  </div>
+                  {!instrumental && voiceField}
+                </div>
+              </Card>
+
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => void plan('inspire')}
+                  disabled={busy || !idea.trim() || !ready}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white py-2 text-xs font-semibold text-zinc-700 transition-colors hover:border-pink-400 hover:text-pink-600 disabled:opacity-50 dark:border-white/15 dark:bg-transparent dark:text-zinc-200"
+                >
+                  {planning === 'inspire' ? <Loader2 size={13} className="animate-spin" /> : <Lightbulb size={13} />}
+                  {planning === 'inspire' ? `${tt('acePlanning')} · ${assistSeconds} ${t('secondsShort')}` : tt('aceOpenInStudio')}
                 </button>
                 {assistantReady && (
-                  <button type="button" onClick={() => void askAssistant('prompt')} disabled={busy} className={ICON} title={t('writeCaption')}>
-                    {assisting === 'prompt' ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} className="text-pink-500" />}
+                  <button
+                    type="button"
+                    onClick={() => void askAssistant('all').then(() => setMode('studio'))}
+                    disabled={busy || !idea.trim()}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white py-2 text-xs font-semibold text-zinc-700 transition-colors hover:border-pink-400 hover:text-pink-600 disabled:opacity-50 dark:border-white/15 dark:bg-transparent dark:text-zinc-200"
+                  >
+                    {assisting === 'all' ? <Loader2 size={13} className="animate-spin" /> : <Wand2 size={13} />}
+                    {t('writeEverything')}
                   </button>
                 )}
-                <button type="button" onClick={() => promptFile.current?.click()} className={ICON} title={t('openPrompt')}><FolderOpen size={14} /></button>
-                <button type="button" onClick={savePrompt} className={ICON} title={t('savePrompt')}><Save size={14} /></button>
-                <button type="button" onClick={reset} className={ICON} title={t('resetPrompt')}><RotateCcw size={14} /></button>
-                <input
-                  ref={promptFile}
-                  type="file"
-                  accept="application/json,.json"
-                  className="hidden"
-                  onChange={event => { const file = event.target.files?.[0]; if (file) void openPrompt(file); event.target.value = ''; }}
-                />
-              </>
-            }
-          >
-            <input
-              value={name}
-              onChange={event => setName(event.target.value)}
-              placeholder={t('untitled')}
-              className="w-full border-0 bg-transparent p-0 text-lg font-bold text-zinc-900 outline-none placeholder:text-zinc-300 dark:text-white dark:placeholder:text-zinc-600"
-            />
-            <div className="mt-3">
-              <Field label={tt('aceCaption')} hint={tt('aceCaptionHint')}>
-                <AutoTextarea value={caption} minRows={3} onChange={event => setCaption(event.target.value)} placeholder={tt('aceCaptionPlaceholder')} className={`${CONTROL} resize-none`} />
-              </Field>
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              {genres.map(genre => (
-                <button key={genre} type="button" onClick={() => setCaption(current => (current.trim() ? `${current.trim().replace(/,$/, '')}, ${genre}` : genre))} className="rounded-full border border-zinc-200 bg-zinc-100 px-2.5 py-1 text-[10px] font-medium text-zinc-600 hover:border-pink-300 hover:text-pink-600 dark:border-white/5 dark:bg-white/5 dark:text-zinc-400">
-                  {genre}
+                <button
+                  type="button"
+                  onClick={() => setMode('studio')}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-zinc-300 py-2 text-xs font-semibold text-zinc-500 transition-colors hover:border-pink-400 hover:text-pink-600 dark:border-white/15 dark:text-zinc-400"
+                >
+                  <Upload size={13} />
+                  {tt('aceUseTrack')}
                 </button>
-              ))}
-              <button type="button" onClick={() => setGenres(someGenres())} className={ICON} title={tt('aceMoreGenres')}><Dices size={13} /></button>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
-              <Field label="BPM"><input value={bpm} onChange={event => setBpm(event.target.value)} placeholder={tt('aceAuto')} inputMode="numeric" className={CONTROL} /></Field>
-              <Field label={tt('aceKey')}>
-                <select value={keyscale} onChange={event => setKeyscale(event.target.value)} className={CONTROL}>
-                  {KEYS.map(key => <option key={key} value={key}>{key || tt('aceAuto')}</option>)}
-                </select>
-              </Field>
-              <Field label={tt('aceTimeSignature')}>
-                <select value={timesignature} onChange={event => setTimesignature(event.target.value)} className={CONTROL}>
-                  {TIME_SIGNATURES.map(value => <option key={value} value={value}>{value ? (value === '6' ? '6/8' : `${value}/4`) : tt('aceAuto')}</option>)}
-                </select>
-              </Field>
-              <Field label={tt('aceDuration')}><input value={duration} onChange={event => setDuration(event.target.value)} placeholder={tt('aceAuto')} inputMode="numeric" className={CONTROL} /></Field>
-              <Field label={tt('aceLanguage')}>
-                <select value={language} onChange={event => setLanguage(event.target.value)} className={CONTROL}>
-                  {LANGUAGES.map(code => <option key={code} value={code}>{code ? tt(`aceLang_${code}`) : tt('aceAuto')}</option>)}
-                </select>
-              </Field>
-            </div>
-            {!instrumental && (
-              <div className="mt-3">
-                <span className={LABEL}>{tt('aceGender')}</span>
-                <div className="flex gap-1.5">
-                  {(['', 'male', 'female'] as const).map(value => (
-                    <button key={value || 'any'} type="button" onClick={() => setGender(value)} className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] font-semibold ${gender === value ? 'border-pink-500 bg-pink-500/10 text-pink-600 dark:text-pink-300' : 'border-zinc-200 text-zinc-600 dark:border-white/10 dark:text-zinc-300'}`}>
-                      {tt(`aceGender_${value || 'any'}`)}
+              </div>
+            </>
+          ) : (
+            <>
+              <Card
+                title={tt('aceSong')}
+                actions={
+                  <>
+                    {assistantReady && (
+                      <button type="button" onClick={() => void askAssistant('prompt')} disabled={busy} className={ICON} title={t('writeCaption')}>
+                        {assisting === 'prompt' ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} className="text-pink-500" />}
+                      </button>
+                    )}
+                    <button type="button" onClick={loadExample} className={ICON} title={t('examplePrompt')}><Dices size={14} /></button>
+                    <button type="button" onClick={() => promptFile.current?.click()} className={ICON} title={t('openPrompt')}><FolderOpen size={14} /></button>
+                    <button type="button" onClick={savePrompt} className={ICON} title={t('savePrompt')}><Save size={14} /></button>
+                    <button type="button" onClick={reset} className={ICON} title={t('resetPrompt')}><RotateCcw size={14} /></button>
+                    <input
+                      ref={promptFile}
+                      type="file"
+                      accept="application/json,.json"
+                      className="hidden"
+                      onChange={event => { const file = event.target.files?.[0]; if (file) void openPrompt(file); event.target.value = ''; }}
+                    />
+                  </>
+                }
+              >
+                <input
+                  value={name}
+                  onChange={event => setName(event.target.value)}
+                  placeholder={t('untitled')}
+                  className="w-full border-0 bg-transparent p-0 text-lg font-bold text-zinc-900 outline-none placeholder:text-zinc-300 dark:text-white dark:placeholder:text-zinc-600"
+                />
+                {undo && (
+                  <button type="button" onClick={() => { setCaption(undo.caption); setLyrics(undo.lyrics); setUndo(null); }} className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-pink-600 hover:underline dark:text-pink-300">
+                    <Undo2 size={12} />{tt('aceUndo')}
+                  </button>
+                )}
+                <div className="mt-3">
+                  <Field label={tt('aceCaption')} hint={tt('aceCaptionHint')}>
+                    <textarea value={caption} rows={4} onChange={event => setCaption(event.target.value)} placeholder={tt('aceCaptionPlaceholder')} className={`${CONTROL} max-h-64 resize-y`} />
+                  </Field>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  {genres.map(genre => (
+                    <button key={genre} type="button" onClick={() => setCaption(current => (current.trim() ? `${current.trim().replace(/,$/, '')}, ${genre}` : genre))} className="rounded-full border border-zinc-200 bg-zinc-100 px-2.5 py-1 text-[10px] font-medium text-zinc-600 hover:border-pink-300 hover:text-pink-600 dark:border-white/5 dark:bg-white/5 dark:text-zinc-400">
+                      {genre}
                     </button>
                   ))}
+                  <button type="button" onClick={() => setGenres(someGenres())} className={ICON} title={tt('aceMoreGenres')}><Dices size={13} /></button>
                 </div>
-              </div>
-            )}
-            <p className="mt-2 text-[11px] leading-4 text-zinc-500">{tt('aceMetadataHint')}</p>
-          </Card>
+              </Card>
 
-          <Card
-            title={t('lyrics')}
-            actions={
-              <>
-                {assistantReady && (
-                  <button type="button" onClick={() => void layOutLyrics()} disabled={busy || !lyrics.trim()} className={ICON} title={t('formatLyrics')}>
-                    {assisting === 'sections' ? <Loader2 size={14} className="animate-spin" /> : <Tags size={14} />}
+              <Card
+                title={t('lyrics')}
+                actions={
+                  <>
+                    {assistantReady && (
+                      <button type="button" onClick={() => void layOutLyrics()} disabled={busy || !lyrics.trim()} className={ICON} title={t('formatLyrics')}>
+                        {assisting === 'sections' ? <Loader2 size={14} className="animate-spin" /> : <Tags size={14} />}
+                      </button>
+                    )}
+                    {assistantReady && (
+                      <button type="button" onClick={() => void askAssistant('lyrics')} disabled={busy} className={ICON} title={t('writeLyrics')}>
+                        {assisting === 'lyrics' ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} className="text-pink-500" />}
+                      </button>
+                    )}
+                    <button type="button" onClick={() => setLyrics('')} className={ICON} title={t('resetPrompt')}><RotateCcw size={14} /></button>
+                  </>
+                }
+              >
+                <div className="space-y-3">
+                  <Switch checked={instrumental} onChange={setInstrumental} label={t('instrumental')} hint={instrumental ? tt('aceInstrumentalHint') : undefined} />
+                  {!instrumental && (
+                    <>
+                      {languageField}
+                      {voiceField}
+                      <textarea
+                        value={lyrics}
+                        rows={12}
+                        onChange={event => setLyrics(event.target.value)}
+                        placeholder={'[Verse 1]\n…\n\n[Chorus]\n…'}
+                        className={`${CONTROL} h-64 resize-y font-mono text-xs leading-5`}
+                      />
+                      <p className="text-[11px] leading-4 text-zinc-500">{tt('aceLyricsHint')}</p>
+                    </>
+                  )}
+                </div>
+              </Card>
+
+              <Card
+                title={tt('aceSongParams')}
+                actions={
+                  <button type="button" onClick={() => void plan('format')} disabled={busy || !ready || (!caption.trim() && !lyrics.trim())} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold text-pink-600 transition-colors hover:bg-pink-500/10 disabled:opacity-40 dark:text-pink-300">
+                    {planning === 'format' ? <Loader2 size={12} className="animate-spin" /> : <ListChecks size={12} />}
+                    {tt('aceFormat')}
                   </button>
-                )}
-                {assistantReady && (
-                  <button type="button" onClick={() => void askAssistant('lyrics')} disabled={busy} className={ICON} title={t('writeLyrics')}>
-                    {assisting === 'lyrics' ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} className="text-pink-500" />}
-                  </button>
-                )}
-                <button type="button" onClick={() => setLyrics('')} className={ICON} title={t('resetPrompt')}><RotateCcw size={14} /></button>
-              </>
-            }
-          >
-            <div className="mb-3"><Switch checked={instrumental} onChange={setInstrumental} label={t('instrumental')} hint={tt('aceInstrumentalHint')} /></div>
-            {!instrumental && (
-              <AutoTextarea
-                value={lyrics}
-                minRows={10}
-                onChange={event => setLyrics(event.target.value)}
-                placeholder={'[Verse 1]\n…\n\n[Chorus]\n…'}
-                className={`${CONTROL} resize-none font-mono text-xs leading-5`}
-              />
-            )}
-            <p className="mt-2 text-[11px] leading-4 text-zinc-500">{instrumental ? tt('aceInstrumentalHint') : tt('aceLyricsHint')}</p>
-          </Card>
+                }
+              >
+                <div className="grid grid-cols-2 gap-2">
+                  {durationField}
+                  <Field label="BPM"><input value={bpm} onChange={event => setBpm(event.target.value)} placeholder={tt('aceAuto')} inputMode="numeric" className={CONTROL} /></Field>
+                  <Field label={tt('aceKey')}>
+                    <select value={keyscale} onChange={event => setKeyscale(event.target.value)} className={CONTROL}>
+                      {KEYS.map(key => <option key={key} value={key}>{key || tt('aceAuto')}</option>)}
+                    </select>
+                  </Field>
+                  <Field label={tt('aceTimeSignature')}>
+                    <select value={timesignature} onChange={event => setTimesignature(event.target.value)} className={CONTROL}>
+                      {TIME_SIGNATURES.map(value => <option key={value} value={value}>{value ? (value === '6' ? '6/8' : `${value}/4`) : tt('aceAuto')}</option>)}
+                    </select>
+                  </Field>
+                </div>
+                <p className="mt-2 text-[11px] leading-4 text-zinc-500">{tt('aceMetadataHint')}</p>
+              </Card>
+
+              <Card title={tt('aceSourceSection')}>
+                <div className="space-y-3">
+                  <Field label={tt('aceSource')}>{songOptions(sourceSong, chooseSource, tt('aceChooseTrack'), 'source')}</Field>
+                  {!sourceSong ? (
+                    <p className="text-[11px] leading-4 text-zinc-500">{tt('aceSourceEmpty')}</p>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {TASKS.filter(value => value !== 'text2music').map(value => (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => setTask(value)}
+                            className={`rounded-lg border px-1.5 py-1.5 text-[11px] font-semibold transition-colors ${task === value ? 'border-pink-500 bg-pink-500/10 text-pink-600 dark:text-pink-300' : 'border-zinc-200 text-zinc-600 hover:border-pink-300 dark:border-white/10 dark:text-zinc-300'}`}
+                            title={tt(`aceTaskHint_${value}`)}
+                          >
+                            {tt(`aceTask_${value}`)}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[11px] leading-4 text-zinc-500">{tt(`aceTaskHint_${task}`)}</p>
+                      {baseOnly(task) && kind !== 'base' && (
+                        <div className="rounded-lg bg-amber-500/10 p-2 text-[11px] leading-4 text-amber-700 dark:text-amber-300">
+                          {baseModels.length ? tt('aceBaseOnlyPick') : tt('aceBaseOnlyInstall')}
+                          {baseModels.length > 0 && (
+                            <select value="" onChange={event => event.target.value && setModels(current => ({ ...current, synth_model: event.target.value }))} className={`${CONTROL} mt-2`}>
+                              <option value="">{tt('aceChooseBase')}</option>
+                              {baseModels.map(file => <option key={file} value={file}>{file.replace(/\.gguf$/, '')}</option>)}
+                            </select>
+                          )}
+                        </div>
+                      )}
+                      {(task === 'cover' || task === 'cover-nofsq') && (
+                        <div className="space-y-3">
+                          <SliderRow label={tt('aceCoverStrength')} value={coverStrength} fallback={1} min={0} max={1} step={0.05} onChange={setCoverStrength} />
+                          <SliderRow label={tt('aceCoverNoise')} value={coverNoise} fallback={0} min={0} max={1} step={0.05} onChange={setCoverNoise} />
+                          <p className="text-[11px] leading-4 text-zinc-500">{tt('aceCoverHint')}</p>
+                        </div>
+                      )}
+                      {(task === 'repaint' || task === 'lego') && (
+                        <>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Field label={tt('aceRepaintStart')}><input value={repaintStart} onChange={event => setRepaintStart(event.target.value)} placeholder="0" inputMode="decimal" className={CONTROL} /></Field>
+                            <Field label={tt('aceRepaintEnd')}><input value={repaintEnd} onChange={event => setRepaintEnd(event.target.value)} placeholder={tt('aceToTheEnd')} inputMode="decimal" className={CONTROL} /></Field>
+                          </div>
+                          <p className="text-[11px] leading-4 text-zinc-500">{tt('aceRepaintHint')}</p>
+                        </>
+                      )}
+                      {baseOnly(task) && (
+                        <div>
+                          <span className={LABEL}>{task === 'extract' ? tt('aceTrackExtract') : task === 'lego' ? tt('aceTrackAdd') : tt('aceTrackComplete')}</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {TRACKS.map(track => {
+                              const on = tracks.includes(track);
+                              return (
+                                <button
+                                  key={track}
+                                  type="button"
+                                  onClick={() => setTracks(current => (task === 'complete' ? (on ? current.filter(item => item !== track) : [...current, track]) : on ? [] : [track]))}
+                                  className={`rounded-full border px-2.5 py-1 text-[11px] ${on ? 'border-pink-500 bg-pink-500/10 text-pink-600 dark:text-pink-300' : 'border-zinc-200 text-zinc-600 dark:border-white/10 dark:text-zinc-300'}`}
+                                >
+                                  {tt(`aceTrack_${track}`)}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex flex-wrap gap-1.5">
+                        <button type="button" onClick={() => void listen('describe')} disabled={listening !== null || !ready} className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-600 hover:border-pink-400 hover:text-pink-600 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300">
+                          {listening === 'describe' ? <Loader2 size={12} className="animate-spin" /> : <Ear size={12} />}{tt('aceDescribeSource')}
+                        </button>
+                        <button type="button" onClick={() => void listen('codes')} disabled={listening !== null || !ready} className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-600 hover:border-pink-400 hover:text-pink-600 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300">
+                          {listening === 'codes' ? <Loader2 size={12} className="animate-spin" /> : <ListChecks size={12} />}{tt('aceSourceCodes')}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  <div className="border-t border-zinc-100 pt-3 dark:border-white/5">
+                    <Field label={tt('aceReference')} hint={tt('aceReferenceHint')}>{songOptions(referenceSong, setReferenceSong, tt('aceNoReference'), 'reference')}</Field>
+                  </div>
+                </div>
+              </Card>
+            </>
+          )}
 
           <AdapterPicker
             value={adapters}
@@ -1223,51 +1283,75 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
             frame={(title, _icon, actions, body) => <Card title={title} actions={actions}>{body}</Card>}
           />
 
-          <Card
-            title={t('quality')}
-            actions={
-              <button type="button" onClick={resetParameters} className="rounded-md px-2 py-1 text-[10px] font-semibold text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-black dark:hover:bg-white/10 dark:hover:text-white">
-                {t('resetToDefaults')}
-              </button>
-            }
-          >
-            <div className="space-y-3">
-              <Switch checked={think} onChange={setThink} label={tt('aceThink')} hint={tt('aceThinkHint')} />
-              <SliderRow label={t('ditSteps')} value={steps} fallback={dit.steps} min={1} max={turbo ? 20 : 150} step={1} onChange={setSteps} />
-              {!turbo && <SliderRow label={t('cfgScale')} value={guidance} fallback={dit.guidance} min={1} max={15} step={0.5} onChange={setGuidance} />}
-              <p className="text-[11px] leading-4 text-zinc-500">{tt(`aceModelKind_${kind}`)}</p>
-            </div>
-            <div className="mt-4 space-y-3 border-t border-zinc-100 pt-4 dark:border-white/5">
-              <SliderRow label={tt('aceSongs')} value={songs} fallback={1} min={1} max={MAX_TAKES} step={1} onChange={setSongs} />
-              <SliderRow label={t('variationsBatch')} value={takes} fallback={1} min={1} max={MAX_TAKES} step={1} onChange={setTakes} />
-              <p className="text-[11px] leading-4 text-zinc-500">{tt('aceSongsHint')}</p>
-              <SliderRow label={tt('aceBulk')} value={bulk} fallback={1} min={1} max={10} step={1} onChange={setBulk} />
-              <p className="text-[11px] leading-4 text-zinc-500">{tt('aceBulkHint')}</p>
-              <Switch checked={randomizeSeed} onChange={setRandomizeSeed} label={t('randomizeSeed')} />
-              {!randomizeSeed && (
-                <Field label={t('seedShort')}>
-                  <input value={seed} onChange={event => setSeed(event.target.value)} placeholder="0" inputMode="numeric" className={CONTROL} />
-                </Field>
-              )}
-              {totalTracks > 1 && (
-                <p className={`text-[11px] ${totalTracks > MAX_TAKES ? 'text-rose-600 dark:text-rose-300' : 'text-zinc-500'}`}>
-                  {t('renderCountPrefix')} <b>{totalTracks}</b>{totalTracks > MAX_TAKES && ` · ${tt('aceTooManyTakes')}`}
-                </p>
-              )}
-            </div>
-          </Card>
+          {mode === 'studio' && (
+            <>
+              <Card
+                title={t('quality')}
+                actions={
+                  <button type="button" onClick={resetParameters} className="rounded-md px-2 py-1 text-[10px] font-semibold text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-black dark:hover:bg-white/10 dark:hover:text-white">
+                    {t('resetToDefaults')}
+                  </button>
+                }
+              >
+                <div className="space-y-3">
+                  <Switch checked={think} onChange={setThink} label={tt('aceThink')} hint={tt('aceThinkHint')} />
+                  <SliderRow label={t('ditSteps')} value={steps} fallback={dit.steps} min={1} max={turbo ? 20 : 150} step={1} onChange={setSteps} />
+                  {!turbo && <SliderRow label={t('cfgScale')} value={guidance} fallback={dit.guidance} min={1} max={15} step={0.5} onChange={setGuidance} />}
+                  {!turbo && (
+                    <div>
+                      <span className={LABEL}>{tt('acePresets')}</span>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {PRESETS.map(preset => (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            title={tt(`acePresetHint_${preset.id}`)}
+                            onClick={() => {
+                              setCfgStart(preset.start === 0 ? '' : String(preset.start));
+                              setCfgEnd(preset.end === 1 ? '' : String(preset.end));
+                              setGuidanceMode(preset.mode);
+                            }}
+                            className={`rounded-lg border px-1.5 py-1.5 text-[11px] font-semibold transition-colors ${activePreset === preset.id ? 'border-pink-500 bg-pink-500/10 text-pink-600 dark:text-pink-300' : 'border-zinc-200 text-zinc-600 hover:border-pink-300 dark:border-white/10 dark:text-zinc-300'}`}
+                          >
+                            {tt(`acePreset_${preset.id}`)}
+                          </button>
+                        ))}
+                      </div>
+                      {activePreset && <p className="mt-1.5 text-[11px] leading-4 text-zinc-500">{tt(`acePresetHint_${activePreset}`)}</p>}
+                    </div>
+                  )}
+                  <p className="text-[11px] leading-4 text-zinc-500">{tt(`aceModelKind_${kind}`)}</p>
+                </div>
+                <div className="mt-4 space-y-3 border-t border-zinc-100 pt-4 dark:border-white/5">
+                  <div className="grid grid-cols-2 gap-3">
+                    <SliderRow label={tt('aceSongs')} value={songs} fallback={1} min={1} max={MAX_TAKES} step={1} onChange={setSongs} />
+                    <SliderRow label={t('variationsBatch')} value={takes} fallback={1} min={1} max={MAX_TAKES} step={1} onChange={setTakes} />
+                  </div>
+                  <p className={`text-[11px] leading-4 ${totalTracks > MAX_TAKES ? 'text-rose-600 dark:text-rose-300' : 'text-zinc-500'}`}>
+                    {totalTracks > 1 && <>{t('renderCountPrefix')} <b>{totalTracks}</b>{totalTracks > MAX_TAKES ? ` · ${tt('aceTooManyTakes')}` : ''}. </>}
+                    {tt('aceSongsHint')}
+                  </p>
+                  <SliderRow label={tt('aceBulk')} value={bulk} fallback={1} min={1} max={10} step={1} onChange={setBulk} />
+                  <Switch checked={randomizeSeed} onChange={setRandomizeSeed} label={t('randomizeSeed')} />
+                  {!randomizeSeed && (
+                    <Field label={t('seedShort')}>
+                      <input value={seed} onChange={event => setSeed(event.target.value)} placeholder="0" inputMode="numeric" className={CONTROL} />
+                    </Field>
+                  )}
+                </div>
+              </Card>
 
-          <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-white/5 dark:bg-suno-card">
-            <button
-              type="button"
-              onClick={() => setShowAdvanced(current => !current)}
-              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-zinc-500 transition-colors hover:text-black dark:text-zinc-400 dark:hover:text-white"
-            >
-              {t('advanced')}
-              <ChevronDown size={15} className={showAdvanced ? 'rotate-180 transition-transform' : 'transition-transform'} />
-            </button>
-            {showAdvanced && (
-              <div className="space-y-4 border-t border-zinc-100 p-3 dark:border-white/5">
+              <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-white/5 dark:bg-suno-card">
+                <button
+                  type="button"
+                  onClick={() => setShowAdvanced(current => !current)}
+                  className="flex w-full items-center justify-between gap-2 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-zinc-500 transition-colors hover:text-black dark:text-zinc-400 dark:hover:text-white"
+                >
+                  {t('advanced')}
+                  <ChevronDown size={15} className={showAdvanced ? 'rotate-180 transition-transform' : 'transition-transform'} />
+                </button>
+                {showAdvanced && (
+                  <div className="space-y-4 border-t border-zinc-100 p-3 dark:border-white/5">
                 <Stage title={t('stageLm')} hint={tt('aceStageLmHint')}>
                   <div className="space-y-3">
                     <Switch checked={cotCaption} onChange={setCotCaption} label={tt('aceCotCaption')} hint={tt('aceCotCaptionHint')} />
@@ -1384,40 +1468,12 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
                   </Stage>
                 </div>
 
-                <div className="border-t border-zinc-100 pt-4 dark:border-white/5">
-                  <Stage title={t('componentOverride')} hint={tt('aceComponentsHint')}>
-                    <div className="space-y-2">
-                      {roles.map(role => (
-                        <div key={role.key} className="grid grid-cols-[48px_1fr] items-center gap-2">
-                          <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">{role.label}</span>
-                          <select
-                            value={models[role.key] ?? ''}
-                            onChange={event => setModels(current => {
-                              const next = { ...current };
-                              if (event.target.value) next[role.key] = event.target.value;
-                              else delete next[role.key];
-                              return next;
-                            })}
-                            className={CONTROL}
-                          >
-                            <option value="">{setup?.profile_files?.[role.key] ? `${t('profileDefault')} · ${setup.profile_files[role.key].replace(/\.gguf$/, '')}` : t('profileDefault')}</option>
-                            {role.options.map(option => <option key={option} value={option}>{option.replace(/\.gguf$/, '')}</option>)}
-                          </select>
-                        </div>
-                      ))}
-                    </div>
-                  </Stage>
-                </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
 
-          <div className="flex items-center justify-between px-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-            <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('studio:open-settings', { detail: 'models' }))} className="text-left hover:text-pink-500" title={t('changeProfileHint')}>
-              {t('profile')}: <b className="text-zinc-700 underline decoration-dotted underline-offset-2 dark:text-zinc-200">{profileLabel}</b>
-            </button>
-            <button type="button" onClick={() => void refreshSetup().catch(() => undefined)} className="hover:text-pink-500">{t('refresh')}</button>
-          </div>
           {error && <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs leading-5 text-red-700 dark:text-red-200">{error}</div>}
         </div>
       </div>
