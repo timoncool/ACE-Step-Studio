@@ -1,5 +1,7 @@
 //! What belongs to ACE-Step 1.5 rather than to the engine family.
 
+use music_core::adapter_weights::{adapter_format, input_width, tensor_names};
+pub use music_core::adapter_weights::AdapterWeights;
 use serde_json::Value;
 
 /// A part of the model an adapter can change, with its own strength.
@@ -27,60 +29,26 @@ pub fn model_family(dit_file: &str) -> Option<&'static str> {
     Some(if dit_file.to_ascii_lowercase().contains("xl") { "xl" } else { "2b" })
 }
 
-/// What an adapter weight file holds, read from its safetensors header.
-#[derive(Debug, Clone, Default, PartialEq, serde::Serialize)]
-pub struct AdapterWeights {
-    /// `2b` or `xl` for a DiT adapter, `lm` for one of the planner.
-    pub model: Option<String>,
-    /// `lora` or `lokr`, when the file is an adapter the engine merges.
-    pub format: Option<String>,
-    /// Why the engine cannot use the file, when it cannot.
-    pub problem: Option<String>,
-}
-
-/// Reads what a safetensors header describes. The width of the model comes
-/// from an input the adapter shares with it: a query projection or the
-/// feed-forward entry, never a cross-attention key, whose input is the text
-/// encoder's width in every size.
+/// What an adapter file is for this engine: an ACE-Step 1.5 adapter of the
+/// DiT, sized 2B or XL by the width it reads, or of the planner LM; a file of
+/// ACE-Step v1 or of another model is named as such rather than merged into
+/// nothing.
 pub fn describe_adapter(header: &serde_json::Map<String, Value>) -> AdapterWeights {
-    let names: Vec<&String> = header.keys().filter(|name| name.as_str() != "__metadata__").collect();
-    let shape = |name: &str| -> Vec<u64> {
-        header.get(name).and_then(|entry| entry.get("shape")).and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_u64).collect()
-    };
+    let names = tensor_names(header);
     let has = |part: &str| names.iter().any(|name| name.contains(part));
-    let problem = |text: &str| AdapterWeights { problem: Some(text.into()), ..AdapterWeights::default() };
     if has("lyric_encoder.") || has("transformer_blocks.") {
-        return problem("ACE-Step v1");
+        return AdapterWeights::refused("ACE-Step v1");
     }
     if has("conditioners.") {
-        return problem("another model");
+        return AdapterWeights::refused("another model");
     }
-    if has("hada_w1") {
-        return problem("LoHa");
-    }
-    if has("lora_magnitude_vector") {
-        return problem("PEFT DoRA");
-    }
-    let entry_input = |name: &str| name.contains("q_proj") || name.contains("gate_proj") || name.contains("up_proj");
-    let (format, width) = if has(".lokr_w1") {
-        let width = names.iter().filter(|name| name.ends_with(".lokr_w1") && entry_input(name)).find_map(|name| {
-            let prefix = &name[..name.len() - ".lokr_w1".len()];
-            let first = shape(name);
-            let second = [format!("{prefix}.lokr_w2"), format!("{prefix}.lokr_w2_b")].iter().map(|other| shape(other)).find(|shape| shape.len() == 2)?;
-            (first.len() == 2).then(|| first[1] * second[1])
-        });
-        ("lokr", width)
-    } else if has(".lora_A.") || has(".lora_down.") {
-        let width = names
-            .iter()
-            .filter(|name| (name.contains(".lora_A.") || name.contains(".lora_down.")) && entry_input(name))
-            .find_map(|name| shape(name).get(1).copied());
-        ("lora", width)
-    } else {
-        return problem("not an adapter");
+    let format = match adapter_format(header) {
+        Ok(format) => format,
+        Err(problem) => return AdapterWeights::refused(problem),
     };
     let dit = has("cross_attn") || has("decoder.") || has("diffusion_model.");
     let model = if dit {
+        let width = input_width(header);
         MODEL_FAMILIES.iter().find(|(_, hidden)| Some(*hidden) == width).map(|(name, _)| *name)
     } else if has("model.layers.") || has("lycoris_layers_") {
         Some("lm")

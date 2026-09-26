@@ -1,3 +1,4 @@
+pub mod adapter_weights;
 pub mod process;
 pub mod studio;
 
