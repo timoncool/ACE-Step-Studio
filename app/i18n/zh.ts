@@ -235,6 +235,7 @@ export const zh = {
     winampMuseum: "皮肤博物馆",
     winampSkinsHint: "皮肤：从 Winamp Skin Museum 下载 .wsz 并在此添加，或拖到播放器上。",
     winampSkinNotKept: "皮肤未能保存",
+    winampSkinNotSharp: "无法在此缩放比例下清晰绘制皮肤",
     winampLeave: "返回工作室",
     studioFamily: "工作室家族",
     studioFamilyLine: "三个基于同一核心的本地音乐工作室，各用自己的模型：相同的界面、相同的智能体工具，以及各模型最擅长的功能。",

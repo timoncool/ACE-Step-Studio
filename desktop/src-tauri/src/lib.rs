@@ -366,6 +366,76 @@ async fn open_visualizer_window(app: tauri::AppHandle) -> Result<(), String> {
     window.build().map(|_| ()).map_err(|error| error.to_string())
 }
 
+/// The window's shape: only these rectangles, [left, top, right, bottom] in
+/// physical pixels of the page, are the window, and a click anywhere else
+/// goes to whatever lies below. No rectangles: the whole window again. The
+/// Winamp mode spreads the window over the screen and cuts it to Winamp's
+/// own windows, so they can be moved apart, docked and resized like Winamp's.
+#[tauri::command]
+fn set_window_region(window: tauri::WebviewWindow, rects: Vec<[i32; 4]>) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        #[link(name = "gdi32")]
+        unsafe extern "system" {
+            fn CreateRectRgn(left: i32, top: i32, right: i32, bottom: i32) -> isize;
+            fn CombineRgn(destination: isize, first: isize, second: isize, mode: i32) -> i32;
+            fn DeleteObject(object: isize) -> i32;
+        }
+        #[link(name = "user32")]
+        unsafe extern "system" {
+            fn SetWindowRgn(window: isize, region: isize, redraw: i32) -> i32;
+            fn GetWindowRect(window: isize, rect: *mut [i32; 4]) -> i32;
+            fn ClientToScreen(window: isize, point: *mut [i32; 2]) -> i32;
+        }
+        const RGN_OR: i32 = 2;
+        let hwnd = window.hwnd().map_err(|error| error.to_string())?.0 as isize;
+        unsafe {
+            let region = if rects.is_empty() {
+                0
+            } else {
+                // a region counts from the window's outer corner, which a frameless window
+                // still keeps a few invisible border pixels away from its page
+                let mut outer = [0i32; 4];
+                let mut page = [0i32; 2];
+                if GetWindowRect(hwnd, &mut outer) == 0 || ClientToScreen(hwnd, &mut page) == 0 {
+                    return Err("Windows did not tell where the window's page is".into());
+                }
+                let (dx, dy) = (page[0] - outer[0], page[1] - outer[1]);
+                let region = CreateRectRgn(0, 0, 0, 0);
+                if region == 0 {
+                    return Err("Windows made no region for the window".into());
+                }
+                // Chromium apps take a window whose region is one plain rectangle for an opaque
+                // one of its whole size (IsWindowVisibleAndFullyOpaque) and stop drawing beneath
+                // it: two lone pixels in the invisible border keep the shape never that plain
+                let stubs = [[-dx, -dy, 1 - dx, 1 - dy], [2 - dx, -dy, 3 - dx, 1 - dy]];
+                for [left, top, right, bottom] in stubs.into_iter().chain(rects) {
+                    let part = CreateRectRgn(left + dx, top + dy, right + dx, bottom + dy);
+                    if part == 0 || CombineRgn(region, region, part, RGN_OR) == 0 {
+                        DeleteObject(region);
+                        if part != 0 {
+                            DeleteObject(part);
+                        }
+                        return Err("Windows could not build the window's shape".into());
+                    }
+                    DeleteObject(part);
+                }
+                region
+            };
+            // the window owns the region from here on
+            if SetWindowRgn(hwnd, region, 1) == 0 {
+                if region != 0 {
+                    DeleteObject(region);
+                }
+                return Err("Windows did not take the window's shape".into());
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = (window, rects);
+    Ok(())
+}
+
 pub fn run() {
     #[cfg(windows)]
     hide_own_console_window();
@@ -417,7 +487,7 @@ pub fn run() {
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![open_visualizer_window]);
+        .invoke_handler(tauri::generate_handler![open_visualizer_window, set_window_region]);
     if updater_configured {
         builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     }

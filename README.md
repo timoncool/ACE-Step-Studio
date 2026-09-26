@@ -90,7 +90,8 @@ Code, save [docs/mcp-skill.md](docs/mcp-skill.md) as `~/.claude/skills/ace-step-
 - **A player of its own** — a ten-band equalizer on Winamp's frequencies with its presets,
   your own and .EQF files; a MilkDrop visualiser with hundreds of presets or a spectrum in ten
   looks, over the studio, fullscreen or in its own window; and a Winamp mode that turns the whole
-  window into a skinned Winamp 2 — ten skins included, the Winamp Skin Museum one click away,
+  window into a skinned Winamp 2 whose windows move apart, dock and resize — the original skin
+  and ten more included, sharp at any scale, the Winamp Skin Museum one click away,
   Ctrl+M to switch. The song, its place and the equalizer carry over both ways.
 - **Full songs from a caption and lyrics** — up to ten minutes, in the languages ACE-Step
   sings. The planner (ACE-Step's own language model) fills in what you leave out — tempo,

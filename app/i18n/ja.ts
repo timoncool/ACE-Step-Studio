@@ -235,6 +235,7 @@ export const ja = {
   winampMuseum: "スキン博物館",
   winampSkinsHint: "スキン：Winamp Skin Museum から .wsz をダウンロードしてここに追加するか、プレーヤーにドロップします。",
   winampSkinNotKept: "スキンを保存できませんでした",
+  winampSkinNotSharp: "この倍率でスキンをくっきり描けませんでした",
   winampLeave: "スタジオに戻る",
   studioFamily: "スタジオファミリー",
   studioFamilyLine: "同じコアの上に立つ 3 つのローカル音楽スタジオ。それぞれ独自のモデルで、同じインターフェース、同じエージェントツール、そしてモデルごとの得意分野。",

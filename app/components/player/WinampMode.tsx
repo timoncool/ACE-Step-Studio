@@ -1,20 +1,23 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type WebampLazy from 'webamp/lazy';
-import { getCurrentWindow, LogicalSize, PhysicalPosition, PhysicalSize } from '@tauri-apps/api/window';
+import { currentMonitor, getCurrentWindow, LogicalSize, PhysicalPosition, PhysicalSize } from '@tauri-apps/api/window';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
+import { invoke } from '@tauri-apps/api/core';
 import { useI18n } from '../../context/I18nContext';
 import type { Song } from '../../types';
 import { TRACK_ARTIST } from '../../services/studio';
 import { isDesktop } from '../../services/externalLinks';
 import { EQ_BANDS, equalizer, setEqualizer } from '../../services/audioGraph';
 import { addWinampSkin, pickSkin, registerWinampControl, setWinampSettings, winampSettings, winampSkins, type WinampSkin } from '../../services/winamp';
+import { sharpenSkin, sharpSkinCss, skinScale } from '../../services/winampSharp';
 import { loadMilkdropPresets } from './VisualizerView';
 
 /**
  * The Winamp mode: the whole studio window turns into a Winamp 2 player
  * (Webamp) with its main window, equalizer, playlist and MilkDrop, wearing
- * .wsz skins. The window loses its frame and takes the size of the player;
- * dragging a title bar moves the window, as dragging Winamp moved Winamp.
+ * .wsz skins. The window loses its frame, spreads over the screen and is cut
+ * to Winamp's own windows: they move apart and dock, the playlist and MilkDrop
+ * resize, and a click between them goes to whatever lies below, as with Winamp.
  * The studio underneath keeps running, and leaving the mode hands the song,
  * the position, the volume and the equalizer back to the studio's player.
  */
@@ -46,7 +49,7 @@ type Store = { getState: () => WebampState; dispatch: (action: Record<string, un
 interface WebampState {
   equalizer: { on: boolean; sliders: Record<string, number> };
   media: { volume: number; balance: number; timeElapsed: number; shuffle: boolean; repeat: boolean; status: string };
-  display: { doubled: boolean };
+  display: { doubled: boolean; skinImages: Record<string, string> | null };
   windows: { genWindows: Record<string, { open: boolean; shade?: boolean; position: { x: number; y: number } }> };
   milkdrop: { presets: ({ name: string; type: 'RESOLVED' } | { name: string; type: 'UNRESOLVED'; getPreset: () => Promise<object> })[]; currentPresetIndex: number | null; randomize: boolean; cycling: boolean };
   playlist: { trackOrder: number[]; currentTrack: number | null };
@@ -59,6 +62,12 @@ const MILKDROP_SIZE: [number, number] = [7, 12];
 /** The studio window's smallest size, as tauri.conf.json sets it. */
 const STUDIO_MIN = { width: 1024, height: 720 };
 const SELECTOR = '#main-window, #equalizer-window, #playlist-window, #playlist-window-shade, .gen-window';
+/** What the window's shape keeps: Winamp's windows, its menus wherever they open, and the mode's own notes. */
+const SHAPE = `${SELECTOR}, #webamp-context-menu .context-menu, #webamp-context-menu .context-menu ul, [data-winamp-shape]`;
+/** A shape with nothing in it: the window is there but shows nothing, until Winamp is drawn. */
+const NOTHING: [number, number, number, number][] = [[0, 0, 0, 0]];
+
+const setShape = (rects: [number, number, number, number][]) => invoke<void>('set_window_region', { rects });
 
 /** Winamp's sliders are 0..100 with 50 flat; the studio's are decibels. */
 const toSlider = (db: number) => Math.round(50 + (db / 12) * 50);
@@ -84,6 +93,7 @@ const SAVED_WINDOW = 'studio:winamp-window';
 /** The studio's window as it was before the mode: frame, size, place, maximised, page zoom. */
 async function restoreWindow(win: ReturnType<typeof getCurrentWindow>, saved: SavedWindow) {
   const steps: [string, () => Promise<void>][] = [
+    ['shape', () => setShape([])],
     ['always on top', () => win.setAlwaysOnTop(false)],
     ['frame', () => win.setDecorations(true)],
     ['resizable', () => win.setResizable(true)],
@@ -147,7 +157,7 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
       if (preset.type === 'UNRESOLVED') store().dispatch({ type: 'RESOLVE_PRESET_AT_INDEX', index, json: await preset.getPreset() });
       store().dispatch({ type: 'SELECT_PRESET_AT_INDEX', index, transitionType: 1 });
     };
-    // every change to the OS window runs in turn: a fit never overtakes the mode's setup, and
+    // every change to the OS window runs in turn: a new shape never overtakes the mode's setup, and
     // leaving always comes last, so nothing lands on the window after it got its shape back
     let windowWork: Promise<void> = Promise.resolve();
     const onWindow = (job: () => Promise<void>) => {
@@ -165,69 +175,76 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
       store().dispatch({ type: state.media.status === 'STOPPED' ? 'BUFFER_TRACK' : 'PLAY_TRACK', id });
     };
     let zoom = 1;
-    // Webamp draws a skin pixel for pixel: at a whole scale every pixel stays square and sharp,
-    // at 120 or 150 % the pixels come out of uneven sizes, so there the skin is smoothed instead
-    const smoothing = document.createElement('style');
-    document.head.appendChild(smoothing);
-    cleanups.push(() => smoothing.remove());
     const setZoom = async (next: number) => {
       zoom = next;
-      smoothing.textContent = Number.isInteger(next) ? '' : '#webamp, #webamp * { image-rendering: auto !important; }';
       if (desktop) await onWindow(() => getCurrentWebview().setZoom(next));
-      fit();
+      reshape();
     };
 
-    // the window takes the size of the player's windows, which start at its corner; requests
-    // that come while one waits are one fit, measured when it runs
-    let fitWanted = false;
-    const fit = () => {
-      if (fitWanted) return;
-      fitWanted = true;
-      void onWindow(measureAndFit);
-    };
-    const measureAndFit = async () => {
-      fitWanted = false;
+    // the skin's sprites resampled to the screen's pixels, once per skin and scale, laid over
+    // Webamp's own skin rules; Webamp keeps its sprites for the next scale
+    const sharpStyle = document.createElement('style');
+    document.head.appendChild(sharpStyle);
+    cleanups.push(() => sharpStyle.remove());
+    let sharpFor: { images: Record<string, string>; scale: number } | null = null;
+    let sharpening: { images: Record<string, string>; scale: number } | null = null;
+    const sharpen = () => {
       if (!webamp || disposed) return;
-      const boxes = [...node.querySelectorAll<HTMLElement>(SELECTOR)].map((element) => element.getBoundingClientRect()).filter((box) => box.width > 0 && box.height > 0);
-      if (!boxes.length) return;
-      const left = Math.min(...boxes.map((box) => box.left));
-      const top = Math.min(...boxes.map((box) => box.top));
-      const width = Math.ceil(Math.max(...boxes.map((box) => box.right)) - left);
-      const height = Math.ceil(Math.max(...boxes.map((box) => box.bottom)) - top);
-      if (left !== 0 || top !== 0) {
-        const windows = store().getState().windows.genWindows;
-        const positions = Object.fromEntries(Object.entries(windows).map(([id, info]) => [id, { x: info.position.x - left, y: info.position.y - top }]));
-        store().dispatch({ type: 'UPDATE_WINDOW_POSITIONS', positions, absolute: true });
-        if (win) {
-          const scale = (await win.scaleFactor()) * zoom;
-          const at = await win.outerPosition();
-          await win.setPosition(new PhysicalPosition(Math.round(at.x + left * scale), Math.round(at.y + top * scale)));
-        }
-      }
-      // the page is zoomed: its pixels are that much larger on the screen
-      if (win) await win.setSize(new LogicalSize(Math.ceil(width * zoom), Math.ceil(height * zoom)));
+      const display = store().getState().display;
+      if (!display.skinImages) return;
+      const scale = skinScale(window.devicePixelRatio * (display.doubled ? 2 : 1));
+      if (sharpFor?.images === display.skinImages && sharpFor.scale === scale) return;
+      if (sharpening?.images === display.skinImages && sharpening.scale === scale) return;
+      const job = { images: display.skinImages, scale };
+      sharpening = job;
+      sharpenSkin(job.images, scale).then((sharp) => {
+        if (sharpening !== job || disposed) return;
+        sharpening = null;
+        sharpFor = job;
+        // Webamp has written the rules for these sprites by the time they are resampled
+        const skinCss = document.getElementById('webamp-skin')?.textContent;
+        if (skinCss == null) throw new Error("Webamp's skin rules are not on the page");
+        sharpStyle.textContent = sharpSkinCss(skinCss, sharp, scale);
+      }).catch((error) => setProblem(`${t('winampSkinNotSharp')}: ${error instanceof Error ? error.message : String(error)}`));
     };
 
-    // a press on a title bar moves the whole window once the mouse moves
-    const press = (event: MouseEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (!win || event.button !== 0 || !target?.classList.contains('draggable')) return;
-      event.stopPropagation();
-      const start = { x: event.screenX, y: event.screenY };
-      const move = (moved: MouseEvent) => {
-        if (Math.abs(moved.screenX - start.x) + Math.abs(moved.screenY - start.y) < 4) return;
-        release();
-        void win.startDragging();
-      };
-      const release = () => {
-        window.removeEventListener('mousemove', move, true);
-        window.removeEventListener('mouseup', release, true);
-      };
-      window.addEventListener('mousemove', move, true);
-      window.addEventListener('mouseup', release, true);
+    // each Winamp window is a layer of its own: one that stands between two screen pixels (235 at
+    // 150 % is 352.5) is drawn blurred, so the windows are kept on whole screen pixels
+    const onScreenPixels = () => {
+      if (!webamp || disposed) return;
+      const pixels = window.devicePixelRatio;
+      const snap = (value: number) => Math.round(value * pixels) / pixels;
+      const windows = store().getState().windows.genWindows;
+      const off = Object.entries(windows).filter(([, info]) => snap(info.position.x) !== info.position.x || snap(info.position.y) !== info.position.y);
+      if (!off.length) return;
+      store().dispatch({ type: 'UPDATE_WINDOW_POSITIONS', positions: Object.fromEntries(off.map(([id, info]) => [id, { x: snap(info.position.x), y: snap(info.position.y) }])), absolute: true });
     };
-    node.parentElement?.addEventListener('mousedown', press, true);
-    cleanups.push(() => node.parentElement?.removeEventListener('mousedown', press, true));
+
+    // the window's shape follows Winamp's windows and menus; requests that come while one
+    // waits are one change, measured in the next frame
+    let shapeWanted = false;
+    let lastShape = '';
+    const reshape = () => {
+      if (shapeWanted || !win) return;
+      shapeWanted = true;
+      requestAnimationFrame(() => void onWindow(applyShape));
+    };
+    const applyShape = async () => {
+      shapeWanted = false;
+      if (!webamp || disposed) return;
+      const scale = window.devicePixelRatio;
+      const rects = document.fullscreenElement
+        ? []
+        : [...document.querySelectorAll<HTMLElement>(SHAPE)]
+            .map((element) => element.getBoundingClientRect())
+            .filter((box) => box.width > 0 && box.height > 0)
+            .map((box): [number, number, number, number] => [Math.floor(box.left * scale), Math.floor(box.top * scale), Math.ceil(box.right * scale), Math.ceil(box.bottom * scale)]);
+      const next = document.fullscreenElement || rects.length ? rects : NOTHING;
+      const shape = JSON.stringify(next);
+      if (shape === lastShape) return;
+      lastShape = shape;
+      await setShape(next);
+    };
 
     const exit = () => {
       if (!webamp) return;
@@ -320,22 +337,59 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
         cleanups.push(() => stopWaiting?.());
       }
 
+      // the window spreads over the screen's work area, shown as nothing until Winamp is drawn;
+      // Winamp opens where the studio's window stood
+      let target: { x: number; y: number; width: number; height: number } | null = null;
       if (win) {
         await onWindow(async () => {
           if (disposed) return;
           saved = { position: await win.outerPosition(), size: await win.innerSize(), maximized: await win.isMaximized() };
           sessionStorage.setItem(SAVED_WINDOW, JSON.stringify({ x: saved.position.x, y: saved.position.y, width: saved.size.width, height: saved.size.height, maximized: saved.maximized }));
+          const monitor = await currentMonitor();
+          if (!monitor) throw new Error('the screen under the window is not known');
+          await setShape(NOTHING);
+          lastShape = JSON.stringify(NOTHING);
           if (saved.maximized) await win.unmaximize();
           await win.setMinSize(null);
           await win.setDecorations(false);
           await win.setResizable(false);
           await win.setAlwaysOnTop(settings.alwaysOnTop);
+          const area = monitor.workArea;
+          await win.setSize(new PhysicalSize(area.size.width, area.size.height));
+          // the page, not the invisible border a frameless window keeps around it, lies on the work area
+          const page = await win.innerPosition();
+          const outer = await win.outerPosition();
+          await win.setPosition(new PhysicalPosition(area.position.x - (page.x - outer.x), area.position.y - (page.y - outer.y)));
+          zoom = settings.scale;
+          await getCurrentWebview().setZoom(zoom);
+          const pixels = monitor.scaleFactor * zoom;
+          target = {
+            x: (saved.position.x - area.position.x) / pixels,
+            y: (saved.position.y - area.position.y) / pixels,
+            width: area.size.width / pixels,
+            height: area.size.height / pixels,
+          };
         });
       }
       if (disposed) return;
       await webamp.renderInto(node);
       if (disposed) return;
-      await setZoom(settings.scale);
+      if (target) {
+        const place = target as { x: number; y: number; width: number; height: number };
+        const boxes = [...node.querySelectorAll<HTMLElement>(SELECTOR)].map((element) => element.getBoundingClientRect()).filter((box) => box.width > 0 && box.height > 0);
+        if (boxes.length) {
+          const left = Math.min(...boxes.map((box) => box.left));
+          const top = Math.min(...boxes.map((box) => box.top));
+          const width = Math.max(...boxes.map((box) => box.right)) - left;
+          const height = Math.max(...boxes.map((box) => box.bottom)) - top;
+          const dx = Math.round(Math.max(0, Math.min(place.x, place.width - width)) - left);
+          const dy = Math.round(Math.max(0, Math.min(place.y, place.height - height)) - top);
+          const windows = store().getState().windows.genWindows;
+          store().dispatch({ type: 'UPDATE_WINDOW_POSITIONS', positions: Object.fromEntries(Object.entries(windows).map(([id, info]) => [id, { x: info.position.x + dx, y: info.position.y + dy }])), absolute: true });
+        }
+      } else {
+        await setZoom(settings.scale);
+      }
 
       // the studio's equalizer, volume and balance carry over
       const eq = equalizer();
@@ -349,19 +403,37 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
 
       cleanups.push(webamp.onClose(exit));
       cleanups.push(webamp.onMinimize(() => void win?.minimize()));
-      cleanups.push(webamp.__onStateChange(fit));
-      const observer = new ResizeObserver(fit);
-      node.querySelectorAll(SELECTOR).forEach((element) => observer.observe(element));
+      cleanups.push(webamp.__onStateChange(() => {
+        onScreenPixels();
+        sharpen();
+        reshape();
+      }));
+      // a menu opens outside Webamp's node, a submenu shows on hover: both change what the shape keeps
+      const observer = new ResizeObserver(reshape);
+      const watchAll = () => document.querySelectorAll(SHAPE).forEach((element) => observer.observe(element));
       const watch = new MutationObserver(() => {
-        node.querySelectorAll(SELECTOR).forEach((element) => observer.observe(element));
-        fit();
+        watchAll();
+        reshape();
       });
       watch.observe(node, { childList: true, subtree: true });
+      watch.observe(document.body, { childList: true });
+      const onResize = () => {
+        onScreenPixels();
+        sharpen();
+        reshape();
+      };
+      window.addEventListener('resize', onResize);
+      document.addEventListener('fullscreenchange', reshape);
       cleanups.push(() => {
         observer.disconnect();
         watch.disconnect();
+        window.removeEventListener('resize', onResize);
+        document.removeEventListener('fullscreenchange', reshape);
       });
-      fit();
+      watchAll();
+      onScreenPixels();
+      sharpen();
+      reshape();
       const hideHint = window.setTimeout(() => setHint(false), 6000);
       cleanups.push(() => window.clearTimeout(hideHint));
 
@@ -509,7 +581,7 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
 
     return () => {
       disposed = true;
-      // queued after the setup and any fit, so the window's shape back is the last thing it gets
+      // queued after the setup and any new shape, so the window's shape back is the last thing it gets
       if (win) void onWindow(async () => {
         if (saved) await restoreWindow(win, saved);
       });
@@ -527,12 +599,12 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
     <div className="fixed inset-0 z-[300] overflow-hidden bg-black">
       <div ref={host} className="absolute inset-0" />
       {hint && !problem && (
-        <button type="button" onClick={() => setHint(false)} className="absolute bottom-1 left-1 right-1 z-[2000] rounded bg-black/85 px-2 py-1.5 text-left text-[11px] leading-snug text-white">
+        <button type="button" data-winamp-shape onClick={() => setHint(false)} className="absolute bottom-3 left-1/2 z-[2000] w-max max-w-md -translate-x-1/2 rounded bg-black/85 px-3 py-2 text-left text-[11px] leading-snug text-white">
           {t('winampHowToLeave')}
         </button>
       )}
       {problem && (
-        <div className="absolute bottom-2 left-2 right-2 z-[2000] rounded-md bg-rose-900/90 px-3 py-2 text-xs text-white">
+        <div data-winamp-shape className="absolute bottom-3 left-1/2 z-[2000] w-max max-w-lg -translate-x-1/2 rounded-md bg-rose-900/90 px-3 py-2 text-xs text-white">
           {problem}
           <button type="button" onClick={() => onExit({ songId: null, seconds: 0, playing: false, volume })} className="ml-3 underline">
             {t('winampLeave')}

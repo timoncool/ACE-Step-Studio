@@ -235,6 +235,7 @@ export const ko = {
     winampMuseum: "스킨 박물관",
     winampSkinsHint: "스킨: Winamp Skin Museum에서 .wsz를 내려받아 여기에 추가하거나 플레이어에 끌어다 놓으세요.",
     winampSkinNotKept: "스킨을 저장하지 못했습니다",
+    winampSkinNotSharp: "이 배율에서 스킨을 선명하게 그리지 못했습니다",
     winampLeave: "스튜디오로 돌아가기",
     studioFamily: "스튜디오 패밀리",
     studioFamilyLine: "하나의 코어 위에 세 가지 로컬 음악 스튜디오, 각자 자기 모델로: 같은 인터페이스, 같은 에이전트 도구, 그리고 각 모델이 가장 잘하는 것.",

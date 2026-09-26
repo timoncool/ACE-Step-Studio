@@ -29,10 +29,11 @@ export interface WinampSettings {
 export const SCALE_RANGE = { min: 1, max: 3, step: 0.1 };
 
 /**
- * Skins that come with the studio: the ones Webamp's own demo carries, and the
- * Classified trio from the top of the Winamp Skin Museum (skins.webamp.org).
+ * Skins that come with the studio: Winamp's own base skin first, the ones Webamp's own demo
+ * carries, and the Classified trio from the top of the Winamp Skin Museum (skins.webamp.org).
  */
 const BUILT_IN: [string, string][] = [
+  ['Winamp Classic 2.91', 'Winamp-Classic-2-91.wsz'],
   ['Green Dimension V2', 'Green-Dimension-V2.wsz'],
   ['Internet Archive', 'Internet-Archive.wsz'],
   ['Mac OS X v1.5 (Aqua)', 'MacOSXAqua1-5.wsz'],
@@ -48,7 +49,7 @@ const BUILT_IN: [string, string][] = [
 export const SKIN_MUSEUM = 'https://skins.webamp.org';
 
 const STORE = 'studio:winamp';
-const DEFAULT: WinampSettings = { skin: 'Winamp5 Classified', random: false, doubleSize: false, alwaysOnTop: false, scale: 1, skipMenu: false };
+const DEFAULT: WinampSettings = { skin: 'Winamp Classic 2.91', random: false, doubleSize: false, alwaysOnTop: false, scale: 1, skipMenu: false };
 
 function load(): WinampSettings {
   try {

@@ -30,6 +30,54 @@ interface ChangelogEntry {
   sections: { title: string; items: string[] }[];
 }
 
+/** Links in news text made clickable: https:// addresses and bare domains with a path (dalink.to/...). */
+function withLinks(text: string, key: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  const re = /(https?:\/\/[^\s]+|(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}\/[^\s]+)/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    const url = m[0];
+    const href = /^https?:\/\//.test(url) ? url : `https://${url}`;
+    parts.push(
+      <a key={`${key}-${m.index}`} href={href} target="_blank" rel="noopener noreferrer"
+         className="text-blue-600 dark:text-blue-400 hover:underline break-all">
+        {url}
+      </a>
+    );
+    last = m.index + url.length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts;
+}
+
+/** News text with **bold** words and links. */
+function inline(text: string, key: string): React.ReactNode[] {
+  return text.split(/(\*\*[^*]+\*\*)/).flatMap((piece, index) =>
+    piece.length > 4 && piece.startsWith('**') && piece.endsWith('**')
+      ? [<strong key={`${key}-b${index}`} className="font-semibold text-zinc-800 dark:text-zinc-200">{piece.slice(2, -2)}</strong>]
+      : withLinks(piece, `${key}-${index}`),
+  );
+}
+
+/** A news body: paragraphs apart by an empty line; a paragraph of "- " lines is a list. */
+const NewsBody: React.FC<{ text: string }> = ({ text }) => (
+  <div className="mt-3 space-y-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+    {text.split(/\n\s*\n/).map((block, index) => {
+      const lines = block.split('\n').filter((line) => line.trim());
+      if (lines.length && lines.every((line) => line.trimStart().startsWith('- '))) {
+        return (
+          <ul key={index} className="list-disc space-y-1.5 pl-5 marker:text-zinc-400 dark:marker:text-zinc-500">
+            {lines.map((line, at) => <li key={at}>{inline(line.trimStart().slice(2), `${index}-${at}`)}</li>)}
+          </ul>
+        );
+      }
+      return <p key={index} className="whitespace-pre-line">{inline(block, String(index))}</p>;
+    })}
+  </div>
+);
+
 function parseChangelog(raw: string): ChangelogEntry[] {
   const entries: ChangelogEntry[] = [];
   let current: ChangelogEntry | null = null;
@@ -222,30 +270,7 @@ export const NewsPage: React.FC = () => {
           )}
         </div>
 
-        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-3 leading-relaxed whitespace-pre-line">
-          {(() => {
-            const text = localize(item.body);
-            const parts: React.ReactNode[] = [];
-            // Match https:// URLs OR bare domains (dalink.to/...) to make them clickable.
-            const re = /(https?:\/\/[^\s]+|(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}\/[^\s]+)/g;
-            let last = 0;
-            let m: RegExpExecArray | null;
-            while ((m = re.exec(text)) !== null) {
-              if (m.index > last) parts.push(text.slice(last, m.index));
-              const url = m[0];
-              const href = /^https?:\/\//.test(url) ? url : `https://${url}`;
-              parts.push(
-                <a key={m.index} href={href} target="_blank" rel="noopener noreferrer"
-                   className="text-blue-600 dark:text-blue-400 hover:underline break-all">
-                  {url}
-                </a>
-              );
-              last = m.index + url.length;
-            }
-            if (last < text.length) parts.push(text.slice(last));
-            return parts;
-          })()}
-        </p>
+        <NewsBody text={localize(item.body)} />
 
         {item.links && item.links.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-3">

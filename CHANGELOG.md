@@ -17,9 +17,12 @@ What changed, newest first. Dates are release dates.
   by its corner, goes fullscreen, or moves into a window of its own that hears the studio live.
   Next and previous, hold a preset, random or in order, as MilkDrop's keys N, P, L, R, T and F.
 - **A Winamp mode.** The whole window becomes a classic Winamp 2 player: main window, equalizer,
-  playlist and MilkDrop, skinned. Ten skins come with the studio (the Classified trio and
-  Webamp's own favourites); the Winamp Skin Museum is one button away, and a .wsz is added with
-  a click or dropped on the player. Scale from 100 to 300 %, always on top, random skin, and a
+  playlist and MilkDrop, skinned. Its windows move apart and dock as Winamp's did, the playlist
+  and MilkDrop resize, and a click between them goes to whatever lies below. Winamp's own base
+  skin comes with the studio, and ten more (the Classified trio and Webamp's own favourites);
+  every skin is drawn sharp at any scale, resampled once to the screen's pixels. The Winamp Skin
+  Museum is one button away, and a .wsz is added with a click or dropped on the player. Scale
+  from 100 to 300 %, always on top, random skin, and a
   "don't ask" that starts it at once from the player bar or the sidebar. The song, its place,
   the volume and the equalizer go over to Winamp and come back to the studio; Ctrl+M switches.
 - **All of it for agents.** equalizer_*, visualizer_*, winamp_* tools; library_songs_list takes

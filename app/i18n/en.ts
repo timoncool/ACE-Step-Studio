@@ -236,6 +236,7 @@ export const en = {
     winampMuseum: "Skin Museum",
     winampSkinsHint: "Skins: download .wsz from the Winamp Skin Museum and add them here, or drop them on the player.",
     winampSkinNotKept: "The skin was not kept",
+    winampSkinNotSharp: "The skin could not be drawn sharp at this scale",
     winampLeave: "Back to the studio",
     studioFamily: "The studio family",
     studioFamilyLine: "Three local music studios on one core, each on its own model: the same interface, the same agent tools, and what each model does best.",
