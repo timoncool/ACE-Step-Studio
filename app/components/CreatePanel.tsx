@@ -240,7 +240,8 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const [repaintEnd, setRepaintEnd] = useState('');
 
   const [think, setThink] = useState(true);
-  const [cotCaption, setCotCaption] = useState(true);
+  // off as in ACE-Step's own interface: a written caption goes to the model word for word
+  const [cotCaption, setCotCaption] = useState(false);
   const [lmTemperature, setLmTemperature] = useState('');
   const [lmCfg, setLmCfg] = useState('');
   const [lmTopP, setLmTopP] = useState('');
