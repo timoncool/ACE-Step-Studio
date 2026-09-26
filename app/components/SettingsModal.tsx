@@ -41,13 +41,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
   const { user, setDisplayName } = useAuth();
   const { t, language, setLanguage } = useI18n();
   const [section, setSection] = useState<SectionId>('account');
+  /// A part of the page to open at, after a colon: `models:assistant`.
+  const [focus, setFocus] = useState<string | null>(null);
   // Opened from somewhere with a page in mind - the profile line, say.
   useEffect(() => {
     // Only a section that exists. Two of them were removed - the assistant and
     // karaoke are set up where they are installed now - and a button still
     // pointed at one, which silently opened whatever was first instead.
-    if (initialSection && sections.some((entry) => entry.id === initialSection)) {
-      setSection(initialSection as SectionId);
+    const [page, part] = (initialSection ?? '').split(':');
+    if (page && sections.some((entry) => entry.id === page)) {
+      setSection(page as SectionId);
+      setFocus(part || null);
     }
   }, [initialSection]);
   const [showLangInfo, setShowLangInfo] = useState(false);
@@ -144,7 +148,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
             {/* The same chooser as the first run, because it is the same
                 decision - only now nothing is waiting on it. */}
             {section === 'covers' && <CoverTemplateSettings />}
-            {section === 'models' && <div className="-m-6"><SetupGate mode="settings" /></div>}
+            {section === 'models' && <div className="-m-6"><SetupGate mode="settings" focus={focus} /></div>}
             {section === 'engine' && <EngineSettings />}
             {section === 'cloud' && <ProviderSettings />}
             {section === 'agent' && <AgentPanel />}

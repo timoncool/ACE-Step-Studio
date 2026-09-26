@@ -595,7 +595,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
 
   // Without an assistant the wands open its settings: hidden, they left no
   // sign that the studio can write a style or lyrics at all.
-  const openAssistantSetup = () => window.dispatchEvent(new CustomEvent('studio:open-settings', { detail: 'models' }));
+  const openAssistantSetup = () => window.dispatchEvent(new CustomEvent('studio:open-settings', { detail: 'models:assistant' }));
 
   const assistRun = useRef<AbortController | null>(null);
   const stopAssistant = () => {

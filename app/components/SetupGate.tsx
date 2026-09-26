@@ -121,10 +121,22 @@ export const OptionalGroup: React.FC<{
    * business appearing under llama.cpp.
    */
   children?: React.ReactNode | ((engine: string) => React.ReactNode);
-}> = ({ title, purpose, statusUrl, installUrl, removeUrl, engines, settingsUrl, serverField, cancelUrl, embedded, children }) => {
+  /** Opened and scrolled to: the page was asked for this capability. */
+  focused?: boolean;
+}> = ({ title, purpose, statusUrl, installUrl, removeUrl, engines, settingsUrl, serverField, cancelUrl, embedded, children, focused }) => {
   const { t } = useI18n();
+  const box = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<OptionalStatus | null>(null);
-  const [open, setOpen] = useState(Boolean(embedded));
+  const [open, setOpen] = useState(Boolean(embedded || focused));
+  const loaded = status !== null;
+  // Scrolled to once its own state is in: before that the page above it is
+  // still growing, and the group ends up below the fold again.
+  useEffect(() => {
+    if (!focused || !loaded) return;
+    setOpen(true);
+    const frame = window.requestAnimationFrame(() => box.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [focused, loaded]);
   // A download starts in the background, so the server's progress cell appears
   // a moment after the request is answered. Until it does the row showed
   // nothing at all, which read as a button that does not work.
@@ -246,7 +258,7 @@ export const OptionalGroup: React.FC<{
   const localEngines = (engines ?? []).filter((choice) => choice.device !== false);
 
   return (
-    <div className={embedded ? '' : 'overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-suno-card'}>
+    <div ref={box} className={embedded ? '' : 'scroll-mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-suno-card'}>
       {!embedded && (
       <button type="button" onClick={() => setOpen((value) => !value)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-white/5">
         <div className="min-w-0">
@@ -579,7 +591,7 @@ export const OptionalGroup: React.FC<{
  * the studio cannot work yet, and the settings page, where the models are there
  * and the question is only which of them to use.
  */
-export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 'settings' }> = ({ onReady, mode = 'first-run' }) => {
+export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 'settings'; focus?: string | null }> = ({ onReady, mode = 'first-run', focus = null }) => {
   const { t } = useI18n();
   const [status, setStatus] = useState<SetupStatus | null>(null);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
@@ -962,6 +974,7 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
           <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('optionalExtrasHint')}</p>
           <div className="mt-3 space-y-3">
             <OptionalGroup
+              focused={focus === 'assistant'}
               title={t('assistantSection')}
               purpose={t('assistantOptionalPurpose')}
               statusUrl="/v1/assistant/runtime"
