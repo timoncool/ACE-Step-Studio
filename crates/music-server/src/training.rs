@@ -1061,7 +1061,7 @@ impl Training {
             (card.take)().await;
             let data = inputs.data.clone();
             let outcome = match training.prepare_inputs(&run_id, dataset, data, cancel.clone()).await {
-                Ok(true) => training.work(&trainer, libraries.as_deref(), &run_dir, &run_id, stages, cancel).await,
+                Ok(true) => training.work(&trainer, libraries.as_deref(), &run_dir, &run_id, stages, 0, cancel).await,
                 other => other,
             };
             training.settle(&run_id, outcome).await;
@@ -1073,10 +1073,7 @@ impl Training {
     /// Where a run can be trained further from, or the code of what keeps it
     /// from going on.
     pub fn resume_point(&self, run_id: &str) -> Result<(u32, PathBuf), &'static str> {
-        let run = self.run(run_id).map_err(|_| "no_run")?;
-        if train::continuation_refused(&run.recipe) {
-            return Err("method");
-        }
+        self.run(run_id).map_err(|_| "no_run")?;
         let dir = self.run_dir(run_id).map_err(|_| "no_run")?;
         if !dir.join("tensors").is_dir() {
             return Err("prepared_gone");
@@ -1122,6 +1119,8 @@ impl Training {
         run.error = None;
         run.finished_at = None;
         run.continuations.push(Continuation { from, to: steps, at: now() });
+        // the trainer numbers the continuation's steps from nought; the chart goes on from the last one
+        let step_offset = run.steps.last().map_or(0, |record| record.step);
         self.save_run(&run)?;
         let cancel = Arc::new(tokio::sync::Notify::new());
         *active = Some(Active { run_id: run_id.to_string(), cancel: cancel.clone() });
@@ -1131,7 +1130,7 @@ impl Training {
         let run_id = run_id.to_string();
         tokio::spawn(async move {
             (card.take)().await;
-            let outcome = training.work(&trainer, libraries.as_deref(), &run_dir, &run_id, vec![stage], cancel).await;
+            let outcome = training.work(&trainer, libraries.as_deref(), &run_dir, &run_id, vec![stage], step_offset, cancel).await;
             training.settle(&run_id, outcome).await;
             (card.give_back)().await;
         });
@@ -1180,7 +1179,7 @@ impl Training {
     }
 
     /// Runs the stages in order; `Ok(false)` when cancelled.
-    async fn work(&self, trainer: &Path, libraries: Option<&Path>, run_dir: &Path, run_id: &str, stages: Vec<train::TrainingStage>, cancel: Arc<tokio::sync::Notify>) -> Result<bool> {
+    async fn work(&self, trainer: &Path, libraries: Option<&Path>, run_dir: &Path, run_id: &str, stages: Vec<train::TrainingStage>, step_offset: u32, cancel: Arc<tokio::sync::Notify>) -> Result<bool> {
         use tokio::io::AsyncWriteExt;
         let mut log = tokio::fs::OpenOptions::new().create(true).append(true).open(run_dir.join("run.log")).await?;
         for stage in stages {
@@ -1234,7 +1233,9 @@ impl Training {
                         Some(line) => {
                             log.write_all(line.as_bytes()).await?;
                             log.write_all(b"\n").await?;
-                            if let Some(step) = train::parse_training_step(&line) {
+                            if let Some(mut step) = train::parse_training_step(&line) {
+                                step.step += step_offset;
+                                step.total = step.total.map(|total| total + step_offset);
                                 let recorded = {
                                     let _edit = self.edits.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
                                     self.run(run_id).and_then(|mut run| { run.steps.push(step.into()); self.save_run(&run) })

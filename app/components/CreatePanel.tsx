@@ -809,7 +809,8 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       caption: genderLine && !instrumental && !described.includes(genderLine) ? `${described}\n${genderLine}` : described,
       lyrics: instrumental ? '[Instrumental]' : text('lyrics'),
       task_type: 'text2music',
-      think: true,
+      // a sound LoRA renders without the planner's audio codes, as ACE-Step's authors advise
+      think: !adapters.some(soundAdapter),
       use_cot_caption: !draft,
       inference_steps: dit.steps,
       shift: dit.shift,
@@ -847,7 +848,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       // with a LoRA the planner writes the song first and the render runs without its audio codes
       if (adapters.some(soundAdapter)) {
         const planned = await plan('inspire', { apply: false });
-        if (planned) onGenerate({ ...buildSimpleRequest(planned), think: false });
+        if (planned) onGenerate(buildSimpleRequest(planned));
         return;
       }
       onGenerate(buildSimpleRequest());

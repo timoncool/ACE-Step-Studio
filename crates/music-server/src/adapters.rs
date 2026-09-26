@@ -614,12 +614,17 @@ pub struct HubFile {
 }
 
 /// The header of a safetensors file on the Hub, fetched by range: eight bytes
-/// of length, then the JSON, never the weights.
+/// of length, then the JSON, never the weights. One read of the start covers
+/// an adapter's header; a longer one takes a second.
 async fn hub_header(http: &reqwest::Client, url: &str) -> Result<serde_json::Map<String, Value>> {
-    let length = http.get(url).header(reqwest::header::RANGE, "bytes=0-7").send().await?.error_for_status()?.bytes().await?;
-    let length = u64::from_le_bytes(length.get(..8).context("a safetensors file shorter than its header")?.try_into()?);
+    const FIRST: u64 = 256 << 10;
+    let start = http.get(url).header(reqwest::header::RANGE, format!("bytes=0-{}", FIRST - 1)).send().await?.error_for_status()?.bytes().await?;
+    let length = u64::from_le_bytes(start.get(..8).context("a safetensors file shorter than its header")?.try_into()?);
     if length > 64 << 20 {
         bail!("a safetensors header of {length} bytes");
+    }
+    if let Some(header) = start.get(8..8 + length as usize) {
+        return Ok(serde_json::from_slice(header)?);
     }
     let body = http.get(url).header(reqwest::header::RANGE, format!("bytes=8-{}", 7 + length)).send().await?.error_for_status()?.bytes().await?;
     Ok(serde_json::from_slice(&body)?)

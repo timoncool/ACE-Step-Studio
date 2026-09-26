@@ -721,22 +721,26 @@ const TrainStep: React.FC<{ state: TrainingState; dataset: Dataset; job: Prepare
   const blocker = !dataset.items.length ? t('trainingNeedSongs') : unsung ? t('trainingNeedLyrics').replace('{count}', String(unsung)) : preparing ? t('trainingWaitPrepare') : state.active ? t('trainingBusy') : baseMissing ? t('trainingBaseMissing') : null;
   // the BF16 base downloads through the model manager; its progress is read from there
   const [baseDownload, setBaseDownload] = useState<{ downloaded_bytes: number; total_bytes: number } | null>(null);
+  const fetchingBase = baseDownload !== null;
   useEffect(() => {
-    if (!baseDownload) return;
+    if (!fetchingBase) return;
     const timer = window.setInterval(() => {
       void fetch('/setup/status')
         .then(response => response.json())
-        .then((status: { active?: { status: string; downloaded_bytes: number; total_bytes: number } | null }) => {
-          if (status.active?.status === 'downloading') setBaseDownload(status.active);
-          else {
-            setBaseDownload(null);
-            onRefresh();
+        .then((status: { active?: { status: string; downloaded_bytes: number; total_bytes: number; error?: string | null } | null }) => {
+          const active = status.active;
+          if (active?.status === 'downloading') {
+            setBaseDownload(active);
+            return;
           }
+          setBaseDownload(null);
+          if (active?.status === 'failed' || active?.status === 'cancelled') onError(active.error || active.status);
+          onRefresh();
         })
         .catch((problem: unknown) => onError(errorText(problem)));
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [baseDownload, onRefresh, onError]);
+  }, [fetchingBase, onRefresh, onError]);
   const start = async () => {
     setStarting(true);
     try {

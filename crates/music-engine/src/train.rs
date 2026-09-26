@@ -265,20 +265,27 @@ fn base_args(base: &TrainingBase) -> Vec<OsString> {
     ]
 }
 
-/// The train-dit invocation of a recipe, writing into `out`.
-fn train_args(inputs: &TrainingInputs, out: &Path) -> Vec<OsString> {
+/// The train-dit invocation of a recipe, writing into `out`. A continuation
+/// (`from` an adapter) leaves the adapter's shape out: the trainer adopts the
+/// one it was trained with.
+fn train_args(inputs: &TrainingInputs, out: &Path, from: Option<&Path>) -> Vec<OsString> {
     let recipe = &inputs.recipe;
     let arg = |text: &str| OsString::from(text);
     let text = |value: &dyn ToString| OsString::from(value.to_string());
     let mut train = vec![arg("train-dit"), arg("--jsonl"), arg("--stages"), arg("train,export"), arg("--tensors"), path(&inputs.run.join("tensors")), arg("--out"), path(out)];
     train.extend(base_args(&inputs.base));
-    train.extend([arg("--adapter-type"), arg(&recipe.adapter)]);
-    if recipe.adapter == "lokr" {
-        train.extend([arg("--lokr-dim"), text(&recipe.lokr_dim), arg("--lokr-alpha"), text(&recipe.lokr_alpha), arg("--lokr-factor"), text(&recipe.lokr_factor)]);
-    } else {
-        train.extend([arg("--rank"), text(&recipe.rank), arg("--alpha"), text(&recipe.alpha)]);
+    match from {
+        Some(adapter) => train.extend([arg("--init-adapter"), path(adapter)]),
+        None => {
+            train.extend([arg("--adapter-type"), arg(&recipe.adapter)]);
+            if recipe.adapter == "lokr" {
+                train.extend([arg("--lokr-dim"), text(&recipe.lokr_dim), arg("--lokr-alpha"), text(&recipe.lokr_alpha), arg("--lokr-factor"), text(&recipe.lokr_factor)]);
+            } else {
+                train.extend([arg("--rank"), text(&recipe.rank), arg("--alpha"), text(&recipe.alpha)]);
+            }
+            train.push(arg(if recipe.target_mlp { "--target-mlp" } else { "--no-target-mlp" }));
+        }
     }
-    train.push(arg(if recipe.target_mlp { "--target-mlp" } else { "--no-target-mlp" }));
     train.extend([
         arg("--optimizer"),
         arg(&recipe.optimizer),
@@ -328,7 +335,7 @@ pub fn training_stages(inputs: &TrainingInputs) -> Vec<TrainingStage> {
     preprocess.extend([arg("--vae"), arg(&inputs.base.vae), arg("--text-enc"), arg(&inputs.base.text_encoder), arg("--overwrite")]);
     vec![
         TrainingStage { id: "preprocess", args: preprocess },
-        TrainingStage { id: "train", args: train_args(inputs, &output(&inputs.run)) },
+        TrainingStage { id: "train", args: train_args(inputs, &output(&inputs.run), None) },
     ]
 }
 
@@ -336,30 +343,7 @@ pub fn training_stages(inputs: &TrainingInputs) -> Vec<TrainingStage> {
 /// it (`--init-adapter`) and writes a new export beside it, so the one
 /// already installed stays as it was.
 pub fn continuation_stage(inputs: &TrainingInputs, resume: &Path, out: &Path) -> TrainingStage {
-    let mut train = train_args(inputs, out);
-    // the adapter's shape is the one it was trained with; the trainer adopts it
-    let identity = ["--adapter-type", "--rank", "--alpha", "--lokr-dim", "--lokr-alpha", "--lokr-factor", "--target-mlp", "--no-target-mlp"];
-    let mut kept = Vec::with_capacity(train.len());
-    let mut skip = 0;
-    for (index, arg) in train.drain(..).enumerate() {
-        if skip > 0 {
-            skip -= 1;
-            continue;
-        }
-        let text = arg.to_string_lossy().into_owned();
-        if identity.contains(&text.as_str()) && index > 0 {
-            skip = usize::from(!text.starts_with("--target-mlp") && !text.starts_with("--no-target-mlp"));
-            continue;
-        }
-        kept.push(arg);
-    }
-    kept.extend([OsString::from("--init-adapter"), path(resume)]);
-    TrainingStage { id: "train", args: kept }
-}
-
-/// Every recipe can be trained further: the adapter itself is the state.
-pub fn continuation_refused(_recipe: &Recipe) -> bool {
-    false
+    TrainingStage { id: "train", args: train_args(inputs, out, Some(resume)) }
 }
 
 /// The adapter files of an export folder, when it holds a finished one.
@@ -383,13 +367,20 @@ fn trained_epochs(folder: &Path) -> Option<u32> {
 pub const PROGRESS_UNIT: &str = "epoch";
 
 /// The export folders of a run, oldest first: `output`, then the
-/// continuations' `output-<n>`.
+/// continuations' `output-<n>` by their number.
 fn exports(run: &Path) -> Vec<PathBuf> {
-    let mut folders: Vec<PathBuf> = std::fs::read_dir(run)
-        .map(|entries| entries.flatten().map(|entry| entry.path()).filter(|path| path.is_dir()).collect())
-        .unwrap_or_default();
-    folders.retain(|folder| folder.file_name().and_then(|name| name.to_str()).is_some_and(|name| name == "output" || name.starts_with("output-")));
-    folders.sort_by_key(|folder| std::fs::metadata(folder).and_then(|meta| meta.modified()).ok());
+    numbered_exports(run).into_iter().map(|(_, folder)| folder).collect()
+}
+
+fn numbered_exports(run: &Path) -> Vec<(u32, PathBuf)> {
+    let order = |name: &str| if name == "output" { Some(0) } else { name.strip_prefix("output-")?.parse::<u32>().ok() };
+    let mut folders: Vec<(u32, PathBuf)> = std::fs::read_dir(run)
+        .map(|entries| entries.flatten().map(|entry| entry.path()).filter(|path| path.is_dir()).collect::<Vec<_>>())
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|folder| Some((order(folder.file_name()?.to_str()?)?, folder)))
+        .collect();
+    folders.sort_by_key(|(number, _)| *number);
     folders
 }
 
@@ -403,7 +394,8 @@ pub fn resume_point(run: &Path) -> Option<(u32, PathBuf)> {
 
 /// The folder a continuation exports into.
 pub fn continuation_output(run: &Path) -> PathBuf {
-    run.join(format!("output-{}", exports(run).len()))
+    // past the highest number, so a folder a failed continuation left is never reused
+    run.join(format!("output-{}", numbered_exports(run).last().map_or(1, |(number, _)| number + 1)))
 }
 
 /// A step of the training stage, as the trainer reports it.

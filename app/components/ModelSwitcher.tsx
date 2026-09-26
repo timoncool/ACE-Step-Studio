@@ -21,7 +21,6 @@ export type SwitcherStatus = {
 };
 
 type Catalog = { components: ModelComponent[]; profiles: Array<{ id: string; components: string[] }> };
-type Role = 'dit';
 
 const QUANTS = ['q4', 'q5', 'q6', 'q8', 'mxfp4', 'bf16'];
 const QUANT_LABEL: Record<string, string> = { q4: 'Q4', q5: 'Q5', q6: 'Q6', q8: 'Q8', mxfp4: 'MXFP4', bf16: 'BF16' };
@@ -46,7 +45,7 @@ export const ModelSwitcher: React.FC<{ status: SwitcherStatus | null; onChanged:
   const { t } = useI18n();
   const tt = t as unknown as (key: string) => string;
   const [catalog, setCatalog] = useState<Catalog | null>(null);
-  const [open, setOpen] = useState<Role | null>(null);
+  const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const box = useRef<HTMLDivElement | null>(null);
@@ -61,7 +60,7 @@ export const ModelSwitcher: React.FC<{ status: SwitcherStatus | null; onChanged:
   useEffect(() => {
     if (!open) return;
     const close = (event: MouseEvent) => {
-      if (box.current && !box.current.contains(event.target as Node)) setOpen(null);
+      if (box.current && !box.current.contains(event.target as Node)) setOpen(false);
     };
     window.addEventListener('mousedown', close);
     return () => window.removeEventListener('mousedown', close);
@@ -73,18 +72,18 @@ export const ModelSwitcher: React.FC<{ status: SwitcherStatus | null; onChanged:
     return catalog?.profiles.find(profile => profile.id === status?.selected_profile_id)?.components ?? [];
   }, [status, catalog]);
   const byId = useMemo(() => new Map((catalog?.components ?? []).map(component => [component.id, component])), [catalog]);
-  const chosen = (role: Role) => current.map(id => byId.get(id)).find(component => component?.kind === role);
+  const chosen = current.map(id => byId.get(id)).find(component => component?.kind === 'dit');
   const downloading = status?.active?.status === 'downloading' ? status.active : null;
 
   // what fits the model changes with it: the LoRA list marks adapters of the other size
-  const ditId = chosen('dit')?.id;
+  const ditId = chosen?.id;
   useEffect(() => {
     if (ditId) window.dispatchEvent(new CustomEvent('studio:models-changed'));
   }, [ditId]);
 
   const name = (variant: string) => tt(`aceVariant_${variant}`);
 
-  /** The current set with this role's component replaced. */
+  /** The current set with this component's role replaced. */
   const setWith = (component: ModelComponent) => {
     const others = current.filter(id => byId.get(id)?.kind !== component.kind);
     return [...others, component.id];
@@ -101,7 +100,7 @@ export const ModelSwitcher: React.FC<{ status: SwitcherStatus | null; onChanged:
         const body = await response.json().catch(() => null);
         throw new Error(body?.error || String(response.status));
       }
-      setOpen(null);
+      setOpen(false);
       onChanged();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
@@ -115,34 +114,32 @@ export const ModelSwitcher: React.FC<{ status: SwitcherStatus | null; onChanged:
     onChanged();
   };
 
-  const button = (role: Role) => {
-    const component = chosen(role);
-    const parts = component ? split(component) : null;
+  const button = () => {
+    const parts = chosen ? split(chosen) : null;
     return (
       <button
         type="button"
-        onClick={() => setOpen(current => (current === role ? null : role))}
-        className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors ${open === role ? 'border-pink-500 bg-pink-500/5' : 'border-zinc-200 bg-zinc-50 hover:border-pink-300 dark:border-white/10 dark:bg-black/25'}`}
+        onClick={() => setOpen(value => !value)}
+        className={`flex w-full min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors ${open ? 'border-pink-500 bg-pink-500/5' : 'border-zinc-200 bg-zinc-50 hover:border-pink-300 dark:border-white/10 dark:bg-black/25'}`}
       >
         <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-zinc-400">DiT</span>
         <span className="min-w-0 flex-1 truncate text-xs font-semibold text-zinc-900 dark:text-white">
           {parts ? `${name(parts.variant)} · ${QUANT_LABEL[parts.quant] ?? parts.quant}` : '—'}
         </span>
-        <ChevronDown size={14} className={`shrink-0 text-zinc-400 transition-transform ${open === role ? 'rotate-180' : ''}`} />
+        <ChevronDown size={14} className={`shrink-0 text-zinc-400 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
     );
   };
 
-  const list = (role: Role) => {
-    const groups = DIT_GROUPS;
-    const components = (catalog?.components ?? []).filter(component => component.kind === role);
-    const active = chosen(role)?.id;
+  const list = () => {
+    const components = (catalog?.components ?? []).filter(component => component.kind === 'dit');
+    const active = chosen?.id;
     return (
       <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-[60vh] overflow-y-auto rounded-xl border border-zinc-200 bg-white p-2 shadow-2xl dark:border-white/10 dark:bg-zinc-900">
         <p className="px-2 pb-1 text-[11px] text-zinc-500">
           <Check size={10} className="inline" /> {tt('aceInstalledLegend')} · <Download size={10} className="inline" /> {tt('aceDownloadLegend')}
         </p>
-        {groups.map(group => (
+        {DIT_GROUPS.map(group => (
           <div key={group.key} className="mb-1 last:mb-0">
             <p className="px-2 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-wide text-zinc-400">{tt(`aceVariantGroup_${group.key}`)}</p>
             {group.variants.map(variant => {
@@ -188,7 +185,7 @@ export const ModelSwitcher: React.FC<{ status: SwitcherStatus | null; onChanged:
         ))}
         <button
           type="button"
-          onClick={() => { setOpen(null); window.dispatchEvent(new CustomEvent('studio:open-settings', { detail: 'models' })); }}
+          onClick={() => { setOpen(false); window.dispatchEvent(new CustomEvent('studio:open-settings', { detail: 'models' })); }}
           className="mt-1 w-full rounded-lg px-2 py-1.5 text-left text-[11px] font-semibold text-zinc-500 hover:bg-zinc-100 hover:text-pink-600 dark:hover:bg-white/5"
         >
           {t('modelsSection')} · {t('modelsSectionHint')}
@@ -199,10 +196,8 @@ export const ModelSwitcher: React.FC<{ status: SwitcherStatus | null; onChanged:
 
   return (
     <div ref={box} className="relative rounded-xl border border-zinc-200 bg-white p-2 dark:border-white/5 dark:bg-suno-card">
-      <div className="flex gap-1.5">
-        {button('dit')}
-      </div>
-      {open && list(open)}
+      {button()}
+      {open && list()}
       {downloading && (
         <div className="mt-2 px-1">
           <div className="flex items-center justify-between gap-2 text-[11px] text-zinc-500">
