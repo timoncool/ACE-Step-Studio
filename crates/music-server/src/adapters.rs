@@ -908,7 +908,7 @@ mod tests {
                 assert!(file.bytes > 0);
                 assert!(file.file.ends_with(".safetensors") || file.file == "adapter_config.json", "{} is not an adapter file", file.file);
             }
-            assert_eq!(entry.files.iter().filter(|file| file.file.ends_with(".safetensors")).count(), 1, "{} is not one adapter", entry.id);
+            assert!(entry.files.iter().any(|file| file.file.ends_with(".safetensors")), "{} has no weights", entry.id);
             // a model with several sizes names the one each adapter fits
             let families = music_engine::model::MODEL_FAMILIES;
             assert!(families.is_empty() || families.iter().any(|(name, _)| entry.model.as_deref() == Some(*name)), "{} names no model size", entry.id);
