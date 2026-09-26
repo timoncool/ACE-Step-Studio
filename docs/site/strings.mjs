@@ -67,7 +67,7 @@ export const STRINGS = {
     samplesTitle: 'Songs made with it',
     samplesSub: 'Rendered on a clean install of the released build, as the studio saved them.',
     shotsTitle: 'Screenshots',
-    shotsSub: 'The studio itself, in this language.',
+    shotsSub: 'The studio itself, in your language.',
     shots: [
       ['01-create', 'Writing a song: caption, lyrics and metadata, the model switcher above the form.'],
       ['02-simple', 'The simple form: one line in, a whole song out.'],
@@ -169,7 +169,7 @@ export const STRINGS = {
     samplesTitle: 'Примеры',
     samplesSub: 'Сделаны на чистой установке релизной сборки, как их сохранила студия.',
     shotsTitle: 'Скриншоты',
-    shotsSub: 'Сама студия — на этом языке.',
+    shotsSub: 'Сама студия — на вашем языке.',
     shots: [
       ['01-create', 'Пишем песню: описание, текст и метаданные, над формой переключатель модели.'],
       ['02-simple', 'Простая форма: одна строка на входе, целая песня на выходе.'],
@@ -271,7 +271,7 @@ export const STRINGS = {
     samplesTitle: '用它做的歌',
     samplesSub: '在发布版全新安装上渲染，按工作室保存的原样。',
     shotsTitle: '截图',
-    shotsSub: '工作室本身，使用此语言。',
+    shotsSub: '工作室本身，使用你的语言。',
     shots: [
       ['01-create', '写歌：描述、歌词和元数据，表单上方是模型切换器。'],
       ['02-simple', '简单模式：一句话进去，一整首歌出来。'],
@@ -373,7 +373,7 @@ export const STRINGS = {
     samplesTitle: 'これで作った曲',
     samplesSub: 'リリース版のクリーンインストールで、スタジオが保存したままの形でレンダリング。',
     shotsTitle: 'スクリーンショット',
-    shotsSub: 'この言語のスタジオそのもの。',
+    shotsSub: 'スタジオそのものを、あなたの言語で。',
     shots: [
       ['01-create', '曲を書く：キャプション、歌詞、メタデータ、フォームの上にモデル切り替え。'],
       ['02-simple', 'シンプルフォーム：1 行入れれば曲がまるごと出てくる。'],
@@ -475,7 +475,7 @@ export const STRINGS = {
     samplesTitle: '이것으로 만든 곡',
     samplesSub: '릴리스 빌드의 새 설치에서, 스튜디오가 저장한 그대로 렌더링.',
     shotsTitle: '스크린샷',
-    shotsSub: '이 언어로 본 스튜디오.',
+    shotsSub: '스튜디오 그대로, 여러분의 언어로.',
     shots: [
       ['01-create', '곡 쓰기: 캡션, 가사, 메타데이터, 폼 위의 모델 전환기.'],
       ['02-simple', '간단 폼: 한 줄을 넣으면 곡 전체가 나옵니다.'],

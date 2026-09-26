@@ -5,23 +5,36 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>ACE-Step Studio — full songs with vocals, on your own GPU</title>
 <meta name="description" content="A desktop studio for the ACE-Step 1.5 music model: a caption and lyrics, or one line, in; a full song with vocals out. Covers, repaints, LoRA and your own LoRA training, stems, MIDI, karaoke. One executable, no Python, runs offline on NVIDIA GPUs from 4 GB." />
-<link rel="icon" type="image/png" href="logo.png" />
-<meta property="og:title" content="ACE-Step Studio" />
-<meta property="og:description" content="A desktop studio for the ACE-Step 1.5 music model: a caption and lyrics, or one line, in; a full song with vocals out. Covers, repaints, LoRA and your own LoRA training, stems, MIDI, karaoke. One executable, no Python, runs offline on NVIDIA GPUs from 4 GB." />
-<meta property="og:type" content="website" />
-<meta property="og:image" content="https://timoncool.github.io/ACE-Step-Studio/screenshots/en-01-create.png" />
+<link rel="canonical" href="https://timoncool.github.io/ACE-Step-Studio/" />
 <link rel="alternate" hreflang="en" href="https://timoncool.github.io/ACE-Step-Studio/" />
 <link rel="alternate" hreflang="ru" href="https://timoncool.github.io/ACE-Step-Studio/ru.html" />
 <link rel="alternate" hreflang="zh" href="https://timoncool.github.io/ACE-Step-Studio/zh.html" />
 <link rel="alternate" hreflang="ja" href="https://timoncool.github.io/ACE-Step-Studio/ja.html" />
 <link rel="alternate" hreflang="ko" href="https://timoncool.github.io/ACE-Step-Studio/ko.html" />
+<link rel="alternate" hreflang="x-default" href="https://timoncool.github.io/ACE-Step-Studio/" />
+<link rel="icon" type="image/png" href="logo.png" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="ACE-Step Studio" />
+<meta property="og:title" content="ACE-Step Studio — full songs with vocals, on your own GPU" />
+<meta property="og:description" content="A desktop studio for the ACE-Step 1.5 music model: a caption and lyrics, or one line, in; a full song with vocals out. Covers, repaints, LoRA and your own LoRA training, stems, MIDI, karaoke. One executable, no Python, runs offline on NVIDIA GPUs from 4 GB." />
+<meta property="og:url" content="https://timoncool.github.io/ACE-Step-Studio/" />
+<meta property="og:locale" content="en" />
+<meta property="og:image" content="https://timoncool.github.io/ACE-Step-Studio/og-en.jpg" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="Full songs with vocals, on your own GPU" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:image" content="https://timoncool.github.io/ACE-Step-Studio/og-en.jpg" />
+<link rel="preload" as="image" href="screenshots/en-01-create.webp" fetchpriority="high" />
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"SoftwareApplication","@id":"https://timoncool.github.io/ACE-Step-Studio/#app","name":"ACE-Step Studio","url":"https://timoncool.github.io/ACE-Step-Studio/","inLanguage":"en","description":"A desktop studio for the ACE-Step 1.5 music model: a caption and lyrics, or one line, in; a full song with vocals out. Covers, repaints, LoRA and your own LoRA training, stems, MIDI, karaoke. One executable, no Python, runs offline on NVIDIA GPUs from 4 GB.","applicationCategory":"MultimediaApplication","applicationSubCategory":"AI music generation","operatingSystem":"Windows 10, Windows 11","softwareVersion":"3.0.0","fileSize":"437 MB","downloadUrl":"https://github.com/timoncool/ACE-Step-Studio/releases/latest","isAccessibleForFree":true,"license":"https://opensource.org/licenses/MIT","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"image":"https://timoncool.github.io/ACE-Step-Studio/og-en.jpg","screenshot":"https://timoncool.github.io/ACE-Step-Studio/screenshots/en-01-create.webp","codeRepository":"https://github.com/timoncool/ACE-Step-Studio","sameAs":["https://github.com/timoncool/ACE-Step-Studio"],"author":{"@id":"https://github.com/timoncool#person"},"dateModified":"2026-09-27"},{"@type":"Person","@id":"https://github.com/timoncool#person","name":"Nerual Dreming","url":"https://github.com/timoncool","sameAs":["https://github.com/timoncool","https://t.me/nerual_dreming","https://artgeneration.me"]},{"@type":"FAQPage","inLanguage":"en","mainEntity":[{"@type":"Question","name":"What graphics card do I need?","acceptedAnswer":{"@type":"Answer","text":"Windows 10/11 x64 and an NVIDIA GPU with 4 GB of VRAM or more (GTX 900 or newer). The models are downloaded from inside the studio when you decide to. A runnable set is the DiT, the planner, the text encoder and the VAE, all in GGUF. The studio preselects the set your card can run, but the download is always your decision. Every file is checked by SHA-256 against a pinned Hugging Face revision, and an interrupted download resumes."}},{"@type":"Question","name":"Is it free?","acceptedAnswer":{"@type":"Answer","text":"Yes. The studio is free and open source, and the models download for free from inside it."}},{"@type":"Question","name":"Does it work offline? Is my music sent anywhere?","acceptedAnswer":{"@type":"Answer","text":"Your music is yours, and it stays on your disk. No account: There is nothing to sign up for. No telemetry: The studio does not report what you generate. Cloud is opt-in: Nothing leaves the machine until you add a key, and then only for that capability."}},{"@type":"Question","name":"Can I use the songs I make?","acceptedAnswer":{"@type":"Answer","text":"The studio, acestep.cpp and ACE-Step 1.5 are MIT. The Regrind fine-tune is CC BY-NC-SA 4.0; each catalogue LoRA carries its author's licence."}},{"@type":"Question","name":"Can I train it on my own style?","acceptedAnswer":{"@type":"Answer","text":"Songs of one artist or style become a LoRA on your card with HOT-Step's trainer and its LoKR recipe. Every setting is editable, and each checkpoint goes to the LoRA library in one click."}},{"@type":"Question","name":"Can an AI agent use it?","acceptedAnswer":{"@type":"Answer","text":"Connect Claude Code, Claude Desktop or Cursor and the agent does everything the studio does — 164 tools — and sees and works its window. ACE-Step's writing rules come with it, so the agent writes the songs itself."}},{"@type":"Question","name":"What is inside the download?","acceptedAnswer":{"@type":"Answer","text":"Local by default. A cloud key is added by you, for the capability you choose."}},{"@type":"Question","name":"How is it built?","acceptedAnswer":{"@type":"Answer","text":"The service is compiled into the desktop binary and supervises the C++ engine. Finished songs are imported by the service itself, so a result survives a reload or a closed window."}}]}]}</script>
 <style>
 :root {
-  --bg: #0a0a0c;
-  --panel: #141418;
+  --bg: #0b0b0e;
+  --panel: #141419;
+  --panel-2: #1b1b22;
   --line: rgba(255,255,255,.08);
-  --text: #f4f4f5;
-  --muted: #a1a1aa;
+  --text: #ececef;
+  --muted: #a3a3ad;
   --pink: #ec4899;
   --orange: #f97316;
 }
@@ -35,280 +48,304 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 a { color: inherit; }
-.wrap { max-width: 960px; margin: 0 auto; padding: 0 20px; }
+img { max-width: 100%; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+
 header {
   position: sticky; top: 0; z-index: 10;
-  background: rgba(10,10,12,.82); backdrop-filter: blur(10px);
+  background: rgba(11,11,14,.85); backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
-.family { border-bottom: 1px solid var(--line); }
-.family-bar { display: flex; gap: 4px; padding: 8px 0 0; overflow-x: auto; }
+.utility { border-bottom: 1px solid var(--line); }
+.utility-bar { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.family { display: flex; gap: 4px; padding-top: 8px; overflow-x: auto; }
 .family a {
   padding: 6px 14px; border: 1px solid transparent; border-bottom: none; border-radius: 9px 9px 0 0;
   color: var(--muted); font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap;
 }
 .family a:hover { color: var(--text); background: rgba(255,255,255,.04); }
 .family a[aria-current="page"] { color: var(--text); border-color: var(--line); background: rgba(236,72,153,.14); box-shadow: inset 0 2px 0 var(--pink); }
-.bar { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
+.langs { display: flex; gap: 14px; padding: 0 0 8px; white-space: nowrap; }
+.langs a { font-size: 12px; color: var(--muted); text-decoration: none; }
+.langs a:hover { color: var(--text); }
+.langs a[aria-current="page"] { color: var(--text); font-weight: 700; }
+.bar { display: flex; align-items: center; gap: 12px; padding-block: 10px; }
 .mark { width: 30px; height: 30px; border-radius: 9px; flex: none; }
-.name { font-weight: 800; letter-spacing: -.01em; }
-.langs { margin-left: auto; display: flex; flex-wrap: wrap; gap: 4px; }
-.langs button {
-  background: transparent; border: 1px solid var(--line); color: var(--muted);
-  border-radius: 999px; padding: 4px 10px; font-size: 12px; cursor: pointer;
+.name { font-weight: 800; letter-spacing: -.01em; white-space: nowrap; }
+.head-github, .head-download {
+  box-sizing: border-box; height: 40px; display: inline-flex; align-items: center; gap: 8px;
+  padding: 0 16px; border-radius: 10px; border: 1px solid transparent;
+  font-size: 14px; font-weight: 700; line-height: 1; white-space: nowrap; text-decoration: none;
+  transition: border-color .15s, background .15s, filter .15s;
 }
-.langs button[aria-pressed="true"] { color: #fff; border-color: var(--pink); background: rgba(236,72,153,.14); }
-/* Each language is its own page, so the switcher is made of links. */
-.langs a {
-  padding: 6px 10px; border-radius: 999px; font-size: 13px; text-decoration: none;
-  color: var(--muted); border: 1px solid var(--line); background: transparent;
-}
-.langs a:hover { color: var(--text); border-color: var(--pink); }
-.langs a[aria-current="page"] { color: #fff; border-color: var(--pink); background: rgba(236,72,153,.14); }
-h1 { font-size: clamp(30px, 6vw, 52px); line-height: 1.08; letter-spacing: -.02em; margin: 40px 0 0; }
-.lead { color: var(--muted); font-size: clamp(16px, 2.4vw, 19px); margin: 16px 0 0; max-width: 46em; }
-.cta { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0 8px; }
+.head-github { margin-left: auto; padding-right: 10px; color: var(--text); background: #2a2a34; }
+.head-github:hover { background: #34343f; }
+/* its word is mostly lowercase without ascenders: lifted 2px so the letters, not the line box, sit in the middle */
+.head-download { margin-left: 10px; padding-bottom: 4px; color: #fff; background: linear-gradient(90deg, var(--orange), var(--pink)); }
+.head-download:hover { filter: brightness(1.08); }
+
+.hero { padding-top: 56px; text-align: center; }
+h1 { font-size: clamp(34px, 6.4vw, 64px); line-height: 1.05; letter-spacing: -.025em; margin: 0 auto; max-width: 15em; }
+.lead { color: var(--muted); font-size: clamp(17px, 2.2vw, 20px); margin: 18px auto 0; max-width: 38em; }
+.cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 30px 0 10px; }
 .btn {
-  display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
-  border-radius: 12px; padding: 12px 18px; font-weight: 700; font-size: 15px;
-  border: 1px solid var(--line); color: var(--text);
+  display: inline-flex; align-items: center; gap: 10px; text-decoration: none;
+  border-radius: 12px; padding: 13px 20px; font-weight: 700; font-size: 16px;
+  border: 1px solid var(--line); color: var(--text); background: var(--panel);
 }
+.btn:hover { border-color: rgba(255,255,255,.2); }
+.btn small { font-weight: 600; font-size: 12px; opacity: .8; }
+.btn img { display: block; }
 .btn.primary { background: linear-gradient(90deg, var(--orange), var(--pink)); border-color: transparent; color: #fff; }
-.note { color: var(--muted); font-size: 13px; margin-top: 4px; }
-section { padding: 48px 0 0; }
-h2 { font-size: clamp(21px, 3.4vw, 28px); letter-spacing: -.01em; margin: 0 0 6px; }
-.sub { color: var(--muted); margin: 0 0 20px; }
-.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
-.card h3 { margin: 0 0 6px; font-size: 16px; }
-.card p { margin: 0; color: var(--muted); font-size: 14px; }
-.scroll { overflow-x: auto; }
-.hero-shot { margin: 28px 0 0; }
+.note { color: var(--muted); font-size: 13px; margin: 6px auto 0; max-width: 60em; }
+.hero-shot { margin: 36px 0 0; }
 .hero-shot img {
-  width: 100%; height: auto; display: block; border-radius: 16px;
-  border: 1px solid var(--line); box-shadow: 0 24px 60px rgba(0,0,0,.35);
-}
-.grid-shots { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
-.grid-shots figure { margin: 0; cursor: zoom-in; }
-.grid-shots img {
-  display: block; width: 100%; height: auto; border-radius: 12px;
-  border: 1px solid var(--line); background: var(--panel); transition: transform .15s ease;
-}
-.grid-shots figure:hover img { transform: translateY(-2px); }
-.grid-shots figcaption { color: var(--muted); font-size: 12px; margin-top: 6px; }
-.viewer {
-  position: fixed; inset: 0; z-index: 50; display: none;
-  background: rgba(0,0,0,.92); padding: 24px;
-  align-items: center; justify-content: center;
-}
-.viewer.open { display: flex; }
-.viewer img { max-width: 96vw; max-height: 92vh; border-radius: 10px; }
-.viewer button {
-  position: absolute; top: 16px; right: 20px; background: transparent;
-  border: 0; color: #fff; font-size: 28px; cursor: pointer; line-height: 1;
-}
-.shots { display: grid; gap: 18px; }
-.shots figure { margin: 0; }
-.shots img {
-  display: block; width: 100%; height: auto; border-radius: 14px;
-  border: 1px solid var(--line); background: var(--panel);
-}
-.shots figcaption { color: var(--muted); font-size: 13px; margin-top: 8px; }
-table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 460px; }
-th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--line); }
-th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
-code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
-pre {
-  background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
-  padding: 16px; overflow-x: auto; font-size: 13px; color: #e4e4e7;
-}
-ol.steps { padding-left: 20px; color: var(--muted); }
-ol.steps li { margin-bottom: 8px; }
-ol.steps b { color: var(--text); }
-footer { margin-top: 56px; padding: 28px 0 48px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
-footer a { color: var(--text); }
-.pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.pill { border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 13px; text-decoration: none; }
-@media (prefers-color-scheme: light) {
-  :root { --bg: #ffffff; --panel: #f7f7f8; --line: rgba(0,0,0,.10); --text: #18181b; --muted: #52525b; }
-  header { background: rgba(255,255,255,.85); }
-  pre { color: #27272a; }
+  width: 100%; height: auto; display: block; border-radius: 16px; border: 1px solid var(--line); cursor: zoom-in;
+  box-shadow: 0 30px 80px rgba(236,72,153,.12), 0 10px 40px rgba(0,0,0,.5);
 }
 
-.samples { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
-.sample { margin: 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
-.sample figcaption { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+section { padding: 72px 0 0; }
+h2 { font-size: clamp(26px, 3.6vw, 36px); letter-spacing: -.02em; margin: 0 0 8px; }
+.sub { color: var(--muted); margin: 0 0 24px; max-width: 46em; }
+
+.samples { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.sample { margin: 0; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+.sample figcaption { display: grid; gap: 2px; margin-bottom: 10px; }
 .sample b { font-size: 15px; }
 .sample span { color: var(--muted); font-size: 13px; }
-.sample code { color: var(--muted); font-size: 11px; line-height: 1.4; }
-.sample audio { width: 100%; }
+.sample audio { width: 100%; height: 36px; }
+details.more summary { cursor: pointer; color: var(--muted); font-weight: 600; margin: 16px 0 12px; }
+
+/* each tile is title, picture, text; the three rows line up across tiles side by side */
+.bento { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 14px; row-gap: 0; margin-top: 24px; }
+.tile {
+  display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: 14px; margin-bottom: 14px; padding: 22px;
+  border: 1px solid var(--line); border-radius: 20px; background: linear-gradient(180deg, var(--panel-2), var(--panel));
+}
+.tile h3 { margin: 0; font-size: 19px; letter-spacing: -.01em; align-self: start; }
+.tile p { margin: 0; color: var(--muted); font-size: 14.5px; line-height: 1.5; }
+.shot { margin: 0; align-self: start; }
+.shot img {
+  display: block; width: 100%; height: auto;
+  border-radius: 10px; border: 1px solid rgba(255,255,255,.1); cursor: zoom-in;
+  box-shadow: 0 12px 30px rgba(0,0,0,.45);
+}
+
+.gallery { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.gallery figure { margin: 0; }
+.gallery img {
+  display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; object-position: top left;
+  border-radius: 10px; border: 1px solid var(--line); cursor: zoom-in;
+}
+.gallery figcaption {
+  margin-top: 8px; color: var(--muted); font-size: 13px; line-height: 1.45;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.stars { display: block; }
+
+.steps { list-style: none; margin: 20px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.steps li { padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); display: grid; gap: 6px; align-content: start; }
+.steps b { font-size: 16px; display: flex; align-items: baseline; gap: 10px; }
+.steps .num { color: var(--pink); font-weight: 800; }
+.steps span { color: var(--muted); font-size: 14px; line-height: 1.5; }
+#start .cta { justify-content: flex-start; margin-top: 24px; }
+
+#faq details { border-bottom: 1px solid var(--line); }
+#faq details:first-of-type { border-top: 1px solid var(--line); }
+#faq summary {
+  list-style: none; cursor: pointer; padding: 18px 36px 18px 0; font-weight: 700; font-size: 17px; position: relative;
+}
+#faq summary::-webkit-details-marker { display: none; }
+#faq summary::after { content: '+'; position: absolute; right: 4px; top: 14px; font-size: 24px; color: var(--muted); font-weight: 400; }
+#faq details[open] summary::after { content: '−'; }
+.answer { padding: 0 0 20px; color: var(--muted); max-width: 48em; }
+.answer p { margin: 0 0 10px; }
+.answer b { color: var(--text); }
+.answer ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+
+.scroll { overflow-x: auto; margin: 10px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+td { color: var(--text); }
+pre { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; overflow-x: auto; font-size: 13px; color: var(--text); }
+
+.pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill { text-decoration: none; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); font-size: 14px; }
+.pill:hover { border-color: var(--pink); }
+footer { margin: 72px 0 40px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+footer p { margin: 0 0 8px; }
+
+.viewer { position: fixed; inset: 0; background: rgba(0,0,0,.9); display: none; align-items: center; justify-content: center; z-index: 50; padding: 24px; }
+.viewer.open { display: flex; }
+.viewer img { max-width: 100%; max-height: 100%; border-radius: 10px; }
+.viewer button { position: absolute; top: 14px; right: 18px; background: none; border: 0; color: #fff; font-size: 34px; cursor: pointer; }
+
+@media (max-width: 860px) {
+  .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .hero { padding-top: 36px; }
+  .name { display: none; }
+  .utility-bar { flex-direction: column; align-items: stretch; gap: 0; }
+  .langs { order: -1; justify-content: flex-end; padding: 8px 0 0; }
+  .btn { width: 100%; justify-content: center; }
+}
 </style>
 </head>
 <body>
 <header>
-  <nav class="family" aria-label="Studios"><div class="wrap family-bar">
+  <div class="utility"><div class="wrap utility-bar">
+    <nav class="family" aria-label="Studios">
     <a href="https://timoncool.github.io/YuE2-Studio/">YuE2 Studio</a>
     <a href="https://timoncool.github.io/MiniMax-Music3-Studio/">MiniMax Music3 Studio</a>
     <a href="https://timoncool.github.io/ACE-Step-Studio/" aria-current="page">ACE-Step Studio</a>
-  </div></nav>
-  <div class="wrap bar">
-    <img class="mark" src="logo.png" alt="" />
-    <div class="name">ACE-Step Studio</div>
-    <nav class="langs" aria-label="Language">
-      <a href="index.html" aria-current="page">English</a>
-      <a href="ru.html">Русский</a>
-      <a href="zh.html">中文</a>
-      <a href="ja.html">日本語</a>
-      <a href="ko.html">한국어</a>
     </nav>
+    <nav class="langs" aria-label="Language">
+      <a href="index.html" hreflang="en" aria-current="page">English</a>
+      <a href="ru.html" hreflang="ru">Русский</a>
+      <a href="zh.html" hreflang="zh">中文</a>
+      <a href="ja.html" hreflang="ja">日本語</a>
+      <a href="ko.html" hreflang="ko">한국어</a>
+    </nav>
+  </div></div>
+  <div class="wrap bar">
+    <img class="mark" src="logo.png" alt="" width="30" height="30" />
+    <div class="name">ACE-Step Studio</div>
+    <a class="head-github" href="https://github.com/timoncool/ACE-Step-Studio">GitHub<img class="stars" src="https://img.shields.io/github/stars/timoncool/ACE-Step-Studio?style=flat&amp;label=%E2%98%85&amp;color=3f3f46" alt="GitHub stars" height="20" /></a>
+    <a class="head-download" href="https://github.com/timoncool/ACE-Step-Studio/releases/latest">Download</a>
   </div>
 </header>
 
 <main class="wrap">
-  <img src="logo.png" alt="ACE-Step Studio" width="96" height="96" style="border-radius:22px;margin-top:36px" />
-  <h1>Full songs with vocals, on your own GPU</h1>
-  <p class="lead">A desktop studio for ACE-Step 1.5, the open music model that writes and sings full songs. Describe the sound and write lyrics — or give it one line — and it plans the song with its language model and renders it with vocals on your own card. One executable on the native C++ engine acestep.cpp — no Python, no launcher.</p>
-  <div class="cta">
-    <a class="btn primary" href="https://github.com/timoncool/ACE-Step-Studio/releases/latest">Download for Windows</a>
-    <a class="btn" href="https://github.com/timoncool/ACE-Step-Studio">Source on GitHub</a>
-    <a class="btn" href="https://github.com/timoncool/ACE-Step-Studio/blob/main/DONATE.md">Support the project</a>
-  </div>
-  <p class="note">Windows 10/11 x64 and an NVIDIA GPU with 4 GB of VRAM or more (GTX 900 or newer). The models are downloaded from inside the studio when you decide to.</p>
-
-  <figure class="hero-shot">
-    <img src="screenshots/en-01-create.png" alt="Writing a song: caption, lyrics and metadata, the model switcher above the form." loading="eager" />
-  </figure>
-
-  <section>
-    <h2>What it does</h2>
-    <p class="sub">Everything below runs on your machine unless you connect a cloud key yourself.</p>
-    <div class="grid">
-      <div class="card"><h3>Full songs</h3><p>Up to ten minutes from a caption and lyrics. ACE-Step's planner fills in what you leave out — tempo, key, length, even the lyrics — and plans the structure before the DiT renders it.</p></div>
-      <div class="card"><h3>A song from one line</h3><p>The simple form: an idea in, a finished song out. The writing assistant or ACE-Step's planner writes it, never both at once.</p></div>
-      <div class="card"><h3>Every ACE-Step model</h3><p>The 2B and XL DiT — turbo, SFT, base, merges, community fine-tunes — in Q4 to BF16, switched above the create form. Planners of 0.6B, 1.7B and 4B.</p></div>
-      <div class="card"><h3>Covers, remixes, repaints</h3><p>Render a library track in a new style, remix it, repaint a stretch of it, or extract, add and complete stems with a base model.</p></div>
-      <div class="card"><h3>Exact replay</h3><p>Every track keeps its request and audio codes: re-render it bit for bit, or with other steps, a new seed, several takes.</p></div>
-      <div class="card"><h3>200 ready examples</h3><p>ACE-Step's own example requests, one click to load.</p></div>
-      <div class="card"><h3>A writing assistant</h3><p>A local Gemma, OpenRouter or your agent writes the caption and lyrics from an idea by ACE-Step's official songwriting rules.</p></div>
-      <div class="card"><h3>A LoRA catalogue</h3><p>131 LoRA picked from Hugging Face by likes and downloads, described and credited, and a search of everything Hugging Face has — every file checked for the model size it fits before it downloads.</p></div>
-      <div class="card"><h3>Your own LoRA</h3><p>Songs of one artist or style become a LoRA on your card with HOT-Step's trainer and its LoKR recipe. Every setting is editable, and each checkpoint goes to the LoRA library in one click.</p></div>
-      <div class="card"><h3>A dataset in one drop</h3><p>Drop a folder: the lyrics come word for word from the databases players use, Whisper hears only what none of them knows, MOSS-Music listens to every song and describes it. A restart picks the work up where it stopped.</p></div>
-      <div class="card"><h3>Word-level karaoke</h3><p>Enhanced LRC with a timestamp on every word, aligned by Parakeet or Whisper.</p></div>
-      <div class="card"><h3>Stems and MIDI</h3><p>Six stems with HT-Demucs; any track to multi-instrument MIDI with MuScriptor, with a piano roll played against the original.</p></div>
-      <div class="card"><h3>Audio processing</h3><p>Noise reduction, the Spectral Lifter, a vocal naturaliser, your own VST3 plugins and mastering to a reference.</p></div>
-      <div class="card"><h3>Driven by your agent (MCP)</h3><p>Connect Claude Code, Claude Desktop or Cursor and the agent does everything the studio does — 164 tools — and sees and works its window. ACE-Step's writing rules come with it, so the agent writes the songs itself.</p></div>
-      <div class="card"><h3>A player of its own</h3><p>A ten-band equalizer on Winamp's frequencies with its presets and .EQF files; MilkDrop with hundreds of presets or a spectrum in ten looks; and a Winamp mode whose windows move apart, dock and resize, in the original skin or any from the Winamp Skin Museum.</p></div>
-      <div class="card"><h3>Save as, and a Files panel</h3><p>Songs, stems, MIDI, lyric sheets, scores and videos are saved where you say, in Windows' own Save dialog, and the Files panel shows each save.</p></div>
-      <div class="card"><h3>A proxy for the whole studio</h3><p>HTTP, HTTPS, SOCKS5 or SOCKS4, with a login: model downloads, Hugging Face, OpenRouter and updates go through it.</p></div>
+  <section class="hero">
+    <h1>Full songs with vocals, on your own GPU</h1>
+    <p class="lead">A desktop studio for ACE-Step 1.5, the open music model that writes and sings full songs.</p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/timoncool/ACE-Step-Studio/releases/latest">Download for Windows<small data-release>v3.0.0 · 437 MB</small></a>
+      <a class="btn" href="https://github.com/timoncool/ACE-Step-Studio">Star on GitHub<img class="stars" src="https://img.shields.io/github/stars/timoncool/ACE-Step-Studio?style=flat&amp;label=%E2%98%85&amp;color=3f3f46" alt="GitHub stars" height="20" /></a>
     </div>
+    <p class="note">Windows 10/11 x64 and an NVIDIA GPU with 4 GB of VRAM or more (GTX 900 or newer). The models are downloaded from inside the studio when you decide to.</p>
+    <figure class="hero-shot"><img src="screenshots/en-01-create.webp" alt="Writing a song: caption, lyrics and metadata, the model switcher above the form." width="1600" height="1000" fetchpriority="high" /></figure>
   </section>
 
-  <section id="samples">
+  <section id="listen">
     <h2>Songs made with it</h2>
     <p class="sub">Rendered on a clean install of the released build, as the studio saved them.</p>
     <div class="samples">
-      <figure class="sample"><figcaption><b>Neon Harbor</b><span>English synth-pop from a caption and lyrics.</span><code>80s synth-pop, warm female vocal, analog arpeggios, gated reverb snare, 118 BPM</code></figcaption><audio controls preload="none" src="samples/neon-harbor.mp3"></audio></figure>
-      <figure class="sample"><figcaption><b>Дорога домой</b><span>Russian folk rock with accordion.</span><code>Russian folk rock, raspy male vocal, accordion hooks, galloping bass, 142 BPM</code></figcaption><audio controls preload="none" src="samples/doroga-domoy.mp3"></audio></figure>
-      <figure class="sample"><figcaption><b>夜の電車</b><span>Japanese city pop.</span><code>city pop, airy female vocal, electric piano, slap bass, brass stabs, 104 BPM</code></figcaption><audio controls preload="none" src="samples/yoru-no-densha.mp3"></audio></figure>
-      <figure class="sample"><figcaption><b>Fuego lento</b><span>Latin pop in Spanish.</span><code>latin pop, warm male vocal, nylon guitar, congas, piano montuno, 96 BPM</code></figcaption><audio controls preload="none" src="samples/fuego-lento.mp3"></audio></figure>
-      <figure class="sample"><figcaption><b>Midnight Drive</b><span>An instrumental: synthwave.</span><code>instrumental synthwave, analog bass arpeggios, gated drums, lush pads, 100 BPM</code></figcaption><audio controls preload="none" src="samples/midnight-drive.mp3"></audio></figure>
-      <figure class="sample"><figcaption><b>Classic lo-fi hip-hop instrumental</b><span>One line in the simple form: ACE-Step's planner wrote the caption, tempo and key.</span><code>one line: a warm lo-fi beat for a rainy night drive, dusty drums and mellow electric piano</code></figcaption><audio controls preload="none" src="samples/one-line.mp3"></audio></figure>
-      <figure class="sample"><figcaption><b>Neon harbor, call my name</b><span>Cover: the first song rendered again as an acoustic ballad.</span><code>acoustic ballad, breathy female vocal, fingerpicked guitar, gentle piano</code></figcaption><audio controls preload="none" src="samples/neon-harbor-cover.mp3"></audio></figure>
-      <figure class="sample"><figcaption><b>Night Rider</b><span>With a LoRA from the catalogue: Synthwave XL by ryanontheinside.</span><code>roti-s1nthwv, driving synthwave, powerful male vocal, pulsing analog bass, 118 BPM</code></figcaption><audio controls preload="none" src="samples/night-rider-lora.mp3"></audio></figure>
+      <figure class="sample"><figcaption><b>Neon Harbor</b><span>English synth-pop from a caption and lyrics.</span></figcaption><audio controls preload="none" src="samples/neon-harbor.mp3"></audio></figure>
+      <figure class="sample"><figcaption><b>Дорога домой</b><span>Russian folk rock with accordion.</span></figcaption><audio controls preload="none" src="samples/doroga-domoy.mp3"></audio></figure>
+      <figure class="sample"><figcaption><b>夜の電車</b><span>Japanese city pop.</span></figcaption><audio controls preload="none" src="samples/yoru-no-densha.mp3"></audio></figure>
+      <figure class="sample"><figcaption><b>Fuego lento</b><span>Latin pop in Spanish.</span></figcaption><audio controls preload="none" src="samples/fuego-lento.mp3"></audio></figure>
+      <figure class="sample"><figcaption><b>Midnight Drive</b><span>An instrumental: synthwave.</span></figcaption><audio controls preload="none" src="samples/midnight-drive.mp3"></audio></figure>
+      <figure class="sample"><figcaption><b>Classic lo-fi hip-hop instrumental</b><span>One line in the simple form: ACE-Step's planner wrote the caption, tempo and key.</span></figcaption><audio controls preload="none" src="samples/one-line.mp3"></audio></figure>
+    </div>
+    <details class="more"><summary>More examples (2)</summary><div class="samples">
+      <figure class="sample"><figcaption><b>Neon harbor, call my name</b><span>Cover: the first song rendered again as an acoustic ballad.</span></figcaption><audio controls preload="none" src="samples/neon-harbor-cover.mp3"></audio></figure>
+      <figure class="sample"><figcaption><b>Night Rider</b><span>With a LoRA from the catalogue: Synthwave XL by ryanontheinside.</span></figcaption><audio controls preload="none" src="samples/night-rider-lora.mp3"></audio></figure>
+    </div></details>
+  </section>
+  <section id="features">
+    <h2>What it does</h2>
+    <div class="bento">
+      <article class="tile">
+        <h3>A LoRA catalogue</h3>
+        <figure class="shot"><img src="screenshots/en-05-lora.webp" alt="The LoRA catalogue: 131 LoRA with their authors, likes and downloads, marked for 2B or XL." loading="lazy" width="1440" height="960" /></figure>
+        <p>131 LoRA picked from Hugging Face by likes and downloads, described and credited, and a search of everything Hugging Face has — every file checked for the model size it fits before it downloads.</p>
+      </article>
+      <article class="tile">
+        <h3>A song from one line</h3>
+        <figure class="shot"><img src="screenshots/en-02-simple.webp" alt="The simple form: one line in, a whole song out." loading="lazy" width="1440" height="960" /></figure>
+        <p>The simple form: an idea in, a finished song out.</p>
+      </article>
+      <article class="tile">
+        <h3>Your own LoRA</h3>
+        <figure class="shot"><img src="screenshots/en-08-training.webp" alt="Your own LoRA trained on the card, the loss as it learns, one click into the library." loading="lazy" width="1440" height="960" /></figure>
+        <p>Songs of one artist or style become a LoRA on your card with HOT-Step's trainer and its LoKR recipe.</p>
+      </article>
+      <article class="tile">
+        <h3>Stems and MIDI</h3>
+        <figure class="shot"><img src="screenshots/en-09-midi.webp" alt="Any track to MIDI: a piano roll of every instrument, played against the original." loading="lazy" width="1440" height="960" /></figure>
+        <p>Six stems with HT-Demucs; any track to multi-instrument MIDI with MuScriptor, with a piano roll played against the original.</p>
+      </article>
+      <article class="tile">
+        <h3>A player of its own</h3>
+        <figure class="shot"><img src="screenshots/en-14-winamp.webp" alt="The whole window as Winamp 2: equalizer, playlist and MilkDrop, skinned." loading="lazy" width="1088" height="696" /></figure>
+        <p>A ten-band equalizer on Winamp's frequencies with its presets and .EQF files; MilkDrop with hundreds of presets or a spectrum in ten looks; and a Winamp mode whose windows move apart, dock and resize, in the original skin or any from the Winamp Skin Museum.</p>
+      </article>
+      <article class="tile">
+        <h3>Driven by your agent (MCP)</h3>
+        <figure class="shot"><img src="screenshots/en-11-agent.webp" alt="Connect an agent over MCP: the address and the lines to paste into Claude Code or any other client." loading="lazy" width="1440" height="960" /></figure>
+        <p>Connect Claude Code, Claude Desktop or Cursor and the agent does everything the studio does — 164 tools — and sees and works its window.</p>
+      </article>
     </div>
   </section>
 
-  <section>
+  <section id="screenshots">
     <h2>Screenshots</h2>
-    <p class="sub">The studio itself, in this language.</p>
-    <div class="grid-shots">
-      <figure><img src="screenshots/en-01-create.png" alt="Writing a song: caption, lyrics and metadata, the model switcher above the form." loading="lazy" /><figcaption>Writing a song: caption, lyrics and metadata, the model switcher above the form.</figcaption></figure>
-      <figure><img src="screenshots/en-02-simple.png" alt="The simple form: one line in, a whole song out." loading="lazy" /><figcaption>The simple form: one line in, a whole song out.</figcaption></figure>
-      <figure><img src="screenshots/en-03-track.png" alt="A finished track with its lyrics, ready to replay, cover or repaint." loading="lazy" /><figcaption>A finished track with its lyrics, ready to replay, cover or repaint.</figcaption></figure>
-      <figure><img src="screenshots/en-04-models.png" alt="The model switcher: every DiT of ACE-Step 1.5 with its quantisations, what is on disk, switching in one click." loading="lazy" /><figcaption>The model switcher: every DiT of ACE-Step 1.5 with its quantisations, what is on disk, switching in one click.</figcaption></figure>
-      <figure><img src="screenshots/en-05-lora.png" alt="The LoRA catalogue: 131 LoRA with their authors, likes and downloads, marked for 2B or XL." loading="lazy" /><figcaption>The LoRA catalogue: 131 LoRA with their authors, likes and downloads, marked for 2B or XL.</figcaption></figure>
-      <figure><img src="screenshots/en-06-huggingface.png" alt="Hugging Face search: every file checked for the model size it fits before it downloads." loading="lazy" /><figcaption>Hugging Face search: every file checked for the model size it fits before it downloads.</figcaption></figure>
-      <figure><img src="screenshots/en-07-dataset.png" alt="A dataset: each song with its lyrics and caption, found and written by the studio." loading="lazy" /><figcaption>A dataset: each song with its lyrics and caption, found and written by the studio.</figcaption></figure>
-      <figure><img src="screenshots/en-08-training.png" alt="Your own LoRA trained on the card, the loss as it learns, one click into the library." loading="lazy" /><figcaption>Your own LoRA trained on the card, the loss as it learns, one click into the library.</figcaption></figure>
-      <figure><img src="screenshots/en-09-midi.png" alt="Any track to MIDI: a piano roll of every instrument, played against the original." loading="lazy" /><figcaption>Any track to MIDI: a piano roll of every instrument, played against the original.</figcaption></figure>
-      <figure><img src="screenshots/en-10-processing.png" alt="Audio processing: noise reduction, the Spectral Lifter, VST3 plugins and mastering to a reference." loading="lazy" /><figcaption>Audio processing: noise reduction, the Spectral Lifter, VST3 plugins and mastering to a reference.</figcaption></figure>
-      <figure><img src="screenshots/en-11-agent.png" alt="Connect an agent over MCP: the address and the lines to paste into Claude Code or any other client." loading="lazy" /><figcaption>Connect an agent over MCP: the address and the lines to paste into Claude Code or any other client.</figcaption></figure>
-      <figure><img src="screenshots/en-12-settings.png" alt="Settings: the planner, the VAE and every role of the model set." loading="lazy" /><figcaption>Settings: the planner, the VAE and every role of the model set.</figcaption></figure>
-      <figure><img src="screenshots/en-13-listen.png" alt="The equalizer with its curve and MilkDrop over the studio, as the song plays." loading="lazy" /><figcaption>The equalizer with its curve and MilkDrop over the studio, as the song plays.</figcaption></figure>
-      <figure><img src="screenshots/en-14-winamp.png" alt="The whole window as Winamp 2: equalizer, playlist and MilkDrop, skinned." loading="lazy" /><figcaption>The whole window as Winamp 2: equalizer, playlist and MilkDrop, skinned.</figcaption></figure>
+    <p class="sub">The studio itself, in your language.</p>
+    <div class="gallery">
+      <figure><img src="screenshots/en-03-track.webp" alt="A finished track with its lyrics, ready to replay, cover or repaint." loading="lazy" width="1600" height="1000" /><figcaption>A finished track with its lyrics, ready to replay, cover or repaint.</figcaption></figure>
+      <figure><img src="screenshots/en-04-models.webp" alt="The model switcher: every DiT of ACE-Step 1.5 with its quantisations, what is on disk, switching in one click." loading="lazy" width="1600" height="1000" /><figcaption>The model switcher: every DiT of ACE-Step 1.5 with its quantisations, what is on disk, switching in one click.</figcaption></figure>
+      <figure><img src="screenshots/en-06-huggingface.webp" alt="Hugging Face search: every file checked for the model size it fits before it downloads." loading="lazy" width="1600" height="1000" /><figcaption>Hugging Face search: every file checked for the model size it fits before it downloads.</figcaption></figure>
+      <figure><img src="screenshots/en-07-dataset.webp" alt="A dataset: each song with its lyrics and caption, found and written by the studio." loading="lazy" width="1600" height="1000" /><figcaption>A dataset: each song with its lyrics and caption, found and written by the studio.</figcaption></figure>
+      <figure><img src="screenshots/en-10-processing.webp" alt="Audio processing: noise reduction, the Spectral Lifter, VST3 plugins and mastering to a reference." loading="lazy" width="1600" height="1000" /><figcaption>Audio processing: noise reduction, the Spectral Lifter, VST3 plugins and mastering to a reference.</figcaption></figure>
+      <figure><img src="screenshots/en-12-settings.webp" alt="Settings: the planner, the VAE and every role of the model set." loading="lazy" width="1600" height="1000" /><figcaption>Settings: the planner, the VAE and every role of the model set.</figcaption></figure>
+      <figure><img src="screenshots/en-13-listen.webp" alt="The equalizer with its curve and MilkDrop over the studio, as the song plays." loading="lazy" width="1600" height="1000" /><figcaption>The equalizer with its curve and MilkDrop over the studio, as the song plays.</figcaption></figure>
     </div>
   </section>
 
-  <section>
-    <h2>Models</h2>
-    <p class="sub">A runnable set is the DiT, the planner, the text encoder and the VAE, all in GGUF.</p>
-    <div class="scroll">
-      <table>
-        <thead><tr><th>Your GPU</th><th>Set</th><th>Download</th></tr></thead>
-        <tbody>
-          <tr><td>24 GB</td><td>Full native — XL turbo BF16, planner 4B BF16</td><td>18.5 GB</td></tr>
-          <tr><td>13 GB+</td><td>Quality — XL turbo Q8_0, planner 4B Q8_0</td><td>10.1 GB</td></tr>
-          <tr><td>10 GB+</td><td>Balanced — XL turbo Q6_K, planner 1.7B</td><td>6.7 GB</td></tr>
-          <tr><td>8 GB+</td><td>Light — XL turbo Q4_K_M, planner 1.7B</td><td>5.7 GB</td></tr>
-          <tr><td>4 GB+</td><td>Minimal — 2B turbo Q4_K_M, planner 0.6B</td><td>3.1 GB</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="note">The studio preselects the set your card can run, but the download is always your decision. Every file is checked by SHA-256 against a pinned Hugging Face revision, and an interrupted download resumes.</p>
-  </section>
-
-  <section>
+  <section id="start">
     <h2>Getting started</h2>
     <ol class="steps">
-      <li><b>Install —</b> <span>run the installer, or unpack the portable archive anywhere.</span></li>
-      <li><b>Choose a set —</b> <span>the first screen preselects what your card can run; it downloads only what is missing.</span></li>
-      <li><b>Write —</b> <span>a caption and lyrics, an example, or one line in the simple form.</span></li>
-      <li><b>Create —</b> <span>the engine starts by itself and the song lands in your library.</span></li>
+      <li><b><span class="num">1</span>Install</b><span>Run the installer, or unpack the portable archive anywhere.</span></li>
+      <li><b><span class="num">2</span>Choose a set</b><span>The first screen preselects what your card can run; it downloads only what is missing.</span></li>
+      <li><b><span class="num">3</span>Write</b><span>A caption and lyrics, an example, or one line in the simple form.</span></li>
+      <li><b><span class="num">4</span>Create</b><span>The engine starts by itself and the song lands in your library.</span></li>
     </ol>
+    <div class="cta"><a class="btn primary" href="https://github.com/timoncool/ACE-Step-Studio/releases/latest">Download for Windows<small data-release>v3.0.0 · 437 MB</small></a></div>
   </section>
 
-  <section>
-    <h2>What runs where</h2>
-    <p class="sub">Local by default. A cloud key is added by you, for the capability you choose.</p>
-    <div class="scroll">
-      <table>
-        <thead><tr><th>Part</th><th>Runs</th><th>Size</th></tr></thead>
-        <tbody>
-          <tr><td>ACE-Step engine (acestep.cpp)</td><td>Your GPU: CUDA, Vulkan or the processor</td><td>bundled</td></tr>
-          <tr><td>ACE-Step model set</td><td>Your GPU</td><td>3.1–18.5 GB</td></tr>
-          <tr><td>NVIDIA cuBLAS</td><td>NVIDIA cards only</td><td>391 MB, once</td></tr>
-          <tr><td>Karaoke timings — Parakeet or Whisper</td><td>Your machine</td><td>optional</td></tr>
-          <tr><td>Stem separation — HT-Demucs</td><td>Your GPU or CPU</td><td>optional</td></tr>
-          <tr><td>Writing assistant</td><td>Local Gemma or OpenRouter</td><td>optional</td></tr>
-          <tr><td>LoRA trainer — HOT-Step ace-train</td><td>An NVIDIA RTX card</td><td>0.1 GB + the BF16 DiT, optional</td></tr>
-          <tr><td>Describing songs by ear — MOSS-Music-8B</td><td>about 12 GB of VRAM</td><td>9.8 GB, optional</td></tr>
-          <tr><td>Audio to MIDI — MuScriptor (HOT-Step ace-midi)</td><td>NVIDIA GTX 16 / RTX 20 or newer</td><td>0.5–5.6 GB, optional</td></tr>
-          <tr><td>VST3 host — HOT-Step</td><td>Your machine, a process of its own</td><td>bundled</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <section>
-    <h2>How it is built</h2>
-    <p class="sub">The service is compiled into the desktop binary and supervises the C++ engine. Finished songs are imported by the service itself, so a result survives a reload or a closed window.</p>
-<pre>React UI ─┐
+  <section id="faq">
+    <h2>Questions</h2>
+    <details><summary>What graphics card do I need?</summary><div class="answer"><p>Windows 10/11 x64 and an NVIDIA GPU with 4 GB of VRAM or more (GTX 900 or newer). The models are downloaded from inside the studio when you decide to.</p><p>A runnable set is the DiT, the planner, the text encoder and the VAE, all in GGUF.</p><div class="scroll"><table>
+          <thead><tr><th>Your GPU</th><th>Set</th><th>Download</th></tr></thead>
+          <tbody>
+            <tr><td>24 GB</td><td>Full native — XL turbo BF16, planner 4B BF16</td><td>18.5 GB</td></tr>
+            <tr><td>13 GB+</td><td>Quality — XL turbo Q8_0, planner 4B Q8_0</td><td>10.1 GB</td></tr>
+            <tr><td>10 GB+</td><td>Balanced — XL turbo Q6_K, planner 1.7B</td><td>6.7 GB</td></tr>
+            <tr><td>8 GB+</td><td>Light — XL turbo Q4_K_M, planner 1.7B</td><td>5.7 GB</td></tr>
+            <tr><td>4 GB+</td><td>Minimal — 2B turbo Q4_K_M, planner 0.6B</td><td>3.1 GB</td></tr>
+          </tbody>
+        </table></div><p class="note">The studio preselects the set your card can run, but the download is always your decision. Every file is checked by SHA-256 against a pinned Hugging Face revision, and an interrupted download resumes.</p></div></details>
+    <details><summary>Is it free?</summary><div class="answer"><p>Yes. The studio is free and open source, and the models download for free from inside it.</p></div></details>
+    <details><summary>Does it work offline? Is my music sent anywhere?</summary><div class="answer"><p>Your music is yours, and it stays on your disk.</p><ul><li><b>No account</b> — There is nothing to sign up for.</li><li><b>No telemetry</b> — The studio does not report what you generate.</li><li><b>Cloud is opt-in</b> — Nothing leaves the machine until you add a key, and then only for that capability.</li></ul></div></details>
+    <details><summary>Can I use the songs I make?</summary><div class="answer"><p>The studio, acestep.cpp and ACE-Step 1.5 are MIT. The Regrind fine-tune is CC BY-NC-SA 4.0; each catalogue LoRA carries its author's licence.</p></div></details>
+    <details><summary>Can I train it on my own style?</summary><div class="answer"><p>Songs of one artist or style become a LoRA on your card with HOT-Step's trainer and its LoKR recipe. Every setting is editable, and each checkpoint goes to the LoRA library in one click.</p></div></details>
+    <details><summary>Can an AI agent use it?</summary><div class="answer"><p>Connect Claude Code, Claude Desktop or Cursor and the agent does everything the studio does — 164 tools — and sees and works its window. ACE-Step's writing rules come with it, so the agent writes the songs itself.</p></div></details>
+    <details><summary>What is inside the download?</summary><div class="answer"><p>Local by default. A cloud key is added by you, for the capability you choose.</p><div class="scroll"><table>
+          <thead><tr><th>Part</th><th>Runs</th><th>Size</th></tr></thead>
+          <tbody>
+            <tr><td>ACE-Step engine (acestep.cpp)</td><td>Your GPU: CUDA, Vulkan or the processor</td><td>bundled</td></tr>
+            <tr><td>ACE-Step model set</td><td>Your GPU</td><td>3.1–18.5 GB</td></tr>
+            <tr><td>NVIDIA cuBLAS</td><td>NVIDIA cards only</td><td>391 MB, once</td></tr>
+            <tr><td>Karaoke timings — Parakeet or Whisper</td><td>Your machine</td><td>optional</td></tr>
+            <tr><td>Stem separation — HT-Demucs</td><td>Your GPU or CPU</td><td>optional</td></tr>
+            <tr><td>Writing assistant</td><td>Local Gemma or OpenRouter</td><td>optional</td></tr>
+            <tr><td>LoRA trainer — HOT-Step ace-train</td><td>An NVIDIA RTX card</td><td>0.1 GB + the BF16 DiT, optional</td></tr>
+            <tr><td>Describing songs by ear — MOSS-Music-8B</td><td>about 12 GB of VRAM</td><td>9.8 GB, optional</td></tr>
+            <tr><td>Audio to MIDI — MuScriptor (HOT-Step ace-midi)</td><td>NVIDIA GTX 16 / RTX 20 or newer</td><td>0.5–5.6 GB, optional</td></tr>
+            <tr><td>VST3 host — HOT-Step</td><td>Your machine, a process of its own</td><td>bundled</td></tr>
+          </tbody>
+        </table></div></div></details>
+    <details><summary>How is it built?</summary><div class="answer"><p>The service is compiled into the desktop binary and supervises the C++ engine. Finished songs are imported by the service itself, so a result survives a reload or a closed window.</p><pre>React UI ─┐
           ├─ ACE-Step-Studio.exe   (Tauri window + Rust/Axum service)
 Rust axum ┘        │
-                   └─ acestep.cpp `ace-server`   (C++/GGML, GGUF)</pre>
+                   └─ acestep.cpp `ace-server`   (C++/GGML, GGUF)</pre></div></details>
   </section>
 
-  <section>
-    <h2>Privacy</h2>
-    <p class="sub">Your music is yours, and it stays on your disk.</p>
-    <div class="grid">
-      <div class="card"><h3>No account</h3><p>There is nothing to sign up for.</p></div>
-      <div class="card"><h3>No telemetry</h3><p>The studio does not report what you generate.</p></div>
-      <div class="card"><h3>Cloud is opt-in</h3><p>Nothing leaves the machine until you add a key, and then only for that capability.</p></div>
-    </div>
-  </section>
-
-  <section>
+  <section id="author">
     <h2>Who made this</h2>
     <p class="sub">Nerual Dreming — artist, founder of ArtGeneration.me and the Neuro-Cartel community, author of YuE2 Studio and MiniMax Music3 Studio, the same studio for other music models.</p>
     <div class="pills">
@@ -316,15 +353,13 @@ Rust axum ┘        │
       <a class="pill" href="https://t.me/nerual_dreming">Telegram · @nerual_dreming</a>
       <a class="pill" href="https://t.me/neuroport">Telegram · @neuroport</a>
       <a class="pill" href="https://artgeneration.me">ArtGeneration.me</a>
-      <a class="pill" href="https://boosty.to/neuro_art">Boosty</a>
-      <a class="pill" href="https://dalink.to/nerual_dreming">Card / PayPal</a>
+      <a class="pill" href="https://github.com/timoncool/ACE-Step-Studio/blob/main/DONATE.md">Support the project</a>
     </div>
   </section>
 
   <footer>
     <p>The studio, acestep.cpp and ACE-Step 1.5 are MIT. The Regrind fine-tune is CC BY-NC-SA 4.0; each catalogue LoRA carries its author's licence.</p>
-    <p><a href="https://github.com/timoncool/ACE-Step-Studio/blob/main/CHANGELOG.md">What changed</a> ·
-       <a href="https://github.com/timoncool/ACE-Step-Studio/issues">Report an issue</a></p>
+    <p><a href="https://github.com/timoncool/ACE-Step-Studio/blob/main/CHANGELOG.md">What changed</a> · <a href="https://github.com/timoncool/ACE-Step-Studio/issues">Report an issue</a> · Updated <time datetime="2026-09-27">2026-09-27</time></p>
   </footer>
 </main>
 
@@ -337,7 +372,7 @@ const viewer = document.getElementById('viewer');
 const viewerImage = document.getElementById('viewer-image');
 const closeViewer = () => { viewer.classList.remove('open'); viewer.setAttribute('aria-hidden', 'true'); };
 document.addEventListener('click', (event) => {
-  const image = event.target.closest('.grid-shots img, .hero-shot img');
+  const image = event.target.closest('.hero-shot img, .tile img, .gallery img');
   if (image) {
     viewerImage.src = image.src;
     viewerImage.alt = image.alt;
@@ -348,6 +383,16 @@ document.addEventListener('click', (event) => {
   if (event.target.closest('#viewer')) closeViewer();
 });
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeViewer(); });
+// the download buttons name the latest release as GitHub has it, so a new release needs no new page
+fetch('https://api.github.com/repos/timoncool/ACE-Step-Studio/releases/latest')
+  .then((response) => (response.ok ? response.json() : Promise.reject(new Error('GitHub answered ' + response.status))))
+  .then((release) => {
+    const installer = release.assets.find((asset) => asset.name.endsWith('-setup.exe'));
+    if (!installer) throw new Error('the latest release has no installer');
+    const label = release.tag_name + ' · ' + Math.round(installer.size / 1048576) + ' MB';
+    document.querySelectorAll('[data-release]').forEach((element) => { element.textContent = label; });
+  })
+  .catch((error) => console.warn('Latest release not read; the page shows the one it was built with:', error));
 </script>
 </body>
 </html>
