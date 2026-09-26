@@ -93,6 +93,10 @@ Code, save [docs/mcp-skill.md](docs/mcp-skill.md) as `~/.claude/skills/ace-step-
   window into a skinned Winamp 2 whose windows move apart, dock and resize — the original skin
   and ten more included, sharp at any scale, the Winamp Skin Museum one click away,
   Ctrl+M to switch. The song, its place and the equalizer carry over both ways.
+- **Save as, and a Files panel** — songs, stems, MIDI, lyric sheets, scores and videos are
+  saved where you say, in Windows' own Save dialog, and the Files panel shows each save.
+- **A proxy for the whole studio** — HTTP, HTTPS, SOCKS5 or SOCKS4, with a login: model
+  downloads, Hugging Face, OpenRouter and updates go through it.
 - **Full songs from a caption and lyrics** — up to ten minutes, in the languages ACE-Step
   sings. The planner (ACE-Step's own language model) fills in what you leave out — tempo,
   key, length, even the lyrics — and plans the song's structure before the DiT renders it.
