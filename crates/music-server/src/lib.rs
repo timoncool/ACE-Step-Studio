@@ -555,7 +555,11 @@ struct OpenRouterResponse {
 pub async fn serve() -> anyhow::Result<()> {
     let settings_path = studio_settings_path();
     let persisted = load_studio_settings(&settings_path);
-    net::set(persisted.as_ref().and_then(|settings| settings.proxy.clone()).unwrap_or_default());
+    let proxy = persisted.as_ref().and_then(|settings| settings.proxy.clone()).unwrap_or_default();
+    if let Err(error) = proxy.clone().validated() {
+        eprintln!("[ERROR] the saved proxy cannot be used, requests go straight out until it is fixed in Settings: {error:#}");
+    }
+    net::set(proxy);
     let model_manager = ModelManager::from_environment()?;
     let persisted_components = persisted
         .as_ref()
@@ -2236,10 +2240,7 @@ struct StartTraining {
 /// Starts a run. It wants the whole card: refused while a song renders, and
 /// the writing assistant is let go first.
 async fn start_training(State(state): State<AppState>, Json(input): Json<StartTraining>) -> Result<Json<training::Run>, (StatusCode, Json<ApiError>)> {
-    let preparing = state.prepare.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).as_ref().is_some_and(|job| !job.finished);
-    if preparing {
-        return Err(api_error(StatusCode::CONFLICT, "songs are being prepared; train once that is done".into()));
-    }
+    card_free_for_training(&state).await.map_err(|reason| api_error(StatusCode::CONFLICT, reason))?;
     start_training_run(&state, &input.dataset_id, &input.name, input.recipe)
         .await
         .map(Json)
@@ -2305,10 +2306,7 @@ async fn training_base(state: &AppState) -> Result<music_engine::train::Training
 
 /// A run of `dataset`, refused while a song renders.
 async fn start_training_run(state: &AppState, dataset: &str, name: &str, recipe: training::Recipe) -> Result<training::Run, String> {
-    let rendering = state.jobs.read().await.values().any(|job| matches!(job.status, MusicJobStatus::Queued | MusicJobStatus::Running));
-    if rendering {
-        return Err("a song is being made; train once it is done".into());
-    }
+    no_song_rendering(state).await?;
     let base = training_base(state).await?;
     state
         .training
@@ -2348,6 +2346,25 @@ async fn card_hooks(state: &AppState) -> training::CardHooks {
 }
 
 /// Refuses work that needs the graphics card while a LoRA trains on it.
+/// A song holds the card while it renders; training waits for it.
+async fn no_song_rendering(state: &AppState) -> Result<(), String> {
+    let rendering = state.jobs.read().await.values().any(|job| matches!(job.status, MusicJobStatus::Queued | MusicJobStatus::Running));
+    if rendering {
+        return Err("a song is being made; train once it is done".into());
+    }
+    Ok(())
+}
+
+/// What keeps the user from starting a training run or training one further:
+/// songs being prepared or a song being made.
+async fn card_free_for_training(state: &AppState) -> Result<(), String> {
+    let preparing = state.prepare.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).as_ref().is_some_and(|job| !job.finished);
+    if preparing {
+        return Err("songs are being prepared; train once that is done".into());
+    }
+    no_song_rendering(state).await
+}
+
 async fn card_free_of_training(state: &AppState, what: &str) -> Result<(), (StatusCode, Json<ApiError>)> {
     if state.training.active_run().await.is_some() {
         return Err(api_error(StatusCode::CONFLICT, format!("a LoRA is training on the card; {what} once it finishes")));
@@ -2363,14 +2380,7 @@ struct ContinueTraining {
 
 /// Trains a finished or stopped run further from its latest checkpoint.
 async fn continue_training(State(state): State<AppState>, Path(id): Path<String>, Json(input): Json<ContinueTraining>) -> Result<Json<training::Run>, (StatusCode, Json<ApiError>)> {
-    let preparing = state.prepare.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).as_ref().is_some_and(|job| !job.finished);
-    if preparing {
-        return Err(api_error(StatusCode::CONFLICT, "songs are being prepared; train once that is done".into()));
-    }
-    let rendering = state.jobs.read().await.values().any(|job| matches!(job.status, MusicJobStatus::Queued | MusicJobStatus::Running));
-    if rendering {
-        return Err(api_error(StatusCode::CONFLICT, "a song is being made; train once it is done".into()));
-    }
+    card_free_for_training(&state).await.map_err(|reason| api_error(StatusCode::CONFLICT, reason))?;
     state
         .training
         .continue_run(Some(engine_bundle_root()), &id, input.steps, training_base(&state).await.map_err(|error| api_error(StatusCode::CONFLICT, error))?, card_hooks(&state).await)
@@ -3228,8 +3238,13 @@ async fn library_playlist(State(state):State<AppState>,Path(id):Path<String>)->R
 async fn update_library_playlist(State(state):State<AppState>,Path(id):Path<String>,Json(input):Json<library::PlaylistInput>)->Result<Json<library::Playlist>,(StatusCode,Json<ApiError>)>{state.library.update_playlist(&id,input).map_err(|e|api_error(StatusCode::BAD_REQUEST,e.to_string()))?.map(Json).ok_or_else(||api_error(StatusCode::NOT_FOUND,"Playlist not found".into()))}
 async fn delete_library_playlist(State(state):State<AppState>,Path(id):Path<String>)->Result<StatusCode,(StatusCode,Json<ApiError>)>{if state.library.delete_playlist(&id).map_err(|e|api_error(StatusCode::INTERNAL_SERVER_ERROR,e.to_string()))?{Ok(StatusCode::NO_CONTENT)}else{Err(api_error(StatusCode::NOT_FOUND,"Playlist not found".into()))}}
 
-async fn read_proxy() -> Json<net::ProxySettings> {
-    Json(net::current())
+/// The proxy settings, and why the saved address cannot be used when it cannot:
+/// requests then go straight out, and Settings says so.
+async fn read_proxy() -> Json<Value> {
+    let settings = net::current();
+    let mut value = serde_json::to_value(&settings).unwrap_or(Value::Null);
+    value["problem"] = serde_json::json!(settings.validated().err().map(|error| format!("{error:#}")));
+    Json(value)
 }
 
 /// Takes effect at once for the studio's own requests; the window's browser

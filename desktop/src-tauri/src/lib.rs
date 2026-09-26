@@ -333,6 +333,13 @@ fn webview_browser_arguments() -> String {
     }
 }
 
+/// The proxy a window is given through Tauri's proxy_url, which takes HTTP and
+/// SOCKS5; the other schemes go in the browser arguments. Every window takes
+/// the same, or WebView2 refuses the second one.
+fn window_proxy_url() -> Option<reqwest::Url> {
+    music_server::saved_proxy().window_proxy().filter(|url| matches!(url.scheme(), "http" | "socks5"))
+}
+
 /// The visualiser in a window of its own, or the one already open brought
 /// forward. Built here rather than from the page: every window of the app
 /// shares one WebView2 environment, which must be opened with the same
@@ -352,7 +359,7 @@ async fn open_visualizer_window(app: tauri::AppHandle) -> Result<(), String> {
         .min_inner_size(320.0, 200.0);
     #[cfg(windows)]
     let window = window.additional_browser_args(&webview_browser_arguments());
-    let window = match music_server::saved_proxy().window_proxy().filter(|url| matches!(url.scheme(), "http" | "socks5")) {
+    let window = match window_proxy_url() {
         Some(url) => window.proxy_url(url),
         None => window,
     };
@@ -454,7 +461,7 @@ pub fn run() {
             // The proxy chosen in Settings for what the window loads itself -
             // the image and video searches of the video maker; the service
             // routes its own requests.
-            let window = match music_server::saved_proxy().window_proxy().filter(|url| matches!(url.scheme(), "http" | "socks5")) {
+            let window = match window_proxy_url() {
                 Some(url) => window.proxy_url(url),
                 None => window,
             };

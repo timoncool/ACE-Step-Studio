@@ -1,4 +1,5 @@
 import { ensureAudioGraph, onAudioGraph, type AudioGraph } from './audioGraph';
+import { onVisualizer, visualizer } from './visualizerState';
 
 /**
  * The sound a visualiser in its own window hears. The studio window taps the
@@ -17,8 +18,10 @@ export function serveVisualizerFeed(): () => void {
   const channel = new BroadcastChannel(CHANNEL);
   let tap: AudioWorkletNode | null = null;
   let sink: GainNode | null = null;
-  let listening = false;
+  // a visualiser window said hello and no bye; it is fed while the shared state has it open
+  let asked = false;
   let graph: AudioGraph | null = null;
+  const wanted = () => asked && visualizer().place === 'window';
 
   let starting: Promise<void> | null = null;
   const start = () => {
@@ -30,6 +33,7 @@ export function serveVisualizerFeed(): () => void {
   const begin = async () => {
     if (!graph || tap) return;
     await graph.context.audioWorklet.addModule('/worklets/pcm-tap.js');
+    if (!wanted() || tap) return;
     tap = new AudioWorkletNode(graph.context, 'pcm-tap', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2] });
     // a node nothing pulls on is never processed: it goes on, silently, to the speakers
     sink = graph.context.createGain();
@@ -46,23 +50,31 @@ export function serveVisualizerFeed(): () => void {
     sink = null;
   };
 
+  // one rule for every change: fed while wanted, stopped otherwise; a window closed by its
+  // frame says no bye, and the shared state saying it is gone stops the tap all the same
+  const follow = () => {
+    if (!wanted()) {
+      stop();
+      return;
+    }
+    // the window asking is heard through the graph, made now if it was not
+    ensureAudioGraph();
+    void start();
+  };
   const unsubscribe = onAudioGraph((ready) => {
     graph = ready;
-    if (listening) void start();
+    follow();
   });
+  const unwatch = onVisualizer(follow);
   channel.onmessage = (event: MessageEvent<Message>) => {
-    if (event.data.kind === 'hello') {
-      listening = true;
-      // the window asking is heard through the graph, made now if it was not
-      ensureAudioGraph();
-      void start();
-    } else if (event.data.kind === 'bye') {
-      listening = false;
-      stop();
-    }
+    if (event.data.kind === 'hello') asked = true;
+    else if (event.data.kind === 'bye') asked = false;
+    else return;
+    follow();
   };
   return () => {
     unsubscribe();
+    unwatch();
     stop();
     channel.close();
   };

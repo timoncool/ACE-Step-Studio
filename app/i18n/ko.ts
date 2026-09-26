@@ -235,6 +235,7 @@ export const ko = {
     winampSkinsHint: "스킨: Winamp Skin Museum에서 .wsz를 내려받아 여기에 추가하거나 플레이어에 끌어다 놓으세요.",
     winampSkinNotKept: "스킨을 저장하지 못했습니다",
     winampLeave: "스튜디오로 돌아가기",
+    winampWindowFailed: "Winamp에 맞게 창을 바꾸지 못했습니다",
     winampHowToLeave: "스튜디오로 돌아가기: Ctrl+M, 플레이어의 ×, 또는 메뉴의 Exit.",
     winampScale: "배율",
     winampSkipMenu: "묻지 않기: 버튼이 바로 Winamp를 켭니다. 길게 누르면(또는 오른쪽 클릭) 이 설정이 열립니다",

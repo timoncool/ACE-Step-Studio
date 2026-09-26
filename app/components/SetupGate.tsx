@@ -84,7 +84,8 @@ const errorMessage = async (response: Response) => {
 };
 
 /** A recogniser or backend: which one, what it runs on, and one button. */
-type EngineChoice = { id: string; label: string; device?: boolean };
+/** byAddress: a server chosen by its address, whose fields save the switch once one is typed. */
+type EngineChoice = { id: string; label: string; device?: boolean; byAddress?: boolean };
 
 /**
  * One optional capability.
@@ -175,8 +176,7 @@ export const OptionalGroup: React.FC<{
     if (next.engine !== undefined) setEngine(next.engine);
     if (next.device !== undefined) setDevice(next.device);
     if (!settingsUrl) return;
-    // a local server is chosen by its address: the fields below save the switch once one is typed
-    if (settingsUrl.endsWith('/assistant/status') && next.engine === 'local') return;
+    if (engines?.find((choice) => choice.id === next.engine)?.byAddress) return;
     await fetch(settingsUrl, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -981,7 +981,7 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
               installUrl="/v1/assistant/runtime/install"
               engines={[
                 { id: 'managed', label: 'llama.cpp' },
-                { id: 'local', label: t('assistantLocal'), device: false },
+                { id: 'local', label: t('assistantLocal'), device: false, byAddress: true },
                 { id: 'open_router', label: 'OpenRouter', device: false },
                 { id: 'agent', label: t('assistantAgent'), device: false },
                 { id: 'none', label: t('assistantDisabled'), device: false },

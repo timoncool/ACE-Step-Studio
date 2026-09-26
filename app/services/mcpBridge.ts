@@ -199,7 +199,8 @@ function watchConsole(): void {
 function freezeWebGl(): Promise<HTMLImageElement[]> {
   // the studio's MilkDrop and Winamp's; asking any other canvas for WebGL would give it a context it must not have
   const canvases = [...document.querySelectorAll<HTMLCanvasElement>('canvas[data-webgl], #webamp .gen-window canvas')].filter(visible);
-  if (!canvases.length) return Promise.resolve([]);
+  // a hidden window draws no frames, so there is none to read them in
+  if (!canvases.length || document.visibilityState === 'hidden') return Promise.resolve([]);
   return new Promise((resolve) => {
     requestAnimationFrame(() => {
       resolve(canvases.map((canvas) => {

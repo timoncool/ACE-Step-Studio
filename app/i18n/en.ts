@@ -236,6 +236,7 @@ export const en = {
     winampSkinsHint: "Skins: download .wsz from the Winamp Skin Museum and add them here, or drop them on the player.",
     winampSkinNotKept: "The skin was not kept",
     winampLeave: "Back to the studio",
+    winampWindowFailed: "The window could not be changed for Winamp",
     winampHowToLeave: "Back to the studio: Ctrl+M, or the × on the player, or Exit in its menu.",
     winampScale: "Scale",
     winampSkipMenu: "Don't ask: the button starts Winamp; hold it (or right-click) for these settings",

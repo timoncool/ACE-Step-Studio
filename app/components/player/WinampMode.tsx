@@ -50,7 +50,7 @@ interface WebampState {
   windows: { genWindows: Record<string, { open: boolean; shade?: boolean; position: { x: number; y: number } }> };
   milkdrop: { presets: ({ name: string; type: 'RESOLVED' } | { name: string; type: 'UNRESOLVED'; getPreset: () => Promise<object> })[]; currentPresetIndex: number | null; randomize: boolean; cycling: boolean };
   playlist: { trackOrder: number[]; currentTrack: number | null };
-  tracks: Record<string, { url: string; title?: string; defaultName: string | null }>;
+  tracks: Record<string, { url: string; title?: string; defaultName: string | null; duration: number | null }>;
 }
 
 const WINDOWS = ['main', 'equalizer', 'playlist', 'milkdrop'] as const;
@@ -120,6 +120,9 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
   const [hint, setHint] = useState(true);
   const exitRef = useRef(onExit);
   exitRef.current = onExit;
+  // the library grows while the mode is on: songs made meanwhile are played from it too
+  const libraryRef = useRef(library);
+  libraryRef.current = library;
 
   useEffect(() => {
     const node = host.current;
@@ -130,8 +133,8 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
     let disposed = false;
     let saved: SavedWindow | null = null;
     const cleanups: (() => void)[] = [];
-    const urls = new Map(queue.filter((song) => song.audioUrl).map((song) => [song.audioUrl as string, song.id]));
-    [...library].forEach((song) => song.audioUrl && urls.set(song.audioUrl, song.id));
+    const songById = (id: unknown) => libraryRef.current.find((entry) => entry.id === id) ?? queue.find((entry) => entry.id === id);
+    const idOf = (url: string) => (libraryRef.current.find((entry) => entry.audioUrl === url) ?? queue.find((entry) => entry.audioUrl === url))?.id ?? null;
 
     const store = () => (webamp as unknown as { store: Store }).store;
     // what Winamp's own preset list does: mark the request, fetch the preset if it is not in memory, show it with a blend
@@ -142,40 +145,52 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
       if (preset.type === 'UNRESOLVED') store().dispatch({ type: 'RESOLVE_PRESET_AT_INDEX', index, json: await preset.getPreset() });
       store().dispatch({ type: 'SELECT_PRESET_AT_INDEX', index, transitionType: 1 });
     };
+    // every change to the OS window runs in turn: a fit never overtakes the mode's setup, and
+    // leaving always comes last, so nothing lands on the window after it got its shape back
+    let windowWork: Promise<void> = Promise.resolve();
+    const onWindow = (job: () => Promise<void>) => {
+      windowWork = windowWork.then(job).catch((error) => {
+        console.error('Winamp window:', error);
+        if (!disposed) setProblem(`${t('winampWindowFailed')}: ${error instanceof Error ? error.message : String(error)}`);
+      });
+      return windowWork;
+    };
     let zoom = 1;
     const setZoom = async (next: number) => {
       zoom = next;
-      if (desktop) await getCurrentWebview().setZoom(next);
-      await fit();
+      if (desktop) await onWindow(() => getCurrentWebview().setZoom(next));
+      fit();
     };
 
-    // the window takes the size of the player's windows, which start at its corner
-    let fitting = false;
-    const fit = async () => {
-      if (!webamp || fitting || disposed) return;
+    // the window takes the size of the player's windows, which start at its corner; requests
+    // that come while one waits are one fit, measured when it runs
+    let fitWanted = false;
+    const fit = () => {
+      if (fitWanted) return;
+      fitWanted = true;
+      void onWindow(measureAndFit);
+    };
+    const measureAndFit = async () => {
+      fitWanted = false;
+      if (!webamp || disposed) return;
       const boxes = [...node.querySelectorAll<HTMLElement>(SELECTOR)].map((element) => element.getBoundingClientRect()).filter((box) => box.width > 0 && box.height > 0);
       if (!boxes.length) return;
       const left = Math.min(...boxes.map((box) => box.left));
       const top = Math.min(...boxes.map((box) => box.top));
       const width = Math.ceil(Math.max(...boxes.map((box) => box.right)) - left);
       const height = Math.ceil(Math.max(...boxes.map((box) => box.bottom)) - top);
-      fitting = true;
-      try {
-        if (left !== 0 || top !== 0) {
-          const windows = store().getState().windows.genWindows;
-          const positions = Object.fromEntries(Object.entries(windows).map(([id, info]) => [id, { x: info.position.x - left, y: info.position.y - top }]));
-          store().dispatch({ type: 'UPDATE_WINDOW_POSITIONS', positions, absolute: true });
-          if (win) {
-            const scale = (await win.scaleFactor()) * zoom;
-            const at = await win.outerPosition();
-            await win.setPosition(new PhysicalPosition(Math.round(at.x + left * scale), Math.round(at.y + top * scale)));
-          }
+      if (left !== 0 || top !== 0) {
+        const windows = store().getState().windows.genWindows;
+        const positions = Object.fromEntries(Object.entries(windows).map(([id, info]) => [id, { x: info.position.x - left, y: info.position.y - top }]));
+        store().dispatch({ type: 'UPDATE_WINDOW_POSITIONS', positions, absolute: true });
+        if (win) {
+          const scale = (await win.scaleFactor()) * zoom;
+          const at = await win.outerPosition();
+          await win.setPosition(new PhysicalPosition(Math.round(at.x + left * scale), Math.round(at.y + top * scale)));
         }
-        // the page is zoomed: its pixels are that much larger on the screen
-        if (win) await win.setSize(new LogicalSize(Math.ceil(width * zoom), Math.ceil(height * zoom)));
-      } finally {
-        fitting = false;
       }
+      // the page is zoomed: its pixels are that much larger on the screen
+      if (win) await win.setSize(new LogicalSize(Math.ceil(width * zoom), Math.ceil(height * zoom)));
     };
 
     // a press on a title bar moves the whole window once the mouse moves
@@ -212,7 +227,7 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
         balance: state.media.balance / 100,
       });
       exitRef.current({
-        songId: current ? urls.get(current.url) ?? null : null,
+        songId: current ? idOf(current.url) : null,
         seconds: state.media.timeElapsed,
         playing: state.media.status === 'PLAYING',
         volume: state.media.volume / 100,
@@ -231,7 +246,7 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
         playlist: { position: { top: 232, left: 0 }, size: { extraHeight: 4, extraWidth: 0 } },
         milkdrop: { position: { top: 0, left: 275 }, size: { extraHeight: 12, extraWidth: 7 }, closed: true },
       };
-      const listAll = () => library.filter((song) => song.audioUrl && !song.isGenerating).map(track);
+      const listAll = () => libraryRef.current.filter((song) => song.audioUrl && !song.isGenerating).map(track);
       webamp = new Webamp({
         initialTracks: playable.map(track),
         initialSkin: skin ? { url: skin.url } : undefined,
@@ -266,7 +281,7 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
         handleAddUrlEvent: listAll,
         handleLoadListEvent: listAll,
         handleSaveListEvent: async (tracks: Track[]) => {
-          const ids = tracks.map((entry) => ('url' in entry ? urls.get(entry.url) : undefined)).filter((id): id is string => Boolean(id));
+          const ids = tracks.map((entry) => ('url' in entry ? idOf(entry.url) : null)).filter((id): id is string => Boolean(id));
           await onSavePlaylist(ids);
           return null;
         },
@@ -274,14 +289,18 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
       } as never);
 
       if (win) {
-        saved = { position: await win.outerPosition(), size: await win.innerSize(), maximized: await win.isMaximized() };
-        sessionStorage.setItem(SAVED_WINDOW, JSON.stringify({ x: saved.position.x, y: saved.position.y, width: saved.size.width, height: saved.size.height, maximized: saved.maximized }));
-        if (saved.maximized) await win.unmaximize();
-        await win.setMinSize(null);
-        await win.setDecorations(false);
-        await win.setResizable(false);
-        await win.setAlwaysOnTop(settings.alwaysOnTop);
+        await onWindow(async () => {
+          if (disposed) return;
+          saved = { position: await win.outerPosition(), size: await win.innerSize(), maximized: await win.isMaximized() };
+          sessionStorage.setItem(SAVED_WINDOW, JSON.stringify({ x: saved.position.x, y: saved.position.y, width: saved.size.width, height: saved.size.height, maximized: saved.maximized }));
+          if (saved.maximized) await win.unmaximize();
+          await win.setMinSize(null);
+          await win.setDecorations(false);
+          await win.setResizable(false);
+          await win.setAlwaysOnTop(settings.alwaysOnTop);
+        });
       }
+      if (disposed) return;
       await webamp.renderInto(node);
       if (disposed) return;
       await setZoom(settings.scale);
@@ -296,24 +315,39 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
       const at = playable.findIndex((song) => song.id === queue[startIndex]?.id);
       if (at > 0) webamp.setCurrentTrack(at);
       if (playing) webamp.play();
-      if (startSeconds > 0) window.setTimeout(() => webamp?.seekToTime(startSeconds), 300);
+      if (startSeconds > 0) {
+        // the position waits for the track's length: Winamp seeks by a share of it
+        let stopWaiting: (() => void) | null = null;
+        const seekWhenLoaded = () => {
+          const state = store().getState();
+          const length = state.playlist.currentTrack != null ? state.tracks[state.playlist.currentTrack]?.duration : null;
+          if (!length || !webamp) return;
+          stopWaiting?.();
+          stopWaiting = null;
+          webamp.seekToTime(Math.min(startSeconds, length));
+        };
+        stopWaiting = webamp.__onStateChange(seekWhenLoaded);
+        cleanups.push(() => stopWaiting?.());
+        seekWhenLoaded();
+      }
 
       cleanups.push(webamp.onClose(exit));
       cleanups.push(webamp.onMinimize(() => void win?.minimize()));
-      cleanups.push(webamp.__onStateChange(() => void fit()));
-      const observer = new ResizeObserver(() => void fit());
+      cleanups.push(webamp.__onStateChange(fit));
+      const observer = new ResizeObserver(fit);
       node.querySelectorAll(SELECTOR).forEach((element) => observer.observe(element));
       const watch = new MutationObserver(() => {
         node.querySelectorAll(SELECTOR).forEach((element) => observer.observe(element));
-        void fit();
+        fit();
       });
       watch.observe(node, { childList: true, subtree: true });
       cleanups.push(() => {
         observer.disconnect();
         watch.disconnect();
       });
-      void fit();
-      window.setTimeout(() => setHint(false), 6000);
+      fit();
+      const hideHint = window.setTimeout(() => setHint(false), 6000);
+      cleanups.push(() => window.clearTimeout(hideHint));
 
       registerWinampControl({
         state: () => {
@@ -330,7 +364,7 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
             windows: Object.fromEntries(WINDOWS.map((id) => [id, { open: Boolean(state.windows.genWindows[id]?.open), shade: Boolean(state.windows.genWindows[id]?.shade) }])),
             playing: state.media.status === 'PLAYING',
             status: state.media.status,
-            song: current ? { id: urls.get(current.url) ?? null, title: current.title ?? current.defaultName } : null,
+            song: current ? { id: idOf(current.url), title: current.title ?? current.defaultName } : null,
             position_seconds: Math.round(state.media.timeElapsed * 10) / 10,
             volume: state.media.volume / 100,
             balance: state.media.balance / 100,
@@ -384,16 +418,14 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
             if (typeof wanted.shade === 'boolean' && wanted.shade !== Boolean(info.shade) && id !== 'milkdrop') store().dispatch({ type: 'TOGGLE_WINDOW_SHADE_MODE', windowId: id });
           }
           if (Array.isArray(change.song_ids)) {
-            const list = change.song_ids.map((id) => library.find((entry) => entry.id === id)).filter((song): song is Song => Boolean(song?.audioUrl));
+            const list = change.song_ids.map(songById).filter((song): song is Song => Boolean(song?.audioUrl));
             if (!list.length) throw new Error('None of those songs has audio to play.');
-            list.forEach((song) => urls.set(song.audioUrl as string, song.id));
             player.setTracksToPlay(list.map(track) as never);
             done.push(`playing ${list.length} song(s)`);
           }
           if (typeof change.song_id === 'string') {
-            const song = library.find((entry) => entry.id === change.song_id) ?? queue.find((entry) => entry.id === change.song_id);
+            const song = songById(change.song_id);
             if (!song?.audioUrl) throw new Error(`No playable song ${String(change.song_id)}; library_songs_list lists them.`);
-            urls.set(song.audioUrl, song.id);
             const order = store().getState().playlist.trackOrder;
             const tracks = store().getState().tracks;
             let at = order.findIndex((id) => tracks[id]?.url === song.audioUrl);
@@ -453,8 +485,10 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
 
     return () => {
       disposed = true;
-      // the window comes back first: nothing the player does on its way out may keep it small and frameless
-      if (win && saved) void restoreWindow(win, saved);
+      // queued after the setup and any fit, so the window's shape back is the last thing it gets
+      if (win) void onWindow(async () => {
+        if (saved) await restoreWindow(win, saved);
+      });
       cleanups.forEach((cleanup) => cleanup());
       try {
         webamp?.pause();

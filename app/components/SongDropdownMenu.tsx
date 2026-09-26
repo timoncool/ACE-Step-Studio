@@ -7,7 +7,7 @@ import { apiUrl } from '../services/apiBase';
 import { downloadSongAudio } from '../services/songDownload';
 import { openMidi, openStems } from '../services/openStems';
 import { useAuth } from '../context/AuthContext';
-import { useSongActions } from '../context/SongActionsContext';
+import { ownsSong, useSongActions } from '../context/SongActionsContext';
 import {
     Clapperboard,
     Edit3,
@@ -117,7 +117,7 @@ export const SongDropdownMenu: React.FC<SongDropdownMenuProps> = ({
     const { t } = useI18n();
     const { user } = useAuth();
     const actions = useSongActions();
-    const isOwner = Boolean(user && user.id === song.userId);
+    const isOwner = ownsSong(user, song);
     const menuRef = useRef<HTMLDivElement>(null);
     // Near the bottom of its panel the menu opens upward; when it fits neither
     // way, the panel scrolls it into view instead of hiding it under the edge.

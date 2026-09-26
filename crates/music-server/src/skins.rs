@@ -27,11 +27,21 @@ fn folder() -> Result<PathBuf, (StatusCode, Json<ApiError>)> {
     Ok(folder)
 }
 
+/// Names Windows keeps for devices: a file called so is the device, whatever its extension.
+const RESERVED: [&str; 22] = [
+    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+    "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+];
+
 /// A file name that stays inside the skins folder.
 fn clean(name: &str) -> Option<String> {
-    let stem = name.trim().trim_end_matches(".wsz").trim_end_matches(".WSZ").trim();
+    let name = name.trim();
+    let stem = if name.to_ascii_lowercase().ends_with(".wsz") { &name[..name.len() - 4] } else { name };
     let stem: String = stem.chars().map(|c| if r#"<>:"/\|?*"#.contains(c) || c.is_control() { '_' } else { c }).collect();
-    let stem = stem.trim().trim_matches('.').to_string();
+    let mut stem = stem.trim().trim_matches('.').to_string();
+    if RESERVED.iter().any(|reserved| stem.eq_ignore_ascii_case(reserved)) {
+        stem.insert(0, '_');
+    }
     (!stem.is_empty()).then(|| format!("{stem}.wsz"))
 }
 
@@ -120,6 +130,8 @@ mod tests {
         assert_eq!(clean("Base 2.91.wsz").as_deref(), Some("Base 2.91.wsz"));
         assert_eq!(clean("../../evil").as_deref(), Some("_.._evil.wsz"));
         assert_eq!(clean("  .wsz").as_deref(), None);
+        assert_eq!(clean("Foo.Wsz").as_deref(), Some("Foo.wsz"));
+        assert_eq!(clean("con").as_deref(), Some("_con.wsz"));
         assert_eq!(percent_decode(&urlencoding("Зелёный скин.wsz")), "Зелёный скин.wsz");
     }
 }

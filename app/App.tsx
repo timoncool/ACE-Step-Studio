@@ -1684,7 +1684,8 @@ function AppContent() {
           } else if (song) {
             handleSeek(exit.seconds);
           }
-          setIsPlaying(exit.playing);
+          // Winamp played a file from disk: the studio's own song stays paused
+          setIsPlaying(Boolean(song) && exit.playing);
         }}
         onSavePlaylist={async (songIds) => {
           const playlist = await createNativePlaylist(`Winamp ${new Date().toLocaleString()}`, '', songIds);

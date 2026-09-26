@@ -235,6 +235,7 @@ export const ja = {
   winampSkinsHint: "スキン：Winamp Skin Museum から .wsz をダウンロードしてここに追加するか、プレーヤーにドロップします。",
   winampSkinNotKept: "スキンを保存できませんでした",
   winampLeave: "スタジオに戻る",
+  winampWindowFailed: "Winamp 用にウィンドウを変更できませんでした",
   winampHowToLeave: "スタジオに戻る：Ctrl+M、プレーヤーの ×、またはメニューの Exit。",
   winampScale: "拡大率",
   winampSkipMenu: "確認しない：ボタンですぐ Winamp を起動。長押し（または右クリック）でこの設定",

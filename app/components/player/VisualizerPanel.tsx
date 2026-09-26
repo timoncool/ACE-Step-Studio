@@ -42,8 +42,10 @@ export function setVisualizerPanelSize(size: { width: number; height: number }):
 
 /** Opens the visualiser in its own window. */
 export async function openVisualizerWindow(): Promise<void> {
+  const already = await WebviewWindow.getByLabel('visualizer');
   await invoke('open_visualizer_window');
   setVisualizer({ place: 'window' });
+  if (already) return;
   // closed by its own frame, the window says nothing on its way out: its end is heard here
   const opened = await WebviewWindow.getByLabel('visualizer');
   if (!opened) throw new Error('The visualiser window did not open.');

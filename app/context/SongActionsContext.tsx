@@ -1,6 +1,11 @@
 import React, { createContext, useContext } from 'react';
 import { Song } from '../types';
 
+/** Whether the user may change a song: every song the studio made is theirs, and any with their id. */
+export function ownsSong(user: { id?: string } | null | undefined, song: Song): boolean {
+  return Boolean(song.nativeReplayAvailable || (user && user.id === song.userId));
+}
+
 /**
  * What can be done to a song, handed down once from the app. Every song menu
  * and song button reads it from here, so a list, the library page, the song

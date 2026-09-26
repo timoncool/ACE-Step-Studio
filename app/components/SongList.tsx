@@ -7,7 +7,7 @@ import type { TranslationKey } from '../i18n/translations';
 import { SongDropdownMenu } from './SongDropdownMenu';
 import { AlbumCover } from './AlbumCover';
 import { updateNativeSong } from '../services/nativeLibrary';
-import { SongActionsProvider, useSongActions } from '../context/SongActionsContext';
+import { ownsSong, SongActionsProvider, useSongActions } from '../context/SongActionsContext';
 import { captionSummary } from '../services/examples';
 import { TRACK_ARTIST } from '../services/studio';
 
@@ -399,7 +399,7 @@ export const SongList: React.FC<SongListProps> = ({
                                     isChecked={selectedIds.has(item.song.id)}
                                     isLiked={likedSongIds.has(item.song.id)}
                                     isPlaying={isPlaying}
-                                    isOwner={item.song.nativeReplayAvailable || user?.id === item.song.userId}
+                                    isOwner={ownsSong(user, item.song)}
                                     onPlay={() => onPlay(item.song)}
                                     onSelect={() => onSelect(item.song)}
                                     onOpenOriginal={(() => {

@@ -1102,6 +1102,7 @@ impl Training {
             bail!("a training run is already going");
         }
         let run_dir = self.run_dir(run_id)?;
+        let edit = self.edits.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let mut run = self.run(run_id)?;
         if run.base.as_deref().is_some_and(|dit| dit != base.dit) {
             bail!("this run trained on {}; switch the DiT back to it to train further", run.base.as_deref().unwrap_or_default());
@@ -1122,6 +1123,7 @@ impl Training {
         // the trainer numbers the continuation's steps from nought; the chart goes on from the last one
         let step_offset = run.steps.last().map_or(0, |record| record.step);
         self.save_run(&run)?;
+        drop(edit);
         let cancel = Arc::new(tokio::sync::Notify::new());
         *active = Some(Active { run_id: run_id.to_string(), cancel: cancel.clone() });
         drop(active);

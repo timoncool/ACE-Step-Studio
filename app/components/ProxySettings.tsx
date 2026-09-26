@@ -51,10 +51,12 @@ export const ProxySettings: React.FC = () => {
   useEffect(() => {
     void fetch('/v1/network/proxy')
       .then(response => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
-      .then((body: Settings) => {
+      .then((body: Settings & { problem?: string | null }) => {
         setMode(body.mode);
         setKind(body.kind);
         setAddress(body.address ?? '');
+        // a saved address the studio cannot read: requests go straight out until it is fixed here
+        if (body.problem) setError(body.problem);
       })
       .catch(reason => setError(reason instanceof Error ? reason.message : String(reason)));
   }, []);

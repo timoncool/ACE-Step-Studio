@@ -87,12 +87,14 @@ export const AssistantExtras: React.FC<{ engine: string }> = ({ engine }) => {
     try {
       const response = await fetch(`/v1/assistant/local-models?base=${encodeURIComponent(base.trim())}`, { signal });
       const body = await response.json().catch(() => null);
-      if (response.ok && Array.isArray(body?.models)) {
-        setLocalModels(body.models);
-        if (!localModel && body.models.length) setLocalModel(body.models[0]);
-      }
+      if (!response.ok || !Array.isArray(body?.models)) throw new Error(body?.error || `HTTP ${response.status}`);
+      setLocalModels(body.models);
+      if (!localModel && body.models.length) setLocalModel(body.models[0]);
     } catch (reason) {
-      if (!(reason instanceof DOMException && reason.name === 'AbortError')) throw reason;
+      // a newer address took over; anything else is said where the models are listed
+      if (reason instanceof DOMException && reason.name === 'AbortError') return;
+      setLocalModels([]);
+      setMessage({ tone: 'error', text: reason instanceof Error ? reason.message : String(reason) });
     } finally {
       setLocalBusy(false);
     }

@@ -237,6 +237,7 @@ export const ru = {
     winampSkinsHint: "Скины: скачайте .wsz в Winamp Skin Museum и добавьте сюда или бросьте файл на плеер.",
     winampSkinNotKept: "Скин не сохранился",
     winampLeave: "Вернуться в студию",
+    winampWindowFailed: "Окно не удалось переделать под Winamp",
     winampHowToLeave: "Вернуться в студию: Ctrl+M, крестик на плеере или «Exit» в его меню.",
     winampScale: "Масштаб",
     winampSkipMenu: "Не спрашивать: кнопка сразу включает Winamp, эти настройки — по удержанию (или правой кнопкой)",

@@ -235,6 +235,7 @@ export const zh = {
     winampSkinsHint: "皮肤：从 Winamp Skin Museum 下载 .wsz 并在此添加，或拖到播放器上。",
     winampSkinNotKept: "皮肤未能保存",
     winampLeave: "返回工作室",
+    winampWindowFailed: "无法为 Winamp 调整窗口",
     winampHowToLeave: "返回工作室：Ctrl+M、播放器上的 ×，或其菜单中的 Exit。",
     winampScale: "缩放",
     winampSkipMenu: "不再询问：按钮直接启动 Winamp；长按（或右键）打开这些设置",

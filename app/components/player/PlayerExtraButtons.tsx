@@ -23,7 +23,7 @@ const HOLD_MS = 500;
 
 const ON = 'text-pink-600 dark:text-pink-500';
 const LOOK: Record<ExtrasLayout, string> = {
-  bar: 'hidden md:block p-1.5 lg:p-2 rounded-full transition-colors hover:bg-zinc-100 dark:hover:bg-white/10',
+  bar: 'p-1.5 lg:p-2 rounded-full transition-colors hover:bg-zinc-100 dark:hover:bg-white/10',
   rail: 'flex aspect-square w-full items-center justify-center rounded-xl text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-black dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white',
   list: 'flex w-full items-center gap-3 rounded-xl px-3 py-2 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-black dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white',
 };
@@ -81,7 +81,7 @@ export const PlayerExtraButtons: React.FC<{ layout?: ExtrasLayout }> = ({ layout
 
   return (
     <>
-      <button type="button" onClick={() => setEqualizerPanelOpen(!eqOpen)} title={t('eqTitle')} className={`${LOOK[layout]} ${eqOpen || eqOn ? ON : ''}`}>
+      <button type="button" onClick={() => setEqualizerPanelOpen(!eqOpen)} title={t('eqTitle')} className={`${LOOK[layout]} ${layout === 'bar' ? 'hidden md:block' : ''} ${eqOpen || eqOn ? ON : ''}`}>
         <SlidersVertical size={layout === 'bar' ? 17 : 20} className="shrink-0" />
         {layout === 'list' && <span className="truncate text-sm font-medium">{t('eqTitle')}</span>}
       </button>
@@ -89,7 +89,7 @@ export const PlayerExtraButtons: React.FC<{ layout?: ExtrasLayout }> = ({ layout
         type="button"
         onClick={() => setVisualizer({ place: visualizer().place === 'closed' ? 'panel' : 'closed', fullscreen: false })}
         title={t('vizTitle')}
-        className={`${LOOK[layout]} ${vizOpen ? ON : ''}`}
+        className={`${LOOK[layout]} ${layout === 'bar' ? 'hidden md:block' : ''} ${vizOpen ? ON : ''}`}
       >
         <AudioLines size={layout === 'bar' ? 17 : 20} className="shrink-0" />
         {layout === 'list' && <span className="truncate text-sm font-medium">{t('vizTitle')}</span>}
@@ -120,7 +120,7 @@ export const PlayerExtraButtons: React.FC<{ layout?: ExtrasLayout }> = ({ layout
             setMenu(true);
           }}
           title={settings.skipMenu ? t('winampTitleHold') : t('winampTitle')}
-          className={`${LOOK[layout].replace('hidden md:block ', '')} ${menu ? ON : ''}`}
+          className={`${LOOK[layout]} ${menu ? ON : ''}`}
         >
           <Disc3 size={layout === 'bar' ? 17 : 20} className="shrink-0" />
           {layout === 'list' && <span className="truncate text-sm font-medium">{t('winampTitle')}</span>}

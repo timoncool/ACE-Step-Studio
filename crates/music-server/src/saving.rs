@@ -199,9 +199,10 @@ where
     }
     file.flush().await.map_err(|error| format!("{} cannot be written: {error}", path.display()))?;
     drop(file);
-    tokio::fs::rename(&part, path)
-        .await
-        .map_err(|error| format!("{} cannot be put in place: {error}", path.display()))?;
+    if let Err(error) = tokio::fs::rename(&part, path).await {
+        let _ = tokio::fs::remove_file(&part).await;
+        return Err(format!("{} cannot be put in place: {error}", path.display()));
+    }
     Ok(written)
 }
 
