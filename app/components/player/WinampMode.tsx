@@ -54,6 +54,8 @@ interface WebampState {
 }
 
 const WINDOWS = ['main', 'equalizer', 'playlist', 'milkdrop'] as const;
+/** MilkDrop's size in Webamp's resize steps (width, height): as tall as the player's three windows. */
+const MILKDROP_SIZE: [number, number] = [7, 12];
 /** The studio window's smallest size, as tauri.conf.json sets it. */
 const STUDIO_MIN = { width: 1024, height: 720 };
 const SELECTOR = '#main-window, #equalizer-window, #playlist-window, #playlist-window-shade, .gen-window';
@@ -163,8 +165,14 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
       store().dispatch({ type: state.media.status === 'STOPPED' ? 'BUFFER_TRACK' : 'PLAY_TRACK', id });
     };
     let zoom = 1;
+    // Webamp draws a skin pixel for pixel: at a whole scale every pixel stays square and sharp,
+    // at 120 or 150 % the pixels come out of uneven sizes, so there the skin is smoothed instead
+    const smoothing = document.createElement('style');
+    document.head.appendChild(smoothing);
+    cleanups.push(() => smoothing.remove());
     const setZoom = async (next: number) => {
       zoom = next;
+      smoothing.textContent = Number.isInteger(next) ? '' : '#webamp, #webamp * { image-rendering: auto !important; }';
       if (desktop) await onWindow(() => getCurrentWebview().setZoom(next));
       fit();
     };
@@ -252,7 +260,7 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
         main: { position: { top: 0, left: 0 } },
         equalizer: { position: { top: 116, left: 0 } },
         playlist: { position: { top: 232, left: 0 }, size: { extraHeight: 4, extraWidth: 0 } },
-        milkdrop: { position: { top: 0, left: 275 }, size: { extraHeight: 12, extraWidth: 7 }, closed: true },
+        milkdrop: { position: { top: 0, left: 275 }, size: { extraHeight: MILKDROP_SIZE[1], extraWidth: MILKDROP_SIZE[0] }, closed: true },
       };
       const listAll = () => libraryRef.current.filter((song) => song.audioUrl && !song.isGenerating).map(track);
       webamp = new Webamp({
@@ -422,7 +430,15 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
             const wanted = windows?.[id];
             const info = state.windows.genWindows[id];
             if (!wanted || !info) continue;
-            if (typeof wanted.open === 'boolean' && wanted.open !== info.open) store().dispatch({ type: 'TOGGLE_WINDOW', windowId: id });
+            if (typeof wanted.open === 'boolean' && wanted.open !== info.open) {
+              store().dispatch({ type: 'TOGGLE_WINDOW', windowId: id });
+              // MilkDrop opened on its own lands small wherever Webamp puts it: beside the player, as the mode opens it
+              if (id === 'milkdrop' && wanted.open) {
+                const main = state.windows.genWindows.main.position;
+                store().dispatch({ type: 'WINDOW_SIZE_CHANGED', windowId: 'milkdrop', size: MILKDROP_SIZE });
+                store().dispatch({ type: 'UPDATE_WINDOW_POSITIONS', positions: { milkdrop: { x: main.x + 275 * (state.display.doubled ? 2 : 1), y: main.y } }, absolute: true });
+              }
+            }
             if (typeof wanted.shade === 'boolean' && wanted.shade !== Boolean(info.shade) && id !== 'milkdrop') store().dispatch({ type: 'TOGGLE_WINDOW_SHADE_MODE', windowId: id });
           }
           if (Array.isArray(change.song_ids)) {
