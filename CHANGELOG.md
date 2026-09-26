@@ -44,6 +44,11 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- **A news item without tags no longer blanks the window**, and **a Hugging Face error on the
+  LoRA page stays in its own tab** and clears on the next attempt instead of hanging over the
+  page until a restart. The repository pins the MSVC Rust toolchain, so a machine whose rustup
+  defaults to GNU builds too, and the changelog script builds from a source archive with no git
+  history. Thanks to @Astemiir for all four.
 - **Checked in four review rounds.** Leaving Winamp always gives the window its frame and size
   back, also after a reload; floating panels keep their place through a small window; training a
   run further no longer races an install; an unreadable saved proxy is said in Settings; a failed
