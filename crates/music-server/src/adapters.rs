@@ -619,8 +619,10 @@ pub struct HubFile {
 async fn hub_header(http: &reqwest::Client, url: &str) -> Result<serde_json::Map<String, Value>> {
     const FIRST: u64 = 256 << 10;
     let answer = http.get(url).header(reqwest::header::RANGE, format!("bytes=0-{}", FIRST - 1)).send().await?.error_for_status()?;
-    // a server that ignores the range would send the whole weight file
-    if answer.status() != reqwest::StatusCode::PARTIAL_CONTENT {
+    // a server that ignores the range would send the whole weight file; a whole
+    // file no longer than the range is the same bytes
+    let whole_small = answer.status() == reqwest::StatusCode::OK && answer.content_length().is_some_and(|bytes| bytes <= FIRST);
+    if answer.status() != reqwest::StatusCode::PARTIAL_CONTENT && !whole_small {
         bail!("the server answered {} to a range request", answer.status());
     }
     let start = answer.bytes().await?;

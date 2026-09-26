@@ -722,7 +722,8 @@ const TrainStep: React.FC<{ state: TrainingState; dataset: Dataset; job: Prepare
   // the BF16 base downloads through the model manager; its progress is read from there
   const [baseDownload, setBaseDownload] = useState<{ downloaded_bytes: number; total_bytes: number } | null>(null);
   const fetchingBase = baseDownload !== null;
-  const baseIds = useMemo(() => state.base?.download ?? [], [state.base]);
+  const baseKey = state.base?.download.join(',') ?? '';
+  const baseIds = useMemo(() => (baseKey ? baseKey.split(',') : []), [baseKey]);
   useEffect(() => {
     if (!fetchingBase) return;
     const timer = window.setInterval(() => {
