@@ -195,6 +195,7 @@ export const en = {
     eqImport: "Import .EQF",
     eqExport: "Export .EQF",
     eqPresetName: "Preset name",
+    eqPresetLabel: "Preset",
     eqFileEmpty: "The file has no presets",
     eqFileUnreadable: "The file could not be read",
     eqBalance: "Balance",

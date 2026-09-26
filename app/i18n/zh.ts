@@ -194,6 +194,7 @@ export const zh = {
     eqImport: "导入 .EQF",
     eqExport: "导出 .EQF",
     eqPresetName: "预设名称",
+    eqPresetLabel: "预设",
     eqFileEmpty: "文件中没有预设",
     eqFileUnreadable: "无法读取文件",
     eqBalance: "平衡",

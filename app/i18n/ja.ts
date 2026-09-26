@@ -194,6 +194,7 @@ export const ja = {
   eqImport: ".EQF を読み込む",
   eqExport: ".EQF に書き出す",
   eqPresetName: "プリセット名",
+  eqPresetLabel: "プリセット",
   eqFileEmpty: "ファイルにプリセットがありません",
   eqFileUnreadable: "ファイルを読み込めません",
   eqBalance: "バランス",

@@ -196,6 +196,7 @@ export const ru = {
     eqImport: "Импорт .EQF",
     eqExport: "Экспорт .EQF",
     eqPresetName: "Название пресета",
+    eqPresetLabel: "Пресет",
     eqFileEmpty: "В файле нет пресетов",
     eqFileUnreadable: "Файл не читается",
     eqBalance: "Баланс",

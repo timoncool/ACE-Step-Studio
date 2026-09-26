@@ -155,6 +155,13 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
       });
       return windowWork;
     };
+    // Webamp's own setCurrentTrack takes the index for a track id; this goes by the playlist's order
+    const playAt = (index: number) => {
+      const state = store().getState();
+      const id = state.playlist.trackOrder[index];
+      if (id === undefined) throw new Error(`Winamp's playlist has no track ${index + 1}.`);
+      store().dispatch({ type: state.media.status === 'STOPPED' ? 'BUFFER_TRACK' : 'PLAY_TRACK', id });
+    };
     let zoom = 1;
     const setZoom = async (next: number) => {
       zoom = next;
@@ -313,23 +320,19 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
       store().dispatch({ type: 'SET_BALANCE', balance: Math.round(eq.balance * 100) });
       webamp.setVolume(Math.round(volume * 100));
       const at = playable.findIndex((song) => song.id === queue[startIndex]?.id);
-      if (at > 0) webamp.setCurrentTrack(at);
-      if (playing) webamp.play();
       if (startSeconds > 0) {
-        // the position waits for the track's length: Winamp seeks by a share of it
-        let stopWaiting: (() => void) | null = null;
-        const seekWhenLoaded = () => {
-          const state = store().getState();
-          const length = state.playlist.currentTrack != null ? state.tracks[state.playlist.currentTrack]?.duration : null;
-          if (!length || !webamp) return;
-          stopWaiting?.();
-          stopWaiting = null;
-          webamp.seekToTime(Math.min(startSeconds, length));
-        };
-        stopWaiting = webamp.__onStateChange(seekWhenLoaded);
-        cleanups.push(() => stopWaiting?.());
-        seekWhenLoaded();
+        // the position waits for the studio's song to be loaded, and is set by that file's own length
+        const wanted = store().getState().playlist.trackOrder[Math.max(0, at)];
+        const emitter = (webamp as unknown as { _actionEmitter: { on: (type: string, listener: (action: { id?: number; length?: number }) => void) => () => void } })._actionEmitter;
+        const stopWaiting = emitter.on('SET_MEDIA', (action) => {
+          if (action.id !== wanted || !action.length) return;
+          stopWaiting();
+          store().dispatch({ type: 'SEEK_TO_PERCENT_COMPLETE', percent: Math.min(100, (startSeconds / action.length) * 100) });
+        });
+        cleanups.push(stopWaiting);
       }
+      if (at > 0) playAt(at);
+      if (playing) webamp.play();
 
       cleanups.push(webamp.onClose(exit));
       cleanups.push(webamp.onMinimize(() => void win?.minimize()));
@@ -433,7 +436,7 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
               player.appendTracks([track(song)]);
               at = store().getState().playlist.trackOrder.length - 1;
             }
-            player.setCurrentTrack(at);
+            playAt(at);
             player.play();
             done.push(`playing ${song.title}`);
           }

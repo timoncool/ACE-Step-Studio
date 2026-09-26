@@ -194,6 +194,7 @@ export const ko = {
     eqImport: ".EQF 가져오기",
     eqExport: ".EQF 내보내기",
     eqPresetName: "프리셋 이름",
+    eqPresetLabel: "프리셋",
     eqFileEmpty: "파일에 프리셋이 없습니다",
     eqFileUnreadable: "파일을 읽을 수 없습니다",
     eqBalance: "밸런스",

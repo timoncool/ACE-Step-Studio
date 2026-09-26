@@ -147,6 +147,7 @@ export const EqualizerPanel: React.FC<{ onClose: () => void }> = ({ onClose }) =
 
           <div className="flex flex-wrap items-center gap-1.5">
             <select
+              aria-label={t('eqPresetLabel')}
               value={eq.preset ?? ''}
               onChange={(event) => choose(event.target.value)}
               className="min-w-0 flex-1 rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-xs text-zinc-800 dark:border-white/10 dark:bg-black/30 dark:text-zinc-100"
