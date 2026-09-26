@@ -454,7 +454,12 @@ pub async fn window_result(headers: HeaderMap, Json(answer): Json<WindowAnswer>)
 /// showing songs, jobs, LoRA and settings read them again: an agent's call, or
 /// background work finishing after the call that started it returned.
 pub fn announce(what: &str) {
-    let _ = bridge().commands.send(json!({ "changed": what }).to_string());
+    tell_windows(json!({ "changed": what }));
+}
+
+/// An event for every open window.
+pub fn tell_windows(event: Value) {
+    let _ = bridge().commands.send(event.to_string());
 }
 
 /// An agent's call that changes something reaches the windows. The window

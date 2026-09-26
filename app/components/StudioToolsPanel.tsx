@@ -3,6 +3,7 @@ import { Check, Copy, Download, FileAudio, Loader2, Music, Play, RefreshCw, Scis
 import { mapNativeLibrarySong } from '../services/nativeLibrary';
 import { MidiTool } from './midi/MidiTool';
 import { useI18n } from '../context/I18nContext';
+import { saveFile } from '../services/saveFile';
 import { DevicePicker } from './DevicePicker';
 import { transcribeWithNativeOpenRouter } from '../services/nativeOpenRouter';
 import { apiUrl } from '../services/apiBase';
@@ -380,14 +381,14 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
                     <div className="min-w-0 flex-1">
                       <StemPlayer src={url} label={t(`stem_${stem}` as never) || stem} />
                     </div>
-                    <a
-                      href={url}
-                      download={`${songs.find(song => song.id === songId)?.title ?? 'track'} - ${stem}.wav`}
+                    <button
+                      type="button"
+                      onClick={() => void saveFile(`${songs.find(song => song.id === songId)?.title ?? 'track'} - ${stem}.wav`, { url })}
                       className="shrink-0 text-zinc-400 hover:text-pink-500"
                       title={t('download')}
                     >
                       <Download size={15} />
-                    </a>
+                    </button>
                   </div>
                 );
               })}

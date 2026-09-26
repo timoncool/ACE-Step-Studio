@@ -6,6 +6,11 @@ What changed, newest first. Dates are release dates.
 
 ### Added
 
+- **Save as, and a Files panel.** Songs, stems, MIDI, lyric sheets, scores, requests and videos
+  are saved where the user says, in Windows' own Save dialog, which starts in the folder chosen
+  last - before, the browser dropped them in Downloads without a word. Each save shows in a Files
+  panel, from Dub Studio: a chip in the sidebar, or a panel dragged anywhere, with its progress
+  while it is written and "Show in folder" once it is.
 - **A proxy for the whole studio** (Settings - Providers - Proxy): as Windows is set, the
   user's own, or none. HTTP, HTTPS, SOCKS5 and SOCKS4, with a login, written in any usual form -
   `host:port`, `host:port:login:password`, `login:password@host:port` or
@@ -16,6 +21,8 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- **The writing wands are always there.** With no assistant set up they were hidden, and nothing
+  said the studio could write a style or lyrics at all; now they open the assistant's settings.
 - **The engine is found behind a proxy.** A proxy set in HTTP_PROXY or ALL_PROXY took the
   studio's requests to its own engine on 127.0.0.1 as well, and the window waited on "Loading the
   models into memory" for good. The studio's own traffic, and the local network's, now always goes

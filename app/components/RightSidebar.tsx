@@ -10,6 +10,7 @@ import { apiUrl } from '../services/apiBase';
 import { SongDropdownMenu } from './SongDropdownMenu';
 import { AlbumCover } from './AlbumCover';
 import { downloadSongAudio } from '../services/songDownload';
+import { saveFile } from '../services/saveFile';
 import { localized, useAdapterLibrary, usesFromSettings } from '../services/adapters';
 import { useSongActions } from '../context/SongActionsContext';
 
@@ -708,15 +709,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                     {/* Download LRC */}
                     {song.lrcContent && song.lrcContent.trim().length > 0 && (
                         <button
-                            onClick={() => {
-                                const blob = new Blob([song.lrcContent!], { type: 'text/plain;charset=utf-8' });
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = `${song.title || 'song'}.lrc`;
-                                a.click();
-                                URL.revokeObjectURL(url);
-                            }}
+                            onClick={() => void saveFile(`${song.title || 'song'}.lrc`, { blob: new Blob([song.lrcContent!], { type: 'text/plain;charset=utf-8' }) })}
                             className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 text-zinc-600 dark:text-zinc-400 text-xs font-medium transition-colors"
                         >
                             <Download size={14} />

@@ -388,6 +388,24 @@ pub fn run() {
 
     builder
         .setup(move |app| {
+            // "Save as" for what the window saves: Windows' own dialog, over
+            // the studio's window, asked for by the service off the UI thread.
+            let dialogs = app.handle().clone();
+            music_server::set_save_dialog(Box::new(move |name: &str, start: Option<std::path::PathBuf>| {
+                use tauri::Manager;
+                use tauri_plugin_dialog::DialogExt;
+                let mut dialog = dialogs.dialog().file().set_file_name(name);
+                if let Some(extension) = std::path::Path::new(name).extension().and_then(|extension| extension.to_str()) {
+                    dialog = dialog.add_filter(extension.to_uppercase(), &[extension]);
+                }
+                if let Some(folder) = start {
+                    dialog = dialog.set_directory(folder);
+                }
+                if let Some(window) = dialogs.get_webview_window("main") {
+                    dialog = dialog.set_parent(&window);
+                }
+                dialog.blocking_save_file().and_then(|path| path.into_path().ok())
+            }));
             // The window is built here rather than from the configuration so
             // the WebView2 arguments can be extended: Tauri passes its own, and
             // WebView2 then ignores WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS
@@ -411,6 +429,7 @@ pub fn run() {
                 Some(url) => window.proxy_url(url),
                 None => window,
             };
+
             window.build()?;
             if updater_configured {
                 spawn_update_check(app.handle().clone(), is_portable());

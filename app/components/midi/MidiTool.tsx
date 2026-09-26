@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Download, Loader2, Piano, Play, Square, Trash2 } from 'lucide-react';
 import { useI18n } from '../../context/I18nContext';
+import { saveFile } from '../../services/saveFile';
 import { apiUrl } from '../../services/apiBase';
 import { MidiPlayer, type HeardNote } from './MidiPlayer';
 
@@ -195,13 +196,13 @@ export const MidiTool: React.FC<{ songId: string; songTitle: string; card: strin
         )}
         {songMidi && !running && (
           <>
-            <a
-              href={apiUrl(`/v1/library/songs/${encodeURIComponent(songId)}/midi/file`)}
-              download={`${songTitle || 'track'}.mid`}
+            <button
+              type="button"
+              onClick={() => void saveFile(`${songTitle || 'track'}.mid`, { url: apiUrl(`/v1/library/songs/${encodeURIComponent(songId)}/midi/file`) })}
               className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-700 hover:border-pink-400 hover:text-pink-600 dark:border-white/15 dark:text-zinc-200"
             >
               <Download size={13} /> {t('midiSave')}
-            </a>
+            </button>
             <button type="button" onClick={() => void remove()} className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2 text-xs text-zinc-500 hover:border-rose-400 hover:text-rose-600 dark:border-white/10">
               <Trash2 size={13} /> {t('midiDelete')}
             </button>

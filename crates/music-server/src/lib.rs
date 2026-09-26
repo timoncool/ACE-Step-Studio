@@ -30,6 +30,8 @@ mod separation;
 mod midi;
 mod sizes;
 pub mod net;
+mod saving;
+pub use saving::{set_save_dialog, SaveDialog};
 mod skill;
 mod library;
 mod ace;
@@ -656,6 +658,9 @@ pub async fn serve() -> anyhow::Result<()> {
         .route("/v1/proxy/image", get(proxy_image))
         .route("/v1/openrouter/settings", get(openrouter_settings).put(update_openrouter_settings))
         .route("/v1/openrouter/logs", get(openrouter_logs))
+        .route("/v1/files/save", post(saving::choose))
+        .route("/v1/files/save/{id}", post(saving::write).layer(DefaultBodyLimit::disable()))
+        .route("/v1/files/reveal", post(saving::reveal))
         .route("/v1/network/proxy", get(read_proxy).put(update_proxy))
         .route("/v1/network/proxy/test", post(test_proxy))
         .route("/v1/assistant/status", get(assistant_status).put(update_assistant_settings))

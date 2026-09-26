@@ -1,4 +1,5 @@
 import type { Song } from '../types';
+import { saveFile } from './saveFile';
 
 const EXTENSIONS: [string, string][] = [
   ['wav', 'wav'],
@@ -25,18 +26,11 @@ export function songFileName(song: Song, contentType: string): string {
   return `${safe || 'song'}.${extension}`;
 }
 
-/** Saves the track's audio as it plays now. */
+/** Saves the track's audio as it plays now, where the user says. */
 export async function downloadSongAudio(song: Song): Promise<void> {
   if (!song.audioUrl) return;
-  const response = await fetch(song.audioUrl);
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = songFileName(song, response.headers.get('content-type') ?? blob.type);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  // the name carries the stored format, which only the file's own type tells
+  const head = await fetch(song.audioUrl, { method: 'HEAD' });
+  if (!head.ok) throw new Error(`HTTP ${head.status}`);
+  await saveFile(songFileName(song, head.headers.get('content-type') ?? ''), { url: song.audioUrl });
 }

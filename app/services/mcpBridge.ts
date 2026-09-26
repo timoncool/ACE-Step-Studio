@@ -263,7 +263,11 @@ export function startBridge(): void {
     // the service names this window first; a command for another window is not ours
     let ours: number | null = null;
     events.onmessage = async (message) => {
-      const data = JSON.parse(message.data) as { window?: number; id?: string; command?: string; args?: Record<string, unknown>; changed?: string };
+      const data = JSON.parse(message.data) as { window?: number; id?: string; command?: string; args?: Record<string, unknown>; changed?: string; saving?: Record<string, unknown> };
+      if (data.saving) {
+        window.dispatchEvent(new CustomEvent('studio:saving', { detail: data.saving }));
+        return;
+      }
       if (data.changed) {
         agentChanged();
         return;

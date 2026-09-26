@@ -105,6 +105,7 @@ import { I18nProvider, useI18n } from './context/I18nContext';
 import { List } from 'lucide-react';
 import { PlaylistDetail } from './components/PlaylistDetail';
 import { Toast, ToastType } from './components/Toast';
+import { FilesPanel } from './components/FilesPanel';
 import { SearchPage } from './components/SearchPage';
 import { NewsPage } from './components/NewsPage';
 import { AdaptersPage } from './components/AdaptersPage';
@@ -1640,6 +1641,7 @@ function AppContent() {
           setIsCreatePlaylistModalOpen(true);
         }}
       />
+      <FilesPanel />
       <Toast
         message={toast.message}
         type={toast.type}

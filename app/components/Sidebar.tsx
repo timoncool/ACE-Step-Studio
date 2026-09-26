@@ -158,6 +158,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <NavItem icon={<SlidersHorizontal size={20} />} label={t('studioTools')} active={currentView === 'tools'} onClick={() => onNavigate('tools')} isExpanded={isOpen} />
 
           <div className="mt-auto flex flex-col gap-2">
+            {/* the files panel docks its chip here */}
+            <div id="dock-slot" className="flex flex-col" />
             <ResourceMonitor isOpen={isOpen} />
             <SystemWidget isOpen={isOpen} />
             <button type="button" onClick={onToggleTheme} className={`flex w-full items-center gap-3 rounded-xl text-zinc-500 transition-all duration-200 hover:bg-zinc-100 hover:text-black dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white ${isOpen ? 'justify-start px-3 py-2.5' : 'aspect-square justify-center'}`} title={theme === 'dark' ? t('lightMode') : t('darkMode')}>
