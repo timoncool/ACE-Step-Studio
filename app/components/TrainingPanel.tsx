@@ -917,14 +917,14 @@ const ContinueRun: React.FC<{ run: TrainingRun; epochs: boolean; onChanged: () =
           {t('trainingContinue')}
         </button>
         <label className="flex items-center gap-1.5 text-[11px] text-zinc-500">
-          {t('trainingContinueTo')}
+          {tt(epochs ? 'trainingContinueToEpoch' : 'trainingContinueTo')}
           <input
             value={steps}
             onChange={event => setSteps(event.target.value.replace(/[^0-9]/g, ''))}
             onKeyDown={event => { if (event.key === 'Enter') start(); }}
             placeholder={String(suggested)}
             inputMode="numeric"
-            aria-label={t('trainingContinueTo')}
+            aria-label={tt(epochs ? 'trainingContinueToEpoch' : 'trainingContinueTo')}
             className="w-24 rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs tabular-nums text-zinc-900 outline-none focus:border-pink-500 dark:border-white/10 dark:bg-black/30 dark:text-white"
           />
         </label>

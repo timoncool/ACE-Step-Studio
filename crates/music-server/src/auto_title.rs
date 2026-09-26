@@ -81,6 +81,18 @@ fn capitalised(phrase: &str) -> String {
     characters.next().map(|first| first.to_uppercase().chain(characters).collect()).unwrap_or_default()
 }
 
+/// The description without the words that switch its LoRA on: "roti-s1nthwv,
+/// driving synthwave" is driving synthwave, and a trigger is not a name.
+pub fn without_triggers(caption: &str, triggers: &[String]) -> String {
+    let is_trigger = |word: &str| triggers.iter().any(|trigger| trigger.eq_ignore_ascii_case(word.trim_matches(|character: char| character == ',' || character.is_whitespace())));
+    caption
+        .split(',')
+        .map(|piece| piece.split_whitespace().filter(|word| !is_trigger(word)).collect::<Vec<_>>().join(" "))
+        .filter(|piece| !piece.is_empty())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 /// The first sung line after a chorus marker.
 fn chorus_line(lyrics: &str) -> Option<&str> {
     let mut in_chorus = false;
@@ -290,6 +302,14 @@ mod tests {
     #[test]
     fn a_description_about_the_track_itself_names_nothing() {
         assert_eq!(subject("The track maintains a consistent, driving tempo."), None);
+    }
+
+    #[test]
+    fn a_lora_trigger_is_not_a_title() {
+        let caption = without_triggers("nvnbr, driving Russian folk rock, accordion hooks", &["nvnbr".into()]);
+        assert_eq!(caption, "driving Russian folk rock, accordion hooks");
+        assert_eq!(auto_title(&caption, "", true), "driving Russian folk rock");
+        assert_eq!(without_triggers("roti-s1nthwv driving synthwave", &["roti-s1nthwv".into()]), "driving synthwave");
     }
 
     #[test]

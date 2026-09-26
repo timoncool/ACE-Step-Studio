@@ -6283,7 +6283,22 @@ async fn import_take(
     });
     let profile_id = state.selected_profile_id.read().await.clone();
     let instrumental = lyrics.trim().is_empty() || lyrics.trim() == "[Instrumental]";
-    let title = job.title.clone().unwrap_or_else(|| auto_title::auto_title(&caption, &lyrics, instrumental));
+    let title = match job.title.clone() {
+        Some(title) => title,
+        None => {
+            // the words that switch the song's LoRA on say nothing about it
+            let triggers: Vec<String> = replay
+                .get("adapters")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(|adapter| adapter.get("name").and_then(Value::as_str))
+                .chain(replay.get("lm_adapter").and_then(Value::as_str))
+                .filter_map(|id| state.adapters.trigger_of(id))
+                .collect();
+            auto_title::auto_title(&auto_title::without_triggers(&caption, &triggers), &lyrics, instrumental)
+        }
+    };
     let imported = state.library.import_generated_song(library::GeneratedSongInput {
         title: Some(title),
         metadata,

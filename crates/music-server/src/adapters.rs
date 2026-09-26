@@ -527,6 +527,11 @@ impl AdapterLibrary {
         fs::remove_dir_all(&folder).with_context(|| format!("remove {}", folder.display()))
     }
 
+    /// The word that switches an installed adapter on, when it has one.
+    pub fn trigger_of(&self, id: &str) -> Option<String> {
+        self.read_meta(id).and_then(|meta| meta.trigger).filter(|trigger| !trigger.trim().is_empty())
+    }
+
     /// The model size an installed adapter was made for, `2b`, `xl` or `lm`.
     pub fn model_of(&self, id: &str) -> Option<String> {
         self.read_meta(id).and_then(|meta| meta.model)
