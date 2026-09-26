@@ -13,12 +13,16 @@ describe('ACE-Step strings', () => {
   });
 });
 
+/** The About page names the sibling studios on purpose: the YuE2 and MiniMax ones. */
+const SIBLING_STUDIOS = new Set(['studioYue2', 'studioMiniMax']);
+
 describe('merged interface strings', () => {
   it('nothing the interface shows names the models this studio grew out of', async () => {
     const { translations } = await import('./translations');
     const leaks: string[] = [];
     for (const [language, strings] of Object.entries(translations)) {
       for (const [key, value] of Object.entries(strings)) {
+        if (SIBLING_STUDIOS.has(key)) continue;
         if (typeof value === 'string' && /music ?3|minimax|yue ?2/i.test(value)) leaks.push(`${language}.${key}: ${value.slice(0, 80)}`);
       }
     }
