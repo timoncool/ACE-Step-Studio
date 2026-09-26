@@ -19,7 +19,7 @@ interface NewsItem {
   date: string;
   title: LocalizedString;
   body: LocalizedString;
-  tags: string[];
+  tags?: string[];
   links?: NewsLink[];
 }
 
@@ -289,16 +289,18 @@ export const NewsPage: React.FC = () => {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-2 mt-4">
-          {item.tags.map(tag => (
-            <span
-              key={tag}
-              className={`text-[11px] font-medium px-2.5 py-1 rounded-full ${tagColor(tag)}`}
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
+        {item.tags && item.tags.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mt-4">
+            {item.tags.map(tag => (
+              <span
+                key={tag}
+                className={`text-[11px] font-medium px-2.5 py-1 rounded-full ${tagColor(tag)}`}
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
