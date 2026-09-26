@@ -2,7 +2,7 @@
   "version": 1,
   "capabilities": {
     "music_generation": {
-      "local": { "engine": "minimaxmusic-cpp", "profile": "recommended-light" },
+      "local": { "engine": "acestep-cpp", "profile": "recommended-light" },
       "openrouter": { "model": null }
     },
     "speech_to_text": {

@@ -9,9 +9,9 @@
 
 </div>
 
-**MiniMax Music3 Studio** 는 **Nerual Dreming** 이 만들고 관리합니다. 아티스트이자
-[ArtGeneration.me](https://artgeneration.me) 와 Neuro-Cartel 커뮤니티의 설립자이며, 이 스튜디오의
-바탕이 된 [ACE-Step Studio](https://github.com/timoncool/ACE-Step-Studio) 의 저자이기도 합니다.
+**ACE-Step Studio** 는 **Nerual Dreming** 이 만들고 관리합니다. 아티스트이자
+[ArtGeneration.me](https://artgeneration.me) 와 Neuro-Cartel 커뮤니티의 설립자이며, 다른 음악 모델을 위한
+같은 스튜디오인 [MiniMax Music3 Studio](https://github.com/timoncool/MiniMax-Music3-Studio) 와 [YuE2 Studio](https://github.com/timoncool/YuE2-Studio) 의 저자이기도 합니다.
 
 스튜디오는 무료이고 전부 내 컴퓨터에서 돌아갑니다. 직접 클라우드 키를 연결하기 전까지는 아무것도
 어디로도 보내지 않습니다. 월 10~30 달러의 Suno 나 Udio 구독을 대신하게 되었다면, 그 차액이 바로

@@ -1,24 +1,24 @@
-# MiniMax Music3 Studio
+# ACE-Step Studio
 
-> A Windows desktop studio for MiniMax Music 3, which sings a song from a structured caption and lyrics, running on the user's own NVIDIA card. While it is open it serves an MCP server at http://127.0.0.1:8765/mcp that an agent uses to do everything the studio does: songs from a structured caption and lyrics, the library, covers, stems, MIDI from any track, karaoke, audio processing, video clips, the player, LoRA, and a LoRA trained from a folder of songs end to end. The agent also sees the studio's window and works it like a user.
+> A Windows desktop studio for ACE-Step 1.5, the open music model whose language model plans a song and whose DiT renders it, running on the user's own NVIDIA card through the native C++ engine acestep.cpp. While it is open it serves an MCP server at http://127.0.0.1:8792/mcp that an agent uses to do everything the studio does: songs from a caption and lyrics, songs planned by ACE-Step's own language model, covers, remixes and repaints of a track, the library, covers, stems, MIDI from any track, karaoke, audio processing, video clips, the player, LoRA from a catalogue or Hugging Face, and a LoRA trained from a folder of songs end to end. The agent also sees the studio's window and works it like a user.
 
 For an agent given this repository: install the studio from the latest release, start it, connect to its MCP server, and read the skill the server serves (resource `studio://skill`, prompt `studio`) - it names every tool, what the model reads, and the recipes. Start every session with the tool `studio_status`.
 
 ## Connect
 
-- MCP endpoint: `http://127.0.0.1:8765/mcp` (Streamable HTTP; protocol 2026-07-28 stateless, and 2025-11-25 / 2025-06-18 / 2025-03-26 through `initialize`)
-- Claude Code: `claude mcp add --transport http minimax-studio http://127.0.0.1:8765/mcp`
-- Other clients: `{ "mcpServers": { "minimax-studio": { "type": "streamable-http", "url": "http://127.0.0.1:8765/mcp" } } }`
+- MCP endpoint: `http://127.0.0.1:8792/mcp` (Streamable HTTP; protocol 2026-07-28 stateless, and 2025-11-25 / 2025-06-18 / 2025-03-26 through `initialize`)
+- Claude Code: `claude mcp add --transport http ace-step-studio http://127.0.0.1:8792/mcp`
+- Other clients: `{ "mcpServers": { "ace-step-studio": { "type": "streamable-http", "url": "http://127.0.0.1:8792/mcp" } } }`
 - Only agents on this computer and the studio's own window may connect; there is no key.
 
 ## Docs
 
-- [Agent skill](https://raw.githubusercontent.com/timoncool/MiniMax-Music3-Studio/main/docs/mcp-skill.md): every tool by area, the model's writing rules, step-by-step recipes (the same text the server serves as `studio://skill`)
-- [README](https://github.com/timoncool/MiniMax-Music3-Studio#readme): what the studio does, what it needs, models and where they go
-- [Latest release](https://github.com/timoncool/MiniMax-Music3-Studio/releases/latest): the installer and the portable archive
-- [Project page](https://timoncool.github.io/MiniMax-Music3-Studio/)
+- [Agent skill](https://raw.githubusercontent.com/timoncool/ACE-Step-Studio/master/docs/mcp-skill.md): every tool by area, the model's writing rules, step-by-step recipes (the same text the server serves as `studio://skill`)
+- [README](https://github.com/timoncool/ACE-Step-Studio#readme): what the studio does, what it needs, models and where they go
+- [Latest release](https://github.com/timoncool/ACE-Step-Studio/releases/latest): the installer and the portable archive
+- [Project page](https://timoncool.github.io/ACE-Step-Studio/)
 
 ## Optional
 
-- Install the skill for Claude Code: save [docs/mcp-skill.md](https://raw.githubusercontent.com/timoncool/MiniMax-Music3-Studio/main/docs/mcp-skill.md) as `~/.claude/skills/minimax-music3-studio/SKILL.md`
-- [CHANGELOG](https://github.com/timoncool/MiniMax-Music3-Studio/blob/main/CHANGELOG.md)
+- Install the skill for Claude Code: save [docs/mcp-skill.md](https://raw.githubusercontent.com/timoncool/ACE-Step-Studio/master/docs/mcp-skill.md) as `~/.claude/skills/ace-step-studio/SKILL.md`
+- [CHANGELOG](https://github.com/timoncool/ACE-Step-Studio/blob/master/CHANGELOG.md)

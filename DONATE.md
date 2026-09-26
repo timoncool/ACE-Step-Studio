@@ -9,9 +9,9 @@
 
 </div>
 
-**MiniMax Music3 Studio** is written and maintained by **Nerual Dreming** — artist, founder of
+**ACE-Step Studio** is written and maintained by **Nerual Dreming** — artist, founder of
 [ArtGeneration.me](https://artgeneration.me) and of the Neuro-Cartel community, and the author of
-[ACE-Step Studio](https://github.com/timoncool/ACE-Step-Studio), which this studio grew out of.
+[MiniMax Music3 Studio](https://github.com/timoncool/MiniMax-Music3-Studio) and [YuE2 Studio](https://github.com/timoncool/YuE2-Studio), the same studio for other music models.
 
 The studio is free, runs entirely on your own machine, and sends nothing anywhere unless you
 connect a cloud key yourself. If it replaced a $10–30/month subscription to Suno or Udio for you,

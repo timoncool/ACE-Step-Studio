@@ -64,6 +64,7 @@ pub struct Recipe {
     pub target_mlp: bool,
     /// `prodigy` (finds its own step size), `adamw` or `muon`.
     pub optimizer: String,
+    /// 0 takes HOT-Step's rate for the adapter: 2e-3 for LoKR, 5e-4 for LoRA.
     pub learning_rate: f64,
     pub grad_accum: u32,
     /// Percent of steps that train on the genre tags instead of the caption,
@@ -84,7 +85,8 @@ impl Default for Recipe {
             epochs: 500,
             target_loss: 0.3,
             seed: 42,
-            adapter: "lora".into(),
+            // HOT-Step's default adapter and its whole preset, lr and weight decay included
+            adapter: "lokr".into(),
             rank: 128,
             alpha: 256.0,
             lokr_dim: 512,
@@ -92,7 +94,7 @@ impl Default for Recipe {
             lokr_factor: 6,
             target_mlp: true,
             optimizer: "prodigy".into(),
-            learning_rate: 5e-4,
+            learning_rate: 0.0,
             grad_accum: 4,
             genre_ratio: 30,
             cfg_ratio: 0.15,
@@ -127,7 +129,7 @@ impl Recipe {
             return Err("the rank, the LoKr dimension and its factor must be at least 1".into());
         }
         let numbers = [self.alpha, self.lokr_alpha, self.learning_rate, self.target_loss, self.cfg_ratio];
-        if !numbers.iter().all(|value| value.is_finite()) || self.alpha <= 0.0 || self.lokr_alpha <= 0.0 || self.learning_rate <= 0.0 {
+        if !numbers.iter().all(|value| value.is_finite()) || self.alpha <= 0.0 || self.lokr_alpha <= 0.0 || self.learning_rate < 0.0 {
             return Err("a recipe number is out of range".into());
         }
         if self.genre_ratio > 100 || !(0.0..1.0).contains(&self.cfg_ratio) || self.target_loss < 0.0 {
@@ -286,11 +288,17 @@ fn train_args(inputs: &TrainingInputs, out: &Path, from: Option<&Path>) -> Vec<O
             train.push(arg(if recipe.target_mlp { "--target-mlp" } else { "--no-target-mlp" }));
         }
     }
+    // HOT-Step tunes these with the adapter type: LoKR at 2e-3 with no loss
+    // weighting and a light weight decay, LoRA at 5e-4 with flow_snr
+    let lokr = recipe.adapter == "lokr";
+    let learning_rate = if recipe.learning_rate > 0.0 { recipe.learning_rate } else if lokr { 2e-3 } else { 5e-4 };
     train.extend([
         arg("--optimizer"),
         arg(&recipe.optimizer),
         arg("--lr"),
-        text(&recipe.learning_rate),
+        text(&learning_rate),
+        arg("--weight-decay"),
+        arg(if lokr { "0.001" } else { "0.01" }),
         arg("--epochs"),
         text(&recipe.epochs),
         arg("--target-loss"),
@@ -312,7 +320,7 @@ fn train_args(inputs: &TrainingInputs, out: &Path, from: Option<&Path>) -> Vec<O
         arg("--bwd"),
         arg("mm"),
         arg("--loss-weighting"),
-        arg("flow_snr"),
+        arg(if lokr { "none" } else { "flow_snr" }),
         arg("--overwrite"),
     ]);
     train
@@ -476,11 +484,22 @@ mod tests {
             assert!(has(&preprocess, pair), "{pair:?}");
         }
         let train = strings(&stages[1]);
-        for pair in [["--rank", "128"], ["--alpha", "256"], ["--optimizer", "prodigy"], ["--attn", "flash"], ["--mirror", "bf16-f32"], ["--genre-ratio", "30"], ["--stages", "train,export"]] {
+        // HOT-Step's default: its LoKR preset
+        for pair in [["--adapter-type", "lokr"], ["--lokr-dim", "512"], ["--lokr-alpha", "512"], ["--lokr-factor", "6"], ["--lr", "0.002"], ["--weight-decay", "0.001"], ["--loss-weighting", "none"], ["--optimizer", "prodigy"], ["--attn", "flash"], ["--mirror", "bf16-f32"], ["--genre-ratio", "30"], ["--epochs", "500"], ["--target-loss", "0.3"], ["--stages", "train,export"]] {
             assert!(has(&train, pair), "{pair:?}");
         }
         assert!(train.contains(&"--target-mlp".to_string()));
-        assert!(!train.iter().any(|arg| arg == "--lokr-dim"));
+        assert!(!train.iter().any(|arg| arg == "--rank"));
+    }
+
+    #[test]
+    fn a_lora_recipe_takes_hot_step_s_lora_preset() {
+        let train = strings(&training_stages(&inputs(Recipe { adapter: "lora".into(), ..Recipe::default() }))[1]);
+        for pair in [["--adapter-type", "lora"], ["--rank", "128"], ["--alpha", "256"], ["--lr", "0.0005"], ["--weight-decay", "0.01"], ["--loss-weighting", "flow_snr"]] {
+            assert!(has(&train, pair), "{pair:?}");
+        }
+        let chosen = strings(&training_stages(&inputs(Recipe { adapter: "lora".into(), learning_rate: 1e-4, ..Recipe::default() }))[1]);
+        assert!(has(&chosen, ["--lr", "0.0001"]), "a rate set by hand wins");
     }
 
     #[test]

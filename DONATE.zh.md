@@ -9,9 +9,9 @@
 
 </div>
 
-**MiniMax Music3 Studio** 由 **Nerual Dreming** 编写并维护 —— 艺术家，
+**ACE-Step Studio** 由 **Nerual Dreming** 编写并维护 —— 艺术家，
 [ArtGeneration.me](https://artgeneration.me) 与 Neuro-Cartel 社区的创始人，也是
-[ACE-Step Studio](https://github.com/timoncool/ACE-Step-Studio) 的作者，本工作室正是由它发展而来。
+[MiniMax Music3 Studio](https://github.com/timoncool/MiniMax-Music3-Studio) 和 [YuE2 Studio](https://github.com/timoncool/YuE2-Studio) 的作者——它们是面向其他音乐模型的同一款工作室。
 
 工作室完全免费，全部在你自己的机器上运行；除非你自己接入云端密钥，否则不会向任何地方发送数据。
 如果它替代了你每月 10–30 美元的 Suno 或 Udio 订阅，那份差额正是让这类工作得以继续的原因。

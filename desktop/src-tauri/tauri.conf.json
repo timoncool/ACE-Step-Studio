@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "MiniMax Music3 Studio",
-  "version": "1.4.0",
-  "identifier": "com.timoncool.minimax-music3-studio",
+  "productName": "ACE-Step Studio",
+  "version": "2.0.0",
+  "identifier": "com.timoncool.ace-step-studio",
   "build": {
     "beforeDevCommand": "npm --prefix ../app run dev",
     "beforeBuildCommand": "npm --prefix ../app run build",
@@ -14,7 +14,7 @@
       {
         "label": "main",
         "dragDropEnabled": false,
-        "title": "MiniMax Music3 Studio",
+        "title": "ACE-Step Studio",
         "width": 1440,
         "height": 960,
         "minWidth": 1024,
@@ -50,14 +50,14 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRDNDg4QjQzN0UxRUVDODgKUldTSTdCNStRNHRJVEc4MURWS3VWNUpBRjh5N2xOcC9PaXJOK2hWOEt1RmRPa3BBUk02blV0WnEK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEIxNDFERTIyOUYwOTZEMTkKUldRWmJRbWZJdDVCc2RiUGV6SlpsSDdVVlV6a1JVU1BUNlE2MWorMG55QnJ3SFJlQm1RUnZ5bG8K",
       "endpoints": [
-        "https://github.com/timoncool/MiniMax-Music3-Studio/releases/latest/download/latest.json"
+        "https://github.com/timoncool/ACE-Step-Studio/releases/latest/download/latest.json"
       ],
       "windows": {
         "installMode": "passive"
       }
     }
   },
-  "mainBinaryName": "MiniMax-Music3-Studio"
+  "mainBinaryName": "ACE-Step-Studio"
 }

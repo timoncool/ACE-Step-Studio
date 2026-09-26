@@ -1,20 +1,20 @@
 ---
-name: minimax-music3-studio
-description: Drive MiniMax Music3 Studio on this computer through its MCP server - write and make songs with MiniMax Music 3 (structured caption, lyrics), manage the library, draw covers, split stems, turn any track into MIDI, time karaoke, process audio, make video clips, play songs, install LoRA, and build a LoRA from a folder of songs end to end, laying the lyrics out yourself instead of the studio's small assistant. Sees and works the studio's window like a user. Use whenever the user asks for anything the studio does.
+name: ace-step-studio
+description: Drive ACE-Step Studio on this computer through its MCP server - write and make songs with ACE-Step 1.5 (caption, lyrics, metadata), let its own language model plan or listen to a song, make covers, remixes, repaints and stems of a track, manage the library, draw covers, split stems, turn any track into MIDI, time karaoke, process audio, make video clips, play songs, install LoRA from the catalogue or Hugging Face, and build a LoRA from a folder of songs end to end, writing the captions and lyrics yourself instead of the studio's small assistant. Sees and works the studio's window like a user. Use whenever the user asks for anything the studio does.
 ---
 
-# MiniMax Music3 Studio through MCP
+# ACE-Step Studio through MCP
 
-MiniMax Music3 Studio serves MCP at `http://127.0.0.1:8765/mcp` while it is open
+ACE-Step Studio serves MCP at `http://127.0.0.1:8792/mcp` while it is open
 (Streamable HTTP, stateless JSON-RPC). Every tool runs the same code as a button of the
 studio, and the user sees what you do in the studio's window.
 
 ## If the studio is not running yet
 
 1. It is a Windows desktop application. If it is not installed, download the installer or
-   the portable archive from https://github.com/timoncool/MiniMax-Music3-Studio/releases/latest (it needs an
+   the portable archive from https://github.com/timoncool/ACE-Step-Studio/releases/latest (it needs an
    NVIDIA card; the first start offers to download the models).
-2. Start it. The MCP server is up as soon as its window is: `http://127.0.0.1:8765/mcp`.
+2. Start it. The MCP server is up as soon as its window is: `http://127.0.0.1:8792/mcp`.
    Nothing else to install - no npx, no bridge.
 3. Connect (below), then call `studio_status`. If the models are missing, `models_catalog`
    and `models_download` fetch them.
@@ -22,10 +22,10 @@ studio, and the user sees what you do in the studio's window.
 ## Connect
 
 ```bash
-claude mcp add --transport http minimax-studio http://127.0.0.1:8765/mcp
+claude mcp add --transport http ace-step-studio http://127.0.0.1:8792/mcp
 ```
 
-Other clients: `{ "mcpServers": { "minimax-studio": { "type": "streamable-http", "url": "http://127.0.0.1:8765/mcp" } } }`.
+Other clients: `{ "mcpServers": { "ace-step-studio": { "type": "streamable-http", "url": "http://127.0.0.1:8792/mcp" } } }`.
 
 The server also serves this skill (resource `studio://skill`, prompt `studio`) and the
 writing guides (resources `studio://guide/<topic>`). It speaks MCP `2026-07-28` (stateless:
@@ -57,81 +57,103 @@ connected and the address to paste.
 - **Files on this computer are passed by path**: `dataset_add_folder`,
   `library_import_audio`, `cover_set_from_file`, `video_set`. `library_song_files` and
   `dataset_song_files` give the paths of the studio's own files.
-- **You write, not the studio's assistant.** The studio has a small local model (Gemma)
-  for users without an agent. You write better: read `writing_guide` and
-  `writing_examples` first and write the caption and lyrics yourself. Use
+- **One writer per song.** Either you write the caption and lyrics, or ACE-Step's own
+  language model does (`think` on with empty lyrics, or `song_plan`) - never both on one
+  song. You write better: read `writing_guide` and `writing_examples` first. Use
   `assistant_write` only when the user asks for the studio's assistant.
   `assistant_sections` tags lyrics the user wrote with their sections without changing a
   word - the tag button of the create form.
 
-## What MiniMax Music 3 reads - read `writing_guide` for the full rules
+## What ACE-Step reads - read `writing_guide` for the full rules
 
-- **caption**: three parts in English, each under its heading alone on a line:
-  ```
-  Global Metadata
-  Basic Attributes: bpm is 96. key is A, and scale is minor. <Genre / Subgenre>.
-  Global Emotional Progression: ...
-  Application Scenarios & Imagery: ...
-  Sonics & Production Profile: ...
-  Vocal Details
-  Vocal Gender & Timbre: Singer A (Female), ...
-  Vocal Style: ...
-  Harmony/Backing Vocals: ...
-  Vocal FX: ...
-  Arrangement
-  Instrument Lifecycle Description (Primary/Secondary Layering):
-  Primary: ...
-  Secondary: ...
-  Groove & Foundation Progression: ...
-  Embellishments, Textures & Spatial FX: ...
-  ```
-  Roughly 250-450 words, concrete and section by section. No song title, no lyric lines.
-- **lyrics**: only `[intro] [verse] [pre-chorus] [chorus] [post-chorus] [bridge]
-  [instrumental] [solo] [outro]`, each tag alone on its line, a blank line between
-  sections, about 12-16 sung words per 10 seconds, in the song's own language. Russian `ё`
-  stays `ё`. An instrumental keeps the structure with no words.
-- **duration_seconds** is required for every song.
-- `writing_examples` returns whole reference captions of MiniMax's own prompting skill
-  for the genre family closest to your idea - match their shape and density.
+ACE-Step 1.5 is two models: a language model (the planner) that can write the song and plan
+its structure as audio codes, and the DiT that renders the sound. A song is a caption,
+lyrics and metadata in fields of their own.
+
+- **caption**: the sound, in English - comma-separated tags (18-28 for electronic genres,
+  12-18 for acoustic ones), 2-4 plain sentences the way ACE-Step's own examples are
+  written, or both. Genre and subgenres, mood, key instruments, vocal type, timbre,
+  production, era. Never tempo, key, time signature or length in the caption - they have
+  their own fields - and never the story: the caption is heard as sound.
+- **lyrics**: sections tagged `[Intro]`, `[Verse 1]`, `[Pre-Chorus]`, `[Chorus]`,
+  `[Bridge]`, `[Drop]`, `[Outro]`..., each tag alone on its line, a blank line between
+  sections, 6-10 syllables per line. A tag may carry one refinement after a dash:
+  `[Chorus - anthemic]`, `[Bridge - whispered]`. `UPPERCASE` for shouted lines,
+  `(parentheses)` for backing vocals. Plain text in the song's language, no per-line
+  language prefixes. An instrumental is exactly `[Instrumental]`.
+- **Metadata**: `bpm`, `keyscale` ("A minor"), `timesignature` ("4"), `duration` in
+  seconds, `vocal_language`. What you leave out the planner fills in when `think` is on.
+- **think**: on, the planner plans the song's structure as audio codes before the DiT
+  renders (`audio_cover_strength` sets the share of DiT steps that follow that plan). With a
+  LoRA of the DiT (a sound LoRA) turn it off: ACE-Step's authors advise against the
+  planner's codes with a trained LoRA, and the studio does the same.
+- `writing_examples` returns ACE-Step's official example requests closest to your brief -
+  match their shape and density.
 
 ## Recipes
 
 **A song from an idea**
 
 1. `writing_guide` topic `song`, `writing_examples` with the genre and mood.
-2. Write the caption and lyrics yourself.
-3. `song_create` (with `title`, `cover_prompt` and `duration_seconds`), then
+2. Write the caption, lyrics and metadata yourself.
+3. `song_create` (with `title`, `cover_prompt`, `duration`, `bpm`, `keyscale`), then
    `studio_wait` with its `job_id`.
 4. `player_play` with the new song's id to let the user hear it; `ui_screenshot` shows it.
+
+**A song written by ACE-Step's own planner**
+
+`song_plan` with mode `inspire` and a one-line idea in `request.caption` returns a whole
+request (caption, lyrics, metadata), written on the card; `song_create` takes it as it is.
+Mode `format` completes the metadata of a caption and lyrics you already have.
+
+**Covers, remixes and edits of a library song**
+
+`song_create` with `source_song_id` and `task_type`: `cover` (new style, same melody;
+`audio_cover_strength` how closely it follows), `cover-nofsq` (remix), `repaint`
+(`repainting_start`/`repainting_end` in seconds), and with a base model `lego`, `extract`
+(one `track`) or `complete` (tracks joined by `" | "`). `song_understand` listens to a
+library song and returns its caption, lyrics, metadata and audio codes, which a new render
+can follow through `audio_codes`.
+
+**A LoRA from the catalogue or Hugging Face**
+
+`lora_list` shows what is installed and the curated catalogue; `lora_install_catalog`
+installs an entry. `lora_search_hf` searches Hugging Face (most liked first),
+`lora_hf_files` lists a repository's files with the model size each fits (`2b` or `xl`)
+or why the engine cannot use it, and `lora_install_hf` downloads one. A LoRA fits one DiT
+size: use it with a DiT of that size (`models_status` shows the current one), and put its
+trigger word in the caption.
 
 **A LoRA from a folder of songs**
 
 1. `training_status`. If the trainer or the listening pack is missing:
-   `training_pack_install`, `training_listen_pack_install`.
+   `training_pack_install`, `training_listen_pack_install`. `base` names the unquantised
+   DiT the run trains on; if it is not installed, `models_download` with `ids` from
+   `base.download` and `select: false`.
 2. `dataset_create` with the artist's name (the trigger word is made from it), then
    `dataset_add_folder` with the folder.
 3. `dataset_prepare` with `lyrics: missing, style: missing, writer: agent`, then
    `studio_wait until: preparation`. The studio finds the lyrics in LRCLIB, QQ Music and
-   Kugou, recognises only what they miss with Whisper, and has MOSS-Music caption every
+   Kugou, recognises only what they miss with Whisper, and has MOSS-Music describe every
    song by ear with the tempo and key measured. It leaves the lyric layout to you.
 4. `dataset_get`. For each song:
    - `lyrics_state: found` - the words are there (from a database when `lyrics_source`
      names one: keep every word; `recognised`: fix the recogniser's mishearings). Lay them
      out in sections (`writing_guide` topics `sections` or `transcript`).
-   - `style` holds MOSS's caption; correct what it got wrong (`writing_guide` topic
-     `caption`), keeping its shape and the measured BPM and key.
+   - `style` holds the caption written by ear; correct what it got wrong (`writing_guide`
+     topic `caption`), keeping the measured BPM and key in their own fields.
    - Save with `dataset_song_update`; what you write is final and marks the song done.
    - `lyrics_state: wanted` after preparation: nothing found it. `lyrics_find` with other
      spellings, or ask the user, or write it instrumental.
-5. `training_start` with `recipe_defaults` from `training_status` (stop `steps` or
-   `epochs`). `studio_wait until: training`; `training_status` shows step, loss and
+5. `training_start` with `recipe_defaults` from `training_status`: `epochs` and
+   `target_loss` (the run stops earlier once the loss reaches it and keeps the best
+   adapter). `studio_wait until: training`; `training_status` shows the epoch, loss and
    checkpoints.
-6. `training_checkpoint_install` for the chosen step, then `song_create` with that LoRA
-   in `adapters` and its trigger word in the caption.
-7. Not there yet after the run? `training_continue` with `steps` above the run's
-   `resume_step` from `training_status`: it goes on from the state the run finished with,
-   same recipe and songs, and stops at that step. Only LoRA-method runs that finished can
-   go on (`resume_refused` says why not).
+6. `training_checkpoint_install` for the chosen checkpoint, then `song_create` with that
+   LoRA in `adapters`, its trigger word in the caption and `think: false`.
+7. Not there yet after the run? `training_continue` with `steps` - the epochs to reach in
+   all - above the run's `resume_step`: it goes on from the adapter the run exported, same
+   recipe, songs and DiT (`resume_refused` says why not).
 
 **The create page, where the user can see it**
 
@@ -142,9 +164,9 @@ connected and the address to paste.
 **When you are the studio's writing assistant**
 
 The user can pick **Agent (MCP)** as the assistant engine. Then the studio's write buttons,
-and the lyric layout of a dataset preparation, ask you instead of its local model:
-`assistant_requests_wait` returns each request with the instructions and the answer schema
-the local model would get; write the answer by them and send it with
+the simple form and the lyric layout of a dataset preparation ask you instead of its local
+model: `assistant_requests_wait` returns each request with the instructions and the answer
+schema the local model would get; write the answer by them and send it with
 `assistant_request_answer`. Keep calling `assistant_requests_wait` while the user works -
 `studio_status` shows `assistant_requests_waiting`. A request waits 15 minutes.
 
@@ -173,24 +195,26 @@ move around. Check the result with `ui_screenshot`.
 
 - **studio**: status, wait, system, capabilities, open data folder; **settings** get/set.
 - **models**: status, catalog, download, adopt (files already on disk), select, cancel,
-  remove; **engine**: options,
-  presets, restart, logs.
-- **song**: create, defaults (what a field left out becomes), job get/list/cancel, replay.
-- **writing**: guide, examples; **assistant**: write, status, set, runtime, models;
-  requests wait and answer (when you are the assistant).
+  remove; **engine**: options, presets, restart, logs.
+- **song**: create, plan (ACE-Step's planner), understand (listen to a library song),
+  defaults (what a field left out becomes), job get/list/cancel, replay.
+- **writing**: guide, examples; **assistant**: write, sections, status, set, runtime,
+  models; requests wait and answer (when you are the assistant).
 - **library**: songs list, song get/update/delete/files, import audio, versions;
   **playlist**: list/create/update/delete.
 - **cover**: draw, set from file, templates, prompt render; **karaoke**: make, delete,
   settings; **recogniser**: install/remove; **stems**: split, get; **separator**: status,
-  install, settings; **midi**: status, transcribe, get, delete, install, remove, cancel; **processing**: start, get, keep, discard, reference; **vst**.
-- **lora**: list, install from the catalogue or Hugging Face, import files, update,
-  delete.
+  install, settings; **midi**: status, transcribe, get, delete, install, remove, cancel;
+  **processing**: start, get, keep, discard, reference; **vst**.
+- **lora**: list, install from the catalogue, search Hugging Face, list a repository's
+  files, install from Hugging Face, import files, update, delete.
 - **dataset**: create, add folder or library songs, import, get, update, delete, song
   update/describe/delete/files, prepare (+ cancel, train after), reveal; **lyrics**: find;
-  **training**: status, start, cancel, checkpoint install, run delete, packs.
+  **training**: status, start, continue, cancel, checkpoint install, run delete, packs.
 - **ui**: screenshot, read page, click, type, select, press key, scroll, navigate, open
-  settings, notify, console; **create_form**: get, set, submit; **player**: state, play, pause, seek, next, previous, set; **video**: open,
-  get, set, render, play, pause, seek, close.
+  settings, notify, console; **create_form**: get, set, submit; **player**: state, play,
+  pause, seek, next, previous, set; **video**: open, get, set, render, play, pause, seek,
+  close.
 - **openrouter**: status, key, catalog, log, complete, cover, transcribe.
 
 ## Turn a track into MIDI

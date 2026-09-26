@@ -111,6 +111,7 @@ fn compact_training(training: &Value) -> Value {
         "datasets": datasets,
         "runs": runs,
         "recipe_defaults": training["recipe_defaults"],
+        "base": training["base"],
     })
 }
 
@@ -687,8 +688,8 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "models_download",
-                description: "Download a model set (profile_id from models_catalog) or single components (ids). Resumes what is partly there.",
-                schema: || object(json!({ "profile_id": { "type": "string" }, "ids": { "type": "array", "items": { "type": "string" } } }), &[]),
+                description: "Download a model set (profile_id from models_catalog) or single components (ids). Resumes what is partly there. The set becomes the studio's once it is on disk; select false only fetches it, as for the training base (training_status base.download).",
+                schema: || object(json!({ "profile_id": { "type": "string" }, "ids": { "type": "array", "items": { "type": "string" } }, "select": { "type": "boolean", "description": "make it the studio's set once downloaded (default true)" } }), &[]),
                 call: |args| post("/setup/download".into(), args.clone()),
             },
             Tool {
@@ -1772,14 +1773,14 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "training_start",
-                description: "Train a LoRA on a dataset. recipe: the recipe from training_status (recipe_defaults) with your changes, e.g. stop 'steps' with steps, or stop 'epochs' with epochs. Watch training_status; one run at a time, and it holds the card.",
+                description: "Train a LoRA on a dataset. recipe: the recipe from training_status (recipe_defaults) with your changes: epochs (passes over the songs) and target_loss (the run stops earlier once the smoothed loss reaches it and keeps the best adapter). It trains on the unquantised DiT of the model the studio renders with; training_status base says which, and whether it is downloaded. Watch training_status; one run at a time, and it holds the card.",
                 schema: || object(json!({ "dataset_id": { "type": "string" }, "name": { "type": "string" }, "recipe": { "type": "object" } }), &["dataset_id", "recipe"]),
                 call: |args| post("/v1/training/runs".into(), args.clone()),
             },
             Tool {
                 name: "training_continue",
-                description: "Train a finished or stopped run further, from its latest checkpoint up to steps in all (training_status shows resume_step, or resume_refused with the reason). Same recipe and songs; the loss chart and the checkpoints go on from there. Stops by steps only.",
-                schema: || object(json!({ "run_id": { "type": "string" }, "steps": { "type": "integer", "description": "the total steps to reach, above resume_step" } }), &["run_id", "steps"]),
+                description: "Train a finished or stopped run further, from its latest adapter up to steps epochs in all (training_status shows resume_step, the epochs trained so far, or resume_refused with the reason). Same recipe, songs and DiT; the loss chart and the checkpoints go on from there.",
+                schema: || object(json!({ "run_id": { "type": "string" }, "steps": { "type": "integer", "description": "the total epochs to reach, above resume_step" } }), &["run_id", "steps"]),
                 call: |args| post(format!("/v1/training/runs/{}/continue", segment(&text(args, "run_id")?)), json!({ "steps": args.get("steps").cloned().unwrap_or(Value::Null) })),
             },
             Tool {

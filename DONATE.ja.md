@@ -9,9 +9,9 @@
 
 </div>
 
-**MiniMax Music3 Studio** を書き、保守しているのは **Nerual Dreming** です。アーティストであり、
-[ArtGeneration.me](https://artgeneration.me) と Neuro-Cartel コミュニティの創設者、そして本スタジオの
-元になった [ACE-Step Studio](https://github.com/timoncool/ACE-Step-Studio) の作者でもあります。
+**ACE-Step Studio** を書き、保守しているのは **Nerual Dreming** です。アーティストであり、
+[ArtGeneration.me](https://artgeneration.me) と Neuro-Cartel コミュニティの創設者で、ほかの音楽モデル向けの
+同じスタジオ [MiniMax Music3 Studio](https://github.com/timoncool/MiniMax-Music3-Studio) と [YuE2 Studio](https://github.com/timoncool/YuE2-Studio) の作者でもあります。
 
 このスタジオは無料で、すべてあなたの PC 上で動きます。自分でクラウドの鍵をつながない限り、
 どこにも何も送りません。もし月 10〜30 ドルの Suno や Udio の購読を置き換えられたなら、その差額こそが

@@ -722,6 +722,8 @@ const TrainStep: React.FC<{ state: TrainingState; dataset: Dataset; job: Prepare
   // the BF16 base downloads through the model manager; its progress is read from there
   const [baseDownload, setBaseDownload] = useState<{ downloaded_bytes: number; total_bytes: number } | null>(null);
   const fetchingBase = baseDownload !== null;
+  // the job counts the whole set, the files already on disk included; the base is what is left of it
+  const baseFetched = baseDownload && state.base ? Math.max(0, baseDownload.downloaded_bytes - (baseDownload.total_bytes - state.base.bytes)) : 0;
   const baseKey = state.base?.download.join(',') ?? '';
   const baseIds = useMemo(() => (baseKey ? baseKey.split(',') : []), [baseKey]);
   useEffect(() => {
@@ -785,8 +787,8 @@ const TrainStep: React.FC<{ state: TrainingState; dataset: Dataset; job: Prepare
             {state.base && !state.base.installed && (
               baseDownload ? (
                 <div className="mt-2 max-w-sm">
-                  <div className="flex justify-between text-[11px] tabular-nums text-zinc-500"><span>{t('trainingBaseDownloading')}</span><span>{gigabytes(baseDownload.downloaded_bytes)} / {gigabytes(baseDownload.total_bytes)}</span></div>
-                  <div className="mt-1 h-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-white/10"><div className="h-full bg-gradient-to-r from-orange-500 to-pink-600" style={{ width: `${baseDownload.total_bytes ? (100 * baseDownload.downloaded_bytes) / baseDownload.total_bytes : 0}%` }} /></div>
+                  <div className="flex justify-between text-[11px] tabular-nums text-zinc-500"><span>{t('trainingBaseDownloading')}</span><span>{gigabytes(baseFetched)} / {gigabytes(state.base.bytes)}</span></div>
+                  <div className="mt-1 h-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-white/10"><div className="h-full bg-gradient-to-r from-orange-500 to-pink-600" style={{ width: `${state.base.bytes ? (100 * baseFetched) / state.base.bytes : 0}%` }} /></div>
                 </div>
               ) : (
                 <button

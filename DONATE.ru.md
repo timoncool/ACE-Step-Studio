@@ -9,9 +9,9 @@
 
 </div>
 
-**MiniMax Music3 Studio** пишет и поддерживает **Nerual Dreming** — художник, основатель
+**ACE-Step Studio** пишет и поддерживает **Nerual Dreming** — художник, основатель
 [ArtGeneration.me](https://artgeneration.me) и сообщества «Нейро-Картель», автор
-[ACE-Step Studio](https://github.com/timoncool/ACE-Step-Studio), из которой выросла эта студия.
+[MiniMax Music3 Studio](https://github.com/timoncool/MiniMax-Music3-Studio) и [YuE2 Studio](https://github.com/timoncool/YuE2-Studio) — той же студии для других музыкальных моделей.
 
 Студия бесплатная, работает целиком на вашей машине и никуда ничего не отправляет, пока вы сами
 не подключите облачный ключ. Если она заменила вам подписку на Suno или Udio за 10–30 долларов в
