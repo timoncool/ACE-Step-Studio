@@ -1,5 +1,43 @@
 [
   {
+    "id": "ace-step-studio-3-0-0",
+    "date": "2026-09-26",
+    "title": {
+      "en": "ACE-Step Studio 3.0.0",
+      "ru": "ACE-Step Studio 3.0.0",
+      "zh": "ACE-Step Studio 3.0.0",
+      "ja": "ACE-Step Studio 3.0.0",
+      "ko": "ACE-Step Studio 3.0.0"
+    },
+    "body": {
+      "en": "A player of its own. A ten-band equalizer on Winamp's frequencies with its presets, your own and .EQF files, balance and mono. A MilkDrop visualiser with hundreds of presets or a spectrum in ten looks - floating over the studio, fullscreen or in a window of its own. And a Winamp mode: the whole window becomes a classic Winamp 2 with ten skins in the box, the Winamp Skin Museum one click away, scale up to 300 % and Ctrl+M to switch; the song, its place, the volume and the equalizer go over and come back. Save as everywhere, with a Files panel that shows each save; a proxy for the whole studio (HTTP, HTTPS, SOCKS5, SOCKS4, with a login). Agents drive all of it through MCP - the equalizer, the visualiser, Winamp, today's best songs - and the code went through four review rounds. In ACE-Step Studio also: a song added to a dataset brings its lyrics, genre, tempo and key from its tags, and without an NVIDIA card the first model set offered is Minimal. The whole family moved to 3.0.0 on the same day: YuE2 Studio (songs with an editable score), MiniMax Music3 Studio (full-length tracks) and ACE-Step Studio (Suno at home, now updated too) - one core, three models, the links below.",
+      "ru": "Свой плеер. Десятиполосный эквалайзер на частотах Winamp с его пресетами, вашими и файлами .EQF, баланс и моно. Визуализатор MilkDrop с сотнями пресетов или спектр в десяти видах - поверх студии, на весь экран или в отдельном окне. И режим Winamp: всё окно становится классическим Winamp 2, десять скинов в комплекте, музей скинов Winamp в один клик, масштаб до 300 % и Ctrl+M для переключения; песня, место в ней, громкость и эквалайзер переходят туда и обратно. «Сохранить как» везде и панель файлов, где видно каждое сохранение; прокси на всю студию (HTTP, HTTPS, SOCKS5, SOCKS4, с логином). Агенты управляют всем этим через MCP - эквалайзер, визуализатор, Winamp, лучшие песни за сегодня, - а код прошёл четыре круга ревью. В ACE-Step Studio ещё: песня, добавленная в набор, приносит текст, жанр, темп и тональность из своих тегов, а без видеокарты NVIDIA первым предлагается набор моделей Minimal. Всё семейство перешло на 3.0.0 в один день: YuE2 Studio (песни с редактируемой партитурой), MiniMax Music3 Studio (полноформатные треки) и ACE-Step Studio (Suno дома - тоже обновилась): одно ядро, три модели, ссылки ниже.",
+      "zh": "自带播放器。基于 Winamp 频率的十段均衡器，含其预设、你自己的预设和 .EQF 文件，以及平衡和单声道。MilkDrop 可视化带数百个预设，或十种样式的频谱——悬浮在工作室上方、全屏或独立窗口。还有 Winamp 模式：整个窗口变成经典的 Winamp 2，内置十款皮肤，一键打开 Winamp 皮肤博物馆，缩放至 300%，Ctrl+M 切换；歌曲、播放位置、音量和均衡器来回同步。处处可“另存为”，文件面板显示每次保存；整个工作室可走代理（HTTP、HTTPS、SOCKS5、SOCKS4，支持登录）。智能体可通过 MCP 控制这一切——均衡器、可视化、Winamp、今天最好的歌——代码经过了四轮审查。 ACE-Step Studio 另外：加入数据集的歌曲会从标签带入歌词、流派、速度和调性；没有 NVIDIA 显卡时首先推荐 Minimal 模型组。 整个家族在同一天升级到 3.0.0：YuE2 Studio（带可编辑乐谱的歌曲）、MiniMax Music3 Studio（完整长度曲目）和 ACE-Step Studio（家里的 Suno，也已更新）——同一核心、三个模型，链接见下。",
+      "ja": "専用プレーヤー。Winamp の周波数による 10 バンドイコライザー（プリセット、自作プリセット、.EQF ファイル、バランスとモノ）。数百のプリセットを持つ MilkDrop ビジュアライザー、または 10 種類のスペクトラム——スタジオの上に浮かべても、全画面でも、別ウィンドウでも。そして Winamp モード：ウィンドウ全体がクラシックな Winamp 2 になり、スキン 10 種同梱、Winamp スキン博物館へワンクリック、300% までの拡大、Ctrl+M で切り替え。曲、再生位置、音量、イコライザーが行き来します。どこでも「名前を付けて保存」、保存を一覧するファイルパネル、スタジオ全体のプロキシ（HTTP、HTTPS、SOCKS5、SOCKS4、ログイン対応）。エージェントは MCP ですべてを操作でき——イコライザー、ビジュアライザー、Winamp、今日のベスト曲——コードは 4 回のレビューを経ました。 ACE-Step Studio ではさらに：データセットに追加した曲はタグから歌詞、ジャンル、テンポ、キーを取り込み、NVIDIA カードがない場合は最初に Minimal のモデルセットを提案します。 ファミリー全体が同じ日に 3.0.0 に：YuE2 Studio（編集可能な楽譜付きの曲）、MiniMax Music3 Studio（フルレングス曲）、ACE-Step Studio（自宅の Suno、こちらも更新）——ひとつのコア、3 つのモデル。リンクは下に。",
+      "ko": "전용 플레이어. Winamp 주파수의 10밴드 이퀄라이저(프리셋, 내 프리셋, .EQF 파일, 밸런스와 모노). 수백 개의 프리셋을 가진 MilkDrop 시각화 또는 열 가지 모양의 스펙트럼 — 스튜디오 위에 띄우거나 전체 화면, 별도 창으로. 그리고 Winamp 모드: 창 전체가 클래식 Winamp 2가 되고, 스킨 10종 기본 포함, Winamp 스킨 박물관은 클릭 한 번, 최대 300% 배율, Ctrl+M으로 전환; 노래, 재생 위치, 볼륨, 이퀄라이저가 오갑니다. 어디서나 '다른 이름으로 저장'과 저장을 보여 주는 파일 패널, 스튜디오 전체 프록시(HTTP, HTTPS, SOCKS5, SOCKS4, 로그인 지원). 에이전트는 MCP로 모든 것을 제어하고 — 이퀄라이저, 시각화, Winamp, 오늘의 베스트 곡 — 코드는 네 번의 리뷰를 거쳤습니다. ACE-Step Studio에서는 또: 데이터셋에 추가한 곡이 태그에서 가사, 장르, 템포, 키를 가져오고, NVIDIA 카드가 없으면 Minimal 모델 세트를 먼저 제안합니다. 패밀리 전체가 같은 날 3.0.0으로: YuE2 Studio(편집 가능한 악보가 있는 노래), MiniMax Music3 Studio(풀렝스 트랙), ACE-Step Studio(집에서 쓰는 Suno, 역시 업데이트) — 하나의 코어, 세 가지 모델, 링크는 아래에."
+    },
+    "tags": [
+      "ACE-Step",
+      "3.0.0",
+      "Winamp",
+      "MilkDrop"
+    ],
+    "links": [
+      {
+        "label": "YuE2 Studio",
+        "url": "https://timoncool.github.io/YuE2-Studio/"
+      },
+      {
+        "label": "MiniMax Music3 Studio",
+        "url": "https://timoncool.github.io/MiniMax-Music3-Studio/"
+      },
+      {
+        "label": "ACE-Step Studio",
+        "url": "https://timoncool.github.io/ACE-Step-Studio/"
+      }
+    ]
+  },
+  {
     "id": "family-minimax-yue2",
     "date": "2026-09-24",
     "title": {
