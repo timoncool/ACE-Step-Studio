@@ -635,6 +635,19 @@ fn part_path(path: &Path) -> PathBuf {
     PathBuf::from(value)
 }
 
+/// The declared set whose components are exactly these, whatever order they
+/// arrive in: picking every component of a set by hand is choosing that set.
+pub fn profile_matching(component_ids: &[String]) -> Option<&'static str> {
+    let mut wanted: Vec<&str> = component_ids.iter().map(String::as_str).collect();
+    wanted.sort_unstable();
+    wanted.dedup();
+    profiles().into_iter().find_map(|profile| {
+        let mut declared = profile.components.clone();
+        declared.sort_unstable();
+        (declared == wanted).then_some(profile.id)
+    })
+}
+
 fn profiles() -> Vec<Profile> {
     vec![
         profile("minimal", "Minimal - 2B turbo Q4_K_M, LM 0.6B (4 GB cards)", &["dit-turbo-q4", "lm-0.6b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"]),
@@ -777,6 +790,36 @@ fn nested(component: Component, folder: &'static str) -> Component {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_hand_picked_set_equal_to_a_declared_one_is_that_set() {
+        let ids = |list: &[&str]| list.iter().map(|id| id.to_string()).collect::<Vec<_>>();
+        assert_eq!(profile_matching(&ids(&["vae-standard-bf16", "dit-xl-turbo-q8", "te-qwen3-0.6b-q8", "lm-4b-q8"])), Some("quality-q8"));
+        assert_eq!(profile_matching(&ids(&["dit-xl-turbo-q8", "lm-4b-q8", "te-qwen3-0.6b-q8"])), None);
+        assert_eq!(profile_matching(&ids(&["dit-xl-turbo-q6", "lm-4b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"])), None);
+    }
+
+    #[tokio::test]
+    async fn file_hashing_does_not_block_the_async_runtime() {
+        let path = std::env::temp_dir().join(format!("studio-hash-test-{}", uuid::Uuid::now_v7()));
+        fs::File::create(&path).unwrap().set_len(8 * 1024 * 1024).unwrap();
+        let mut component = components().into_iter().next().unwrap();
+        component.bytes = 8 * 1024 * 1024;
+        component.sha256 = "not-a-real-digest";
+        let hash_task = tokio::spawn(verified_file_async(path.clone(), component));
+        tokio::time::timeout(std::time::Duration::from_secs(1), tokio::time::sleep(std::time::Duration::from_millis(1))).await.unwrap();
+        assert!(!hash_task.await.unwrap().unwrap());
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn startup_marks_orphaned_download_as_cancelled_without_erasing_resume_state() {
+        let mut state = PersistentState { active: Some(DownloadJob { id: "job".into(), profile_id: Some("minimal".into()), component_ids: vec!["dit-turbo-q4".into()], status: DownloadStatus::Downloading, downloaded_bytes: 123, total_bytes: 456, error: None }) };
+        assert!(recover_interrupted_download(&mut state));
+        let recovered = state.active.unwrap();
+        assert!(matches!(recovered.status, DownloadStatus::Cancelled));
+        assert_eq!(recovered.downloaded_bytes, 123);
+    }
 
     #[test]
     fn every_profile_is_a_complete_runnable_set() {

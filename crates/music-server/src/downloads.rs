@@ -124,7 +124,7 @@ impl Downloader {
 
     /// Where an asset's picked files land. Without a flavour they land in the
     /// root itself, which is how the engine's CUDA libraries end up beside
-    /// `mm-server.exe` - the only place Windows looks without being told.
+    /// the engine's executable - the only place Windows looks without being told.
     pub fn picked_into(&self, asset: &Asset) -> PathBuf {
         match asset.unzip_into {
             Some(flavour) => self.runtime_dir(flavour),

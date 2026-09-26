@@ -452,7 +452,7 @@ mod tests {
 
     #[test]
     fn a_manifest_reads_back_the_offsets_it_was_given() {
-        let directory = std::env::temp_dir().join(format!("mm3-chunked-{}", std::process::id()));
+        let directory = std::env::temp_dir().join(format!("studio-chunked-{}", std::process::id()));
         std::fs::create_dir_all(&directory).unwrap();
         let part = directory.join("model.gguf.part");
         std::fs::write(manifest_path(&part), [0u64, CHUNK, CHUNK * 2].iter().flat_map(|offset| offset.to_le_bytes()).collect::<Vec<u8>>()).unwrap();

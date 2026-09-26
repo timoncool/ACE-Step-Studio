@@ -3,8 +3,10 @@ param(
     [ValidatePattern('^\d+\.\d+\.\d+([\-+][0-9A-Za-z.-]+)?$')]
     [string]$Version,
     [string]$ReleaseNotes = "",
-    [ValidateSet('auto', 'cuda', 'vulkan', 'all')]
-    [string]$RuntimeBackend = 'auto',
+    # 'cuda' is the whole release engine: the universal CUDA 13 build, the CUDA
+    # 12 build for older cards, Vulkan and every CPU variant, loaded at run time.
+    [ValidateSet('cuda')]
+    [string]$RuntimeBackend = 'cuda',
     # The CUDA 12 toolkit of the engine's second CUDA backend.
     [string]$Cuda12Root = $env:CUDA_PATH_V12_9
 )

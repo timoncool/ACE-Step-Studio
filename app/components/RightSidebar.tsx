@@ -377,7 +377,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
 
                         <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white shadow-sm ring-2 ring-white dark:ring-black">
-                                M3
+                                AS
                             </div>
                             <div className="flex flex-col">
                                 <span className="text-sm font-semibold text-zinc-900 dark:text-white">
@@ -620,13 +620,25 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                     {(() => {
                         const p = (song.generationParams || {}) as Record<string, any>;
                         if (!song.generationParams) return null;
+                        const tt = t as unknown as (key: string) => string;
+                        const model = (file: unknown) => (typeof file === 'string' && file ? file.replace(/\.gguf$/i, '') : undefined);
+                        const task = typeof p.task_type === 'string' && p.task_type !== 'text2music' ? tt(`aceTask_${p.task_type}`) : undefined;
                         const paramRows: [string, string | number | undefined][] = [
                             [t('profile'), song.lmModel || undefined],
+                            [tt('aceTask'), task],
+                            ['DiT', model(p.synth_model)],
+                            ['LM', model(p.lm_model)],
                             [t('maxDuration'), song.duration && song.duration !== '0:00' ? song.duration : undefined],
-                            [t('ditSteps'), p.steps],
-                            [`LM ${t('cfgScale')}`, typeof p.lm_cfg === 'number' ? p.lm_cfg : undefined],
+                            [t('ditSteps'), p.inference_steps],
+                            [`DiT ${t('cfgScale')}`, typeof p.guidance_scale === 'number' ? p.guidance_scale : undefined],
+                            [tt('aceShift'), p.shift],
+                            [tt('aceSolver'), typeof p.solver === 'string' ? tt(`aceSolver_${p.solver}`) : undefined],
+                            [tt('aceScheduler'), typeof p.scheduler === 'string' ? tt(`aceScheduler_${p.scheduler}`) : undefined],
+                            [tt('acePlanStrength'), typeof p.audio_cover_strength === 'number' && (p.task_type ?? 'text2music') === 'text2music' ? p.audio_cover_strength : undefined],
+                            [tt('aceCoverStrength'), typeof p.audio_cover_strength === 'number' && p.task_type && p.task_type !== 'text2music' ? p.audio_cover_strength : undefined],
+                            [`LM ${tt('aceTemperature')}`, p.lm_temperature],
+                            [`LM ${t('cfgScale')}`, typeof p.lm_cfg_scale === 'number' ? p.lm_cfg_scale : undefined],
                             [t('topK'), p.lm_top_k],
-                            [`DiT ${t('cfgScale')}`, typeof p.dit_cfg === 'number' ? p.dit_cfg : undefined],
                             [t('lmSeedShort'), p.lm_seed],
                             [t('seedShort'), p.seed],
                             [t('outputFormat'), typeof p.output_format === 'string' ? p.output_format.toUpperCase() : undefined],
@@ -636,7 +648,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                         ];
                         // The LoRA the song was made with, each with its strength per part of the model.
                         const uses = usesFromSettings(p);
-                        const tr = t as unknown as (key: string) => string;
+                        const tr = tt;
                         uses.forEach((use, index) => {
                             const adapter = adapterLibrary.installed.find(entry => entry.id === use.id);
                             const strengths = Object.entries(use.scales).map(([slot, scale]) => {
@@ -647,6 +659,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                             paramRows.push([uses.length > 1 ? `LoRA ${index + 1}` : 'LoRA', [name, ...strengths].join(' · ')]);
                         });
                         const visibleRows = paramRows.filter(([, v]) => v !== undefined && v !== null && v !== '');
+                        if (visibleRows.length === 0) return null;
 
                         const copyText = visibleRows.map(([k, v]) => `${k}: ${v}`).join('\n');
 
@@ -655,8 +668,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                                 <summary className="flex items-center justify-between cursor-pointer px-3 py-2 rounded-xl bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 transition-colors">
                                     <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
                                         <span className="text-[11px] px-2 py-0.5 rounded bg-zinc-200 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 font-medium">{TRACK_ARTIST}</span>
-                                        {p.steps && (
-                                            <span className="text-[11px] px-2 py-0.5 rounded bg-zinc-200 dark:bg-white/10 text-zinc-600 dark:text-zinc-400">{p.steps}st</span>
+                                        {p.inference_steps && (
+                                            <span className="text-[11px] px-2 py-0.5 rounded bg-zinc-200 dark:bg-white/10 text-zinc-600 dark:text-zinc-400">{p.inference_steps}st</span>
                                         )}
                                         {uses.length > 0 && (
                                             <span className="text-[11px] px-2 py-0.5 rounded bg-pink-500/10 text-pink-600 dark:text-pink-300 font-medium">LoRA ×{uses.length}</span>
@@ -669,7 +682,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                                         {visibleRows.map(([label, value]) => (
                                             <React.Fragment key={label}>
                                                 <span className="text-zinc-500 dark:text-zinc-500 text-right whitespace-nowrap">{label}</span>
-                                                <span className="text-zinc-800 dark:text-zinc-200 font-mono truncate">{String(value)}</span>
+                                                <span className="text-zinc-800 dark:text-zinc-200 font-mono break-words min-w-0">{String(value)}</span>
                                             </React.Fragment>
                                         ))}
                                     </div>

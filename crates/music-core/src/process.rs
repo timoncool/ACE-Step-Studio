@@ -3,7 +3,7 @@
 //! The engine and the assistant sidecar are separate processes. Dropping their
 //! supervisor kills them politely, but a supervisor does not always get to
 //! run: a hard kill of the studio, a crash, a taskkill from the task manager -
-//! and `mm-server` is left holding the GPU with nobody to talk to it.
+//! and the engine is left holding the GPU with nobody to talk to it.
 //!
 //! Windows has one answer to this: a job object with
 //! `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. Every child spawned into it dies when

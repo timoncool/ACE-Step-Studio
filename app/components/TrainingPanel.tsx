@@ -1017,7 +1017,7 @@ const RunCard: React.FC<{ run: TrainingRun; epochs: boolean; onChanged: () => vo
                   className={`${OUTLINE} ${installed ? 'text-emerald-600 dark:text-emerald-400' : ''}`}
                 >
                   {installed ? <Check size={13} /> : <Plus size={13} />}
-                  {t('trainingStep')} {step} · {installed ? t('trainingInLora') : t('trainingToLora')}
+                  {epochs ? tt('trainingEpochLabel') : t('trainingStep')} {step} · {installed ? t('trainingInLora') : t('trainingToLora')}
                 </button>
               );
             })}
@@ -1027,7 +1027,7 @@ const RunCard: React.FC<{ run: TrainingRun; epochs: boolean; onChanged: () => vo
 
       {(run.continuations ?? []).length > 0 && (
         <p className="mt-2 text-[11px] text-zinc-500">
-          {(run.continuations ?? []).map(({ from, to }) => tt('trainingContinued').replace('{from}', String(from)).replace('{to}', String(to))).join(' · ')}
+          {(run.continuations ?? []).map(({ from, to }) => tt(epochs ? 'trainingContinuedEpochs' : 'trainingContinued').replace('{from}', String(from)).replace('{to}', String(to))).join(' · ')}
         </p>
       )}
 

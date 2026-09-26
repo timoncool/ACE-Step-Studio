@@ -1,6 +1,6 @@
 //! Karaoke timings for a finished track.
 //!
-//! The words are already known - Music3 sang the lyrics it was given - but the
+//! The words are already known - the model sang the lyrics it was given - but the
 //! *timings* are not, and the video studio's karaoke layer and the player both
 //! need them. This module produces an LRC file for a track using whichever
 //! recogniser the user picked; like every optional extra here it is off by
@@ -62,26 +62,9 @@ impl LyricsSyncConfig {
     }
 }
 
-/// whisper.cpp is pinned to one release so a working setup keeps working.
-/// The recogniser is pinned to one release, so a setup that works keeps
-/// working: Purfview's standalone faster-whisper, the build Dub Studio runs.
-const WHISPER_BUILD: &str = "Whisper-Faster_r192.3";
-/// CTranslate2 in that build links against CUDA 11, not the 12 the separator
-/// uses, so Whisper carries its own pair of libraries.
-const WHISPER_CUBLAS_BUILD: &str = "11.11.3.6";
-const WHISPER_CUDNN_BUILD: &str = "8.9.7.29";
-/// The ONNX Runtime that Parakeet loads. Mixing versions deadlocks the loader,
-/// so this is pinned exactly as Dub Studio pins it.
-/// The NVIDIA libraries the CUDA provider links against, pinned like the rest.
-const CUBLAS_BUILD: &str = "12.9.2.10";
-const CUDART_BUILD: &str = "12.9.79";
-const CUFFT_BUILD: &str = "11.4.1.4";
-const CUDNN_BUILD: &str = "9.25.0.15";
-const ONNXRUNTIME_BUILD: &str = "v1.30.0";
-
-/// What a recogniser that heard nothing sung says; the dataset preparation
-/// takes it to mean the song is an instrumental.
-pub const NO_WORDS: &str = "the recogniser found no words to time";
+/// The reason the interface shows when a recogniser hears nothing sung: a
+/// code, not a sentence, so it is put in the reader's language.
+pub const NO_WORDS: &str = "karaoke.no-words";
 
 /// Where the recogniser's binaries live once unpacked. CTranslate2 loads its
 /// CUDA libraries from beside the executable, so they share one directory - the
@@ -143,9 +126,6 @@ pub fn is_hallucination(text: &str) -> bool {
     }
     KNOWN.get_or_init(|| HALLUCINATIONS.lines().filter(|line| !line.is_empty()).collect()).contains(plain.as_str())
 }
-
-/// The words and their times out of faster-whisper's JSON.
-///
 
 /// The words and their times out of faster-whisper's JSON.
 ///
@@ -1180,6 +1160,9 @@ impl LyricsSync {
         let text = fs::read_to_string(&json).with_context(|| format!("read {}", json.display()))?;
         let words = whisper_words_from_json(&text);
         fs::remove_dir_all(&out_dir).ok();
+        if words.is_empty() {
+            bail!(NO_WORDS);
+        }
         Ok(words)
     }
 
@@ -1361,12 +1344,6 @@ pub struct TimedLine {
     pub words: Vec<(f64, String)>,
 }
 
-impl TimedLine {
-    pub fn text(&self) -> String {
-        self.words.iter().map(|(_, word)| word.as_str()).collect::<Vec<_>>().join(" ")
-    }
-}
-
 /// Enhanced LRC - the A2 format every karaoke player understands: a line time
 /// followed by a time before each word. Without per-word times a player has
 /// nothing to do but sweep the highlight linearly, which drifts away from the
@@ -1483,10 +1460,11 @@ pub fn align_lyrics_words(words: &[(f64, String)], lyrics: &str) -> Vec<TimedLin
 /// recogniser is used for *timing only*, which is what every karaoke aligner
 /// worth the name does. Its text is mistrusted: sung vocals are mis-heard
 /// constantly, and printing that back as lyrics is how karaoke ends up
-/// showing nonsense. Each written line claims the earliest recognised word
-/// that resembles it, scanning forward so a repeated chorus consumes its
-/// occurrences in order; lines nobody could place are filled in between their
-/// neighbours rather than dropped.
+/// showing nonsense. All lines are placed at once by a monotonic alignment
+/// that maximises how well they match overall: a line matched greedily to a
+/// later repeat of itself would strand every line sung in between, so a line
+/// that was not heard clearly is left out and filled in between its
+/// neighbours instead. A repeated chorus consumes its occurrences in order.
 pub fn align_lyrics(words: &[(f64, String)], lyrics: &str) -> Vec<(f64, String)> {
     let lines: Vec<&str> = lyrics
         .lines()
@@ -1498,37 +1476,104 @@ pub fn align_lyrics(words: &[(f64, String)], lyrics: &str) -> Vec<(f64, String)>
     }
 
     let heard: Vec<(f64, String)> = words.iter().map(|(at, word)| (*at, normalise(word))).collect();
-    let mut placed: Vec<Option<f64>> = vec![None; lines.len()];
-    let mut cursor = 0usize;
+    let count = heard.len();
+    // How well each line matches when it starts at each recognised word; below
+    // the threshold a start is not a candidate at all.
+    let spans: Vec<usize> = lines
+        .iter()
+        .map(|line| line.split_whitespace().filter(|word| !normalise(word).is_empty()).count())
+        .collect();
+    let scores: Vec<Vec<f64>> = lines
+        .iter()
+        .zip(&spans)
+        .map(|(line, &span)| {
+            let written: String = line.split_whitespace().map(normalise).collect();
+            (0..count)
+                .map(|start| {
+                    if span == 0 {
+                        return 0.0;
+                    }
+                    // A little slack in length, because the recogniser splits
+                    // words differently from the page; each window is scored by
+                    // what it misses and what it adds, so starting a word early
+                    // costs as much as starting a word late.
+                    let score = (span.saturating_sub(1).max(1)..=span + 2)
+                        .filter(|length| start + length <= count)
+                        .map(|length| {
+                            let spoken: String = heard[start..start + length].iter().map(|(_, word)| word.as_str()).collect();
+                            dice(&written, &spoken)
+                        })
+                        .fold(0.0, f64::max);
+                    if score >= 0.45 { score } else { 0.0 }
+                })
+                .collect()
+        })
+        .collect();
 
-    for (index, line) in lines.iter().enumerate() {
-        let expected: Vec<String> = line.split_whitespace().map(|word| normalise(word)).filter(|word| !word.is_empty()).collect();
-        if expected.is_empty() {
-            continue;
-        }
-        let written = expected.concat();
-        let mut best: Option<(f64, usize, f64)> = None;
-        for start in cursor..heard.len() {
-            // A little slack either side: the recogniser splits words
-            // differently from the page.
-            let window = (start + expected.len() + 2).min(heard.len());
-            let spoken: String = heard[start..window].iter().map(|(_, word)| word.as_str()).collect();
-            let score = similarity(&written, &spoken);
-            if score > best.map(|(value, _, _)| value).unwrap_or(0.0) {
-                best = Some((score, start, heard[start].0));
+    // best[p]: the best (total, sum of starts) so far with the next line free
+    // to start at word p or later. Each line is either placed at some start
+    // >= p, which moves p past it, or left out. A clearly recognised line
+    // counts the same wherever it is heard best, and between equal totals the
+    // earlier placement wins: a chorus the model sang twice in a row shows its
+    // lines as they are first sung, not where the recogniser heard them best.
+    let credit = |score: f64| if score >= 0.7 { 1.0 } else { score };
+    let better = |left: (f64, usize), right: (f64, usize)| left.0 > right.0 + 1e-9 || ((left.0 - right.0).abs() <= 1e-9 && left.1 < right.1);
+    let mut best: Vec<Option<(f64, usize)>> = vec![None; count + 1];
+    best[0] = Some((0.0, 0));
+    let mut back: Vec<Vec<(usize, Option<usize>)>> = Vec::with_capacity(lines.len());
+    for (index, &span) in spans.iter().enumerate() {
+        let mut next: Vec<Option<(f64, usize)>> = vec![None; count + 1];
+        let mut choice = vec![(0usize, None); count + 1];
+        for from in 0..=count {
+            let Some(so_far) = best[from] else { continue };
+            if next[from].is_none_or(|kept| better(so_far, kept)) {
+                next[from] = Some(so_far);
+                choice[from] = (from, None);
             }
-            // A line rarely starts far past where the previous one ended.
-            if start > cursor + 40 {
-                break;
+            if span == 0 {
+                continue;
+            }
+            for start in from..count {
+                let score = scores[index][start];
+                if score <= 0.0 {
+                    continue;
+                }
+                let after = (start + span).min(count);
+                let total = (so_far.0 + credit(score), so_far.1 + start);
+                if next[after].is_none_or(|kept| better(total, kept)) {
+                    next[after] = Some(total);
+                    choice[after] = (from, Some(start));
+                }
             }
         }
-        if let Some((score, start, at)) = best {
-            if score >= 0.45 {
-                placed[index] = Some(at);
-                cursor = (start + expected.len()).min(heard.len().saturating_sub(1));
-            }
-        }
+        best = next;
+        back.push(choice);
     }
+
+    let mut starts: Vec<Option<usize>> = vec![None; lines.len()];
+    let mut position = (0..=count).fold(0, |kept, candidate| match (best[candidate], best[kept]) {
+        (Some(offered), Some(held)) if better(offered, held) => candidate,
+        (Some(_), None) => candidate,
+        _ => kept,
+    });
+    for index in (0..lines.len()).rev() {
+        let (from, start) = back[index][position];
+        starts[index] = start;
+        position = from;
+    }
+
+    // A clearly recognised line was credited in full, so its start may sit a
+    // word early; settle it where it matches best, between its neighbours.
+    for index in 0..lines.len() {
+        let Some(start) = starts[index] else { continue };
+        let floor = starts[..index].iter().rev().flatten().next().map(|previous| previous + 1).unwrap_or(0);
+        let ceiling = starts[index + 1..].iter().flatten().next().copied().unwrap_or(count);
+        let low = start.saturating_sub(2).max(floor);
+        let high = (start + 2).min(ceiling.saturating_sub(1)).min(count.saturating_sub(1));
+        let settled = (low..=high).fold(start, |kept, candidate| if scores[index][candidate] > scores[index][kept] { candidate } else { kept });
+        starts[index] = Some(settled);
+    }
+    let mut placed: Vec<Option<f64>> = starts.iter().map(|start| start.map(|start| heard[start].0)).collect();
 
     interpolate(&lines, &mut placed, heard.first().map(|(at, _)| *at).unwrap_or(0.0), heard.last().map(|(at, _)| *at).unwrap_or(0.0));
     lines
@@ -1570,6 +1615,16 @@ fn normalise(word: &str) -> String {
     word.chars().filter(|character| character.is_alphanumeric()).flat_map(char::to_lowercase).collect()
 }
 
+/// The characters two strings share in order, over both their lengths: 1 for
+/// the same text, lower for what either one misses or adds.
+fn dice(expected: &str, heard: &str) -> f64 {
+    let (left, right) = (expected.chars().count(), heard.chars().count());
+    if left + right == 0 {
+        return 0.0;
+    }
+    2.0 * similarity(expected, heard) * left as f64 / (left + right) as f64
+}
+
 /// How much of the written line the recogniser heard, compared character by
 /// character rather than word by word.
 ///
@@ -1593,75 +1648,6 @@ fn similarity(expected: &str, heard: &str) -> f64 {
         current.iter_mut().for_each(|value| *value = 0);
     }
     previous[right.len()] as f64 / left.len() as f64
-}
-
-/// Turns timed segments into an LRC body. Used by the providers that return
-/// structured timings rather than a file.
-pub fn lrc_from_segments(segments: &[(f64, String)]) -> String {
-    let mut out = String::new();
-    for (start, text) in segments {
-        let text = text.trim();
-        if text.is_empty() {
-            continue;
-        }
-        let total = start.max(0.0);
-        let minutes = (total as u64) / 60;
-        let seconds = (total as u64) % 60;
-        let hundredths = ((total - total.floor()) * 100.0).round() as u64;
-        out.push_str(&format!("[{minutes:02}:{seconds:02}.{hundredths:02}]{text}\n"));
-    }
-    out
-}
-
-/// The opening lines of the lyrics, as a decoding hint. Whisper's prompt is
-/// bounded, and the first lines are enough to tell it this is singing, in this
-/// language, about these words.
-fn prompt_from(lyrics: &str) -> String {
-    let mut prompt = String::new();
-    for line in lyrics.lines().map(str::trim).filter(|line| !line.is_empty() && !(line.starts_with('[') && line.ends_with(']'))) {
-        if prompt.chars().count() + line.chars().count() > 400 {
-            break;
-        }
-        if !prompt.is_empty() {
-            prompt.push(' ');
-        }
-        prompt.push_str(line);
-    }
-    prompt
-}
-
-/// Reads a whisper.cpp LRC back as a word stream.
-pub fn words_from_lrc(lrc: &str) -> Vec<(f64, String)> {
-    let mut words = Vec::new();
-    for line in lrc.lines() {
-        let Some(rest) = line.strip_prefix('[') else { continue };
-        let Some((stamp, text)) = rest.split_once(']') else { continue };
-        let Some((minutes, seconds)) = stamp.split_once(':') else { continue };
-        let (Ok(minutes), Ok(seconds)) = (minutes.trim().parse::<f64>(), seconds.trim().parse::<f64>()) else {
-            continue;
-        };
-        let text = text.trim();
-        if !text.is_empty() {
-            words.push((minutes * 60.0 + seconds, text.to_string()));
-        }
-    }
-    words
-}
-
-/// The timestamps in an LRC body, in seconds. Also the emptiness check: a file
-/// with no timestamps is not karaoke, however much text it contains.
-pub fn parse_lrc_times(lrc: &str) -> Vec<f64> {
-    let mut times = Vec::new();
-    for line in lrc.lines() {
-        let Some(rest) = line.strip_prefix('[') else { continue };
-        let Some((stamp, _)) = rest.split_once(']') else { continue };
-        let Some((minutes, seconds)) = stamp.split_once(':') else { continue };
-        let (Ok(minutes), Ok(seconds)) = (minutes.trim().parse::<f64>(), seconds.trim().parse::<f64>()) else {
-            continue;
-        };
-        times.push(minutes * 60.0 + seconds);
-    }
-    times
 }
 
 #[cfg(windows)]
@@ -1695,16 +1681,20 @@ mod tests {
         assert_eq!(words.iter().map(|(_, word)| word.as_str()).collect::<Vec<_>>(), ["Тьма", "во", "мне"]);
     }
 
-    #[test]
-    fn segments_become_a_playable_lrc_body() {
-        let lrc = lrc_from_segments(&[
-            (0.0, "neon on the glass".into()),
-            (12.5, "driving home".into()),
-            (75.25, "  ".into()),
-            (81.5, "the engine dies".into()),
-        ]);
-        assert_eq!(lrc, "[00:00.00]neon on the glass\n[00:12.50]driving home\n[01:21.50]the engine dies\n");
-        assert_eq!(parse_lrc_times(&lrc), vec![0.0, 12.5, 81.5]);
+    // The releases every runtime download is pinned to.
+    const WHISPER_BUILD: &str = "Whisper-Faster_r192.3";
+    const WHISPER_CUBLAS_BUILD: &str = "11.11.3.6";
+    const WHISPER_CUDNN_BUILD: &str = "8.9.7.29";
+    const CUBLAS_BUILD: &str = "12.9.2.10";
+    const CUDART_BUILD: &str = "12.9.79";
+    const CUFFT_BUILD: &str = "11.4.1.4";
+    const CUDNN_BUILD: &str = "9.25.0.15";
+    const ONNXRUNTIME_BUILD: &str = "v1.30.0";
+
+    impl TimedLine {
+        fn text(&self) -> String {
+            self.words.iter().map(|(_, word)| word.as_str()).collect::<Vec<_>>().join(" ")
+        }
     }
 
     #[test]
@@ -1822,11 +1812,6 @@ Third");
     }
 
     #[test]
-    fn text_without_timestamps_is_not_karaoke() {
-        assert!(parse_lrc_times("just some lyrics\nand another line").is_empty());
-    }
-
-    #[test]
     fn the_whisper_runtime_is_pinned_and_every_asset_is_distinct() {
         for entry in ASSETS {
             assert!(entry.bytes > 0, "{} has no size", entry.id);
@@ -1891,6 +1876,66 @@ mod live_recognition {
         for (at, word) in words.iter().take(8) {
             eprintln!("  {at:.2}s {word}");
         }
+        assert!(!words.is_empty(), "nothing was recognised");
+    }
+
+    /// A chorus sung twice, heard worse the first time, and one of its lines
+    /// not heard at all: nothing may jump to the second chorus and strand the
+    /// verse sung in between.
+    #[test]
+    fn a_line_heard_better_later_does_not_strand_the_verse_before_it() {
+        let heard = |from: f64, text: &str| -> Vec<(f64, String)> {
+            text.split_whitespace().enumerate().map(|(i, w)| (from + i as f64 * 0.5, w.to_string())).collect()
+        };
+        let mut words = Vec::new();
+        words.extend(heard(1.0, "walking down the road tonight"));
+        words.extend(heard(10.0, "my truck talks back"));
+        words.extend(heard(13.0, "fast down the dusty track"));
+        words.extend(heard(16.0, "ive been part of it"));
+        words.extend(heard(20.0, "took my girl out on a friday"));
+        words.extend(heard(30.0, "my truck talks back"));
+        words.extend(heard(33.0, "down the dusty track"));
+        words.extend(heard(36.0, "feeling right tonight"));
+        let lyrics = "[Verse 1]\nWalking down the road tonight\n\n[Chorus]\nMy truck talks back\nDown the dusty track\nFeeling right tonight\n\n[Verse 2]\nTook my girl out on a Friday\n\n[Chorus]\nMy truck talks back\nDown the dusty track\nFeeling right tonight";
+        let lines = align_lyrics(&words, lyrics);
+        let at = |index: usize| lines[index].0;
+        assert_eq!(lines.len(), 8);
+        assert!((at(2) - 13.5).abs() < 0.6, "the first chorus keeps its own line: {lines:?}");
+        assert!(at(3) > at(2) && at(3) < at(4), "an unheard line sits between its neighbours: {lines:?}");
+        assert!((at(4) - 20.0).abs() < 0.6, "the second verse is where it was sung: {lines:?}");
+        assert!((at(6) - 33.0).abs() < 0.6 && (at(7) - 36.0).abs() < 0.6, "the second chorus is its own: {lines:?}");
+    }
+
+    /// The karaoke of a real track: Parakeet's words aligned to the lyrics in
+    /// `STUDIO_TEST_LYRICS`, printed line by line with their start times.
+    #[test]
+    fn parakeet_karaoke_of_a_real_track() {
+        let (Some(root), Some(track), Some(lyrics)) =
+            (std::env::var_os("STUDIO_TEST_DATA_ROOT"), std::env::var_os("STUDIO_TEST_TRACK"), std::env::var_os("STUDIO_TEST_LYRICS"))
+        else {
+            return;
+        };
+        let sync = LyricsSync::new(std::path::Path::new(&root));
+        let words = sync.parakeet_words(std::path::Path::new(&track)).expect("recognition");
+        let lyrics = std::fs::read_to_string(lyrics).expect("lyrics file");
+        for (at, word) in &words {
+            eprintln!("W {at:7.2} {word}");
+        }
+        for line in align_lyrics_words(&words, &lyrics) {
+            eprintln!("{:7.1} {}", line.start, line.words.iter().map(|(_, word)| word.as_str()).collect::<Vec<_>>().join(" "));
+        }
+    }
+
+    /// The same against Parakeet: what the recogniser actually heard, printed
+    /// whole, so a generated song can be checked against its own lyrics.
+    #[test]
+    fn parakeet_hears_a_real_track() {
+        let (Some(root), Some(track)) = (std::env::var_os("STUDIO_TEST_DATA_ROOT"), std::env::var_os("STUDIO_TEST_TRACK")) else { return };
+        let sync = LyricsSync::new(std::path::Path::new(&root));
+        assert!(sync.parakeet_ready(), "Parakeet is not installed");
+        let words = sync.parakeet_words(std::path::Path::new(&track)).expect("recognition");
+        let heard: Vec<&str> = words.iter().map(|(_, word)| word.as_str()).collect();
+        eprintln!("heard {} words: {}", words.len(), heard.join(" "));
         assert!(!words.is_empty(), "nothing was recognised");
     }
 }

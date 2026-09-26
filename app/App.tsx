@@ -212,7 +212,6 @@ function AppContent() {
 
   // Track multiple concurrent generation jobs
   const activeJobsRef = useRef<Map<string, { tempId: string; pollInterval: ReturnType<typeof setInterval> }>>(new Map());
-  const nativeReplayPollersRef = useRef<Map<string, ReturnType<typeof window.setInterval>>>(new Map());
   const [activeJobCount, setActiveJobCount] = useState(0);
 
   // FIFO drain barrier — handlers awaiting it block until the active-jobs
@@ -440,43 +439,9 @@ function AppContent() {
     }
   }, [nativeModels, refreshNativeLibrary]);
 
-  /// Watches a re-render job to completion and refreshes the library when the
-  /// new take lands.
-  const trackReplayJob = useCallback((jobId: string) => {
-    showToast(t('replayQueued'));
-    const poll = window.setInterval(async () => {
-      try {
-        const response = await fetch(`/v1/music/jobs/${encodeURIComponent(jobId)}`);
-        if (!response.ok) throw new Error(`Re-render status request failed (${response.status})`);
-        const status: { status?: string; message?: string } = await response.json();
-        const state = status.status?.toLowerCase();
-        if (!state || !['completed', 'failed', 'cancelled'].includes(state)) return;
-
-        window.clearInterval(poll);
-        nativeReplayPollersRef.current.delete(jobId);
-        if (state === 'completed') {
-          await refreshNativeLibrary();
-          showToast(t('trackReady'));
-        } else {
-          showToast(status.message || `Re-render ${state}.`, 'error');
-        }
-      } catch (error) {
-        window.clearInterval(poll);
-        nativeReplayPollersRef.current.delete(jobId);
-        showToast(error instanceof Error ? error.message : 'Re-render polling failed.', 'error');
-      }
-    }, 1500);
-    nativeReplayPollersRef.current.set(jobId, poll);
-  }, [refreshNativeLibrary, t]);
-
   const handleNativeReplay = useCallback((song: Song) => {
     if (!song.nativeReplayAvailable) return;
     setSongForReplay(song);
-  }, []);
-
-  useEffect(() => () => {
-    nativeReplayPollersRef.current.forEach((poll) => window.clearInterval(poll));
-    nativeReplayPollersRef.current.clear();
   }, []);
 
   // Keep selectedSongRef in sync for use in callbacks without stale closures
@@ -842,7 +807,7 @@ function AppContent() {
   // out here.
   /// One handler for both card kinds: a pre-flight placeholder only has a
   /// tempId (no engine job yet, so there is nothing to cancel remotely), while
-  /// a submitted card carries the mm-server job id.
+  /// a submitted card carries the engine's job id.
   const stopEngineJob = useCallback(async (jobId: string) => {
     try {
       await fetch(`/v1/music/jobs/${encodeURIComponent(jobId)}`, { method: 'POST' });
@@ -960,6 +925,39 @@ function AppContent() {
     activeJobsRef.current.set(jobId, { tempId, pollInterval });
     setActiveJobCount(activeJobsRef.current.size);
   }, [cleanupJob, refreshSongsList, t]);
+
+  /// Jobs keep running in the service when the window reloads; their cards come
+  /// back with them, and the same poller lands their tracks.
+  const restoredJobsRef = useRef(false);
+  useEffect(() => {
+    if (!nativeSetupReady || restoredJobsRef.current) return;
+    restoredJobsRef.current = true;
+    void fetch('/v1/music/jobs')
+      .then(response => (response.ok ? response.json() : []))
+      .then((jobs: AceJob[]) => {
+        const fresh = jobs.filter(job => ![...activeJobsRef.current.keys()].includes(job.id));
+        if (fresh.length === 0) return;
+        setSongs(prev => [
+          ...fresh.map(job => ({
+            id: `restored_${job.id}`,
+            title: job.title || t('generating') || 'Generating...',
+            lyrics: job.lyrics || '',
+            style: job.caption || '',
+            coverUrl: '',
+            duration: '--:--',
+            createdAt: new Date(),
+            isGenerating: true,
+            jobId: job.id,
+            stage: 'stageWaitingInQueue',
+            tags: ['ace-step'],
+          })),
+          ...prev,
+        ]);
+        setIsGenerating(true);
+        fresh.forEach(job => beginPollingJob(job.id, `restored_${job.id}`));
+      })
+      .catch(() => undefined);
+  }, [nativeSetupReady, beginPollingJob, t]);
 
   /// The engine reports a job's state, not a percentage, but its log counts the
   /// language model's code steps and the DiT steps. Reading that gives the
@@ -1630,7 +1628,27 @@ function AppContent() {
         <ReplayModal
           song={songForReplay}
           onClose={() => setSongForReplay(null)}
-          onQueued={trackReplayJob}
+          onQueued={(jobId) => {
+            // A re-render is a generation like any other: it gets its own card
+            // with the engine's stages, and lands in the library the same way.
+            const tempId = `replay_${jobId}`;
+            setSongs(prev => [{
+              id: tempId,
+              title: songForReplay.title,
+              lyrics: songForReplay.lyrics,
+              style: songForReplay.style,
+              coverUrl: '',
+              duration: '--:--',
+              createdAt: new Date(),
+              isGenerating: true,
+              jobId,
+              stage: 'stageWaitingInQueue',
+              tags: ['ace-step'],
+            }, ...prev]);
+            setIsGenerating(true);
+            beginPollingJob(jobId, tempId);
+            showToast(t('replayQueued'));
+          }}
         />
       )}
       {songForCoverRegen && (

@@ -8,6 +8,7 @@ import {
   componentKindLabel,
   componentPrecision,
   componentVariant,
+  profileLabel,
   componentsByKind,
   completeCustomComponentIds,
   selectedComponentBytes,
@@ -219,6 +220,10 @@ export const OptionalGroup: React.FC<{
   const assets = status?.assets ?? [];
   if (assets.length === 0) return null;
   const installed = assets.filter((asset) => asset.installed).length;
+  // Ready means what the server says the chosen engine needs is on disk. A
+  // runtime shared with another role (the karaoke's ONNX and CUDA libraries
+  // serve the stem separator too) is not the role being installed.
+  const roleReady = status?.set ? status.set.ready : assets.some((asset) => asset.kind === 'model' && asset.installed);
   // The models the chosen engine can run. A recogniser or an assistant is a
   // runtime plus one of these; the runtime is the studio's business, the model
   // is the user's choice.
@@ -253,7 +258,7 @@ export const OptionalGroup: React.FC<{
         <div className="flex shrink-0 items-center gap-2 text-xs text-zinc-500">
           <span className="tabular-nums">
             {engines && engines.length > 0
-              ? (installed > 0 ? t('installed') : t('notInstalledSuffix'))
+              ? (roleReady ? t('installed') : t('notInstalledSuffix'))
               : `${installed}/${assets.length}`}
           </span>
           <ChevronDown size={15} className={open ? 'rotate-180 transition-transform' : 'transition-transform'} />
@@ -734,7 +739,7 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
               prose in a Russian window, and it called the answer "Native
               quality", which reads as the unquantised weights it is not. */}
           {recommended
-            ? `${status?.hardware?.gpuName ?? ''}${status?.hardware?.totalVramGb ? `, ${status.hardware.totalVramGb.toFixed(1)} GB` : ''} — ${recommended.label} · ${bytes(recommended.total_bytes)}`
+            ? `${status?.hardware?.gpuName ?? ''}${status?.hardware?.totalVramGb ? `, ${status.hardware.totalVramGb.toFixed(1)} GB` : ''} — ${profileLabel(t, recommended)} · ${bytes(recommended.total_bytes)}`
             : status?.hardware?.reason || t('recommendedFallback')}
           . {t('setupResumable')}
         </div>}
@@ -787,7 +792,7 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
                         }`}
                       >
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-semibold text-zinc-900 dark:text-white">{profile.label}</span>
+                          <span className="text-sm font-semibold text-zinc-900 dark:text-white">{profileLabel(t, profile)}</span>
                           {profile.recommended && (
                             <span className="rounded-full bg-pink-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-pink-600 dark:text-pink-300">
                               {t('recommendedBadge')}

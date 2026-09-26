@@ -4,7 +4,7 @@
 //! or `cuda12\ggml-cuda.dll`, whichever the card and its driver run (see
 //! `cuda_build`). Each imports its own cuBLAS, `cublas64_13.dll` or
 //! `cublas64_12.dll`, which imports `cublasLt64_1x.dll`. The loader resolves
-//! them from the executable's folder, so they go beside `mm-server.exe`, and
+//! them from the executable's folder, so they go beside `ace-server.exe`, and
 //! the two majors never clash by name. A missing cuBLAS fails the backend
 //! load, and the engine stops on it.
 //!
@@ -33,8 +33,6 @@ pub const CUDA12_LIBRARIES: [&str; 2] = ["cublas64_12.dll", "cublasLt64_12.dll"]
 pub const VC_RUNTIME_LIBRARIES: [&str; 4] =
     ["vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll", "vcomp140.dll"];
 
-/// Microsoft's own permanent link to the current x64 redistributable.
-const VC_REDIST_URL: &str = "https://aka.ms/vs/17/release/vc_redist.x64.exe";
 
 #[cfg(test)]
 pub const ASSETS: &[Asset] = &[CUBLAS13, CUBLAS12];
@@ -50,7 +48,7 @@ const CUBLAS13: Asset = Asset {
     url: "https://developer.download.nvidia.com/compute/cuda/redist/libcublas/windows-x86_64/libcublas-windows-x86_64-13.5.1.27-archive.zip",
     relative_path: "cuda-cublas.zip",
     bytes: 391_055_517,
-    // No sub-directory: the libraries go straight in beside mm-server.exe,
+    // No sub-directory: the libraries go straight in beside ace-server.exe,
     // which is where the Windows loader looks first and what NVIDIA's own
     // deployment guide recommends.
     unzip_into: None,
@@ -90,7 +88,7 @@ pub struct EngineRuntime {
 }
 
 impl EngineRuntime {
-    /// Takes the directory `mm-server.exe` lives in: the libraries belong
+    /// Takes the directory `ace-server.exe` lives in: the libraries belong
     /// beside the binary that imports them, not in a folder of their own.
     pub fn new(bundle_root: &Path) -> Self {
         Self { downloader: Downloader::new(bundle_root.to_path_buf()) }
@@ -112,7 +110,18 @@ impl EngineRuntime {
     /// the engine, and checking only the downloads would have skipped the
     /// install entirely.
     pub fn is_ready(&self, build: CudaBuild) -> bool {
-        self.missing(build).is_empty() && vc_runtime_present()
+        self.missing(build).is_empty() && self.vc_runtime_missing().is_empty()
+    }
+
+    /// The Visual C++ runtime ships inside the engine bundle, app-local as
+    /// Microsoft permits, so the studio never installs anything into the
+    /// system. A machine that has it on its search path is fine either way.
+    pub fn vc_runtime_missing(&self) -> Vec<&'static str> {
+        VC_RUNTIME_LIBRARIES
+            .iter()
+            .copied()
+            .filter(|library| !self.downloader.root().join(library).is_file() && !is_on_the_search_path(library))
+            .collect()
     }
 
     /// What is still missing, so a caller can report the size before starting.
@@ -130,52 +139,11 @@ impl EngineRuntime {
 
     /// Fetches whatever is missing and waits for it.
     pub async fn install_missing(&self, build: CudaBuild) -> Result<()> {
-        ensure_vc_runtime().await?;
+        let absent = self.vc_runtime_missing();
+        if !absent.is_empty() {
+            bail!("the engine bundle is incomplete: {} missing beside the engine; reinstall the studio", absent.join(", "));
+        }
         self.downloader.install_all("engine", &self.missing(build)).await
-    }
-}
-
-/// Whether the Visual C++ runtime the engine needs is already installed.
-///
-/// Almost every Windows machine has it - some game or application put it there
-/// years ago - so this is checked, not assumed in either direction.
-pub fn vc_runtime_present() -> bool {
-    VC_RUNTIME_LIBRARIES.iter().all(|library| is_on_the_search_path(library))
-}
-
-/// Installs Microsoft's redistributable when, and only when, it is missing.
-///
-/// This is the ordinary way an application ships against the Visual C++
-/// runtime: Microsoft publishes one installer at a permanent link, and it is
-/// run once. It asks for administrator rights, shows its own progress, and
-/// returns 3010 when it wants a restart - which is a success, not a failure.
-pub async fn ensure_vc_runtime() -> Result<()> {
-    if !cfg!(windows) || vc_runtime_present() {
-        return Ok(());
-    }
-    let installer = std::env::temp_dir().join("vc_redist.x64.exe");
-    let bytes = reqwest::get(VC_REDIST_URL)
-        .await
-        .context("download the Visual C++ redistributable")?
-        .error_for_status()
-        .context("download the Visual C++ redistributable")?
-        .bytes()
-        .await
-        .context("read the Visual C++ redistributable")?;
-    std::fs::write(&installer, &bytes).with_context(|| format!("write {}", installer.display()))?;
-
-    let status = tokio::task::spawn_blocking(move || {
-        std::process::Command::new(&installer).args(["/install", "/passive", "/norestart"]).status()
-    })
-    .await
-    .context("run the Visual C++ redistributable")?
-    .context("run the Visual C++ redistributable")?;
-    match status.code() {
-        // 0: installed. 1638: a newer one is already there. 3010: installed,
-        // wants a restart it will not get from us and does not need.
-        Some(0) | Some(1638) | Some(3010) => Ok(()),
-        Some(code) => bail!("the Visual C++ redistributable installer ended with {code}"),
-        None => bail!("the Visual C++ redistributable installer was interrupted"),
     }
 }
 
@@ -289,7 +257,7 @@ fn is_provided_by_the_system(name: &str) -> bool {
 
 /// What a binary needs that is neither beside it nor supplied by Windows.
 ///
-/// Follows the chain: `mm-server.exe` imports `ggml.dll`, which imports
+/// Follows the chain: `ace-server.exe` imports `ggml.dll`, which imports
 /// `ggml-cuda.dll`, which is where cuBLAS actually comes in. Checking only the
 /// executable's own imports would have found nothing wrong with the release
 /// that could not start.

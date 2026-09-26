@@ -1,6 +1,6 @@
 //! The downloadable half of the optional writing assistant.
 //!
-//! Music3 needs no language model, so nothing here is required and nothing is
+//! The studio needs no second language model, so nothing here is required and nothing is
 //! fetched on its own: the user picks a model, sees its size, and starts the
 //! download. Once a model and the llama.cpp runtime are on disk, Studio runs
 //! `llama-server` as a sidecar and talks to it over the same OpenAI-compatible
@@ -85,7 +85,7 @@ pub const ASSETS: &[Asset] = &[
         unzip_into: None,
         marker: "",
         vram_gb: Some(10),
-        note: "Writes noticeably better captions; wants a card that is not already full of Music3.",
+        note: "Writes noticeably better captions; wants a card that is not already full of the music model.",
     },
     Asset {
         id: "gemma-4-12b-q5_k_m",

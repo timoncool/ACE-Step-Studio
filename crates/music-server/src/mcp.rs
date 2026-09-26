@@ -225,6 +225,8 @@ fn shape(name: &str, args: &Value, value: Value) -> Value {
             value
         }
         "karaoke_settings_get" if !detailed => compact_karaoke(&value),
+        // any other answer that is a whole library song
+        _ if !detailed && value.get("audio_codes").is_some() && value.get("replay_request").is_some() => compact_song(&value),
         "training_checkpoint_install" | "lora_install_hf" | "lora_import_files" if value["slots"].as_array().is_some_and(Vec::is_empty) => {
             let mut value = value;
             value["slots"] = json!("not known yet: the engine reads them from the file; lora_list shows them");
@@ -249,7 +251,7 @@ fn shape(name: &str, args: &Value, value: Value) -> Value {
                 return Value::Array(songs.collect());
             }
             Value::Array(songs.map(|song| {
-                let style: String = song["caption"].as_str().unwrap_or_default().trim_start().trim_start_matches("Global Metadata").trim_start_matches(':').trim_start().chars().take(90).collect();
+                let style: String = song["caption"].as_str().unwrap_or_default().trim().chars().take(90).collect();
                 let mut row = json!({ "id": song["id"], "title": song["title"], "made": song["created_at"], "style": style });
                 // a track a tool made names the one it was made from
                 if song["metadata"]["derived"].is_object() {
@@ -1729,8 +1731,8 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "dataset_song_update",
-                description: "Write a dataset song's title, artist, style (its caption, three parts under their headings), lyrics (sections tagged [verse], [chorus]...) or instrumental flag. What you write is final: preparation leaves it alone.",
-                schema: || object(json!({ "dataset_id": { "type": "string" }, "song_id": { "type": "string" }, "title": { "type": "string" }, "artist": { "type": "string" }, "style": { "type": "string" }, "lyrics": { "type": "string" }, "instrumental": { "type": "boolean" } }), &["dataset_id", "song_id"]),
+                description: "Write a dataset song's title, artist, style (its caption: the sound in English, plain sentences or tags, no tempo, key or lyrics - writing_guide topic caption), lyrics (sections tagged [Verse 1], [Chorus]...), genre tags, tempo, key, time signature, language or instrumental flag. What you write is final: preparation leaves it alone.",
+                schema: || object(json!({ "dataset_id": { "type": "string" }, "song_id": { "type": "string" }, "title": { "type": "string" }, "artist": { "type": "string" }, "style": { "type": "string" }, "lyrics": { "type": "string" }, "genre": { "type": "string", "description": "comma-separated genre tags; a share of training steps learns from them alone" }, "bpm": { "type": "integer" }, "keyscale": { "type": "string" }, "timesignature": { "type": "string" }, "language": { "type": "string" }, "instrumental": { "type": "boolean" } }), &["dataset_id", "song_id"]),
                 call: |args| send(Method::PATCH, format!("/v1/training/datasets/{}/items/{}", segment(&text(args, "dataset_id")?), segment(&text(args, "song_id")?)), body_without(args, &["dataset_id", "song_id"])),
             },
             Tool {

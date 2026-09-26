@@ -340,7 +340,7 @@ mod tests {
 
     #[test]
     fn a_wav_carries_the_header_a_player_expects() {
-        let path = std::env::temp_dir().join(format!("mm3-stem-{}.wav", uuid::Uuid::now_v7()));
+        let path = std::env::temp_dir().join(format!("studio-stem-{}.wav", uuid::Uuid::now_v7()));
         write_wav_stereo(&path, &[0.0, 0.5, -0.5, 1.0]).unwrap();
         let bytes = std::fs::read(&path).unwrap();
         assert_eq!(&bytes[0..4], b"RIFF");

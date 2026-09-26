@@ -13,6 +13,7 @@
     "windows": [
       {
         "label": "main",
+        "create": false,
         "dragDropEnabled": false,
         "title": "ACE-Step Studio",
         "width": 1440,

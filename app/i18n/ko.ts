@@ -996,7 +996,7 @@ export const ko = {
     'aiGenerate.error.NETWORK': 'OpenRouter 연결 중 네트워크 오류가 발생했습니다.',
     'aiGenerate.error.UNKNOWN': 'OpenRouter에서 알 수 없는 오류가 반환되었습니다.',
 
-    // Native Music3 studio strings.
+    // Native studio strings.
     createMusic: '음악 만들기',
     simpleMode: '간단',
     customMode: '수동',
@@ -1421,6 +1421,7 @@ export const ko = {
     karaokeNoRecogniser: '인식 모델이 선택되지 않았습니다. 설정의 「모델」에서 선택하세요.',
     karaokeInstrumental: '이 트랙에는 가사가 없어 타이밍을 만들 수 없습니다.',
     karaokeNoMatch: '오디오에서 이 가사의 단어를 듣지 못했습니다. 가사가 이 트랙의 것인지 확인하거나 설정에서 다른 인식 모델을 사용해 보세요.',
+    karaokeNoWords: "이 트랙에서 불린 가사를 알아들을 수 없어 타이밍을 만들 수 없습니다. 보컬이 묻혔거나 불분명하거나 연주곡일 수 있습니다.",
     karaokeDownloading: '필요한 인식 모델을 내려받는 중입니다. 끝나면 가사 타이밍을 만듭니다.',
     karaokeModelMissing: '선택한 인식 모델을 내려받지 못했습니다. 연결을 확인하거나 설정에서 다른 것을 선택하세요.',
     assistStagePreparing: '요청 준비 중',

@@ -48,6 +48,7 @@ const PROFILE_BADGE: Record<string, string> = {
     'quality-q8': 'Q8',
     balanced: 'Bal',
     'recommended-light': 'Light',
+    minimal: 'Min',
 };
 
 const getProfileBadge = (song: Song): string => {

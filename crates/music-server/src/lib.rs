@@ -539,17 +539,23 @@ pub async fn serve() -> anyhow::Result<()> {
     let settings_path = studio_settings_path();
     let persisted = load_studio_settings(&settings_path);
     let model_manager = ModelManager::from_environment()?;
-    let selected_component_ids = persisted
+    let persisted_components = persisted
         .as_ref()
         .and_then(|settings| settings.selected_component_ids.clone())
         .filter(|ids| model_manager.installed_component_files(ids).is_ok());
-    let selected_profile_id = if selected_component_ids.is_some() {
-        None
-    } else {
-        persisted
-            .as_ref()
-            .and_then(|settings| settings.selected_profile_id.clone())
-            .or_else(|| Some(presets::recommended_local_profile().into()))
+    // a hand-picked selection that is exactly a declared set is that set
+    let (selected_profile_id, selected_component_ids) = match persisted_components {
+        Some(ids) => match model_manager::profile_matching(&ids) {
+            Some(profile) => (Some(profile.to_owned()), None),
+            None => (None, Some(ids)),
+        },
+        None => (
+            persisted
+                .as_ref()
+                .and_then(|settings| settings.selected_profile_id.clone())
+                .or_else(|| Some(presets::recommended_local_profile().into())),
+            None,
+        ),
     };
     let state = AppState {
         configuration: Arc::new(RwLock::new(sanitize_persisted_configuration(
@@ -3345,9 +3351,12 @@ async fn restart_engine(state: &AppState) -> Result<(), String> {
                     .map_err(|error| format!("the engine's CUDA libraries could not be downloaded: {error}"))?;
             }
             Some(_) => {}
-            None => engine_runtime::ensure_vc_runtime()
-                .await
-                .map_err(|error| format!("the Visual C++ runtime could not be installed: {error}"))?,
+            None => {
+                let absent = state.engine_runtime.vc_runtime_missing();
+                if !absent.is_empty() {
+                    return Err(format!("the engine bundle is incomplete: {} missing beside the engine; reinstall the studio", absent.join(", ")));
+                }
+            }
         }
         // The engine loads eleven gigabytes of weights the moment it starts.
         // If the writing assistant is still holding the card, it does not finish.
@@ -3438,7 +3447,7 @@ fn describes_device_failure(log: &str) -> bool {
     .any(|marker| log.contains(marker))
 }
 
-/// Where the packaged or developer-built `mm-server` lives. Every value is an
+/// Where the packaged or developer-built `ace-server` lives. Every value is an
 /// explicit override or a documented default; nothing is downloaded here.
 fn engine_bundle_root() -> PathBuf {
     env::var_os("STUDIO_ENGINE_ROOT")
@@ -3456,7 +3465,7 @@ fn engine_location(options: EngineOptions) -> music_engine::server::ServerLocati
         configured_executable,
         // The GGUFs live where the model manager put them, which is not
         // inside the engine bundle: pointing the service at a developer build
-        // of mm-server used to leave it looking for models next to the binary
+        // of the engine used to leave it looking for models next to the binary
         // and failing with "models root is not a directory".
         configured_models_root: env::var_os("STUDIO_MODELS_ROOT")
             .map(PathBuf::from)
@@ -3916,7 +3925,7 @@ async fn compose_setup_status(state: &AppState, manager_status: model_manager::M
             serde_json::json!({
                 "ready": match runtime_build {
                     Some(build) => state.engine_runtime.is_ready(build),
-                    None => engine_runtime::vc_runtime_present(),
+                    None => state.engine_runtime.vc_runtime_missing().is_empty(),
                 },
                 "downloading": runtime_active.is_some(),
                 "downloaded_bytes": runtime_active.as_ref().map(|progress| progress.downloaded_bytes).unwrap_or(0),
@@ -4236,7 +4245,7 @@ async fn assistant_runtime_install(
 /// How much room the local model gets.
 ///
 /// The prompt alone is around 3200 tokens - the caption contract plus the three
-/// reference captions the MiniMax skill selects - and a full answer is another
+/// official examples the writing guide selects - and a full answer is another
 /// 700 to 1200. Eight thousand left almost no headroom for a long lyric, and a
 /// model that runs out mid-JSON produces an answer nothing can parse.
 const ASSISTANT_CONTEXT: u32 = 16384;
@@ -5005,7 +5014,7 @@ async fn assistant_ask(
 ///
 /// "Keep models in VRAM between jobs" is off by default, and it means what it
 /// says: nothing stays loaded. The assistant was the exception nobody chose -
-/// it wrote a caption, kept the card, and Music3 then died trying to load its
+/// it wrote a caption, kept the card, and the engine then died trying to load its
 /// own weights. With the setting on, it stays, because that is what the
 /// setting is for. Either way the next request starts it again.
 async fn release_assistant_unless_kept(state: &AppState) {
@@ -5540,7 +5549,7 @@ fn adoptable_files(folder: &std::path::Path, depth: usize) -> Vec<std::path::Pat
 
 /// Takes models the user already has instead of downloading them again.
 ///
-/// Anyone who has run Music3 through ComfyUI or another build already has these
+/// Anyone who has run ACE-Step through acestep.cpp or another build already has these
 /// weights on disk, and they are gigabytes each. This opens a folder picker,
 /// looks for the files the catalogue names - by name, then by matching size -
 /// and hard-links or copies them into the studio's own model directory.
@@ -5674,14 +5683,7 @@ async fn persist_completed_download_profile(state: AppState, job_id: String) {
 /// Makes a set of components the studio's; one that is exactly a ready-made
 /// set is recorded as that set, so it is named as the model manager names it.
 async fn select_components(state: &AppState, ids: Vec<String>) {
-    let mut sorted = ids.clone();
-    sorted.sort();
-    let named = state.model_manager.catalog().profiles.iter().find(|profile| {
-        let mut components: Vec<String> = profile.components.iter().map(|id| id.to_string()).collect();
-        components.sort();
-        components == sorted
-    }).map(|profile| profile.id.to_string());
-    match named {
+    match model_manager::profile_matching(&ids).map(str::to_owned) {
         Some(profile_id) => {
             *state.selected_profile_id.write().await = Some(profile_id);
             *state.selected_component_ids.write().await = None;
@@ -5819,7 +5821,7 @@ fn capability_engines_with(
 /// Gets the writing assistant off the graphics card before the engine needs it.
 ///
 /// There is one card, and both models want all of it: Gemma holds five
-/// gigabytes from the moment it writes a caption, and Music3 then asks for
+/// gigabytes from the moment it writes a caption, and the engine then asks for
 /// eleven more and dies. The assistant starts itself on the next request it
 /// receives, so stopping it here costs a reload later and nothing else.
 async fn free_the_card_for_the_engine(state: &AppState) {

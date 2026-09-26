@@ -97,6 +97,12 @@ mod tests {
     }
 
     #[test]
+    fn filler_words_do_not_match() {
+        let reference = Reference { caption: "pop with piano and the strings".into(), lyrics: String::new() };
+        assert_eq!(score(&reference, &words("rock with the band and drums")), 0);
+    }
+
+    #[test]
     fn a_brief_with_no_shared_words_finds_nothing_rather_than_noise() {
         assert!(references("zzqx").is_empty());
         assert!(references("").is_empty());

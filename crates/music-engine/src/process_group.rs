@@ -47,11 +47,48 @@ pub fn bind_children_to_this_process() -> bool {
         // The handle is deliberately never closed: the job must outlive this
         // function and die with the process, which is exactly what closing the
         // last handle at exit does.
+        if assigned {
+            let _ = JOB.set(job as isize);
+        }
         assigned
     }
 }
 
 #[cfg(not(windows))]
 pub fn bind_children_to_this_process() -> bool {
+    false
+}
+
+#[cfg(windows)]
+static JOB: std::sync::OnceLock<isize> = std::sync::OnceLock::new();
+
+/// Lets the processes started from now on outlive this one.
+///
+/// The update installer is started by this process right before it exits; in
+/// the kill-on-close group it would die with the studio before installing
+/// anything. The engine is not released by this: it is also in its own
+/// kill-on-close job (`music_core::process::adopt`) and still ends with us.
+#[cfg(windows)]
+pub fn release_children() -> bool {
+    use std::mem::size_of;
+
+    use windows_sys::Win32::System::JobObjects::{
+        JobObjectExtendedLimitInformation, SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+    };
+
+    let Some(job) = JOB.get() else { return false };
+    unsafe {
+        let limits: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
+        SetInformationJobObject(
+            *job as _,
+            JobObjectExtendedLimitInformation,
+            (&raw const limits).cast(),
+            size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+        ) != 0
+    }
+}
+
+#[cfg(not(windows))]
+pub fn release_children() -> bool {
     false
 }

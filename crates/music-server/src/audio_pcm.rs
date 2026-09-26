@@ -429,7 +429,7 @@ mod live {
     #[test]
     fn decoding_a_real_track_gives_whisper_something_to_read() {
         let Some(track) = std::env::var_os("STUDIO_TEST_TRACK").map(std::path::PathBuf::from) else { return };
-        let output = std::env::temp_dir().join("mm3-decode-check.wav");
+        let output = std::env::temp_dir().join("studio-decode-check.wav");
         write_wav16k_mono(&track, &output).expect("decode the track");
         let size = std::fs::metadata(&output).expect("the wav exists").len();
         assert!(size > 44, "the wav is nothing but a header: {size} bytes");

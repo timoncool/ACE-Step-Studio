@@ -1,6 +1,6 @@
 //! ID3 tags on the MP3s the studio writes.
 //!
-//! mm-server returns bare audio: no title, no artist, no cover, no lyrics. A
+//! The engine returns bare audio: no title, no artist, no cover, no lyrics. A
 //! file like that lands in a player as "instrumental-04" with a blank square,
 //! which is the wrong answer for a track that has all of those things stored
 //! next to it. ACE-Step Studio tagged its exports, and so does this one.
@@ -69,18 +69,29 @@ pub fn write_mp3_tags(path: &Path, tags: &TrackTags) -> anyhow::Result<()> {
 /// The genre field takes a phrase, and only a phrase.
 ///
 /// A one-line prompt starts with one - "Darkwave, Synth-pop. …" - so its first
-/// piece is the genre. A structured Music3 caption names its genre a few
+/// piece is the genre. A structured caption names its genre a few
 /// phrases in, behind the heading and a row of measurements, so the phrases are
 /// walked until one can stand as a genre. Nothing plausible means the field is
 /// left empty, which every player handles and a wrong genre does not.
 pub fn genre_from_caption(caption: &str) -> Option<String> {
     caption
         .split(['.', '\n'])
-        .filter_map(|piece| piece.split(',').next())
-        .map(str::trim)
+        .filter_map(|piece| {
+            // a style that opens with its vocal language ("English, warm piano
+            // pop") names its genre right after it
+            let mut parts = piece.split(',').map(str::trim);
+            let first = parts.next()?;
+            if LANGUAGES.contains(&first.to_lowercase().as_str()) { parts.next() } else { Some(first) }
+        })
         .find(|phrase| plausible_genre(phrase))
         .map(str::to_string)
 }
+
+/// Vocal languages a style may open with; a language alone is not a genre.
+const LANGUAGES: &[&str] = &[
+    "english", "mandarin", "chinese", "cantonese", "russian", "japanese", "korean", "spanish",
+    "french", "german", "portuguese", "italian", "turkish", "arabic", "hindi", "ukrainian",
+];
 
 /// Whether a phrase can stand as a genre.
 fn plausible_genre(phrase: &str) -> bool {
@@ -99,7 +110,7 @@ fn plausible_genre(phrase: &str) -> bool {
         && !phrase.chars().any(|character| character.is_ascii_digit())
 }
 
-/// The tempo, written either as `bpm is 96` the way Music3 captions state it,
+/// The tempo, written either as `bpm is 96` the way structured captions state it,
 /// or as `124 BPM` the way a person writing a one-line prompt does.
 pub fn bpm_from_caption(caption: &str) -> Option<u32> {
     let lowered = caption.to_lowercase();
@@ -144,7 +155,7 @@ mod tests {
 
     #[test]
     fn a_written_tag_reads_back() {
-        let path = std::env::temp_dir().join(format!("mm3-tag-{}.mp3", uuid::Uuid::now_v7()));
+        let path = std::env::temp_dir().join(format!("studio-tag-{}.mp3", uuid::Uuid::now_v7()));
         std::fs::write(&path, sample_mp3()).unwrap();
 
         let tags = TrackTags {
@@ -172,7 +183,7 @@ mod tests {
 
     #[test]
     fn rewriting_replaces_rather_than_stacks() {
-        let path = std::env::temp_dir().join(format!("mm3-tag-{}.mp3", uuid::Uuid::now_v7()));
+        let path = std::env::temp_dir().join(format!("studio-tag-{}.mp3", uuid::Uuid::now_v7()));
         std::fs::write(&path, sample_mp3()).unwrap();
 
         write_mp3_tags(&path, &TrackTags { title: "First".into(), ..TrackTags::default() }).unwrap();
@@ -212,5 +223,11 @@ mod tests {
     #[test]
     fn a_caption_of_pure_measurements_names_no_genre() {
         assert_eq!(genre_from_caption(concat!("Global Metadata\n", "Basic Attributes: bpm is 96. key is A")), None);
+    }
+
+    #[test]
+    fn a_style_names_its_genre_after_the_language_but_a_language_genre_stays() {
+        assert_eq!(genre_from_caption("English, warm piano pop, expressive female voice").as_deref(), Some("warm piano pop"));
+        assert_eq!(genre_from_caption("Russian folk rock, accordion, raspy male vocal").as_deref(), Some("Russian folk rock"));
     }
 }

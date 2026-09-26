@@ -996,7 +996,7 @@ export const ja = {
     'aiGenerate.error.NETWORK': 'OpenRouter への接続でネットワークエラーが発生しました。',
     'aiGenerate.error.UNKNOWN': 'OpenRouter から不明なエラーが返されました。',
 
-    // Native Music3 studio strings.
+    // Native studio strings.
     createMusic: '音楽を作成',
     simpleMode: 'シンプル',
     customMode: '手動',
@@ -1421,6 +1421,7 @@ export const ja = {
     karaokeNoRecogniser: '認識モデルが選ばれていません。設定の「モデル」で選択してください。',
     karaokeInstrumental: 'この曲には歌詞がないため、タイミングを付けられません。',
     karaokeNoMatch: '音声からこの歌詞の言葉が聞き取れませんでした。歌詞がこの曲のものか確認するか、設定で別の認識モデルをお試しください。',
+    karaokeNoWords: "このトラックでは歌われた言葉が聞き取れないため、タイミングを付けられません。ボーカルが埋もれているか不明瞭か、インストゥルメンタルの可能性があります。",
     karaokeDownloading: '必要な認識モデルをダウンロード中です。完了後に歌詞のタイミングを作ります。',
     karaokeModelMissing: '選ばれた認識モデルをダウンロードできませんでした。接続を確認するか、設定で別のものを選んでください。',
     assistStagePreparing: 'リクエストを準備中',

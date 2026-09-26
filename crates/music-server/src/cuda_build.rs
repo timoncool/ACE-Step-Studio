@@ -18,7 +18,7 @@ pub enum CudaBuild {
 }
 
 impl CudaBuild {
-    /// The folder beside mm-server.exe that holds this build's ggml-cuda.dll.
+    /// The folder beside the engine's executable that holds this build's ggml-cuda.dll.
     pub fn folder(self) -> &'static str {
         match self {
             CudaBuild::Cuda12 => "cuda12",

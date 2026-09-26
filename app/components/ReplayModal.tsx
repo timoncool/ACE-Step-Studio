@@ -35,6 +35,8 @@ export const ReplayModal: React.FC<ReplayModalProps> = ({ song, onClose, onQueue
   const [solver, setSolver] = useState(textOr('solver', 'euler'));
   const [scheduler, setScheduler] = useState(textOr('scheduler', 'linear'));
   const [seed, setSeed] = useState<string>(typeof settings.seed === 'number' ? String(settings.seed) : '');
+  const [variations, setVariations] = useState<number>(1);
+  const [bitrate, setBitrate] = useState<number>(numberOr('mp3_bitrate', 320));
   const [format, setFormat] = useState<'mp3' | 'wav16' | 'wav24' | 'wav32' | 'flac'>(
     typeof settings.output_format === 'string' ? (settings.output_format as 'mp3') : 'mp3',
   );
@@ -57,7 +59,7 @@ export const ReplayModal: React.FC<ReplayModalProps> = ({ song, onClose, onQueue
           steps,
           seed: parsedSeed,
           output_format: format,
-          changes: { guidance_scale: cfg, solver, scheduler },
+          changes: { guidance_scale: cfg, solver, scheduler, synth_batch_size: variations, ...(format === 'mp3' ? { mp3_bitrate: bitrate } : {}) },
         }),
       });
       const body = await response.json().catch(() => null);
@@ -122,6 +124,18 @@ export const ReplayModal: React.FC<ReplayModalProps> = ({ song, onClose, onQueue
                 <option value="flac">FLAC</option>
               </select>
             </label>
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300">
+              <span className="mb-1.5 block">{tt('variationsPerRender')}</span>
+              <input type="number" min={1} max={9} value={variations} onChange={event => setVariations(Math.min(9, Math.max(1, Number(event.target.value) || 1)))} className={CONTROL} />
+            </label>
+            {format === 'mp3' && (
+              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                <span className="mb-1.5 block">{t('mp3Bitrate')}</span>
+                <select value={bitrate} onChange={event => setBitrate(Number(event.target.value))} className={CONTROL}>
+                  {[128, 192, 256, 320].map(rate => <option key={rate} value={rate}>{rate} kbps</option>)}
+                </select>
+              </label>
+            )}
           </div>
 
           {error && (

@@ -1,7 +1,7 @@
 //! Desktop shell of the studio named in `studio.json`.
 //!
 //! The whole studio is this one executable: the window, and the native service
-//! hosted inside it. The service in turn supervises the `minimaxmusic.cpp`
+//! hosted inside it. The service in turn supervises the `acestep.cpp`
 //! engine, so there is exactly one owner of that process and no launcher
 //! script in the release layout. If a compatible service is already listening
 //! on loopback — a developer running it separately — the shell uses it instead
@@ -65,6 +65,13 @@ fn studio_data_directory() -> PathBuf {
     std::env::temp_dir().join(&studio().slug)
 }
 
+/// A portable copy, or an installation into a folder it can write to: then the
+/// data, the temporary files and the WebView2 profile all live beside the
+/// executable, and deleting the folder deletes the studio.
+fn keeps_everything_beside_itself() -> bool {
+    studio_data_directory().starts_with(executable_directory())
+}
+
 /// Sets the same deterministic roots before the Axum bridge is spawned. Its
 /// environment is inherited by the bridge and the subsequently started native
 /// engine, so both always refer to one model library.
@@ -73,8 +80,9 @@ fn configure_studio_runtime_paths() {
 
     // Temporary files count as leaving traces too: the engine, the downloader
     // and ffmpeg all write through the system temporary directory, and a
-    // portable copy has no business filling the system drive with them.
-    if is_portable() {
+    // studio that keeps its data beside itself has no business filling the
+    // system drive with them.
+    if keeps_everything_beside_itself() {
         let temporary = executable_directory().join("temp");
         let _ = std::fs::create_dir_all(&temporary);
         for variable in ["TEMP", "TMP"] {
@@ -109,7 +117,7 @@ fn configure_studio_runtime_paths() {
     // The service resolves and supervises the engine; the shell only needs the
     // loopback address they agree on.
     let host = std::env::var("STUDIO_ENGINE_HOST").unwrap_or_else(|_| "127.0.0.1".into());
-    let port = std::env::var("STUDIO_ENGINE_PORT").ok().and_then(|value| value.parse::<u16>().ok()).unwrap_or(8086);
+    let port = std::env::var("STUDIO_ENGINE_PORT").ok().and_then(|value| value.parse::<u16>().ok()).unwrap_or_else(music_engine::server::default_port);
     if std::env::var_os("STUDIO_ENGINE_URL").is_none() {
         unsafe {
             std::env::set_var("STUDIO_ENGINE_URL", format!("http://{host}:{port}"));
@@ -213,7 +221,25 @@ fn spawn_update_check(app: tauri::AppHandle, portable: bool) {
     use tauri_plugin_updater::UpdaterExt;
 
     tauri::async_runtime::spawn(async move {
-        let updater = match app.updater() {
+        // The installer is a child of this process, which sits in its own
+        // kill-on-close job: without releasing it, the installer died with the
+        // studio a moment after starting and the update never happened.
+        let cleanup = app.clone();
+        // Started from the studio, the installer did not find the previous
+        // folder and installed a second copy into its default one. NSIS takes
+        // the folder as `/D=`, which must be the last argument and unquoted.
+        let install_directory = format!("/D={}", executable_directory().display());
+        let updater = match app
+            .updater_builder()
+            .installer_arg(install_directory)
+            .on_before_exit(move || {
+                cleanup.cleanup_before_exit();
+                if !music_engine::process_group::release_children() {
+                    eprintln!("[ERROR] could not release the update installer from the studio's job");
+                }
+            })
+            .build()
+        {
             Ok(updater) => updater,
             Err(_) => return,
         };
@@ -280,11 +306,22 @@ fn hide_own_console_window() {
     }
 }
 
+/// Tauri's own WebView2 switches, followed by whatever the user set in the
+/// variable WebView2 documents for exactly this.
+#[cfg(windows)]
+fn webview_browser_arguments() -> String {
+    let own = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection";
+    match std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS") {
+        Ok(extra) if !extra.trim().is_empty() => format!("{own} {}", extra.trim()),
+        _ => own.to_owned(),
+    }
+}
+
 pub fn run() {
     #[cfg(windows)]
     hide_own_console_window();
 
-    if is_portable() && std::env::var_os("WEBVIEW2_USER_DATA_FOLDER").is_none() {
+    if keeps_everything_beside_itself() && std::env::var_os("WEBVIEW2_USER_DATA_FOLDER").is_none() {
         // The process is still single-threaded here, before Tauri or its
         // worker threads are created, so updating its child WebView environment
         // cannot race with an environment read.
@@ -337,6 +374,23 @@ pub fn run() {
 
     builder
         .setup(move |app| {
+            // The window is built here rather than from the configuration so
+            // the WebView2 arguments can be extended: Tauri passes its own, and
+            // WebView2 then ignores WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS
+            // entirely, so a remote-debugging port or any other documented
+            // switch set by the user would silently never arrive.
+            let window_config = app
+                .config()
+                .app
+                .windows
+                .iter()
+                .find(|window| window.label == "main")
+                .cloned()
+                .expect("the main window is declared in tauri.conf.json");
+            let window = tauri::WebviewWindowBuilder::from_config(app.handle(), &window_config)?;
+            #[cfg(windows)]
+            let window = window.additional_browser_args(&webview_browser_arguments());
+            window.build()?;
             if updater_configured {
                 spawn_update_check(app.handle().clone(), is_portable());
             }

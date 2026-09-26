@@ -5,7 +5,7 @@ import { useI18n } from '../context/I18nContext';
 /**
  * Launch options for the local engine.
  *
- * These are `mm-server` command-line flags, and upstream reads them once at
+ * These are `ace-server` command-line flags, and upstream reads them once at
  * startup — so saving them restarts the engine. Each one is a real flag, and
  * `--max-batch` in particular is the ceiling on how many songs a single request
  * may render, which is why the create panel clamps to it.

@@ -616,6 +616,9 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     assistRun.current = run;
     setAssisting(target);
     setError(null);
+    // An idea in the simple mode is a new song: nothing left in the form from
+    // the last one - its name, its words, its sound - is carried into it.
+    const freshSong = mode === 'simple' && target === 'all';
     try {
       setAssistStage('preparing');
       setAssistDraft('');
@@ -625,10 +628,10 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           target,
-          description: name.trim(),
+          description: freshSong ? '' : name.trim(),
           instruction: idea.trim(),
-          lyrics: lyrics.trim(),
-          caption: caption.trim(),
+          lyrics: freshSong ? '' : lyrics.trim(),
+          caption: freshSong ? '' : caption.trim(),
           duration_seconds: numberOrUndefined(duration) ?? 120,
           instrumental,
           vocal_language: language,

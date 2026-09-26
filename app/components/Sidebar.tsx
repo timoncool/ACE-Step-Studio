@@ -4,6 +4,7 @@ import { View } from '../types';
 import { useI18n } from '../context/I18nContext';
 import { ResourceMonitor } from './ResourceMonitor';
 import { STUDIO } from '../studio';
+import { profileLabel } from '../services/modelCatalog';
 
 interface SidebarProps {
   currentView: View;
@@ -71,8 +72,11 @@ const SystemWidget: React.FC<{ isOpen?: boolean }> = ({ isOpen }) => {
   const openRouterConfigured = openRouter?.configured === true;
   const engineReady = setup?.engine_ready === true;
   const modelReady = setup?.ready === true;
-  const profile = setup?.selected_profile_id || (setup?.selected_component_ids?.length ? t('customSet') : t('noProfile'));
-  const engineLabel = unreachable ? t('engineUnavailable') : engineReady ? t('engineReachable') : t('engineStarting');
+  const profile = setup?.selected_profile_id
+    ? profileLabel(t, { id: setup.selected_profile_id, label: setup.selected_profile_id })
+    : (setup?.selected_component_ids?.length ? t('customSet') : t('noProfile'));
+  // Without a model set on disk the engine is not starting, it is waiting.
+  const engineLabel = unreachable ? t('engineUnavailable') : engineReady ? t('engineReachable') : modelReady ? t('engineStarting') : t('engineWaitsForModels');
   const modelLabel = modelReady ? `${t('profileReady')}: ${profile}` : t('profileNotInstalled');
 
   if (!isOpen) {
