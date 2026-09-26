@@ -186,7 +186,7 @@ export const VisualizerPanel: React.FC = () => {
   const button = 'text-zinc-400 hover:text-zinc-900 dark:hover:text-white';
 
   return (
-    <div className="fixed z-[94]" style={{ left: panel.pos.x, top: panel.pos.y, width: size.width }}>
+    <div className="fixed z-[45]" style={{ left: panel.pos.x, top: panel.pos.y, width: size.width }}>
       <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl dark:border-white/10 dark:bg-suno-card">
         <div
           onPointerDown={panel.onDragStart}

@@ -64,7 +64,7 @@ export const FilesPanel: React.FC = () => {
   }
 
   return (
-    <div className="fixed z-[90] w-[min(90vw,340px)]" style={{ left: panel.pos.x, top: panel.pos.y }}>
+    <div className="fixed z-[45] w-[min(90vw,340px)]" style={{ left: panel.pos.x, top: panel.pos.y }}>
       <div className="w-full overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl dark:border-white/10 dark:bg-suno-card">
         <div
           onPointerDown={panel.onDragStart}

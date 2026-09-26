@@ -106,7 +106,7 @@ export const EqualizerPanel: React.FC<{ onClose: () => void }> = ({ onClose }) =
   };
 
   return (
-    <div className="fixed z-[95] w-[380px] max-w-[96vw]" style={{ left: panel.pos.x, top: panel.pos.y }}>
+    <div className="fixed z-[45] w-[380px] max-w-[96vw]" style={{ left: panel.pos.x, top: panel.pos.y }}>
       <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl dark:border-white/10 dark:bg-suno-card">
         <div
           onPointerDown={panel.onDragStart}

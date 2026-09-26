@@ -126,7 +126,7 @@ export const PlayerExtraButtons: React.FC<{ layout?: ExtrasLayout }> = ({ layout
           {layout === 'list' && <span className="truncate text-sm font-medium">{t('winampTitle')}</span>}
         </button>
         {menu && createPortal(
-          <div ref={popover} style={at} className="fixed z-[200] w-64 rounded-xl border border-zinc-200 bg-white p-2 shadow-xl dark:border-white/10 dark:bg-zinc-800">
+          <div ref={popover} style={at} className="fixed z-[58] w-64 rounded-xl border border-zinc-200 bg-white p-2 shadow-xl dark:border-white/10 dark:bg-zinc-800">
             <button
               type="button"
               onClick={() => {
