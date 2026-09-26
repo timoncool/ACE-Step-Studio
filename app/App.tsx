@@ -926,37 +926,53 @@ function AppContent() {
     setActiveJobCount(activeJobsRef.current.size);
   }, [cleanupJob, refreshSongsList, t]);
 
-  /// Jobs keep running in the service when the window reloads; their cards come
-  /// back with them, and the same poller lands their tracks.
-  const restoredJobsRef = useRef(false);
+  /// Jobs keep running in the service when the window reloads, and an agent
+  /// connected over MCP starts its own: both get a card, and the same poller
+  /// lands their tracks. The service is asked every few seconds.
   useEffect(() => {
-    if (!nativeSetupReady || restoredJobsRef.current) return;
-    restoredJobsRef.current = true;
-    void fetch('/v1/music/jobs')
-      .then(response => (response.ok ? response.json() : []))
-      .then((jobs: AceJob[]) => {
-        const fresh = jobs.filter(job => ![...activeJobsRef.current.keys()].includes(job.id));
-        if (fresh.length === 0) return;
-        setSongs(prev => [
-          ...fresh.map(job => ({
-            id: `restored_${job.id}`,
-            title: job.title || t('generating') || 'Generating...',
-            lyrics: job.lyrics || '',
-            style: job.caption || '',
-            coverUrl: '',
-            duration: '--:--',
-            createdAt: new Date(),
-            isGenerating: true,
-            jobId: job.id,
-            stage: 'stageWaitingInQueue',
-            tags: ['ace-step'],
-          })),
-          ...prev,
-        ]);
-        setIsGenerating(true);
-        fresh.forEach(job => beginPollingJob(job.id, `restored_${job.id}`));
-      })
-      .catch(() => undefined);
+    if (!nativeSetupReady) return;
+    let busy = false;
+    const adopt = () => {
+      if (busy) return;
+      busy = true;
+      void fetch('/v1/music/jobs')
+        .then(response => (response.ok ? response.json() : []))
+        .then((jobs: AceJob[]) => {
+          const tracked = new Set(activeJobsRef.current.keys());
+          // A job this window has just submitted is its own to track; the id is
+          // a UUIDv7, whose first 48 bits are the moment it was made.
+          const ageMs = (id: string) => {
+            const hex = id.replace(/^ace-/, '').replace(/-/g, '').slice(0, 12);
+            const made = Number.parseInt(hex, 16);
+            return Number.isFinite(made) ? Date.now() - made : Number.POSITIVE_INFINITY;
+          };
+          const fresh = jobs.filter(job => !tracked.has(job.id) && ageMs(job.id) > 6000);
+          if (fresh.length === 0) return;
+          setSongs(prev => [
+            ...fresh.map(job => ({
+              id: `restored_${job.id}`,
+              title: job.title || t('generating') || 'Generating...',
+              lyrics: job.lyrics || '',
+              style: job.caption || '',
+              coverUrl: '',
+              duration: '--:--',
+              createdAt: new Date(),
+              isGenerating: true,
+              jobId: job.id,
+              stage: 'stageWaitingInQueue',
+              tags: ['ace-step'],
+            })),
+            ...prev,
+          ]);
+          setIsGenerating(true);
+          fresh.forEach(job => beginPollingJob(job.id, `restored_${job.id}`));
+        })
+        .catch(() => undefined)
+        .finally(() => { busy = false; });
+    };
+    adopt();
+    const timer = window.setInterval(adopt, 4000);
+    return () => window.clearInterval(timer);
   }, [nativeSetupReady, beginPollingJob, t]);
 
   /// The engine reports a job's state, not a percentage, but its log counts the
