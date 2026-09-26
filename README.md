@@ -415,4 +415,8 @@ Regrind fine-tune and its VAE decoders are CC BY-NC-SA 4.0 — songs made with t
 non-commercial use. The LoRA in the catalogue carry their authors' licences, shown on each
 card's page. MuScriptor's weights, used for MIDI, are CC BY-NC 4.0.
 
+One bundled component is under a different licence: the visualiser's spectrum looks come from
+[audioMotion-analyzer](https://github.com/hvianna/audioMotion-analyzer), which is **AGPL-3.0**;
+its source, like the studio's, is public.
+
 What changed and when is in [CHANGELOG.md](CHANGELOG.md).
