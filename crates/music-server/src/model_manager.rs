@@ -664,7 +664,7 @@ pub fn profile_exists(id: &str) -> bool {
 
 fn profile(id: &'static str, label: &'static str, ids: &[&'static str]) -> Profile {
     let all = components();
-    let recommended = id == "quality-q8";
+    let recommended = id == recommended_profile();
     Profile { id, label, backend: ENGINE_ID, installable: true, recommended, components: ids.to_vec(), total_bytes: ids.iter().filter_map(|id| all.iter().find(|component| component.id == *id)).map(|component| component.bytes).sum() }
 }
 

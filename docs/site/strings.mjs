@@ -4,11 +4,11 @@
 export const ORDER = ['en', 'ru', 'zh', 'ja', 'ko'];
 
 export const SETS = [
-  { vram: '24 GB', size: '19.9 GB', key: 'setNative' },
-  { vram: '13 GB+', size: '10.9 GB', key: 'setQuality' },
-  { vram: '10 GB+', size: '7.2 GB', key: 'setBalanced' },
-  { vram: '8 GB+', size: '6.1 GB', key: 'setLight' },
-  { vram: '4 GB+', size: '3.3 GB', key: 'setMinimal' },
+  { vram: '24 GB', size: '18.5 GB', key: 'setNative' },
+  { vram: '13 GB+', size: '10.1 GB', key: 'setQuality' },
+  { vram: '10 GB+', size: '6.7 GB', key: 'setBalanced' },
+  { vram: '8 GB+', size: '5.7 GB', key: 'setLight' },
+  { vram: '4 GB+', size: '3.1 GB', key: 'setMinimal' },
 ];
 
 // Songs made with the studio on a clean install, all as the studio rendered
@@ -68,7 +68,7 @@ export const STRINGS = {
     modelsSet: 'Set',
     modelsSize: 'Download',
     setNative: 'Full native — XL turbo BF16, planner 4B BF16',
-    setQuality: 'Quality — XL turbo Q8_0, planner 4B Q8_0 (recommended)',
+    setQuality: 'Quality — XL turbo Q8_0, planner 4B Q8_0',
     setBalanced: 'Balanced — XL turbo Q6_K, planner 1.7B',
     setLight: 'Light — XL turbo Q4_K_M, planner 1.7B',
     setMinimal: 'Minimal — 2B turbo Q4_K_M, planner 0.6B',
@@ -87,7 +87,7 @@ export const STRINGS = {
     insideSize: 'Size',
     inside: [
       ['ACE-Step engine (acestep.cpp)', 'Your GPU: CUDA, Vulkan or the processor', 'bundled'],
-      ['ACE-Step model set', 'Your GPU', '3.3–19.9 GB'],
+      ['ACE-Step model set', 'Your GPU', '3.1–18.5 GB'],
       ['NVIDIA cuBLAS', 'NVIDIA cards only', '391 MB, once'],
       ['Karaoke timings — Parakeet or Whisper', 'Your machine', 'optional'],
       ['Stem separation — HT-Demucs', 'Your GPU or CPU', 'optional'],
@@ -165,7 +165,7 @@ export const STRINGS = {
     modelsSet: 'Набор',
     modelsSize: 'Скачать',
     setNative: 'Полный оригинал — XL turbo BF16, планировщик 4B BF16',
-    setQuality: 'Качество — XL turbo Q8_0, планировщик 4B Q8_0 (рекомендуется)',
+    setQuality: 'Качество — XL turbo Q8_0, планировщик 4B Q8_0',
     setBalanced: 'Баланс — XL turbo Q6_K, планировщик 1.7B',
     setLight: 'Лёгкий — XL turbo Q4_K_M, планировщик 1.7B',
     setMinimal: 'Минимальный — 2B turbo Q4_K_M, планировщик 0.6B',
@@ -184,7 +184,7 @@ export const STRINGS = {
     insideSize: 'Размер',
     inside: [
       ['Движок ACE-Step (acestep.cpp)', 'Ваша видеокарта: CUDA, Vulkan или процессор', 'в комплекте'],
-      ['Набор моделей ACE-Step', 'Ваша видеокарта', '3,3–19,9 ГБ'],
+      ['Набор моделей ACE-Step', 'Ваша видеокарта', '3,1–18,5 ГБ'],
       ['NVIDIA cuBLAS', 'Только видеокарты NVIDIA', '391 МБ, один раз'],
       ['Тайминги караоке — Parakeet или Whisper', 'Ваш компьютер', 'по желанию'],
       ['Разделение на стемы — HT-Demucs', 'Ваша видеокарта или процессор', 'по желанию'],
@@ -262,7 +262,7 @@ export const STRINGS = {
     modelsSet: '模型组',
     modelsSize: '下载量',
     setNative: '完整原版 — XL turbo BF16，规划器 4B BF16',
-    setQuality: '高质量 — XL turbo Q8_0，规划器 4B Q8_0（推荐）',
+    setQuality: '高质量 — XL turbo Q8_0，规划器 4B Q8_0',
     setBalanced: '均衡 — XL turbo Q6_K，规划器 1.7B',
     setLight: '轻量 — XL turbo Q4_K_M，规划器 1.7B',
     setMinimal: '最小 — 2B turbo Q4_K_M，规划器 0.6B',
@@ -281,7 +281,7 @@ export const STRINGS = {
     insideSize: '大小',
     inside: [
       ['ACE-Step 引擎（acestep.cpp）', '你的显卡：CUDA、Vulkan 或处理器', '内置'],
-      ['ACE-Step 模型组', '你的显卡', '3.3–19.9 GB'],
+      ['ACE-Step 模型组', '你的显卡', '3.1–18.5 GB'],
       ['NVIDIA cuBLAS', '仅 NVIDIA 显卡', '391 MB，一次'],
       ['卡拉 OK 时间轴 — Parakeet 或 Whisper', '你的电脑', '可选'],
       ['分轨 — HT-Demucs', '你的显卡或 CPU', '可选'],
@@ -359,7 +359,7 @@ export const STRINGS = {
     modelsSet: 'セット',
     modelsSize: 'ダウンロード',
     setNative: 'フルネイティブ — XL turbo BF16、プランナー 4B BF16',
-    setQuality: '高品質 — XL turbo Q8_0、プランナー 4B Q8_0（推奨）',
+    setQuality: '高品質 — XL turbo Q8_0、プランナー 4B Q8_0',
     setBalanced: 'バランス — XL turbo Q6_K、プランナー 1.7B',
     setLight: '軽量 — XL turbo Q4_K_M、プランナー 1.7B',
     setMinimal: '最小 — 2B turbo Q4_K_M、プランナー 0.6B',
@@ -378,7 +378,7 @@ export const STRINGS = {
     insideSize: 'サイズ',
     inside: [
       ['ACE-Step エンジン（acestep.cpp）', 'あなたの GPU：CUDA、Vulkan、または CPU', '同梱'],
-      ['ACE-Step モデルセット', 'あなたの GPU', '3.3〜19.9 GB'],
+      ['ACE-Step モデルセット', 'あなたの GPU', '3.1〜18.5 GB'],
       ['NVIDIA cuBLAS', 'NVIDIA のみ', '391 MB、1 回'],
       ['カラオケのタイミング — Parakeet または Whisper', 'あなたの PC', '任意'],
       ['ステム分離 — HT-Demucs', 'あなたの GPU または CPU', '任意'],
@@ -456,7 +456,7 @@ export const STRINGS = {
     modelsSet: '세트',
     modelsSize: '다운로드',
     setNative: '풀 네이티브 — XL turbo BF16, 플래너 4B BF16',
-    setQuality: '품질 — XL turbo Q8_0, 플래너 4B Q8_0 (권장)',
+    setQuality: '품질 — XL turbo Q8_0, 플래너 4B Q8_0',
     setBalanced: '균형 — XL turbo Q6_K, 플래너 1.7B',
     setLight: '가벼움 — XL turbo Q4_K_M, 플래너 1.7B',
     setMinimal: '최소 — 2B turbo Q4_K_M, 플래너 0.6B',
@@ -475,7 +475,7 @@ export const STRINGS = {
     insideSize: '크기',
     inside: [
       ['ACE-Step 엔진(acestep.cpp)', '내 그래픽카드: CUDA, Vulkan 또는 CPU', '포함'],
-      ['ACE-Step 모델 세트', '내 그래픽카드', '3.3~19.9 GB'],
+      ['ACE-Step 모델 세트', '내 그래픽카드', '3.1~18.5 GB'],
       ['NVIDIA cuBLAS', 'NVIDIA 카드만', '391 MB, 한 번'],
       ['가라오케 타이밍 — Parakeet 또는 Whisper', '내 컴퓨터', '선택'],
       ['스템 분리 — HT-Demucs', '내 그래픽카드 또는 CPU', '선택'],

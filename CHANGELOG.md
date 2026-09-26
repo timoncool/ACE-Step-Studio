@@ -13,8 +13,8 @@ ACE-Step 1.5. No Python, no PyTorch, no Node.js at run time.
 
 - **An installer that updates itself, or a portable folder.** Models, songs and settings stay
   in the studio's own folder.
-- **GGUF models from Q4 to BF16.** Five ready sets from 3.3 GB (2B turbo, 4 GB cards) to
-  19.9 GB (XL turbo BF16), and every DiT of ACE-Step 1.5 — 2B and XL, turbo, SFT, base, the
+- **GGUF models from Q4 to BF16.** Five ready sets from 3.1 GB (2B turbo, 4 GB cards) to
+  18.5 GB (XL turbo BF16), and every DiT of ACE-Step 1.5 — 2B and XL, turbo, SFT, base, the
   shift and continuous turbos, merges, MXFP4, the Regrind fine-tune — in a switcher above
   the create form. The planner and the VAE are chosen in Settings.
 - **One writer at a time.** The simple form turns one line into a song through the writing
