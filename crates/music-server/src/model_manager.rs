@@ -252,11 +252,13 @@ impl ModelManager {
         fs::create_dir_all(&self.root)
             .with_context(|| format!("create model root {}", self.root.display()))?;
         preflight_space(&self.root, &selection)?;
-        // Progress starts from what is already published on disk. This uses the
-        // cheap size check rather than a SHA-256 sweep: hashing a resumed 10 GB
-        // set here would block this request — and every setup/status poll behind
-        // it — for tens of seconds. Each component is still hash-verified in
-        // `download_selection` before it is skipped or published.
+        // The bar counts what has to come down: switching to a 2.4 GB model of a
+        // set whose other files are on disk reads 2.4 GB, not the whole set.
+        // This uses the cheap size check rather than a SHA-256 sweep: hashing a
+        // resumed 10 GB set here would block this request — and every
+        // setup/status poll behind it — for tens of seconds. Each component is
+        // still hash-verified in `download_selection` before it is skipped or
+        // published.
         selection.already_present_bytes = selection
             .components
             .iter()
@@ -273,8 +275,8 @@ impl ModelManager {
             profile_id: selection.profile_id.clone(),
             component_ids: selection.components.iter().map(|component| component.id.into()).collect(),
             status: DownloadStatus::Downloading,
-            downloaded_bytes: selection.already_present_bytes,
-            total_bytes: selection.total_bytes,
+            downloaded_bytes: 0,
+            total_bytes: selection.total_bytes.saturating_sub(selection.already_present_bytes),
             error: None,
         };
         state.active = Some(job.clone());
@@ -418,14 +420,16 @@ impl ModelManager {
         Ok(())
     }
 
-    /// Re-bases progress on what is actually published on disk.
+    /// Re-bases progress on what is actually published on disk, less what was
+    /// there before this download began.
     async fn set_published_progress(&self, selection: &ResolvedInstall) -> Result<()> {
         let published: u64 = selection
             .components
             .iter()
             .filter(|component| published_component(&self.root.join(component.filename), component))
             .map(|component| component.bytes)
-            .sum();
+            .sum::<u64>()
+            .saturating_sub(selection.already_present_bytes);
         let mut state = self.state.write().await;
         if let Some(job) = &mut state.active {
             job.downloaded_bytes = published.min(job.total_bytes);
