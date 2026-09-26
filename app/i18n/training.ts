@@ -5,6 +5,7 @@
 
 const en = {
   trainingBaseDownloading: 'Downloading the DiT to train on',
+  trainingBaseDownloadFailed: 'The DiT to train on did not download',
   trainingBaseDownload: 'Download it · {size}',
   trainingBaseMissing: 'Download the unquantised DiT to train on',
   trainingBase: 'Trains on',
@@ -217,6 +218,7 @@ export type TrainingStrings = { readonly [K in keyof typeof en]: string };
 
 const ru: TrainingStrings = {
   trainingBaseDownloading: 'Скачиваю DiT для обучения',
+  trainingBaseDownloadFailed: 'DiT для обучения не скачался',
   trainingBaseDownload: 'Скачать · {size}',
   trainingBaseMissing: 'Скачайте неквантованный DiT для обучения',
   trainingBase: 'Учится на',
@@ -427,6 +429,7 @@ const ru: TrainingStrings = {
 
 const zh: TrainingStrings = {
   trainingBaseDownloading: '正在下载用于训练的 DiT',
+  trainingBaseDownloadFailed: '用于训练的 DiT 下载失败',
   trainingBaseDownload: '下载 · {size}',
   trainingBaseMissing: '请下载用于训练的未量化 DiT',
   trainingBase: '训练基础',
@@ -637,6 +640,7 @@ const zh: TrainingStrings = {
 
 const ja: TrainingStrings = {
   trainingBaseDownloading: '学習用の DiT をダウンロード中',
+  trainingBaseDownloadFailed: '学習用の DiT をダウンロードできませんでした',
   trainingBaseDownload: 'ダウンロード · {size}',
   trainingBaseMissing: '学習用の非量子化 DiT をダウンロードしてください',
   trainingBase: '学習のベース',
@@ -847,6 +851,7 @@ const ja: TrainingStrings = {
 
 const ko: TrainingStrings = {
   trainingBaseDownloading: '학습용 DiT 내려받는 중',
+  trainingBaseDownloadFailed: '학습용 DiT를 내려받지 못했습니다',
   trainingBaseDownload: '내려받기 · {size}',
   trainingBaseMissing: '학습용 비양자화 DiT를 내려받으세요',
   trainingBase: '학습 기반',

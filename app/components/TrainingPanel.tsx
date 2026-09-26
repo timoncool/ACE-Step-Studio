@@ -722,25 +722,27 @@ const TrainStep: React.FC<{ state: TrainingState; dataset: Dataset; job: Prepare
   // the BF16 base downloads through the model manager; its progress is read from there
   const [baseDownload, setBaseDownload] = useState<{ downloaded_bytes: number; total_bytes: number } | null>(null);
   const fetchingBase = baseDownload !== null;
+  const baseIds = useMemo(() => state.base?.download ?? [], [state.base]);
   useEffect(() => {
     if (!fetchingBase) return;
     const timer = window.setInterval(() => {
       void fetch('/setup/status')
         .then(response => response.json())
-        .then((status: { active?: { status: string; downloaded_bytes: number; total_bytes: number; error?: string | null } | null }) => {
-          const active = status.active;
+        .then((status: { active?: { status: string; downloaded_bytes: number; total_bytes: number; component_ids: string[]; error?: string | null } | null }) => {
+          // the base's own download, not another one started meanwhile
+          const active = status.active && baseIds.every(id => status.active!.component_ids.includes(id)) ? status.active : null;
           if (active?.status === 'downloading') {
             setBaseDownload(active);
             return;
           }
           setBaseDownload(null);
-          if (active?.status === 'failed' || active?.status === 'cancelled') onError(active.error || active.status);
+          if (active?.status === 'failed') onError(active.error || t('trainingBaseDownloadFailed'));
           onRefresh();
         })
         .catch((problem: unknown) => onError(errorText(problem)));
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [fetchingBase, onRefresh, onError]);
+  }, [fetchingBase, baseIds, onRefresh, onError, t]);
   const start = async () => {
     setStarting(true);
     try {

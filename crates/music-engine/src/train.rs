@@ -512,6 +512,19 @@ mod tests {
     }
 
     #[test]
+    fn exports_go_by_number_and_a_continuation_never_reuses_a_folder() {
+        let run = std::env::temp_dir().join(format!("ace-train-order-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&run);
+        for folder in ["output", "output-2", "output-10", "outputs"] {
+            std::fs::create_dir_all(run.join(folder)).unwrap();
+        }
+        let names: Vec<String> = exports(&run).iter().map(|folder| folder.file_name().unwrap().to_string_lossy().into_owned()).collect();
+        assert_eq!(names, ["output", "output-2", "output-10"]);
+        assert_eq!(continuation_output(&run).file_name().unwrap().to_str().unwrap(), "output-11");
+        let _ = std::fs::remove_dir_all(&run);
+    }
+
+    #[test]
     fn exports_are_the_checkpoints_and_the_latest_resumes() {
         let run = std::env::temp_dir().join(format!("ace-train-exports-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&run);

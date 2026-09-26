@@ -618,7 +618,12 @@ pub struct HubFile {
 /// an adapter's header; a longer one takes a second.
 async fn hub_header(http: &reqwest::Client, url: &str) -> Result<serde_json::Map<String, Value>> {
     const FIRST: u64 = 256 << 10;
-    let start = http.get(url).header(reqwest::header::RANGE, format!("bytes=0-{}", FIRST - 1)).send().await?.error_for_status()?.bytes().await?;
+    let answer = http.get(url).header(reqwest::header::RANGE, format!("bytes=0-{}", FIRST - 1)).send().await?.error_for_status()?;
+    // a server that ignores the range would send the whole weight file
+    if answer.status() != reqwest::StatusCode::PARTIAL_CONTENT {
+        bail!("the server answered {} to a range request", answer.status());
+    }
+    let start = answer.bytes().await?;
     let length = u64::from_le_bytes(start.get(..8).context("a safetensors file shorter than its header")?.try_into()?);
     if length > 64 << 20 {
         bail!("a safetensors header of {length} bytes");
