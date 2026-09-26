@@ -4188,6 +4188,28 @@ async fn assistant_local_models(
     Ok(Json(serde_json::json!({ "models": models })))
 }
 
+/// Which local server runs `model` and with what context, asked of the
+/// server's own API: LM Studio's `/api/v0/models`, then Ollama's `/api/ps`.
+/// None for any other server, or while the model is not loaded yet.
+async fn local_server_context(base: &str, model: &str) -> Option<(assistant::LocalServer, u64)> {
+    let root = base.trim().trim_end_matches('/').trim_end_matches("/v1");
+    let client = reqwest::Client::new();
+    let read = |path: &'static str| {
+        let request = client.get(format!("{root}{path}")).timeout(std::time::Duration::from_secs(3));
+        async move {
+            let response = request.send().await.ok()?;
+            if !response.status().is_success() {
+                return None;
+            }
+            response.json::<Value>().await.ok()
+        }
+    };
+    if let Some(context) = read("/api/v0/models").await.and_then(|models| assistant::lm_studio_context(&models, model)) {
+        return Some((assistant::LocalServer::LmStudio, context));
+    }
+    read("/api/ps").await.and_then(|running| assistant::ollama_context(&running, model)).map(|context| (assistant::LocalServer::Ollama, context))
+}
+
 async fn update_assistant_settings(
     State(state): State<AppState>,
     Json(incoming): Json<AssistantSettingsRequest>,
@@ -4810,9 +4832,25 @@ async fn assistant_write_stream(
             task,
         );
         body["stream"] = Value::Bool(true);
+        // The last event then counts the tokens, which is what tells a full
+        // context from a model that would not stop.
+        body["stream_options"] = serde_json::json!({ "include_usage": true });
+        let limit = body.get("max_tokens").and_then(Value::as_u64);
+
+        let prompt_chars = system.chars().count() + user.chars().count();
+        if config.provider == AssistantProvider::Local {
+            if let Some(refusal) = local_server_context(&base, &model)
+                .await
+                .and_then(|(server, context)| assistant::context_refusal(server, context, prompt_chars))
+            {
+                request_log::failed("assistant", &model, &refusal);
+                emit(sender.clone(), serde_json::json!({ "error": refusal })).await;
+                return;
+            }
+        }
 
         emit(sender.clone(), serde_json::json!({ "stage": "sent", "model": model })).await;
-        request_log::asked("assistant", &model, system.chars().count() + user.chars().count());
+        request_log::asked("assistant", &model, prompt_chars);
         let started = std::time::Instant::now();
 
         let client = reqwest::Client::new();
@@ -4857,10 +4895,11 @@ async fn assistant_write_stream(
         // Server-sent events, one JSON object per `data:` line, with the text in
         // `choices[0].delta.content`.
         let mut stream = response.bytes_stream();
-        let mut buffer = String::new();
+        let mut buffer: Vec<u8> = Vec::new();
         let mut first = true;
         let mut whole = String::new();
         let mut cut_short = false;
+        let mut usage: Option<(u64, u64)> = None;
         let mut window_gone = false;
         loop {
             // The window stopped the run or was closed. Dropping the stream
@@ -4874,16 +4913,24 @@ async fn assistant_write_stream(
                 chunk = stream.next() => chunk,
             };
             let Some(Ok(chunk)) = chunk else { break };
-            buffer.push_str(&String::from_utf8_lossy(&chunk));
-            while let Some(line_end) = buffer.find('\n') {
-                let line = buffer[..line_end].trim().to_string();
-                buffer.drain(..line_end + 1);
+            // Bytes until a line is whole: a Cyrillic letter split between two
+            // chunks, decoded chunk by chunk, came out as two replacement marks.
+            buffer.extend_from_slice(&chunk);
+            while let Some(line_end) = buffer.iter().position(|byte| *byte == b'\n') {
+                let line = String::from_utf8_lossy(&buffer[..line_end]).trim().to_string();
+                buffer.drain(..=line_end);
                 let Some(payload) = line.strip_prefix("data:") else { continue };
                 let payload = payload.trim();
                 if payload == "[DONE]" {
                     continue;
                 }
                 let Ok(event): Result<Value, _> = serde_json::from_str(payload) else { continue };
+                if let Some(counted) = event.get("usage").filter(|counted| !counted.is_null()) {
+                    let count = |key: &str| counted.get(key).and_then(Value::as_u64);
+                    if let (Some(prompt), Some(answer)) = (count("prompt_tokens"), count("completion_tokens")) {
+                        usage = Some((prompt, answer));
+                    }
+                }
                 let choice = event.get("choices").and_then(|choices| choices.get(0));
                 if choice.and_then(|choice| choice.get("finish_reason")).and_then(Value::as_str) == Some("length") {
                     cut_short = true;
@@ -4916,16 +4963,16 @@ async fn assistant_write_stream(
             release_assistant_unless_kept(&state).await;
             return;
         }
+        if let Some(message) = usage.and_then(|(prompt, _)| assistant::instructions_cut(prompt_chars, prompt)) {
+            request_log::unusable("assistant", &model, &message, &whole);
+            emit(sender.clone(), serde_json::json!({ "error": message })).await;
+            release_assistant_unless_kept(&state).await;
+            return;
+        }
         if cut_short {
-            request_log::unusable("assistant", &model, "the answer reached the length limit", &whole);
-            emit(
-                sender.clone(),
-                serde_json::json!({ "error": format!(
-                    "the model wrote {} tokens without finishing the answer and was stopped - try again or pick another model",
-                    assistant::max_tokens_for(task)
-                ) }),
-            )
-            .await;
+            let message = assistant::cut_short_message(limit, usage);
+            request_log::unusable("assistant", &model, &message, &whole);
+            emit(sender.clone(), serde_json::json!({ "error": message })).await;
             release_assistant_unless_kept(&state).await;
             return;
         }

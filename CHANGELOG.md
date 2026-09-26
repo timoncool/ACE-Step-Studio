@@ -16,6 +16,14 @@ What changed, newest first. Dates are release dates.
   address for its models, one request per keystroke, each waiting out its timeout, and the save
   queued behind them for seconds: the wand could say no assistant was set up. The models are
   asked for once the address stops changing.
+- **A local server's context is checked before the assistant writes.** The writing
+  instructions take about 7,000 tokens, and LM Studio loads a model with 8,192 by default,
+  Ollama with less: LM Studio cut the answer in seconds, and Ollama silently dropped the start
+  of the instructions, so the model wrote with none and ran on. The studio now reads the
+  context LM Studio or Ollama runs the model with and, when it is too short, says so at once
+  with where to raise it; an answer cut short says whether the context or the length ran out.
+- **Cyrillic letters in the assistant's answer** no longer turn into `�`: a letter split
+  between two pieces of the stream was decoded piece by piece.
 - **A song added to a dataset brings its lyrics, genre, tempo and key** from its own tags
   (ID3 USLT, TCON, TBPM, TKEY and their Vorbis names) when no text file lies beside it.
 - **Without an NVIDIA card the first set offered is Minimal**, which runs on Vulkan or the

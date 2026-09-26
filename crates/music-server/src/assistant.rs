@@ -487,6 +487,106 @@ pub fn max_tokens_for(target: AssistTarget) -> u32 {
     }
 }
 
+/// A local server that says how long a context it runs a model with. Neither
+/// takes that length over the OpenAI endpoint, so the studio can only read
+/// it and say where to change it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LocalServer {
+    LmStudio,
+    Ollama,
+}
+
+/// The context LM Studio loaded `model` with, from its `/api/v0/models`.
+/// None while the model is not loaded: LM Studio then loads it on the first
+/// request with whatever context that model is set to.
+pub fn lm_studio_context(models: &Value, model: &str) -> Option<u64> {
+    models
+        .get("data")?
+        .as_array()?
+        .iter()
+        .find(|entry| entry.get("id").and_then(Value::as_str) == Some(model) && entry.get("state").and_then(Value::as_str) == Some("loaded"))?
+        .get("loaded_context_length")?
+        .as_u64()
+}
+
+/// The context Ollama runs `model` with, from its `/api/ps`; a name without a
+/// tag is Ollama's `:latest`.
+pub fn ollama_context(running: &Value, model: &str) -> Option<u64> {
+    let wanted = if model.contains(':') { model.to_string() } else { format!("{model}:latest") };
+    running
+        .get("models")?
+        .as_array()?
+        .iter()
+        .find(|entry| ["name", "model"].iter().any(|key| entry.get(*key).and_then(Value::as_str) == Some(wanted.as_str())))?
+        .get("context_length")?
+        .as_u64()
+}
+
+/// The tokens the instructions take, near enough: they are English, which
+/// the usual tokenizers cut at three and a half to four characters a token.
+pub fn likely_prompt_tokens(prompt_chars: usize) -> u64 {
+    (prompt_chars / 4) as u64
+}
+
+/// Fewer than any tokenizer makes of this text: a count below it means the
+/// server did not read all of it.
+pub fn fewest_prompt_tokens(prompt_chars: usize) -> u64 {
+    (prompt_chars / 6) as u64
+}
+
+/// The answer needs room besides the instructions; less than this and the
+/// draft is cut before its first field is written.
+const ANSWER_ROOM: u64 = 2048;
+
+fn how_to_lengthen(server: LocalServer) -> &'static str {
+    match server {
+        LocalServer::LmStudio => "in LM Studio load the model again with Context Length 16384 or more",
+        LocalServer::Ollama => "set OLLAMA_CONTEXT_LENGTH=16384 (or more) and restart Ollama",
+    }
+}
+
+/// Said before anything is sent when the context the server runs the model
+/// with cannot hold the instructions and an answer.
+pub fn context_refusal(server: LocalServer, context: u64, prompt_chars: usize) -> Option<String> {
+    let instructions = likely_prompt_tokens(prompt_chars);
+    (context < instructions + ANSWER_ROOM).then(|| {
+        format!(
+            "the model runs with a {context}-token context, and the writing instructions alone take about {instructions} tokens - {}",
+            how_to_lengthen(server)
+        )
+    })
+}
+
+/// Ollama cuts a prompt longer than its context from the start, silently,
+/// and the model then writes with no instructions at all. The count it
+/// returns is the only trace: far fewer tokens than the text can make.
+pub fn instructions_cut(prompt_chars: usize, prompt_tokens: u64) -> Option<String> {
+    (prompt_tokens < fewest_prompt_tokens(prompt_chars)).then(|| {
+        format!(
+            "the server read only {prompt_tokens} tokens of the writing instructions and dropped the rest, so the model wrote without them - its context is too short: {}",
+            how_to_lengthen(LocalServer::Ollama)
+        )
+    })
+}
+
+/// Why an answer that ended on `finish_reason: length` was cut, from what the
+/// request allowed and what the server counted. A server loaded with a short
+/// context - LM Studio's is often 8192 - spends it on the instructions and
+/// cuts the answer long before the studio's own limit, and saying the model
+/// wrote too much would send the user to the wrong fix.
+pub fn cut_short_message(limit: Option<u64>, usage: Option<(u64, u64)>) -> String {
+    match (limit, usage) {
+        (Some(limit), Some((prompt, answer))) if answer < limit => format!(
+            "the server's context ran out: the instructions took {prompt} tokens and left room for {answer} of the answer - load the model with a longer context, 16384 or more"
+        ),
+        (Some(limit), Some(_)) => format!("the model wrote {limit} tokens without finishing the answer and was stopped - try again or pick another model"),
+        (Some(limit), None) => format!(
+            "the answer was cut off before it finished: it reached the studio's limit of {limit} tokens or the end of the server's context - load the model with a longer context, or pick another model"
+        ),
+        (None, _) => "the provider cut the answer off before it finished - try again or pick another model".to_string(),
+    }
+}
+
 /// A Cyrillic word with Latin look-alikes in it ("Tут", "oстов"), which a
 /// small model writes at the start of a line, spelled in Cyrillic. Only the
 /// letters that are one letter both by sight and by sound are swapped: a
@@ -649,6 +749,39 @@ pub fn cyrillic_share(text: &str) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_context_a_local_server_runs_a_model_with_is_read_from_it() {
+        let lm = serde_json::json!({ "data": [
+            { "id": "gpt-oss-20b", "state": "loaded", "loaded_context_length": 8192, "max_context_length": 131072 },
+            { "id": "qwen3.8-27b", "state": "not-loaded", "max_context_length": 262144 }
+        ] });
+        assert_eq!(lm_studio_context(&lm, "gpt-oss-20b"), Some(8192));
+        assert_eq!(lm_studio_context(&lm, "qwen3.8-27b"), None);
+        let ollama = serde_json::json!({ "models": [{ "name": "gemma3:4b", "model": "gemma3:4b", "context_length": 4096 }] });
+        assert_eq!(ollama_context(&ollama, "gemma3:4b"), Some(4096));
+        assert_eq!(ollama_context(&ollama, "gemma3"), None);
+        let latest = serde_json::json!({ "models": [{ "name": "llama3.2:latest", "context_length": 8192 }] });
+        assert_eq!(ollama_context(&latest, "llama3.2"), Some(8192));
+    }
+
+    #[test]
+    fn instructions_that_cannot_fit_are_refused_before_they_are_sent() {
+        // 27.7k characters of instructions were 7.6k tokens for gpt-oss
+        assert!(context_refusal(LocalServer::LmStudio, 8192, 27_700).is_some());
+        assert!(context_refusal(LocalServer::Ollama, 4096, 27_700).unwrap().contains("OLLAMA_CONTEXT_LENGTH"));
+        assert!(context_refusal(LocalServer::LmStudio, 16384, 27_700).is_none());
+        assert!(instructions_cut(27_700, 4096).is_some());
+        assert!(instructions_cut(27_700, 7624).is_none());
+    }
+
+    #[test]
+    fn a_full_context_is_told_from_a_model_that_wrote_too_much() {
+        assert!(cut_short_message(Some(8192), Some((7637, 555))).starts_with("the server's context ran out"));
+        assert!(cut_short_message(Some(4096), Some((900, 4096))).starts_with("the model wrote 4096 tokens"));
+        assert!(cut_short_message(Some(4096), None).contains("4096"));
+        assert!(cut_short_message(None, None).starts_with("the provider"));
+    }
 
     #[test]
     fn every_target_names_a_length_limit() {
