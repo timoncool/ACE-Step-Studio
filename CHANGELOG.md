@@ -32,6 +32,8 @@ ACE-Step 1.5. No Python, no PyTorch, no Node.js at run time.
   adapter a run left.
 - **Stems, MIDI, karaoke, audio processing, VST3 and video clips** from the studio family.
 - **MCP**: 164 tools for an agent, and the agent as the studio's writing assistant.
+- **Find models and LoRA again** — files put in the folders by hand reach the running engine
+  without a restart; a model the studio downloads is found on its own.
 - **FLAC** output.
 
 ### Not carried over from 1.x
