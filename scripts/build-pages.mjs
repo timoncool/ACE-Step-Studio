@@ -80,7 +80,7 @@ ${nav}
   <div class="cta">
     <a class="btn primary" href="${REPO}/releases/latest">${escape(s.ctaDownload)}</a>
     <a class="btn" href="${REPO}">${escape(s.ctaSource)}</a>
-    <a class="btn" href="${REPO}/blob/master/DONATE.md">${escape(s.ctaDonate)}</a>
+    <a class="btn" href="${REPO}/blob/main/DONATE.md">${escape(s.ctaDonate)}</a>
   </div>
   <p class="note">${escape(s.ctaNote)}</p>
 
@@ -178,7 +178,7 @@ ${cards(s.privacy)}
 
   <footer>
     <p>${escape(s.footerLicense)}</p>
-    <p><a href="${REPO}/blob/master/CHANGELOG.md">${escape(s.footerChanges)}</a> ·
+    <p><a href="${REPO}/blob/main/CHANGELOG.md">${escape(s.footerChanges)}</a> ·
        <a href="${REPO}/issues">${escape(s.footerIssues)}</a></p>
   </footer>
 </main>

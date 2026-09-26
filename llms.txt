@@ -13,12 +13,12 @@ For an agent given this repository: install the studio from the latest release, 
 
 ## Docs
 
-- [Agent skill](https://raw.githubusercontent.com/timoncool/ACE-Step-Studio/master/docs/mcp-skill.md): every tool by area, the model's writing rules, step-by-step recipes (the same text the server serves as `studio://skill`)
+- [Agent skill](https://raw.githubusercontent.com/timoncool/ACE-Step-Studio/main/docs/mcp-skill.md): every tool by area, the model's writing rules, step-by-step recipes (the same text the server serves as `studio://skill`)
 - [README](https://github.com/timoncool/ACE-Step-Studio#readme): what the studio does, what it needs, models and where they go
 - [Latest release](https://github.com/timoncool/ACE-Step-Studio/releases/latest): the installer and the portable archive
 - [Project page](https://timoncool.github.io/ACE-Step-Studio/)
 
 ## Optional
 
-- Install the skill for Claude Code: save [docs/mcp-skill.md](https://raw.githubusercontent.com/timoncool/ACE-Step-Studio/master/docs/mcp-skill.md) as `~/.claude/skills/ace-step-studio/SKILL.md`
-- [CHANGELOG](https://github.com/timoncool/ACE-Step-Studio/blob/master/CHANGELOG.md)
+- Install the skill for Claude Code: save [docs/mcp-skill.md](https://raw.githubusercontent.com/timoncool/ACE-Step-Studio/main/docs/mcp-skill.md) as `~/.claude/skills/ace-step-studio/SKILL.md`
+- [CHANGELOG](https://github.com/timoncool/ACE-Step-Studio/blob/main/CHANGELOG.md)
