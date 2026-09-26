@@ -81,23 +81,33 @@ export const AssistantExtras: React.FC<{ engine: string }> = ({ engine }) => {
   // The models the server offers, asked of it through the studio so the browser
   // never has to reach another origin. Typing the name by hand was a typo away
   // from a server that answered nothing.
-  const fetchLocalModels = React.useCallback(async (base: string) => {
+  const fetchLocalModels = React.useCallback(async (base: string, signal?: AbortSignal) => {
     if (!base.trim()) return;
     setLocalBusy(true);
     try {
-      const response = await fetch(`/v1/assistant/local-models?base=${encodeURIComponent(base.trim())}`);
+      const response = await fetch(`/v1/assistant/local-models?base=${encodeURIComponent(base.trim())}`, { signal });
       const body = await response.json().catch(() => null);
       if (response.ok && Array.isArray(body?.models)) {
         setLocalModels(body.models);
         if (!localModel && body.models.length) setLocalModel(body.models[0]);
       }
+    } catch (reason) {
+      if (!(reason instanceof DOMException && reason.name === 'AbortError')) throw reason;
     } finally {
       setLocalBusy(false);
     }
   }, [localModel]);
+  // Only when the address changes, not on every model edit, and once it stops
+  // changing: a request per keystroke went to every half-typed host, each
+  // waiting out its timeout on a connection the save behind it needed.
   useEffect(() => {
-    if (engine === 'local' && localBaseUrl.trim()) void fetchLocalModels(localBaseUrl);
-    // Only when the address changes, not on every model edit.
+    if (engine !== 'local' || !localBaseUrl.trim()) return;
+    const run = new AbortController();
+    const timer = window.setTimeout(() => void fetchLocalModels(localBaseUrl, run.signal), 600);
+    return () => {
+      window.clearTimeout(timer);
+      run.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine, localBaseUrl]);
 

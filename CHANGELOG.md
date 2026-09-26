@@ -12,6 +12,10 @@ What changed, newest first. Dates are release dates.
   the model writing, because the service went on reading an answer nobody waited for. A local
   server is now told how long each answer may be, a run that reaches it ends with a message
   instead of a wait, and Stop closes the connection, which is what makes the model stop.
+- **A local server's address saves as soon as it is typed.** The window asked every half-typed
+  address for its models, one request per keystroke, each waiting out its timeout, and the save
+  queued behind them for seconds: the wand could say no assistant was set up. The models are
+  asked for once the address stops changing.
 - **A song added to a dataset brings its lyrics, genre, tempo and key** from its own tags
   (ID3 USLT, TCON, TBPM, TKEY and their Vorbis names) when no text file lies beside it.
 - **Without an NVIDIA card the first set offered is Minimal**, which runs on Vulkan or the
