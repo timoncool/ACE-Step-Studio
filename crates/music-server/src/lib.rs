@@ -3345,7 +3345,10 @@ async fn update_engine_options(
 /// flight is done; new work waits for it.
 async fn rescan_resources(state: &AppState) -> Result<Value, String> {
     let _rescan = state.engine_use.write().await;
-    if !state.music_server.health().await {
+    // a training run or a dataset preparation holds the card; the engine finds
+    // everything when it comes back after them
+    let preparing = state.prepare.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).as_ref().is_some_and(|job| !job.finished);
+    if preparing || state.training.active_run().await.is_some() || !state.music_server.health().await {
         return Ok(serde_json::json!({ "restarted": false, "message": "The engine is not running; it finds every model and LoRA when it starts." }));
     }
     restart_engine(state).await?;
@@ -5997,9 +6000,9 @@ async fn ace_request_from(state: &AppState, request: &CreateMusicJobRequest) -> 
         }
     }
     if !request.adapters.is_empty() {
-        let dit = fields.get("synth_model").and_then(Value::as_str).and_then(music_engine::model::model_family);
+        let dit_family = fields.get("synth_model").and_then(Value::as_str).and_then(music_engine::model::model_family);
         for adapter in &request.adapters {
-            if let Some(problem) = adapter_misfit(&adapter.id, state.adapters.model_of(&adapter.id).as_deref(), dit) {
+            if let Some(problem) = adapter_misfit(&adapter.id, state.adapters.model_of(&adapter.id).as_deref(), dit_family) {
                 return Err(problem);
             }
         }

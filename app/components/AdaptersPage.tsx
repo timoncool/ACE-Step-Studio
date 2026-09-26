@@ -553,7 +553,7 @@ export function AdaptersPage(): React.ReactElement {
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-pink-500">{t('adaptersEyebrow')}</p>
           <h1 className="mt-1 text-2xl font-bold text-zinc-950 dark:text-white">{t('adaptersHeading')}</h1>
           <p className="mt-2 max-w-3xl text-sm text-zinc-600 dark:text-zinc-400">{t('adaptersIntro')}</p>
-          <div className="mt-3"><RescanButton onDone={() => void refresh()} /></div>
+          <div className="mt-3"><RescanButton onDone={() => void refresh().catch(problem => setError(String(problem)))} /></div>
         </div>
 
         <div role="tablist" className="flex rounded-lg bg-zinc-100 p-1 dark:bg-white/5">

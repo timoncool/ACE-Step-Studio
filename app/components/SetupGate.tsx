@@ -726,7 +726,7 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
         <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-500 dark:text-zinc-400">
           {mode === 'first-run' ? t('setupSubtitle') : t('resourcesSubtitle')}
         </p>
-        {mode === 'settings' && <div className="mt-4"><RescanButton onDone={() => void refresh()} /></div>}
+        {mode === 'settings' && <div className="mt-4"><RescanButton onDone={() => void refresh().catch((problem: unknown) => setError(problem instanceof Error ? problem.message : String(problem)))} /></div>}
 
         {error && (
           <div className="mt-5 flex gap-2 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
