@@ -247,6 +247,7 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
       const settings = winampSettings();
       const skin = pickSkin(skins);
       const playable = queue.filter((song) => song.audioUrl);
+      const at = playable.findIndex((song) => song.id === queue[startIndex]?.id);
       const layout: WindowLayout = {
         main: { position: { top: 0, left: 0 } },
         equalizer: { position: { top: 116, left: 0 } },
@@ -294,6 +295,22 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
         },
         filePickers: [{ contextMenuName: t('winampStudioLibrary'), filePicker: async () => listAll(), requiresNetwork: false }],
       } as never);
+      if (startSeconds > 0) {
+        // the position is set once the studio's song plays in Winamp and its length is known:
+        // Winamp seeks by a share of the length, and a seek before the file plays is dropped
+        const wanted = store().getState().playlist.trackOrder[Math.max(0, at)];
+        let stopWaiting: (() => void) | null = null;
+        const seekWhenPlaying = () => {
+          const state = store().getState();
+          const length = state.tracks[String(wanted)]?.duration;
+          if (state.playlist.currentTrack !== wanted || state.media.timeElapsed <= 0 || !length) return;
+          stopWaiting?.();
+          stopWaiting = null;
+          store().dispatch({ type: 'SEEK_TO_PERCENT_COMPLETE', percent: Math.min(100, (startSeconds / length) * 100) });
+        };
+        stopWaiting = (webamp as WebampLazy).__onStateChange(seekWhenPlaying);
+        cleanups.push(() => stopWaiting?.());
+      }
 
       if (win) {
         await onWindow(async () => {
@@ -319,18 +336,6 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
       EQ_BANDS.forEach((band, index) => store().dispatch({ type: 'SET_BAND_VALUE', band, value: toSlider(eq.gains[index] ?? 0) }));
       store().dispatch({ type: 'SET_BALANCE', balance: Math.round(eq.balance * 100) });
       webamp.setVolume(Math.round(volume * 100));
-      const at = playable.findIndex((song) => song.id === queue[startIndex]?.id);
-      if (startSeconds > 0) {
-        // the position waits for the studio's song to be loaded, and is set by that file's own length
-        const wanted = store().getState().playlist.trackOrder[Math.max(0, at)];
-        const emitter = (webamp as unknown as { _actionEmitter: { on: (type: string, listener: (action: { id?: number; length?: number }) => void) => () => void } })._actionEmitter;
-        const stopWaiting = emitter.on('SET_MEDIA', (action) => {
-          if (action.id !== wanted || !action.length) return;
-          stopWaiting();
-          store().dispatch({ type: 'SEEK_TO_PERCENT_COMPLETE', percent: Math.min(100, (startSeconds / action.length) * 100) });
-        });
-        cleanups.push(stopWaiting);
-      }
       if (at > 0) playAt(at);
       if (playing) webamp.play();
 

@@ -2,10 +2,30 @@
 
 What changed, newest first. Dates are release dates.
 
-## 2026-09-26 — 2.0.1
+## 2026-09-26 — 3.0.0
 
 ### Added
 
+- **An equalizer.** Ten bands on Winamp's frequencies, -12 to +12 dB, and a preamp, with the
+  curve the filters really play drawn above the sliders. The band gains are solved as Spotifast
+  does, so neighbouring bands no longer pile up and a preset sounds as its sliders show. Winamp's
+  eighteen presets, presets for situations (Bass Booster, Vocal Booster, Small Speakers, Night
+  Listening...), the user's own, and Winamp's .EQF files in and out. Balance and mono work with
+  the equalizer off too.
+- **A visualiser.** MilkDrop through Butterchurn with several hundred presets, or a spectrum
+  analyser in ten looks from Winamp bars to a radial one. It floats over the studio and is sized
+  by its corner, goes fullscreen, or moves into a window of its own that hears the studio live.
+  Next and previous, hold a preset, random or in order, as MilkDrop's keys N, P, L, R, T and F.
+- **A Winamp mode.** The whole window becomes a classic Winamp 2 player: main window, equalizer,
+  playlist and MilkDrop, skinned. Ten skins come with the studio (the Classified trio and
+  Webamp's own favourites); the Winamp Skin Museum is one button away, and a .wsz is added with
+  a click or dropped on the player. Scale from 100 to 300 %, always on top, random skin, and a
+  "don't ask" that starts it at once from the player bar or the sidebar. The song, its place,
+  the volume and the equalizer go over to Winamp and come back to the studio; Ctrl+M switches.
+- **All of it for agents.** equalizer_*, visualizer_*, winamp_* tools; library_songs_list takes
+  since/until (today, yesterday, a date), library_liked and library_song_like give the user's
+  best, player_play plays a list of songs as the queue, ui_press_key takes shortcuts, and
+  ui_screenshot now shows MilkDrop.
 - **Save as, and a Files panel.** Songs, stems, MIDI, lyric sheets, scores, requests and videos
   are saved where the user says, in Windows' own Save dialog, which starts in the folder chosen
   last - before, the browser dropped them in Downloads without a word. Each save shows in a Files
@@ -21,6 +41,10 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- **Checked in four review rounds.** Leaving Winamp always gives the window its frame and size
+  back, also after a reload; floating panels keep their place through a small window; training a
+  run further no longer races an install; an unreadable saved proxy is said in Settings; a failed
+  save leaves no half file; the local assistant's model list says why it is empty.
 - **The writing wands are always there.** With no assistant set up they were hidden, and nothing
   said the studio could write a style or lyrics at all; now they open the assistant's settings.
 - **The engine is found behind a proxy.** A proxy set in HTTP_PROXY or ALL_PROXY took the
