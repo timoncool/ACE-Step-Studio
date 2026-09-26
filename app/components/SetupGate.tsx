@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Download, FolderDown, FolderOpen, Loader2, Square, Trash2, X } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import { DevicePicker, type Device } from './DevicePicker';
@@ -136,12 +136,18 @@ export const OptionalGroup: React.FC<{
   const [apiKey, setApiKey] = useState('');
   const [keyStored, setKeyStored] = useState(false);
 
+  // The saved choice is read once: every later status is about downloads, and
+  // taking its provider again undid a choice the user had just made.
+  const choiceRead = useRef(false);
   const load = useCallback(async () => {
     const response = await fetch(statusUrl);
     if (response.ok) {
       const body = await response.json();
       setStatus(body);
-      if (body.provider && engines?.some((choice) => choice.id === body.provider)) setEngine(body.provider);
+      if (!choiceRead.current && body.provider && engines?.some((choice) => choice.id === body.provider)) {
+        choiceRead.current = true;
+        setEngine(body.provider);
+      }
       if (body.runtime) setDevice(body.runtime);
       if (body.whisper_model) setModel(body.whisper_model);
       if (body.chosen_model) setModel(body.chosen_model);
@@ -155,6 +161,8 @@ export const OptionalGroup: React.FC<{
     if (next.engine !== undefined) setEngine(next.engine);
     if (next.device !== undefined) setDevice(next.device);
     if (!settingsUrl) return;
+    // a local server is chosen by its address: the fields below save the switch once one is typed
+    if (settingsUrl.endsWith('/assistant/status') && next.engine === 'local') return;
     await fetch(settingsUrl, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

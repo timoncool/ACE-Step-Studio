@@ -65,6 +65,7 @@ export const AssistantExtras: React.FC<{ engine: string }> = ({ engine }) => {
   // press, and none to forget. Debounced so a URL is stored once it is typed,
   // not once per keystroke.
   const saveLocal = React.useCallback((base: string, model: string) => {
+    if (!base.trim()) return;
     void fetch('/v1/assistant/status', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

@@ -192,6 +192,9 @@ const Card: React.FC<{ title: string; actions?: React.ReactNode; children: React
 );
 
 /** The adapters a stored request used, as the picker holds them. */
+/** An adapter of the DiT, the part that renders the sound. */
+const soundAdapter = (use: AdapterUse) => (use.scales.dit ?? 0) !== 0;
+
 const usesFromRequest = (settings: Record<string, unknown>): AdapterUse[] => {
   const uses: AdapterUse[] = [];
   if (Array.isArray(settings.adapters)) {
@@ -560,8 +563,8 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
    * caption, lyrics and metadata; format completes the metadata of what is
    * written and tidies it. Both run on the card, nothing leaves the machine.
    */
-  const plan = async (planMode: 'inspire' | 'format') => {
-    if (planning || !ready) return;
+  const plan = async (planMode: 'inspire' | 'format', options: { apply?: boolean } = {}): Promise<Record<string, unknown> | null> => {
+    if (planning || !ready) return null;
     remember();
     setPlanning(planMode);
     setError(null);
@@ -577,10 +580,14 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       });
       const body = await response.json().catch(() => null);
       if (!response.ok || !body?.plan) throw new Error(body?.error || String(response.status));
-      applyRequest(body.plan as Record<string, unknown>, { keepSource: true });
+      const planned = body.plan as Record<string, unknown>;
+      if (options.apply === false) return planned;
+      applyRequest(planned, { keepSource: true });
       if (planMode === 'inspire') setMode('studio');
+      return planned;
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
+      return null;
     } finally {
       setPlanning(null);
     }
@@ -810,7 +817,9 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     };
     if (!turbo) request.guidance_scale = dit.guidance;
     if (language) request.vocal_language = language;
-    const seconds = numberOrUndefined(duration) ?? (typeof draft?.duration_seconds === 'number' ? draft.duration_seconds : undefined);
+    // the assistant names it duration_seconds, ACE-Step's planner duration
+    const drafted = draft?.duration_seconds ?? draft?.duration;
+    const seconds = numberOrUndefined(duration) ?? (typeof drafted === 'number' && drafted > 0 ? drafted : undefined);
     if (seconds !== undefined) request.duration = Math.min(Math.round(seconds), MAX_DURATION_SECONDS);
     if (draft) {
       if (typeof draft.bpm === 'number') request.bpm = draft.bpm;
@@ -827,9 +836,18 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     if (mode === 'simple') {
       if (!idea.trim()) { setError(t('captionRequired')); return; }
       setError(null);
-      if (!assistantReady) { onGenerate(buildSimpleRequest()); return; }
-      const draft = await askAssistant('all');
-      if (draft) onGenerate(buildSimpleRequest(draft));
+      if (assistantReady) {
+        const draft = await askAssistant('all');
+        if (draft) onGenerate(buildSimpleRequest(draft));
+        return;
+      }
+      // with a LoRA the planner writes the song first and the render runs without its audio codes
+      if (adapters.some(soundAdapter)) {
+        const planned = await plan('inspire', { apply: false });
+        if (planned) onGenerate({ ...buildSimpleRequest(planned), think: false });
+        return;
+      }
+      onGenerate(buildSimpleRequest());
       return;
     }
     if (!caption.trim() && !baseOnly(task)) { setError(t('captionRequired')); return; }
@@ -1289,7 +1307,12 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
 
           <AdapterPicker
             value={adapters}
-            onChange={setAdapters}
+            onChange={next => {
+              // ACE-Step's authors advise against the planner's audio codes with a LoRA: they are
+              // the untuned model's plan and pull the render back from what the LoRA learned
+              if (!adapters.some(soundAdapter) && next.some(soundAdapter)) setThink(false);
+              setAdapters(next);
+            }}
             onTrigger={applyTrigger}
             iconClass={ICON}
             frame={(title, _icon, actions, body) => <Card title={title} actions={actions}>{body}</Card>}
