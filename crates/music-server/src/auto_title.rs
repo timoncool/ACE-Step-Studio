@@ -26,6 +26,9 @@ pub fn auto_title(caption: &str, lyrics: &str, instrumental: bool) -> String {
             return trim_title(line);
         }
     }
+    if let Some(subject) = subject(caption) {
+        return trim_title(&subject);
+    }
     // The genre is the part of a description worth putting on a card: a caption
     // opens with measurements, and "bpm is 180" is a fact about the track, not
     // a name for it.
@@ -37,6 +40,45 @@ pub fn auto_title(caption: &str, lyrics: &str, instrumental: bool) -> String {
         return trim_title(&described);
     }
     "Untitled".to_string()
+}
+
+/// Words with which a prose description stops naming the music and starts
+/// describing it: "A classic lo-fi instrumental | built on a dusty drum break".
+const DESCRIBING: &[&str] = &[
+    "built", "driven", "featuring", "features", "with", "that", "which", "where", "while", "plays", "play",
+    "opens", "starts", "begins", "anchored", "led", "carried", "powered", "layered", "set", "over",
+    "underpinned", "propelled", "centered", "centred", "characterized", "characterised", "defined",
+    "blending", "blends", "combining", "combines", "fusing", "fuses", "showcasing", "showcases", "filled",
+    "marked", "infused", "backed", "supported", "accompanied", "for", "in", "on", "from", "by",
+];
+
+/// What a prose description is about. ACE-Step's planner writes sentences, and
+/// the first one names the music before it describes it: "A classic lo-fi
+/// hip-hop instrumental built on a dusty, sampled drum break…" is a classic
+/// lo-fi hip-hop instrumental. A description that is a list of tags, or opens
+/// with measurements, has no such subject and is named as before.
+pub(crate) fn subject(caption: &str) -> Option<String> {
+    let described = strip_labels(caption);
+    let sentence = described.split(['.', '\n', '!', '?']).next()?.split(',').next()?.trim();
+    let mut words: Vec<&str> = sentence.split_whitespace().take_while(|word| !DESCRIBING.contains(&word.to_lowercase().as_str())).collect();
+    let article = words.first().is_some_and(|word| matches!(word.to_lowercase().as_str(), "a" | "an" | "the"));
+    if article {
+        words.remove(0);
+    }
+    // "The track maintains…" names nothing but the track
+    let about_itself = words.first().is_some_and(|word| matches!(word.to_lowercase().as_str(), "track" | "song" | "piece" | "recording" | "composition" | "music"));
+    let phrase = words.join(" ");
+    let named = words.len() >= 2 && !about_itself && !phrase.contains(" is ") && !phrase.contains(':') && !phrase.chars().any(|character| character.is_ascii_digit());
+    if !named {
+        return None;
+    }
+    // an article dropped leaves an adjective in front, written small
+    Some(if article { capitalised(&phrase) } else { phrase })
+}
+
+fn capitalised(phrase: &str) -> String {
+    let mut characters = phrase.chars();
+    characters.next().map(|first| first.to_uppercase().chain(characters).collect()).unwrap_or_default()
 }
 
 /// The first sung line after a chorus marker.
@@ -229,6 +271,25 @@ mod tests {
     #[test]
     fn an_instrumental_ignores_the_lyrics() {
         assert_eq!(auto_title("lo-fi hip hop", "[chorus]\nnever sung", true), "lo-fi hip hop");
+    }
+
+    /// The planner's descriptions are prose: the library named its tracks
+    /// "A clean", "Clean" and "The track maintains a consistent".
+    #[test]
+    fn a_planned_description_is_named_after_what_it_describes() {
+        let lofi = "A classic lo-fi hip-hop instrumental built on a dusty, sampled drum break and a warm, round bassline. A clean, jazzy electric guitar plays a recurring motif.";
+        assert_eq!(auto_title(lofi, "", true), "Classic lo-fi hip-hop instrumental");
+        let funk = "An energetic and groovy funk instrumental driven by a prominent, punchy slap bassline and a tight drum machine beat.";
+        assert_eq!(auto_title(funk, "", true), "Energetic and groovy funk instrumental");
+        let mellow = "A mellow and introspective lo-fi hip-hop instrumental built around a warm, jazzy electric piano progression with gentle reverb tails.";
+        assert_eq!(auto_title(mellow, "", true), "Mellow and introspective lo-fi hip-hop…");
+        let ukulele = "A bright and cheerful ukulele plays a brisk, strummed chord progression. The short musical phrase ends abruptly.";
+        assert_eq!(auto_title(ukulele, "", true), "Bright and cheerful ukulele");
+    }
+
+    #[test]
+    fn a_description_about_the_track_itself_names_nothing() {
+        assert_eq!(subject("The track maintains a consistent, driving tempo."), None);
     }
 
     #[test]
