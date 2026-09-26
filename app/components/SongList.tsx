@@ -112,7 +112,7 @@ export const SongList: React.FC<SongListProps> = ({
     activeJobCount = 0,
 }) => {
     const { user } = useAuth();
-    const { t } = useI18n();
+    const { t, songCount } = useI18n();
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilters, setActiveFilters] = useState<Set<FilterType>>(new Set());
     const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -235,7 +235,7 @@ export const SongList: React.FC<SongListProps> = ({
                     <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
                         <span className="font-medium text-zinc-900 dark:text-white">{t('library')}</span>
                         <span className="text-zinc-400 dark:text-zinc-600">·</span>
-                        <span>{songs.length} {t('songs').toLowerCase()}</span>
+                        <span>{songCount(songs.length)}</span>
                     </div>
 
                     <div className="flex items-center gap-3">

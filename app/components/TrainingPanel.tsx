@@ -184,10 +184,9 @@ const RecipeForm: React.FC<{ recipe: Recipe; defaults: Recipe; fields: RecipeFie
 };
 
 function useStrings() {
-  const { t, language } = useI18n();
+  const { t, songCount } = useI18n();
   const tt = t as unknown as (key: string) => string;
-  // "1 song", "3 песни", "61 песня": the form each language asks for
-  const songs = (count: number) => tt(`trainingSongs_${new Intl.PluralRules(language).select(count)}`).replace('{count}', String(count));
+  const songs = songCount;
   return { t, tt, songs };
 }
 

@@ -15,7 +15,7 @@ interface PlaylistDetailProps {
 
 export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBack, onPlaySong, onSelect, onNavigateToProfile }) => {
     const { user: currentUser } = useAuth();
-    const { t } = useI18n();
+    const { t, songCount } = useI18n();
     const [playlist, setPlaylist] = useState<Playlist & { creator_avatar?: string } | null>(null);
     const [songs, setSongs] = useState<Song[]>([]);
     const [loading, setLoading] = useState(true);
@@ -146,7 +146,7 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
                             </div>
                         )}
                         <span className="w-1 h-1 rounded-full bg-white/50"></span>
-                        <span>{songs.length} {t('songs')}</span>
+                        <span>{songCount(songs.length)}</span>
                         <span className="w-1 h-1 rounded-full bg-white/50 hidden md:block"></span>
                         <span className="text-zinc-400 hidden md:block">
                             {songs.reduce((acc, s) => acc + (s.duration ? (typeof s.duration === 'string' ? 0 : s.duration) : 0), 0) > 0

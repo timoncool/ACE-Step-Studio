@@ -25,7 +25,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     onSelectPlaylist,
     onImported,
 }) => {
-    const { t } = useI18n();
+    const { t, songCount } = useI18n();
     const [openMenuSong, setOpenMenuSong] = useState<Song | null>(null);
     const [activeTab, setActiveTab] = useState<'all' | 'playlists' | 'liked' | 'import'>('all');
     const [importing, setImporting] = useState(false);
@@ -169,7 +169,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                              <h2 className="text-sm font-bold uppercase text-zinc-500 dark:text-white mb-2">{t('playlist')}</h2>
                              <h1 className="mb-4 text-3xl font-extrabold text-zinc-900 dark:text-white sm:text-5xl">{t('likedSongs')}</h1>
                              <div className="text-sm text-zinc-500 dark:text-zinc-300 font-medium">
-                                 {likedSongs.length} {t('songs')}
+                                 {songCount(likedSongs.length)}
                              </div>
                          </div>
                          <div className="ml-auto mb-2 opacity-0 group-hover:opacity-100 transition-opacity">

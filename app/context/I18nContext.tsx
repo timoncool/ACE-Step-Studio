@@ -6,6 +6,8 @@ interface I18nContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
   t: (key: TranslationKey) => string;
+  /** "1 song", "3 песни", "61 песня": the form each language asks for. */
+  songCount: (count: number) => string;
 }
 
 // One context object for the life of the page: when a strings file changes in
@@ -31,8 +33,11 @@ export const I18nProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // `{studio}` is the studio's own name, so the strings are shared by every studio.
   const t = (key: TranslationKey): string => (translations[language][key] || key).replaceAll('{studio}', STUDIO.name);
 
+  const songCount = (count: number): string =>
+    t(`songCount_${new Intl.PluralRules(language).select(count)}` as TranslationKey).replace('{count}', String(count));
+
   return (
-    <I18nContext.Provider value={{ language, setLanguage: handleSetLanguage, t }}>
+    <I18nContext.Provider value={{ language, setLanguage: handleSetLanguage, t, songCount }}>
       {children}
     </I18nContext.Provider>
   );

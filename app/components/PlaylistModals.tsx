@@ -87,7 +87,7 @@ interface AddToPlaylistModalProps {
 }
 
 export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({ isOpen, onClose, playlists, onSelect, onCreateNew }) => {
-  const { t } = useI18n();
+  const { t, songCount } = useI18n();
   if (!isOpen) return null;
 
   return (
@@ -139,7 +139,7 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({ isOpen, 
                 </div>
                 <div className="text-left overflow-hidden">
                   <div className="font-medium text-zinc-900 dark:text-white truncate">{playlist.name}</div>
-                  <div className="text-xs text-zinc-500">{playlist.song_count || playlist.songIds?.length || 0} {t('songs')}</div>
+                  <div className="text-xs text-zinc-500">{songCount(playlist.song_count || playlist.songIds?.length || 0)}</div>
                 </div>
               </button>
             ))
