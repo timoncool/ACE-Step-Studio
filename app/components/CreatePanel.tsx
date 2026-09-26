@@ -522,6 +522,8 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       put('audio_cover_strength', numberOrUndefined(coverStrength));
       put('cover_noise_strength', numberOrUndefined(coverNoise));
     }
+    // the planner's audio codes are the engine's source context: the same share of steps
+    if (task === 'text2music' && think) put('audio_cover_strength', numberOrUndefined(coverStrength));
     if (task === 'repaint' || task === 'lego') {
       put('repainting_start', numberOrUndefined(repaintStart));
       put('repainting_end', numberOrUndefined(repaintEnd));
@@ -1330,6 +1332,12 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
               >
                 <div className="space-y-3">
                   <Switch checked={think} onChange={setThink} label={tt('aceThink')} hint={tt('aceThinkHint')} />
+                  {think && task === 'text2music' && (
+                    <div>
+                      <SliderRow label={tt('acePlanStrength')} value={coverStrength} fallback={1} min={0} max={1} step={0.05} onChange={setCoverStrength} />
+                      <p className="mt-1 text-[11px] leading-4 text-zinc-500">{tt('acePlanStrengthHint')}</p>
+                    </div>
+                  )}
                   <SliderRow label={t('ditSteps')} value={steps} fallback={dit.steps} min={1} max={turbo ? 20 : 150} step={1} onChange={setSteps} />
                   {!turbo && <SliderRow label={t('cfgScale')} value={guidance} fallback={dit.guidance} min={1} max={15} step={0.5} onChange={setGuidance} />}
                   {!turbo && (
