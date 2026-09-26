@@ -1,3 +1,4 @@
+import { StudioFamily } from './StudioFamily';
 import React, { useEffect, useRef, useState } from 'react';
 import { Boxes, Cloud, Cpu, Github, Image as ImageIcon, Info, Monitor, Plug, User as UserIcon, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -227,6 +228,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
                     <a href="https://artgeneration.me" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">ArtGeneration.me</a>
                   </div>
                 </div>
+
+                <StudioFamily current="ace" />
 
                 {/* Support, in the author's own words: the software is free. */}
                 <div className="space-y-3 border-t border-zinc-200 pt-4 dark:border-zinc-700/50">
