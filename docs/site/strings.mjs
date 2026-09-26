@@ -13,7 +13,24 @@ export const SETS = [
 
 // Songs made with the studio on a clean install, all as the studio rendered
 // them. Notes are per language.
-export const SAMPLES = [];
+export const SAMPLES = [
+  { file: "neon-harbor.mp3", title: "Neon Harbor", style: "80s synth-pop, warm female vocal, analog arpeggios, gated reverb snare, 118 BPM",
+    note: { en: "English synth-pop from a caption and lyrics.", ru: "Синти-поп на английском по описанию и тексту.", zh: "根据描述和歌词生成的英语合成器流行。", ja: "説明と歌詞から作った英語のシンセポップ。", ko: "설명과 가사로 만든 영어 신스팝." } },
+  { file: "doroga-domoy.mp3", title: "Дорога домой", style: "Russian folk rock, raspy male vocal, accordion hooks, galloping bass, 142 BPM",
+    note: { en: "Russian folk rock with accordion.", ru: "Фолк-рок на русском с аккордеоном.", zh: "带手风琴的俄语民谣摇滚。", ja: "アコーディオン入りのロシア語フォークロック。", ko: "아코디언이 들어간 러시아어 포크 록." } },
+  { file: "yoru-no-densha.mp3", title: "夜の電車", style: "city pop, airy female vocal, electric piano, slap bass, brass stabs, 104 BPM",
+    note: { en: "Japanese city pop.", ru: "Сити-поп на японском.", zh: "日语城市流行。", ja: "日本語のシティ・ポップ。", ko: "일본어 시티 팝." } },
+  { file: "fuego-lento.mp3", title: "Fuego lento", style: "latin pop, warm male vocal, nylon guitar, congas, piano montuno, 96 BPM",
+    note: { en: "Latin pop in Spanish.", ru: "Латин-поп на испанском.", zh: "西班牙语拉丁流行。", ja: "スペイン語のラテン・ポップ。", ko: "스페인어 라틴 팝." } },
+  { file: "midnight-drive.mp3", title: "Midnight Drive", style: "instrumental synthwave, analog bass arpeggios, gated drums, lush pads, 100 BPM",
+    note: { en: "An instrumental: synthwave.", ru: "Инструментал: синтвейв.", zh: "器乐：合成器浪潮。", ja: "インスト：シンセウェイヴ。", ko: "연주곡: 신스웨이브." } },
+  { file: "one-line.mp3", title: "Classic lo-fi hip-hop instrumental", style: "one line: a warm lo-fi beat for a rainy night drive, dusty drums and mellow electric piano",
+    note: { en: "One line in the simple form: ACE-Step's planner wrote the caption, tempo and key.", ru: "Одна строка в простой форме: описание, темп и тональность написал планировщик ACE-Step.", zh: "简单模式中的一行字：描述、速度和调性由 ACE-Step 的规划模型写出。", ja: "シンプルモードに一行：説明・テンポ・キーは ACE-Step のプランナーが書きました。", ko: "간단 모드에 한 줄: 설명, 템포, 키는 ACE-Step 플래너가 썼습니다." } },
+  { file: "neon-harbor-cover.mp3", title: "Neon harbor, call my name", style: "acoustic ballad, breathy female vocal, fingerpicked guitar, gentle piano",
+    note: { en: "Cover: the first song rendered again as an acoustic ballad.", ru: "Кавер: первая песня заново в виде акустической баллады.", zh: "翻唱：把第一首歌重新渲染成原声民谣。", ja: "カバー：最初の曲をアコースティック・バラードとして再レンダリング。", ko: "커버: 첫 번째 곡을 어쿠스틱 발라드로 다시 렌더링." } },
+  { file: "night-rider-lora.mp3", title: "Night Rider", style: "roti-s1nthwv, driving synthwave, powerful male vocal, pulsing analog bass, 118 BPM",
+    note: { en: "With a LoRA from the catalogue: Synthwave XL by ryanontheinside.", ru: "С LoRA из каталога: Synthwave XL от ryanontheinside.", zh: "使用目录中的 LoRA：ryanontheinside 的 Synthwave XL。", ja: "カタログの LoRA 使用：ryanontheinside の Synthwave XL。", ko: "카탈로그의 LoRA 사용: ryanontheinside의 Synthwave XL." } },
+];
 
 export const STRINGS = {
   en: {
