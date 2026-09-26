@@ -133,6 +133,9 @@ struct CreateMusicJobRequest {
     /// Installed adapters to apply, in order.
     #[serde(default)]
     adapters: Vec<AdapterUse>,
+    /// The window's own mark for this request, handed back on the job so the
+    /// window knows the job as its own before the response reaches it.
+    client_ref: Option<String>,
     /// Fades the studio puts on the rendered track, in seconds.
     #[serde(default)]
     fade_in: f32,
@@ -224,6 +227,9 @@ struct MusicJob {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     derived: Option<Value>,
     id: String,
+    /// The mark the submitting window gave the request; absent for an agent's.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    client_ref: Option<String>,
     engine_id: String,
     /// What the assistant said this track's cover should show, if anything.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -314,6 +320,8 @@ struct ReplayMusicJobRequest {
     /// Any other engine fields to change for this render (model, solver,
     /// scheduler, guidance...).
     changes: Option<Value>,
+    /// The window's own mark, as on a new song.
+    client_ref: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -5880,6 +5888,7 @@ async fn create_music_job(
     let job = MusicJob {
         derived: None,
         id: format!("ace-{}", uuid_suffix()),
+        client_ref: request.client_ref.clone(),
         engine_id,
         cover_prompt: request.cover_prompt.clone(),
         // Without a name of the user's the song is named once the language
@@ -6338,6 +6347,7 @@ async fn replay_music_job(
         derived: original.as_ref().map(|song| derivation(song, "replay", serde_json::json!({ "steps": request.steps, "seed": request.seed, "output_format": request.output_format }))),
         cover_prompt: None,
         id: format!("ace-{}", uuid_suffix()),
+        client_ref: request.client_ref.clone(),
         engine_id: PRIMARY_MUSIC_ENGINE_ID.into(),
         title: source_title,
         status: MusicJobStatus::Queued,
@@ -6407,7 +6417,7 @@ async fn create_openrouter_music_job(state: AppState, request: CreateMusicJobReq
     };
     let job = MusicJob {
         derived: None,
-        id: format!("openrouter-{}", uuid_suffix()), engine_id: engine_id.clone(), cover_prompt: request.cover_prompt.clone(), title: Some(titled(&request)), status: MusicJobStatus::Running,
+        id: format!("openrouter-{}", uuid_suffix()), client_ref: request.client_ref.clone(), engine_id: engine_id.clone(), cover_prompt: request.cover_prompt.clone(), title: Some(titled(&request)), status: MusicJobStatus::Running,
         dispatch: MusicJobDispatch::OpenRouter, phase: MusicJobPhase::Running, caption: request.caption(), lyrics: request.lyrics(),
         duration_seconds: request.duration_seconds(), generation_settings: stream_request.request.body.clone(), song: None, songs: vec![],
         engine_job: None, cancel: Default::default(),
@@ -6606,6 +6616,7 @@ fn queued_not_configured_job(request: CreateMusicJobRequest, engine_id: String) 
         derived: None,
         cover_prompt: None,
         id: format!("unconfigured-{}", uuid_suffix()),
+        client_ref: request.client_ref.clone(),
         engine_id,
         title: request.title.clone(),
         status: MusicJobStatus::Queued,
@@ -6629,6 +6640,7 @@ fn failed_request_job(request: CreateMusicJobRequest, engine_id: String, error: 
         cover_prompt: None,
         title: request.title.clone(),
         id: format!("rejected-{}", uuid_suffix()),
+        client_ref: request.client_ref.clone(),
         engine_id,
         status: MusicJobStatus::Failed,
         dispatch: MusicJobDispatch::NotConfigured,
@@ -6657,6 +6669,21 @@ fn api_error(status: StatusCode, error: String) -> (StatusCode, Json<ApiError>) 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_window_mark_comes_back_on_the_job_and_never_reaches_the_engine() {
+        let request: CreateMusicJobRequest = serde_json::from_value(serde_json::json!({
+            "caption": "synth-pop", "lyrics": "[Instrumental]", "client_ref": "temp_1",
+        }))
+        .unwrap();
+        assert!(!request.engine.contains_key("client_ref"));
+        let job = failed_request_job(request, "acestep-cpp".into(), "x".into());
+        assert_eq!(serde_json::to_value(&job).unwrap()["client_ref"], "temp_1");
+
+        let agent: CreateMusicJobRequest = serde_json::from_value(serde_json::json!({ "caption": "synth-pop" })).unwrap();
+        let job = failed_request_job(agent, "acestep-cpp".into(), "x".into());
+        assert!(serde_json::to_value(&job).unwrap().get("client_ref").is_none());
+    }
 
     #[test]
     fn models_are_found_in_subfolders_but_not_hidden_ones() {

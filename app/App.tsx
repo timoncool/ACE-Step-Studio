@@ -213,6 +213,10 @@ function AppContent() {
   // Track multiple concurrent generation jobs
   const activeJobsRef = useRef<Map<string, { tempId: string; pollInterval: ReturnType<typeof setInterval> }>>(new Map());
   const [activeJobCount, setActiveJobCount] = useState(0);
+  // Marks of the requests this window has sent and not yet tracked. The service
+  // hands the mark back on the job, so the adopter below never takes a job of
+  // this window's for an agent's while its response is still on the way.
+  const ownRequestsRef = useRef<Set<string>>(new Set());
 
   // FIFO drain barrier — handlers awaiting it block until the active-jobs
   // queue is empty. Used by CreatePanel to chain LLM pre-flight calls behind
@@ -357,6 +361,7 @@ function AppContent() {
   // and RightSidebar. Updates songs.cover_url via /api/songs/:id/regen-cover.
   const [songForCoverRegen, setSongForCoverRegen] = useState<Song | null>(null);
   const [songForReplay, setSongForReplay] = useState<Song | null>(null);
+  const [replayRequestRef, setReplayRequestRef] = useState('');
   const [songToProcess, setSongToProcess] = useState<Song | null>(null);
   const [songForVideo, setSongForVideo] = useState<Song | null>(null);
 
@@ -441,8 +446,15 @@ function AppContent() {
 
   const handleNativeReplay = useCallback((song: Song) => {
     if (!song.nativeReplayAvailable) return;
+    const ref = `replay_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    ownRequestsRef.current.add(ref);
+    setReplayRequestRef(ref);
     setSongForReplay(song);
   }, []);
+  const closeReplay = useCallback(() => {
+    ownRequestsRef.current.delete(replayRequestRef);
+    setSongForReplay(null);
+  }, [replayRequestRef]);
 
   // Keep selectedSongRef in sync for use in callbacks without stale closures
   useEffect(() => { selectedSongRef.current = selectedSong; }, [selectedSong]);
@@ -938,15 +950,9 @@ function AppContent() {
       void fetch('/v1/music/jobs')
         .then(response => (response.ok ? response.json() : []))
         .then((jobs: AceJob[]) => {
-          const tracked = new Set(activeJobsRef.current.keys());
-          // A job this window has just submitted is its own to track; the id is
-          // a UUIDv7, whose first 48 bits are the moment it was made.
-          const ageMs = (id: string) => {
-            const hex = id.replace(/^ace-/, '').replace(/-/g, '').slice(0, 12);
-            const made = Number.parseInt(hex, 16);
-            return Number.isFinite(made) ? Date.now() - made : Number.POSITIVE_INFINITY;
-          };
-          const fresh = jobs.filter(job => !tracked.has(job.id) && ageMs(job.id) > 6000);
+          const own = ownRequestsRef.current;
+          const fresh = jobs.filter(job =>
+            !activeJobsRef.current.has(job.id) && !(job.client_ref && own.has(job.client_ref)));
           if (fresh.length === 0) return;
           setSongs(prev => [
             ...fresh.map(job => ({
@@ -1038,12 +1044,13 @@ function AppContent() {
     }
 
     setIsGenerating(true);
+    ownRequestsRef.current.add(tempId);
     try {
       const { _tempId, ...request } = params;
       const response = await fetch('/v1/music/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request),
+        body: JSON.stringify({ ...request, client_ref: tempId }),
       });
       const job: AceJob & { error?: string; message?: string } = await response.json().catch(() => ({}) as AceJob);
       if (!response.ok || job.status === 'failed') {
@@ -1058,6 +1065,8 @@ function AppContent() {
       decrementPendingClicks(1);
       if (activeJobsRef.current.size === 0) setIsGenerating(false);
       showToast(error instanceof Error ? error.message : t('generationFailed'), 'error');
+    } finally {
+      ownRequestsRef.current.delete(tempId);
     }
   };
 
@@ -1643,7 +1652,8 @@ function AppContent() {
       {songForReplay && (
         <ReplayModal
           song={songForReplay}
-          onClose={() => setSongForReplay(null)}
+          clientRef={replayRequestRef}
+          onClose={closeReplay}
           onQueued={(jobId) => {
             // A re-render is a generation like any other: it gets its own card
             // with the engine's stages, and lands in the library the same way.

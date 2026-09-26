@@ -15,6 +15,8 @@ import { SCHEDULERS, SOLVERS } from '../services/aceEngine';
 
 interface ReplayModalProps {
   song: Song;
+  /** The window's mark for this request, handed back on the job. */
+  clientRef: string;
   onClose: () => void;
   onQueued: (jobId: string) => void;
 }
@@ -22,7 +24,7 @@ interface ReplayModalProps {
 const CONTROL =
   'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-pink-500 dark:border-white/10 dark:bg-black/20 dark:text-white';
 
-export const ReplayModal: React.FC<ReplayModalProps> = ({ song, onClose, onQueued }) => {
+export const ReplayModal: React.FC<ReplayModalProps> = ({ song, clientRef, onClose, onQueued }) => {
   const { t } = useI18n();
   const tt = t as unknown as (key: string) => string;
   const settings = (song.generationParams ?? {}) as Record<string, unknown>;
@@ -56,6 +58,7 @@ export const ReplayModal: React.FC<ReplayModalProps> = ({ song, onClose, onQueue
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           song_id: song.id,
+          client_ref: clientRef,
           steps,
           seed: parsedSeed,
           output_format: format,
