@@ -11,6 +11,11 @@ import type { Language } from '../i18n/translations';
 
 export type AdapterText = string | Partial<Record<Language, string>>;
 
+/** The two DiT widths an adapter can be trained for; `lm` marks one of the planner. */
+export type DitFamily = '2b' | 'xl' | 'lm';
+
+export const familyLabel = (family: DitFamily) => (family === 'xl' ? 'XL' : family === '2b' ? '2B' : 'LM');
+
 export interface AdapterSlot {
   id: string;
   role: string;
@@ -27,6 +32,8 @@ export interface InstalledAdapter {
   page?: string | null;
   scales: Record<string, number>;
   range?: [number, number] | null;
+  /** The DiT width the weights fit, when known. */
+  model?: DitFamily | null;
   slots: string[];
   origin: { type: 'catalog' | 'imported' | 'trained' | 'hub'; catalog_id?: string; repo?: string; revision?: string; file?: string };
   created_at: string;
@@ -45,6 +52,9 @@ export interface OfferedAdapter {
   slots: string[];
   bytes: number;
   installed: boolean;
+  model?: DitFamily | null;
+  likes: number;
+  downloads: number;
 }
 
 export interface AdapterDownload {
@@ -59,6 +69,8 @@ export interface AdapterState {
   slots: AdapterSlot[];
   installed: InstalledAdapter[];
   catalog: OfferedAdapter[];
+  /** The width of the DiT the studio renders with now. */
+  model?: DitFamily | null;
   engine_checked: boolean;
   download: AdapterDownload | null;
   /** The catalogue entries of the download running now. */
@@ -112,6 +124,10 @@ export interface HubFile {
   bytes: number;
   adapter_id: string;
   installed: boolean;
+  model?: DitFamily | null;
+  format?: string | null;
+  /** Why the engine cannot use the file, when it cannot. */
+  problem?: string | null;
 }
 
 export interface HubListing {
@@ -220,16 +236,20 @@ export function usesFromSettings(settings: Record<string, unknown>): AdapterUse[
 export const megabytes = (bytes: number) => `${Math.max(1, Math.round(bytes / 1024 / 1024))} MB`;
 
 /** Installed adapters and slots, kept current while the library changes. */
-export function useAdapterLibrary(): { installed: InstalledAdapter[]; slots: AdapterSlot[] } {
-  const [library, setLibrary] = useState<{ installed: InstalledAdapter[]; slots: AdapterSlot[] }>({ installed: [], slots: [] });
+export function useAdapterLibrary(): { installed: InstalledAdapter[]; slots: AdapterSlot[]; model: DitFamily | null } {
+  const [library, setLibrary] = useState<{ installed: InstalledAdapter[]; slots: AdapterSlot[]; model: DitFamily | null }>({ installed: [], slots: [], model: null });
   useEffect(() => {
     const read = () =>
       void fetchAdapters()
-        .then(state => setLibrary({ installed: state.installed, slots: state.slots }))
+        .then(state => setLibrary({ installed: state.installed, slots: state.slots, model: state.model ?? null }))
         .catch(() => undefined);
     read();
     window.addEventListener('studio:adapters-changed', read);
-    return () => window.removeEventListener('studio:adapters-changed', read);
+    window.addEventListener('studio:models-changed', read);
+    return () => {
+      window.removeEventListener('studio:adapters-changed', read);
+      window.removeEventListener('studio:models-changed', read);
+    };
   }, []);
   return library;
 }

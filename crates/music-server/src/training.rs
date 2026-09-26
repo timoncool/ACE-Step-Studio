@@ -55,6 +55,20 @@ pub struct DatasetItem {
     /// What the listening model heard, kept until the style is written from it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub heard: Option<HeardNote>,
+    /// Genre tags, which the trainer uses in place of the caption on a share of its steps.
+    #[serde(default)]
+    pub genre: String,
+    /// The song's measured tempo, key and time signature, which the engine
+    /// reads beside the caption rather than in it.
+    #[serde(default)]
+    pub bpm: u32,
+    #[serde(default)]
+    pub keyscale: String,
+    #[serde(default)]
+    pub timesignature: String,
+    /// The language it is sung in; empty is unknown.
+    #[serde(default)]
+    pub language: String,
 }
 
 /// Where a song's lyrics stand.
@@ -229,6 +243,9 @@ pub struct Run {
     pub dataset_name: String,
     pub name: String,
     pub trigger: String,
+    /// The DiT the run trained on; its adapter fits that model family only.
+    #[serde(default)]
+    pub base: Option<String>,
     pub recipe: Recipe,
     pub status: RunStatus,
     /// The stage working now, or the one that failed.
@@ -265,11 +282,14 @@ pub struct TrainingStepRecord {
     pub ar_kl: Option<f64>,
     #[serde(default)]
     pub step_ms: Option<f64>,
+    /// The steps the whole run takes, as the trainer counts them.
+    #[serde(default)]
+    pub total: Option<u32>,
 }
 
 impl From<TrainingStep> for TrainingStepRecord {
     fn from(step: TrainingStep) -> Self {
-        Self { step: step.step, loss: step.loss, ar_kl: None, step_ms: step.step_ms }
+        Self { step: step.step, loss: step.loss, ar_kl: None, step_ms: step.step_ms, total: step.total }
     }
 }
 
@@ -696,6 +716,11 @@ impl Training {
             lyrics_state: lyrics_state_of(lyrics, instrumental),
             style_state: style_state_of(style),
             heard: None,
+            genre: String::new(),
+            bpm: 0,
+            keyscale: String::new(),
+            timesignature: String::new(),
+            language: String::new(),
         });
         self.save_dataset(&dataset)?;
         Ok(dataset)
@@ -722,6 +747,21 @@ impl Training {
         }
         if let Some(instrumental) = patch.instrumental {
             item.instrumental = instrumental;
+        }
+        if let Some(genre) = patch.genre {
+            item.genre = genre.trim().into();
+        }
+        if let Some(bpm) = patch.bpm {
+            item.bpm = bpm;
+        }
+        if let Some(keyscale) = patch.keyscale {
+            item.keyscale = keyscale.trim().into();
+        }
+        if let Some(signature) = patch.timesignature {
+            item.timesignature = signature.trim().into();
+        }
+        if let Some(language) = patch.language {
+            item.language = language.trim().into();
         }
         if let Some(state) = patch.lyrics_state {
             item.lyrics_state = state;
@@ -862,8 +902,9 @@ impl Training {
 
     /// Writes the trainer's input from what the dataset says now, so an edit
     /// made after import is what trains: every song as a stereo float WAV at
-    /// the encoder's rate, its structured caption with the trigger word, and
-    /// a `dataset.json` listing them with their lyrics.
+    /// the trainer's rate, and a Side-Step `dataset.json` listing them with
+    /// their caption, genre, lyrics and metadata, the trigger word as the
+    /// dataset's tag in front of every caption.
     fn write_inputs(&self, dataset: &Dataset, data: &Path) -> Result<()> {
         std::fs::create_dir_all(data)?;
         let audio = self.dataset_dir(&dataset.id)?.join("audio");
@@ -873,11 +914,29 @@ impl Training {
             let wav = data.join(format!("{stem}.wav"));
             let stereo = crate::audio_pcm::decode_stereo(&audio.join(&item.file))?.resampled(train::SAMPLE_RATE)?;
             crate::audio_pcm::write_wav_f32(&wav, &stereo)?;
-            std::fs::write(data.join(format!("{stem}.mm3.txt")), train::caption_with_trigger(&item.style, &dataset.trigger))?;
-            let lyrics = if item.instrumental { String::new() } else { item.lyrics.clone() };
-            samples.push(serde_json::json!({ "id": stem, "filename": format!("{stem}.wav"), "audio_path": wav, "lyrics": lyrics }));
+            let lyrics = if item.instrumental { "[Instrumental]".to_string() } else { item.lyrics.clone() };
+            samples.push(serde_json::json!({
+                "id": stem,
+                "filename": format!("{stem}.wav"),
+                "audio_path": wav,
+                "caption": item.style,
+                "genre": item.genre,
+                "lyrics": lyrics,
+                "bpm": item.bpm,
+                "keyscale": item.keyscale,
+                "timesignature": item.timesignature,
+                "language": if item.instrumental { "instrumental" } else { item.language.as_str() },
+                "duration": item.seconds.round() as u32,
+                "is_instrumental": item.instrumental,
+            }));
         }
-        write_json(&data.join("dataset.json"), &serde_json::json!({ "samples": samples }))
+        let metadata = serde_json::json!({
+            "name": dataset.name,
+            "custom_tag": dataset.trigger,
+            "tag_position": if dataset.trigger.trim().is_empty() { "" } else { "prepend" },
+            "audio_dir": data,
+        });
+        write_json(&data.join("dataset.json"), &serde_json::json!({ "metadata": metadata, "samples": samples }))
     }
 
     // ── runs ────────────────────────────────────────────────────────────────
@@ -939,6 +998,7 @@ impl Training {
         dataset_id: &str,
         name: &str,
         recipe: Recipe,
+        base: train::TrainingBase,
         card: CardHooks,
     ) -> Result<Run> {
         let trainer = self.trainer();
@@ -970,7 +1030,7 @@ impl Training {
         }
         let run_id = new_id();
         let run_dir = self.run_dir(&run_id)?;
-        let inputs = train::TrainingInputs { data: run_dir.join("data"), models: self.models_dir(), run: run_dir.clone(), recipe: recipe.clone() };
+        let inputs = train::TrainingInputs { data: run_dir.join("data"), base: base.clone(), run: run_dir.clone(), recipe: recipe.clone() };
         let stages = train::training_stages(&inputs);
         let run = Run {
             id: run_id.clone(),
@@ -979,6 +1039,7 @@ impl Training {
             dataset_name: dataset.name.clone(),
             name: if name.trim().is_empty() { dataset.name.clone() } else { name.trim().into() },
             trigger: dataset.trigger.clone(),
+            base: Some(base.dit.clone()),
             recipe,
             status: RunStatus::Running,
             stage: None,
@@ -1017,17 +1078,17 @@ impl Training {
             return Err("method");
         }
         let dir = self.run_dir(run_id).map_err(|_| "no_run")?;
-        if !dir.join("data").join("dataset.json").is_file() {
+        if !dir.join("tensors").is_dir() {
             return Err("prepared_gone");
         }
-        // the trainer saves its state on a clean finish; a stopped run has none
+        // the adapter a run exported is its state; a run stopped before any has none
         train::resume_point(&dir).ok_or("no_state")
     }
 
     /// Trains a run further, up to `steps` in all, from the state it finished
     /// with: the same recipe and songs, the steps and the chart go on where
     /// they stopped.
-    pub async fn continue_run(self: &Arc<Self>, libraries: Option<PathBuf>, run_id: &str, steps: u32, card: CardHooks) -> Result<Run> {
+    pub async fn continue_run(self: &Arc<Self>, libraries: Option<PathBuf>, run_id: &str, steps: u32, base: train::TrainingBase, card: CardHooks) -> Result<Run> {
         let trainer = self.trainer();
         if !self.pack_ready() {
             bail!("the training files are not downloaded yet");
@@ -1037,7 +1098,7 @@ impl Training {
         }
         let (from, state) = self.resume_point(run_id).map_err(|code| anyhow::anyhow!(refusal(code)))?;
         if steps <= from {
-            bail!("set the steps above {from}, the step the run goes on from");
+            bail!("set the epochs above {from}, the epoch the run goes on from");
         }
         let mut active = self.active.write().await;
         if active.is_some() {
@@ -1045,19 +1106,21 @@ impl Training {
         }
         let run_dir = self.run_dir(run_id)?;
         let mut run = self.run(run_id)?;
+        if run.base.as_deref().is_some_and(|dit| dit != base.dit) {
+            bail!("this run trained on {}; switch the DiT back to it to train further", run.base.as_deref().unwrap_or_default());
+        }
+        // the trainer counts the continuation's epochs from nought
         let mut recipe = run.recipe.clone();
-        recipe.steps = steps;
-        recipe.stop = "steps".into();
-        let inputs = train::TrainingInputs { data: run_dir.join("data"), models: self.models_dir(), run: run_dir.clone(), recipe: recipe.clone() };
-        let stage = train::continuation_stage(&inputs, &state);
+        recipe.epochs = steps - from;
+        let inputs = train::TrainingInputs { data: run_dir.join("data"), base, run: run_dir.clone(), recipe: recipe.clone() };
+        let stage = train::continuation_stage(&inputs, &state, &train::continuation_output(&run_dir));
+        recipe.epochs = steps;
         run.recipe = recipe;
         run.status = RunStatus::Running;
         run.stage = None;
         run.stages = vec![stage.id.to_string()];
         run.error = None;
         run.finished_at = None;
-        // steps past the state are trained again; the chart keeps the new ones
-        run.steps.retain(|record| record.step <= from);
         run.continuations.push(Continuation { from, to: steps, at: now() });
         self.save_run(&run)?;
         let cancel = Arc::new(tokio::sync::Notify::new());
@@ -1234,9 +1297,8 @@ impl Training {
 /// Why a run cannot be trained further, by the code the page translates.
 fn refusal(code: &str) -> &'static str {
     match code {
-        "method" => "PiSSA and HOT-PiZZA runs cannot be continued: the trainer saves the trained factors but not the frozen ones they are measured against; train with the LoRA method to continue a run later",
         "prepared_gone" => "the prepared songs of this run are gone; train it again from the dataset",
-        "no_state" => "this run saved no state to continue from: the trainer keeps one only when a run finishes",
+        "no_state" => "this run exported no adapter to continue from: it stopped before its first one",
         _ => "no such training run",
     }
 }
@@ -1250,6 +1312,11 @@ pub struct ItemPatch {
     pub style: Option<String>,
     pub lyrics: Option<String>,
     pub instrumental: Option<bool>,
+    pub genre: Option<String>,
+    pub bpm: Option<u32>,
+    pub keyscale: Option<String>,
+    pub timesignature: Option<String>,
+    pub language: Option<String>,
     /// Set by the preparation, never by the page.
     #[serde(skip)]
     pub lyrics_state: Option<LyricsState>,

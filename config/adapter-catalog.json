@@ -1,584 +1,4629 @@
 {
   "hub": {
-    "minimaxmusic-cpp": {
+    "acestep-cpp": {
       "tags": [
-        "base_model:adapter:MiniMaxAI/MiniMax-Music3"
+        "acestep",
+        "lora"
       ],
       "also": [
         [
-          "minimaxmusic",
+          "acestep-2b"
+        ],
+        [
+          "acestep-5b"
+        ],
+        [
+          "ace-step",
           "lora"
         ],
         [
-          "minimax-music-3",
-          "lora"
-        ],
-        [
-          "minimax-music3",
-          "lora"
+          "base_model:adapter:ACE-Step/Ace-Step1.5"
         ]
+      ],
+      "search": [
+        "acestep",
+        "ace-step",
+        "ace_step"
       ]
     }
   },
-  "version": 1,
+  "version": 2,
   "adapters": [
     {
-      "id": "mm3-slider-female",
-      "engine": "minimaxmusic-cpp",
-      "kind": "slider",
-      "author": "ntc-ai",
-      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
-      "name": {
-        "en": "Female",
-        "ru": "Женский вокал",
-        "zh": "女声",
-        "ja": "女性ボーカル",
-        "ko": "여성 보컬"
-      },
+      "id": "artificialguyb-acestep-refine-redmond-standard",
+      "engine": "acestep-cpp",
+      "kind": "quality",
+      "model": "2b",
+      "author": "artificialguybr",
+      "page": "https://huggingface.co/artificialguybr/AceStep_Refine_Redmond",
+      "likes": 8,
+      "downloads": 0,
+      "trigger": null,
+      "name": "Refine Redmond",
       "description": {
-        "en": "One adult female lead, with the song's phrasing and timbre intact",
-        "ru": "Одна взрослая солистка, фразировка и тембр песни сохраняются",
-        "zh": "一位成年女主唱，保留歌曲的乐句与音色",
-        "ja": "成人女性のリードボーカル1人。曲のフレージングと音色はそのまま",
-        "ko": "성인 여성 리드 보컬 한 명, 곡의 프레이징과 음색은 유지"
+        "en": "DPO refinement of 2B turbo: better musicality, more coherent arrangements, more characterful vocals. About 70% wins in blind A/B tests. No trigger word.",
+        "ru": "DPO-доводка 2B turbo: музыкальнее, связнее аранжировка, характернее вокал. Около 70% побед в слепых A/B-тестах. Без триггер-слова.",
+        "zh": "2B turbo 的 DPO 精修：更有音乐性、编曲更连贯、人声更有个性。盲测 A/B 胜率约 70%。无需触发词。",
+        "ja": "2B turbo の DPO 仕上げ：音楽性、アレンジのまとまり、ボーカルの個性が向上。ブラインド A/B で約 70% 勝利。トリガーワード不要。",
+        "ko": "2B turbo의 DPO 정제: 음악성, 편곡의 일관성, 보컬 개성이 좋아집니다. 블라인드 A/B에서 약 70% 승리. 트리거 단어 없음."
       },
       "scales": {
-        "lm": 1
+        "dit": 1.0
       },
-      "range": [
-        0,
-        1
-      ],
       "files": [
         {
-          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/female_step1000_comfyui.safetensors",
-          "file": "female_step1000_comfyui.safetensors",
-          "bytes": 15388872
+          "url": "https://huggingface.co/artificialguybr/AceStep_Refine_Redmond/resolve/1f7001c22d88ca2c0501657a307eaa48e9be0f95/standard/AceStep_Refine_Redmond_standard.safetensors",
+          "file": "AceStep_Refine_Redmond_standard.safetensors",
+          "bytes": 132170688
+        },
+        {
+          "url": "https://huggingface.co/artificialguybr/AceStep_Refine_Redmond/resolve/1f7001c22d88ca2c0501657a307eaa48e9be0f95/standard/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1054
         }
       ]
     },
     {
-      "id": "mm3-slider-lofi",
-      "engine": "minimaxmusic-cpp",
-      "kind": "slider",
-      "author": "ntc-ai",
-      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
-      "name": {
-        "en": "Lo-fi",
-        "ru": "Лоу-фай",
-        "zh": "Lo-fi",
-        "ja": "ローファイ",
-        "ko": "로파이"
-      },
+      "id": "mdmachine-acestep-xl-turbo-lora-layerregrind-v7",
+      "engine": "acestep-cpp",
+      "kind": "quality",
+      "model": "xl",
+      "author": "mdmachine",
+      "page": "https://huggingface.co/mdmachine/ACEStep-XL-Regrind-V1",
+      "likes": 6,
+      "downloads": 325,
+      "trigger": null,
+      "name": "Layer Regrind V7",
       "description": {
-        "en": "Soft swung drums, mellow keys and gentle tape warmth",
-        "ru": "Мягкие свинговые барабаны, спокойные клавиши и тёплая плёнка",
-        "zh": "柔和的摇摆鼓、温润的键盘与温暖的磁带质感",
-        "ja": "柔らかいスウィングのドラム、穏やかな鍵盤、温かいテープ感",
-        "ko": "부드러운 스윙 드럼, 차분한 건반, 따뜻한 테이프 질감"
+        "en": "Removes the harmonic hum XL turbo builds up after the first minute, by retraining the feed-forward of layers 24-31. 0.5-1.0 on plain XL turbo. CC BY-NC-SA 4.0: not for commercial use.",
+        "ru": "Убирает гармонический гул, который XL turbo набирает после первой минуты: переобучены полносвязные слои 24-31. 0.5-1.0 на обычной XL turbo. CC BY-NC-SA 4.0: не для коммерции.",
+        "zh": "消除 XL turbo 在第一分钟后逐渐累积的谐波嗡声（重训了第 24-31 层前馈网络）。在原版 XL turbo 上用 0.5-1.0。CC BY-NC-SA 4.0：禁止商用。",
+        "ja": "XL turbo が1分過ぎから溜め込む倍音のうなりを除去（24〜31 層のフィードフォワードを再学習）。素の XL turbo では 0.5〜1.0。CC BY-NC-SA 4.0：商用不可。",
+        "ko": "XL turbo가 1분 이후 쌓는 배음 험을 제거합니다(24-31층 피드포워드 재학습). 기본 XL turbo에서 0.5-1.0. CC BY-NC-SA 4.0: 상업적 사용 불가."
       },
       "scales": {
-        "lm": 1
+        "dit": 0.5
       },
-      "range": [
-        0,
-        1
-      ],
       "files": [
         {
-          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/lofi_step3000_comfyui.safetensors",
-          "file": "lofi_step3000_comfyui.safetensors",
-          "bytes": 15388872
+          "url": "https://huggingface.co/mdmachine/ACEStep-XL-Regrind-V1/resolve/e9b48a00c0f6f59f1ed988774e673ac70816474b/lora/acestep_xl_turbo_lora_LayerRegrind_V7.safetensors",
+          "file": "acestep_xl_turbo_lora_LayerRegrind_V7.safetensors",
+          "bytes": 402712632
         }
       ]
     },
     {
-      "id": "mm3-slider-male",
-      "engine": "minimaxmusic-cpp",
-      "kind": "slider",
-      "author": "ntc-ai",
-      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "id": "tts-agi-acestep-vocals-lora",
+      "engine": "acestep-cpp",
+      "kind": "sound",
+      "model": "2b",
+      "author": "TTS-AGI",
+      "page": "https://huggingface.co/TTS-AGI/acestep-vocals-lora",
+      "likes": 1,
+      "downloads": 45,
+      "trigger": null,
       "name": {
-        "en": "Male",
-        "ru": "Мужской вокал",
-        "zh": "男声",
-        "ja": "男性ボーカル",
-        "ko": "남성 보컬"
+        "en": "A cappella",
+        "ru": "А капелла",
+        "zh": "无伴奏人声",
+        "ja": "ア・カペラ",
+        "ko": "아카펠라"
       },
       "description": {
-        "en": "One adult male lead, with the song's phrasing and timbre intact",
-        "ru": "Один взрослый солист, фразировка и тембр песни сохраняются",
-        "zh": "一位成年男主唱，保留歌曲的乐句与音色",
-        "ja": "成人男性のリードボーカル1人。曲のフレージングと音色はそのまま",
-        "ko": "성인 남성 리드 보컬 한 명, 곡의 프레이징과 음색은 유지"
+        "en": "The model sings unaccompanied when the caption describes only a voice: backing drops by more than half. Trained on 2B base, works best there.",
+        "ru": "Модель поёт без аккомпанемента, когда в описании только голос: подложки становится вдвое с лишним меньше. Обучена на 2B base, лучше всего работает на ней.",
+        "zh": "描述中只有人声时，模型会清唱：伴奏减少一半以上。在 2B base 上训练，在该模型上效果最佳。",
+        "ja": "説明が声だけのとき、伴奏なしで歌います：バッキングが半分以下に。2B base で学習、base で最もよく効きます。",
+        "ko": "설명에 목소리만 있을 때 반주 없이 부릅니다: 반주가 절반 이하로 줄어듭니다. 2B base에서 학습, base에서 가장 잘 동작합니다."
       },
       "scales": {
-        "lm": 1
+        "dit": 1.0
       },
-      "range": [
-        0,
-        1
-      ],
       "files": [
         {
-          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/male_step3400_comfyui.safetensors",
-          "file": "male_step3400_comfyui.safetensors",
-          "bytes": 15388872
+          "url": "https://huggingface.co/TTS-AGI/acestep-vocals-lora/resolve/cdc50b6a5a4a384d387dd91adfe47cd10f94aebb/adapter_model.safetensors",
+          "file": "adapter_model.safetensors",
+          "bytes": 352372056
+        },
+        {
+          "url": "https://huggingface.co/TTS-AGI/acestep-vocals-lora/resolve/cdc50b6a5a4a384d387dd91adfe47cd10f94aebb/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1119
         }
       ]
     },
     {
-      "id": "mm3-slider-pop",
-      "engine": "minimaxmusic-cpp",
-      "kind": "slider",
-      "author": "ntc-ai",
-      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "id": "disturbingthef-male-vocals-adapter-model",
+      "engine": "acestep-cpp",
+      "kind": "sound",
+      "model": "2b",
+      "author": "DisturbingTheField",
+      "page": "https://huggingface.co/DisturbingTheField/ACE-Step-v1.5-raspy-vocal-and-instrumental-5-LoRAs",
+      "likes": 3,
+      "downloads": 67,
+      "trigger": null,
       "name": {
-        "en": "Pop",
-        "ru": "Поп",
-        "zh": "流行",
-        "ja": "ポップ",
-        "ko": "팝"
+        "en": "Raspy male voice",
+        "ru": "Хриплый мужской голос",
+        "zh": "沙哑男声",
+        "ja": "かすれた男性ボーカル",
+        "ko": "허스키한 남성 보컬"
       },
       "description": {
-        "en": "Clear hooks, crisp drums and a polished chorus",
-        "ru": "Яркие хуки, чёткие барабаны и отполированный припев",
-        "zh": "清晰的抓耳旋律、利落的鼓与精致的副歌",
-        "ja": "明快なフック、歯切れのいいドラム、磨かれたサビ",
-        "ko": "선명한 훅, 또렷한 드럼, 세련된 후렴"
+        "en": "A hoarse, cold-ridden male voice, from the author’s own recordings. Trained on 2B base.",
+        "ru": "Сиплый, простуженный мужской голос по записям самого автора. Обучена на 2B base.",
+        "zh": "作者本人感冒时录制的沙哑男声。在 2B base 上训练。",
+        "ja": "作者本人が風邪のときに録ったかすれ声の男性ボーカル。2B base で学習。",
+        "ko": "작가가 감기에 걸렸을 때 녹음한 쉰 남성 목소리. 2B base에서 학습."
       },
       "scales": {
-        "lm": 1
+        "dit": 1.0
       },
-      "range": [
-        0,
-        1
-      ],
       "files": [
         {
-          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/pop_step2000_comfyui.safetensors",
-          "file": "pop_step2000_comfyui.safetensors",
-          "bytes": 15388872
+          "url": "https://huggingface.co/DisturbingTheField/ACE-Step-v1.5-raspy-vocal-and-instrumental-5-LoRAs/resolve/41c0afb54e8a3e51f4bf4af84d644f78a879c455/male_vocals_adapter_model.safetensors",
+          "file": "male_vocals_adapter_model.safetensors",
+          "bytes": 176210656
+        },
+        {
+          "url": "https://huggingface.co/DisturbingTheField/ACE-Step-v1.5-raspy-vocal-and-instrumental-5-LoRAs/resolve/41c0afb54e8a3e51f4bf4af84d644f78a879c455/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1053
         }
       ]
     },
     {
-      "id": "mm3-slider-hiphop",
-      "engine": "minimaxmusic-cpp",
-      "kind": "slider",
-      "author": "ntc-ai",
-      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "id": "disturbingthef-instrumental-adapter-model",
+      "engine": "acestep-cpp",
+      "kind": "sound",
+      "model": "2b",
+      "author": "DisturbingTheField",
+      "page": "https://huggingface.co/DisturbingTheField/ACE-Step-v1.5-raspy-vocal-and-instrumental-5-LoRAs",
+      "likes": 3,
+      "downloads": 67,
+      "trigger": null,
       "name": {
-        "en": "Hip-Hop",
-        "ru": "Хип-хоп",
-        "zh": "嘻哈",
-        "ja": "ヒップホップ",
-        "ko": "힙합"
+        "en": "Rock instrumental",
+        "ru": "Рок-инструментал",
+        "zh": "摇滚器乐",
+        "ja": "ロック・インスト",
+        "ko": "록 연주곡"
       },
       "description": {
-        "en": "Rapped verses, deep sub bass and nimble hats",
-        "ru": "Читка в куплетах, глубокий саб-бас и подвижные хэты",
-        "zh": "说唱主歌、深沉的超低音与灵活的踩镲",
-        "ja": "ラップのヴァース、深いサブベース、軽快なハット",
-        "ko": "랩 벌스, 깊은 서브 베이스, 경쾌한 하이햇"
+        "en": "Electric and distorted guitar, bass, drums, piano and synth from 21 of the author’s instrumentals. Trained on 2B base.",
+        "ru": "Электро- и перегруженные гитары, бас, барабаны, пиано и синт по 21 инструменталу автора. Обучена на 2B base.",
+        "zh": "来自作者 21 首器乐曲的电吉他、失真吉他、贝斯、鼓、钢琴与合成器。在 2B base 上训练。",
+        "ja": "作者のインスト21曲から、エレキと歪みギター、ベース、ドラム、ピアノ、シンセ。2B base で学習。",
+        "ko": "작가의 연주곡 21곡에서 가져온 일렉·디스토션 기타, 베이스, 드럼, 피아노, 신스. 2B base에서 학습."
       },
       "scales": {
-        "lm": 1
+        "dit": 1.0
       },
-      "range": [
-        0,
-        1
-      ],
       "files": [
         {
-          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/hiphop_step3000_comfyui.safetensors",
-          "file": "hiphop_step3000_comfyui.safetensors",
-          "bytes": 15388872
+          "url": "https://huggingface.co/DisturbingTheField/ACE-Step-v1.5-raspy-vocal-and-instrumental-5-LoRAs/resolve/41c0afb54e8a3e51f4bf4af84d644f78a879c455/instrumental_adapter_model.safetensors",
+          "file": "instrumental_adapter_model.safetensors",
+          "bytes": 176210656
+        },
+        {
+          "url": "https://huggingface.co/DisturbingTheField/ACE-Step-v1.5-raspy-vocal-and-instrumental-5-LoRAs/resolve/41c0afb54e8a3e51f4bf4af84d644f78a879c455/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1053
         }
       ]
     },
     {
-      "id": "mm3-slider-rnb",
-      "engine": "minimaxmusic-cpp",
-      "kind": "slider",
-      "author": "ntc-ai",
-      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "id": "disturbingthef-ace-step-v1-5-acoustic-guitar",
+      "engine": "acestep-cpp",
+      "kind": "sound",
+      "model": "2b",
+      "author": "DisturbingTheField",
+      "page": "https://huggingface.co/DisturbingTheField/ACE-Step-v1.5-acoustic-guitar-and-a-merge-LoRA",
+      "likes": 1,
+      "downloads": 54,
+      "trigger": null,
       "name": {
-        "en": "R&B",
-        "ru": "R&B",
-        "zh": "R&B",
-        "ja": "R&B",
-        "ko": "R&B"
+        "en": "Fingerstyle acoustic guitar",
+        "ru": "Акустика пальцами",
+        "zh": "指弹木吉他",
+        "ja": "フィンガースタイル・アコギ",
+        "ko": "핑거스타일 어쿠스틱 기타"
       },
       "description": {
-        "en": "Warm keys, deep pocket and fluid vocal phrasing",
-        "ru": "Тёплые клавиши, глубокий грув и плавная фразировка вокала",
-        "zh": "温暖的键盘、深沉的律动与流畅的人声",
-        "ja": "温かいキーボード、深いグルーヴ、滑らかなボーカル",
-        "ko": "따뜻한 건반, 깊은 그루브, 유려한 보컬"
+        "en": "Fingerstyle acoustic guitar from the author’s own recordings; 0.2-0.7 recommended. Trained on 2B base.",
+        "ru": "Акустическая гитара, игра пальцами, по записям автора; рекомендуется 0.2-0.7. Обучена на 2B base.",
+        "zh": "作者自录的指弹木吉他；建议强度 0.2-0.7。在 2B base 上训练。",
+        "ja": "作者自身の録音によるフィンガースタイルのアコギ。推奨 0.2〜0.7。2B base で学習。",
+        "ko": "작가가 직접 녹음한 핑거스타일 어쿠스틱 기타. 권장 0.2-0.7. 2B base에서 학습."
       },
       "scales": {
-        "lm": 1
+        "dit": 0.5
       },
-      "range": [
-        0,
-        1
-      ],
       "files": [
         {
-          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/rnb_step3400_comfyui.safetensors",
-          "file": "rnb_step3400_comfyui.safetensors",
-          "bytes": 15388872
+          "url": "https://huggingface.co/DisturbingTheField/ACE-Step-v1.5-acoustic-guitar-and-a-merge-LoRA/resolve/041aa44bbd79a685fa40d652078ecd6c91da18e9/adapter_model.safetensors",
+          "file": "adapter_model.safetensors",
+          "bytes": 176210656
+        },
+        {
+          "url": "https://huggingface.co/DisturbingTheField/ACE-Step-v1.5-acoustic-guitar-and-a-merge-LoRA/resolve/041aa44bbd79a685fa40d652078ecd6c91da18e9/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1053
         }
       ]
     },
     {
-      "id": "mm3-slider-indie-rock",
-      "engine": "minimaxmusic-cpp",
+      "id": "xanthius-ace-step-1-5-xl-age-slider",
+      "engine": "acestep-cpp",
       "kind": "slider",
-      "author": "ntc-ai",
-      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "model": "xl",
+      "author": "Xanthius",
+      "page": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders",
+      "likes": 16,
+      "downloads": 0,
+      "trigger": null,
       "name": {
-        "en": "Indie Rock",
-        "ru": "Инди-рок",
-        "zh": "独立摇滚",
-        "ja": "インディーロック",
-        "ko": "인디 록"
+        "en": "older voice ↔ younger voice",
+        "ru": "старше голос ↔ моложе голос",
+        "zh": "更年长的声音 ↔ 更年轻的声音",
+        "ja": "年上の声 ↔ 若い声",
+        "ko": "더 나이 든 목소리 ↔ 더 젊은 목소리"
       },
       "description": {
-        "en": "Chiming guitars, moving bass and a human drum kit",
-        "ru": "Звенящие гитары, подвижный бас и живые барабаны",
-        "zh": "清脆的吉他、灵动的贝斯与真实鼓组",
-        "ja": "きらめくギター、動くベース、人間味のあるドラム",
-        "ko": "맑게 울리는 기타, 움직이는 베이스, 사람 냄새 나는 드럼"
+        "en": "XL slider: positive strength pushes toward older voice, negative toward younger voice. Start at 1.0 or -1.0.",
+        "ru": "Слайдер для XL: плюс тянет к «старше голос», минус — к «моложе голос». Начинать с 1.0 или -1.0.",
+        "zh": "XL 滑块：正值偏向「更年长的声音」，负值偏向「更年轻的声音」。从 1.0 或 -1.0 开始。",
+        "ja": "XL スライダー：正の値で「年上の声」、負の値で「若い声」へ。まず 1.0 か -1.0 から。",
+        "ko": "XL 슬라이더: 양수는 「더 나이 든 목소리」 쪽, 음수는 「더 젊은 목소리」 쪽으로. 1.0 또는 -1.0부터 시작."
       },
       "scales": {
-        "lm": 1
+        "dit": 1.0
       },
-      "range": [
-        0,
-        1
-      ],
       "files": [
         {
-          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/indie-rock_step1000_comfyui.safetensors",
-          "file": "indie-rock_step1000_comfyui.safetensors",
-          "bytes": 15388872
+          "url": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders/resolve/7a7334fb6cd3ecfe875a7f423029f412db9fb196/ace-step_1-5_xl_age_slider.safetensors",
+          "file": "ace-step_1-5_xl_age_slider.safetensors",
+          "bytes": 39941032
+        }
+      ],
+      "range": [
+        -2,
+        2
+      ]
+    },
+    {
+      "id": "xanthius-ace-step-1-5-xl-aggressive-gentle-slider",
+      "engine": "acestep-cpp",
+      "kind": "slider",
+      "model": "xl",
+      "author": "Xanthius",
+      "page": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders",
+      "likes": 16,
+      "downloads": 0,
+      "trigger": null,
+      "name": {
+        "en": "aggressive ↔ gentle",
+        "ru": "агрессивно ↔ мягко",
+        "zh": "激进 ↔ 温柔",
+        "ja": "攻撃的 ↔ 穏やか",
+        "ko": "공격적 ↔ 부드러움"
+      },
+      "description": {
+        "en": "XL slider: positive strength pushes toward aggressive, negative toward gentle. Start at 1.0 or -1.0.",
+        "ru": "Слайдер для XL: плюс тянет к «агрессивно», минус — к «мягко». Начинать с 1.0 или -1.0.",
+        "zh": "XL 滑块：正值偏向「激进」，负值偏向「温柔」。从 1.0 或 -1.0 开始。",
+        "ja": "XL スライダー：正の値で「攻撃的」、負の値で「穏やか」へ。まず 1.0 か -1.0 から。",
+        "ko": "XL 슬라이더: 양수는 「공격적」 쪽, 음수는 「부드러움」 쪽으로. 1.0 또는 -1.0부터 시작."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders/resolve/7a7334fb6cd3ecfe875a7f423029f412db9fb196/ace-step_1-5_xl_aggressive-gentle_slider.safetensors",
+          "file": "ace-step_1-5_xl_aggressive-gentle_slider.safetensors",
+          "bytes": 39941056
+        }
+      ],
+      "range": [
+        -2,
+        2
+      ]
+    },
+    {
+      "id": "xanthius-ace-step-1-5-xl-bass-slider",
+      "engine": "acestep-cpp",
+      "kind": "slider",
+      "model": "xl",
+      "author": "Xanthius",
+      "page": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders",
+      "likes": 16,
+      "downloads": 0,
+      "trigger": null,
+      "name": {
+        "en": "more bass ↔ less bass",
+        "ru": "больше баса ↔ меньше баса",
+        "zh": "更多低音 ↔ 更少低音",
+        "ja": "低音多め ↔ 低音少なめ",
+        "ko": "베이스 많이 ↔ 베이스 적게"
+      },
+      "description": {
+        "en": "XL slider: positive strength pushes toward more bass, negative toward less bass. Start at 1.0 or -1.0.",
+        "ru": "Слайдер для XL: плюс тянет к «больше баса», минус — к «меньше баса». Начинать с 1.0 или -1.0.",
+        "zh": "XL 滑块：正值偏向「更多低音」，负值偏向「更少低音」。从 1.0 或 -1.0 开始。",
+        "ja": "XL スライダー：正の値で「低音多め」、負の値で「低音少なめ」へ。まず 1.0 か -1.0 から。",
+        "ko": "XL 슬라이더: 양수는 「베이스 많이」 쪽, 음수는 「베이스 적게」 쪽으로. 1.0 또는 -1.0부터 시작."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders/resolve/7a7334fb6cd3ecfe875a7f423029f412db9fb196/ace-step_1-5_xl_bass_slider.safetensors",
+          "file": "ace-step_1-5_xl_bass_slider.safetensors",
+          "bytes": 39941032
+        }
+      ],
+      "range": [
+        -2,
+        2
+      ]
+    },
+    {
+      "id": "xanthius-ace-step-1-5-xl-choir-solo-slider",
+      "engine": "acestep-cpp",
+      "kind": "slider",
+      "model": "xl",
+      "author": "Xanthius",
+      "page": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders",
+      "likes": 16,
+      "downloads": 0,
+      "trigger": null,
+      "name": {
+        "en": "choir ↔ solo voice",
+        "ru": "хор ↔ соло",
+        "zh": "合唱 ↔ 独唱",
+        "ja": "合唱 ↔ ソロ",
+        "ko": "합창 ↔ 솔로"
+      },
+      "description": {
+        "en": "XL slider: positive strength pushes toward choir, negative toward solo voice. Start at 1.0 or -1.0.",
+        "ru": "Слайдер для XL: плюс тянет к «хор», минус — к «соло». Начинать с 1.0 или -1.0.",
+        "zh": "XL 滑块：正值偏向「合唱」，负值偏向「独唱」。从 1.0 或 -1.0 开始。",
+        "ja": "XL スライダー：正の値で「合唱」、負の値で「ソロ」へ。まず 1.0 か -1.0 から。",
+        "ko": "XL 슬라이더: 양수는 「합창」 쪽, 음수는 「솔로」 쪽으로. 1.0 또는 -1.0부터 시작."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders/resolve/7a7334fb6cd3ecfe875a7f423029f412db9fb196/ace-step_1-5_xl_choir-solo_slider.safetensors",
+          "file": "ace-step_1-5_xl_choir-solo_slider.safetensors",
+          "bytes": 39941048
+        }
+      ],
+      "range": [
+        -2,
+        2
+      ]
+    },
+    {
+      "id": "xanthius-ace-step-1-5-xl-closeness-slider",
+      "engine": "acestep-cpp",
+      "kind": "slider",
+      "model": "xl",
+      "author": "Xanthius",
+      "page": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders",
+      "likes": 16,
+      "downloads": 0,
+      "trigger": null,
+      "name": {
+        "en": "close, intimate ↔ distant",
+        "ru": "близко, интимно ↔ издалека",
+        "zh": "贴近、亲密 ↔ 遥远",
+        "ja": "近く親密 ↔ 遠く",
+        "ko": "가깝고 친밀하게 ↔ 멀게"
+      },
+      "description": {
+        "en": "XL slider: positive strength pushes toward close, intimate, negative toward distant. Start at 1.0 or -1.0.",
+        "ru": "Слайдер для XL: плюс тянет к «близко, интимно», минус — к «издалека». Начинать с 1.0 или -1.0.",
+        "zh": "XL 滑块：正值偏向「贴近、亲密」，负值偏向「遥远」。从 1.0 或 -1.0 开始。",
+        "ja": "XL スライダー：正の値で「近く親密」、負の値で「遠く」へ。まず 1.0 か -1.0 から。",
+        "ko": "XL 슬라이더: 양수는 「가깝고 친밀하게」 쪽, 음수는 「멀게」 쪽으로. 1.0 또는 -1.0부터 시작."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders/resolve/7a7334fb6cd3ecfe875a7f423029f412db9fb196/ace-step_1-5_xl_closeness_slider.safetensors",
+          "file": "ace-step_1-5_xl_closeness_slider.safetensors",
+          "bytes": 39941040
+        }
+      ],
+      "range": [
+        -2,
+        2
+      ]
+    },
+    {
+      "id": "xanthius-ace-step-1-5-xl-danceability-slider",
+      "engine": "acestep-cpp",
+      "kind": "slider",
+      "model": "xl",
+      "author": "Xanthius",
+      "page": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders",
+      "likes": 16,
+      "downloads": 0,
+      "trigger": null,
+      "name": {
+        "en": "danceable ↔ not for dancing",
+        "ru": "танцевально ↔ не для танцев",
+        "zh": "适合跳舞 ↔ 不适合跳舞",
+        "ja": "踊れる ↔ 踊らない",
+        "ko": "춤추기 좋게 ↔ 춤과 거리 멀게"
+      },
+      "description": {
+        "en": "XL slider: positive strength pushes toward danceable, negative toward not for dancing. Start at 1.0 or -1.0.",
+        "ru": "Слайдер для XL: плюс тянет к «танцевально», минус — к «не для танцев». Начинать с 1.0 или -1.0.",
+        "zh": "XL 滑块：正值偏向「适合跳舞」，负值偏向「不适合跳舞」。从 1.0 或 -1.0 开始。",
+        "ja": "XL スライダー：正の値で「踊れる」、負の値で「踊らない」へ。まず 1.0 か -1.0 から。",
+        "ko": "XL 슬라이더: 양수는 「춤추기 좋게」 쪽, 음수는 「춤과 거리 멀게」 쪽으로. 1.0 또는 -1.0부터 시작."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders/resolve/7a7334fb6cd3ecfe875a7f423029f412db9fb196/ace-step_1-5_xl_danceability_slider.safetensors",
+          "file": "ace-step_1-5_xl_danceability_slider.safetensors",
+          "bytes": 39941048
+        }
+      ],
+      "range": [
+        -2,
+        2
+      ]
+    },
+    {
+      "id": "xanthius-ace-step-1-5-xl-deepvoice-slider",
+      "engine": "acestep-cpp",
+      "kind": "slider",
+      "model": "xl",
+      "author": "Xanthius",
+      "page": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders",
+      "likes": 16,
+      "downloads": 0,
+      "trigger": null,
+      "name": {
+        "en": "deeper voice ↔ higher voice",
+        "ru": "ниже голос ↔ выше голос",
+        "zh": "更低沉的声音 ↔ 更高的声音",
+        "ja": "低い声 ↔ 高い声",
+        "ko": "더 낮은 목소리 ↔ 더 높은 목소리"
+      },
+      "description": {
+        "en": "XL slider: positive strength pushes toward deeper voice, negative toward higher voice. Start at 1.0 or -1.0.",
+        "ru": "Слайдер для XL: плюс тянет к «ниже голос», минус — к «выше голос». Начинать с 1.0 или -1.0.",
+        "zh": "XL 滑块：正值偏向「更低沉的声音」，负值偏向「更高的声音」。从 1.0 或 -1.0 开始。",
+        "ja": "XL スライダー：正の値で「低い声」、負の値で「高い声」へ。まず 1.0 か -1.0 から。",
+        "ko": "XL 슬라이더: 양수는 「더 낮은 목소리」 쪽, 음수는 「더 높은 목소리」 쪽으로. 1.0 또는 -1.0부터 시작."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders/resolve/7a7334fb6cd3ecfe875a7f423029f412db9fb196/ace-step_1-5_xl_deepvoice_slider.safetensors",
+          "file": "ace-step_1-5_xl_deepvoice_slider.safetensors",
+          "bytes": 39941040
+        }
+      ],
+      "range": [
+        -2,
+        2
+      ]
+    },
+    {
+      "id": "xanthius-ace-step-1-5-xl-digital-acoustic-slider",
+      "engine": "acestep-cpp",
+      "kind": "slider",
+      "model": "xl",
+      "author": "Xanthius",
+      "page": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders",
+      "likes": 16,
+      "downloads": 0,
+      "trigger": null,
+      "name": {
+        "en": "digital ↔ acoustic",
+        "ru": "цифровое звучание ↔ акустика",
+        "zh": "数字化 ↔ 原声",
+        "ja": "デジタル ↔ アコースティック",
+        "ko": "디지털 ↔ 어쿠스틱"
+      },
+      "description": {
+        "en": "XL slider: positive strength pushes toward digital, negative toward acoustic. Start at 1.0 or -1.0.",
+        "ru": "Слайдер для XL: плюс тянет к «цифровое звучание», минус — к «акустика». Начинать с 1.0 или -1.0.",
+        "zh": "XL 滑块：正值偏向「数字化」，负值偏向「原声」。从 1.0 或 -1.0 开始。",
+        "ja": "XL スライダー：正の値で「デジタル」、負の値で「アコースティック」へ。まず 1.0 か -1.0 から。",
+        "ko": "XL 슬라이더: 양수는 「디지털」 쪽, 음수는 「어쿠스틱」 쪽으로. 1.0 또는 -1.0부터 시작."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders/resolve/7a7334fb6cd3ecfe875a7f423029f412db9fb196/ace-step_1-5_xl_digital-acoustic_slider.safetensors",
+          "file": "ace-step_1-5_xl_digital-acoustic_slider.safetensors",
+          "bytes": 39941056
+        }
+      ],
+      "range": [
+        -2,
+        2
+      ]
+    },
+    {
+      "id": "xanthius-ace-step-1-5-xl-drum-slider",
+      "engine": "acestep-cpp",
+      "kind": "slider",
+      "model": "xl",
+      "author": "Xanthius",
+      "page": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders",
+      "likes": 16,
+      "downloads": 0,
+      "trigger": null,
+      "name": {
+        "en": "more drums ↔ fewer drums",
+        "ru": "больше барабанов ↔ меньше барабанов",
+        "zh": "更多鼓 ↔ 更少鼓",
+        "ja": "ドラム多め ↔ ドラム少なめ",
+        "ko": "드럼 많이 ↔ 드럼 적게"
+      },
+      "description": {
+        "en": "XL slider: positive strength pushes toward more drums, negative toward fewer drums. Start at 1.0 or -1.0.",
+        "ru": "Слайдер для XL: плюс тянет к «больше барабанов», минус — к «меньше барабанов». Начинать с 1.0 или -1.0.",
+        "zh": "XL 滑块：正值偏向「更多鼓」，负值偏向「更少鼓」。从 1.0 或 -1.0 开始。",
+        "ja": "XL スライダー：正の値で「ドラム多め」、負の値で「ドラム少なめ」へ。まず 1.0 か -1.0 から。",
+        "ko": "XL 슬라이더: 양수는 「드럼 많이」 쪽, 음수는 「드럼 적게」 쪽으로. 1.0 또는 -1.0부터 시작."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders/resolve/7a7334fb6cd3ecfe875a7f423029f412db9fb196/ace-step_1-5_xl_drum_slider.safetensors",
+          "file": "ace-step_1-5_xl_drum_slider.safetensors",
+          "bytes": 39941032
+        }
+      ],
+      "range": [
+        -2,
+        2
+      ]
+    },
+    {
+      "id": "xanthius-ace-step-1-5-xl-energetic-calm-slider",
+      "engine": "acestep-cpp",
+      "kind": "slider",
+      "model": "xl",
+      "author": "Xanthius",
+      "page": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders",
+      "likes": 16,
+      "downloads": 0,
+      "trigger": null,
+      "name": {
+        "en": "energetic ↔ calm",
+        "ru": "энергично ↔ спокойно",
+        "zh": "有活力 ↔ 平静",
+        "ja": "エネルギッシュ ↔ 落ち着いた",
+        "ko": "에너지 넘치게 ↔ 차분하게"
+      },
+      "description": {
+        "en": "XL slider: positive strength pushes toward energetic, negative toward calm. Start at 1.0 or -1.0.",
+        "ru": "Слайдер для XL: плюс тянет к «энергично», минус — к «спокойно». Начинать с 1.0 или -1.0.",
+        "zh": "XL 滑块：正值偏向「有活力」，负值偏向「平静」。从 1.0 或 -1.0 开始。",
+        "ja": "XL スライダー：正の値で「エネルギッシュ」、負の値で「落ち着いた」へ。まず 1.0 か -1.0 から。",
+        "ko": "XL 슬라이더: 양수는 「에너지 넘치게」 쪽, 음수는 「차분하게」 쪽으로. 1.0 또는 -1.0부터 시작."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders/resolve/7a7334fb6cd3ecfe875a7f423029f412db9fb196/ace-step_1-5_xl_energetic-calm_slider.safetensors",
+          "file": "ace-step_1-5_xl_energetic-calm_slider.safetensors",
+          "bytes": 39941056
+        }
+      ],
+      "range": [
+        -2,
+        2
+      ]
+    },
+    {
+      "id": "xanthius-ace-step-1-5-xl-happiness-slider",
+      "engine": "acestep-cpp",
+      "kind": "slider",
+      "model": "xl",
+      "author": "Xanthius",
+      "page": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders",
+      "likes": 16,
+      "downloads": 0,
+      "trigger": null,
+      "name": {
+        "en": "happy ↔ sad",
+        "ru": "радостно ↔ грустно",
+        "zh": "快乐 ↔ 悲伤",
+        "ja": "明るい ↔ 悲しい",
+        "ko": "행복하게 ↔ 슬프게"
+      },
+      "description": {
+        "en": "XL slider: positive strength pushes toward happy, negative toward sad. Start at 1.0 or -1.0.",
+        "ru": "Слайдер для XL: плюс тянет к «радостно», минус — к «грустно». Начинать с 1.0 или -1.0.",
+        "zh": "XL 滑块：正值偏向「快乐」，负值偏向「悲伤」。从 1.0 或 -1.0 开始。",
+        "ja": "XL スライダー：正の値で「明るい」、負の値で「悲しい」へ。まず 1.0 か -1.0 から。",
+        "ko": "XL 슬라이더: 양수는 「행복하게」 쪽, 음수는 「슬프게」 쪽으로. 1.0 또는 -1.0부터 시작."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders/resolve/7a7334fb6cd3ecfe875a7f423029f412db9fb196/ace-step_1-5_xl_happiness_slider.safetensors",
+          "file": "ace-step_1-5_xl_happiness_slider.safetensors",
+          "bytes": 39941048
+        }
+      ],
+      "range": [
+        -2,
+        2
+      ]
+    },
+    {
+      "id": "xanthius-ace-step-1-5-xl-male-female-slider",
+      "engine": "acestep-cpp",
+      "kind": "slider",
+      "model": "xl",
+      "author": "Xanthius",
+      "page": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders",
+      "likes": 16,
+      "downloads": 0,
+      "trigger": null,
+      "name": {
+        "en": "male voice ↔ female voice",
+        "ru": "мужской голос ↔ женский голос",
+        "zh": "男声 ↔ 女声",
+        "ja": "男性ボーカル ↔ 女性ボーカル",
+        "ko": "남성 보컬 ↔ 여성 보컬"
+      },
+      "description": {
+        "en": "XL slider: positive strength pushes toward male voice, negative toward female voice. Start at 1.0 or -1.0.",
+        "ru": "Слайдер для XL: плюс тянет к «мужской голос», минус — к «женский голос». Начинать с 1.0 или -1.0.",
+        "zh": "XL 滑块：正值偏向「男声」，负值偏向「女声」。从 1.0 或 -1.0 开始。",
+        "ja": "XL スライダー：正の値で「男性ボーカル」、負の値で「女性ボーカル」へ。まず 1.0 か -1.0 から。",
+        "ko": "XL 슬라이더: 양수는 「남성 보컬」 쪽, 음수는 「여성 보컬」 쪽으로. 1.0 또는 -1.0부터 시작."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders/resolve/7a7334fb6cd3ecfe875a7f423029f412db9fb196/ace-step_1-5_xl_male-female_slider.safetensors",
+          "file": "ace-step_1-5_xl_male-female_slider.safetensors",
+          "bytes": 20017704
+        }
+      ],
+      "range": [
+        -2,
+        2
+      ]
+    },
+    {
+      "id": "xanthius-ace-step-1-5-xl-oldradio-slider",
+      "engine": "acestep-cpp",
+      "kind": "slider",
+      "model": "xl",
+      "author": "Xanthius",
+      "page": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders",
+      "likes": 16,
+      "downloads": 0,
+      "trigger": null,
+      "name": {
+        "en": "old radio sound ↔ clean modern sound",
+        "ru": "звук старого радио ↔ чистый современный звук",
+        "zh": "老式收音机音色 ↔ 干净的现代音色",
+        "ja": "古いラジオの音 ↔ クリアな現代の音",
+        "ko": "옛 라디오 소리 ↔ 깨끗한 현대 사운드"
+      },
+      "description": {
+        "en": "XL slider: positive strength pushes toward old radio sound, negative toward clean modern sound. Start at 1.0 or -1.0.",
+        "ru": "Слайдер для XL: плюс тянет к «звук старого радио», минус — к «чистый современный звук». Начинать с 1.0 или -1.0.",
+        "zh": "XL 滑块：正值偏向「老式收音机音色」，负值偏向「干净的现代音色」。从 1.0 或 -1.0 开始。",
+        "ja": "XL スライダー：正の値で「古いラジオの音」、負の値で「クリアな現代の音」へ。まず 1.0 か -1.0 から。",
+        "ko": "XL 슬라이더: 양수는 「옛 라디오 소리」 쪽, 음수는 「깨끗한 현대 사운드」 쪽으로. 1.0 또는 -1.0부터 시작."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders/resolve/7a7334fb6cd3ecfe875a7f423029f412db9fb196/ace-step_1-5_xl_oldradio_slider.safetensors",
+          "file": "ace-step_1-5_xl_oldradio_slider.safetensors",
+          "bytes": 39941040
+        }
+      ],
+      "range": [
+        -2,
+        2
+      ]
+    },
+    {
+      "id": "xanthius-ace-step-1-5-xl-reverb-slider",
+      "engine": "acestep-cpp",
+      "kind": "slider",
+      "model": "xl",
+      "author": "Xanthius",
+      "page": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders",
+      "likes": 16,
+      "downloads": 0,
+      "trigger": null,
+      "name": {
+        "en": "more reverb ↔ drier",
+        "ru": "больше реверба ↔ суше",
+        "zh": "更多混响 ↔ 更干",
+        "ja": "リバーブ多め ↔ ドライ",
+        "ko": "리버브 많이 ↔ 더 드라이하게"
+      },
+      "description": {
+        "en": "XL slider: positive strength pushes toward more reverb, negative toward drier. Start at 1.0 or -1.0.",
+        "ru": "Слайдер для XL: плюс тянет к «больше реверба», минус — к «суше». Начинать с 1.0 или -1.0.",
+        "zh": "XL 滑块：正值偏向「更多混响」，负值偏向「更干」。从 1.0 或 -1.0 开始。",
+        "ja": "XL スライダー：正の値で「リバーブ多め」、負の値で「ドライ」へ。まず 1.0 か -1.0 から。",
+        "ko": "XL 슬라이더: 양수는 「리버브 많이」 쪽, 음수는 「더 드라이하게」 쪽으로. 1.0 또는 -1.0부터 시작."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders/resolve/7a7334fb6cd3ecfe875a7f423029f412db9fb196/ace-step_1-5_xl_reverb_slider.safetensors",
+          "file": "ace-step_1-5_xl_reverb_slider.safetensors",
+          "bytes": 39941040
+        }
+      ],
+      "range": [
+        -2,
+        2
+      ]
+    },
+    {
+      "id": "xanthius-ace-step-1-5-xl-soft-projected-slider",
+      "engine": "acestep-cpp",
+      "kind": "slider",
+      "model": "xl",
+      "author": "Xanthius",
+      "page": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders",
+      "likes": 16,
+      "downloads": 0,
+      "trigger": null,
+      "name": {
+        "en": "soft singing ↔ projected singing",
+        "ru": "тихое пение ↔ пение в полный голос",
+        "zh": "轻柔演唱 ↔ 放声演唱",
+        "ja": "ソフトな歌唱 ↔ 張った歌唱",
+        "ko": "부드러운 노래 ↔ 힘 있게 뻗는 노래"
+      },
+      "description": {
+        "en": "XL slider: positive strength pushes toward soft singing, negative toward projected singing. Start at 1.0 or -1.0.",
+        "ru": "Слайдер для XL: плюс тянет к «тихое пение», минус — к «пение в полный голос». Начинать с 1.0 или -1.0.",
+        "zh": "XL 滑块：正值偏向「轻柔演唱」，负值偏向「放声演唱」。从 1.0 或 -1.0 开始。",
+        "ja": "XL スライダー：正の値で「ソフトな歌唱」、負の値で「張った歌唱」へ。まず 1.0 か -1.0 から。",
+        "ko": "XL 슬라이더: 양수는 「부드러운 노래」 쪽, 음수는 「힘 있게 뻗는 노래」 쪽으로. 1.0 또는 -1.0부터 시작."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders/resolve/7a7334fb6cd3ecfe875a7f423029f412db9fb196/ace-step_1-5_xl_soft-projected_slider.safetensors",
+          "file": "ace-step_1-5_xl_soft-projected_slider.safetensors",
+          "bytes": 39941064
+        }
+      ],
+      "range": [
+        -2,
+        2
+      ]
+    },
+    {
+      "id": "xanthius-ace-step-1-5-xl-studio-lofi-slider",
+      "engine": "acestep-cpp",
+      "kind": "slider",
+      "model": "xl",
+      "author": "Xanthius",
+      "page": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders",
+      "likes": 16,
+      "downloads": 0,
+      "trigger": null,
+      "name": {
+        "en": "studio polish ↔ lo-fi",
+        "ru": "студийная чистота ↔ лоу-фай",
+        "zh": "录音室质感 ↔ Lo-fi",
+        "ja": "スタジオ品質 ↔ ローファイ",
+        "ko": "스튜디오 품질 ↔ 로파이"
+      },
+      "description": {
+        "en": "XL slider: positive strength pushes toward studio polish, negative toward lo-fi. Start at 1.0 or -1.0.",
+        "ru": "Слайдер для XL: плюс тянет к «студийная чистота», минус — к «лоу-фай». Начинать с 1.0 или -1.0.",
+        "zh": "XL 滑块：正值偏向「录音室质感」，负值偏向「Lo-fi」。从 1.0 或 -1.0 开始。",
+        "ja": "XL スライダー：正の値で「スタジオ品質」、負の値で「ローファイ」へ。まず 1.0 か -1.0 から。",
+        "ko": "XL 슬라이더: 양수는 「스튜디오 품질」 쪽, 음수는 「로파이」 쪽으로. 1.0 또는 -1.0부터 시작."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders/resolve/7a7334fb6cd3ecfe875a7f423029f412db9fb196/ace-step_1-5_xl_studio-lofi_slider.safetensors",
+          "file": "ace-step_1-5_xl_studio-lofi_slider.safetensors",
+          "bytes": 39941040
+        }
+      ],
+      "range": [
+        -2,
+        2
+      ]
+    },
+    {
+      "id": "xanthius-ace-step-1-5-xl-talking-singing-slider",
+      "engine": "acestep-cpp",
+      "kind": "slider",
+      "model": "xl",
+      "author": "Xanthius",
+      "page": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders",
+      "likes": 16,
+      "downloads": 0,
+      "trigger": null,
+      "name": {
+        "en": "talking ↔ singing",
+        "ru": "речь ↔ пение",
+        "zh": "说话 ↔ 歌唱",
+        "ja": "語り ↔ 歌",
+        "ko": "말하기 ↔ 노래"
+      },
+      "description": {
+        "en": "XL slider: positive strength pushes toward talking, negative toward singing. Start at 1.0 or -1.0.",
+        "ru": "Слайдер для XL: плюс тянет к «речь», минус — к «пение». Начинать с 1.0 или -1.0.",
+        "zh": "XL 滑块：正值偏向「说话」，负值偏向「歌唱」。从 1.0 或 -1.0 开始。",
+        "ja": "XL スライダー：正の値で「語り」、負の値で「歌」へ。まず 1.0 か -1.0 から。",
+        "ko": "XL 슬라이더: 양수는 「말하기」 쪽, 음수는 「노래」 쪽으로. 1.0 또는 -1.0부터 시작."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders/resolve/7a7334fb6cd3ecfe875a7f423029f412db9fb196/ace-step_1-5_xl_talking-singing_slider.safetensors",
+          "file": "ace-step_1-5_xl_talking-singing_slider.safetensors",
+          "bytes": 39941040
+        }
+      ],
+      "range": [
+        -2,
+        2
+      ]
+    },
+    {
+      "id": "xanthius-ace-step-1-5-xl-tempo-slider",
+      "engine": "acestep-cpp",
+      "kind": "slider",
+      "model": "xl",
+      "author": "Xanthius",
+      "page": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders",
+      "likes": 16,
+      "downloads": 0,
+      "trigger": null,
+      "name": {
+        "en": "faster ↔ slower",
+        "ru": "быстрее ↔ медленнее",
+        "zh": "更快 ↔ 更慢",
+        "ja": "速く ↔ 遅く",
+        "ko": "더 빠르게 ↔ 더 느리게"
+      },
+      "description": {
+        "en": "XL slider: positive strength pushes toward faster, negative toward slower. Start at 1.0 or -1.0.",
+        "ru": "Слайдер для XL: плюс тянет к «быстрее», минус — к «медленнее». Начинать с 1.0 или -1.0.",
+        "zh": "XL 滑块：正值偏向「更快」，负值偏向「更慢」。从 1.0 或 -1.0 开始。",
+        "ja": "XL スライダー：正の値で「速く」、負の値で「遅く」へ。まず 1.0 か -1.0 から。",
+        "ko": "XL 슬라이더: 양수는 「더 빠르게」 쪽, 음수는 「더 느리게」 쪽으로. 1.0 또는 -1.0부터 시작."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders/resolve/7a7334fb6cd3ecfe875a7f423029f412db9fb196/ace-step_1-5_xl_tempo_slider.safetensors",
+          "file": "ace-step_1-5_xl_tempo_slider.safetensors",
+          "bytes": 39941032
+        }
+      ],
+      "range": [
+        -2,
+        2
+      ]
+    },
+    {
+      "id": "xanthius-ace-step-1-5-xl-wide-narrow-slider",
+      "engine": "acestep-cpp",
+      "kind": "slider",
+      "model": "xl",
+      "author": "Xanthius",
+      "page": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders",
+      "likes": 16,
+      "downloads": 0,
+      "trigger": null,
+      "name": {
+        "en": "wide stereo ↔ narrow stereo",
+        "ru": "широкая стереобаза ↔ узкая стереобаза",
+        "zh": "宽立体声 ↔ 窄立体声",
+        "ja": "広いステレオ ↔ 狭いステレオ",
+        "ko": "넓은 스테레오 ↔ 좁은 스테레오"
+      },
+      "description": {
+        "en": "XL slider: positive strength pushes toward wide stereo, negative toward narrow stereo. Start at 1.0 or -1.0.",
+        "ru": "Слайдер для XL: плюс тянет к «широкая стереобаза», минус — к «узкая стереобаза». Начинать с 1.0 или -1.0.",
+        "zh": "XL 滑块：正值偏向「宽立体声」，负值偏向「窄立体声」。从 1.0 或 -1.0 开始。",
+        "ja": "XL スライダー：正の値で「広いステレオ」、負の値で「狭いステレオ」へ。まず 1.0 か -1.0 から。",
+        "ko": "XL 슬라이더: 양수는 「넓은 스테레오」 쪽, 음수는 「좁은 스테레오」 쪽으로. 1.0 또는 -1.0부터 시작."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Xanthius/Ace-Step-1.5-XL-Concept-Sliders/resolve/7a7334fb6cd3ecfe875a7f423029f412db9fb196/ace-step_1-5_xl_wide-narrow_slider.safetensors",
+          "file": "ace-step_1-5_xl_wide-narrow_slider.safetensors",
+          "bytes": 39941048
+        }
+      ],
+      "range": [
+        -2,
+        2
+      ]
+    },
+    {
+      "id": "ace-step-ace-step-v1-5-chinese-new-year",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ACE-Step",
+      "page": "https://huggingface.co/ACE-Step/ACE-Step-v1.5-chinese-new-year-LoRA",
+      "likes": 16,
+      "downloads": 144,
+      "trigger": null,
+      "name": {
+        "en": "Chinese New Year",
+        "ru": "Китайский Новый год",
+        "zh": "中国新年",
+        "ja": "中国の旧正月",
+        "ko": "중국 설날"
+      },
+      "description": {
+        "en": "The official ACE-Step LoRA: Chinese folk instruments such as dizi and erhu in a festive style. Trained on 12 songs.",
+        "ru": "Официальная LoRA ACE-Step: китайские народные инструменты — дицзы, эрху — в праздничном духе. Обучена на 12 песнях.",
+        "zh": "ACE-Step 官方 LoRA：笛子、二胡等民族乐器的喜庆风格。基于 12 首歌曲训练。",
+        "ja": "ACE-Step 公式 LoRA：笛子や二胡など中国の民族楽器による祝祭的なスタイル。12曲で学習。",
+        "ko": "ACE-Step 공식 LoRA: 디즈, 얼후 같은 중국 민속 악기로 만든 축제 분위기. 12곡으로 학습."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ACE-Step/ACE-Step-v1.5-chinese-new-year-LoRA/resolve/cb829a12775740c830a6d49795f16913065dc492/adapter_model.safetensors",
+          "file": "adapter_model.safetensors",
+          "bytes": 88130280
+        },
+        {
+          "url": "https://huggingface.co/ACE-Step/ACE-Step-v1.5-chinese-new-year-LoRA/resolve/cb829a12775740c830a6d49795f16913065dc492/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 894
         }
       ]
     },
     {
-      "id": "mm3-slider-pop-punk",
-      "engine": "minimaxmusic-cpp",
-      "kind": "slider",
-      "author": "ntc-ai",
-      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
-      "name": {
-        "en": "Pop Punk",
-        "ru": "Поп-панк",
-        "zh": "流行朋克",
-        "ja": "ポップパンク",
-        "ko": "팝 펑크"
-      },
+      "id": "worstplayer-drumnbass-v3",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "worstplayer",
+      "page": "https://huggingface.co/worstplayer/acestep15_drumnbass_lora",
+      "likes": 19,
+      "downloads": 0,
+      "trigger": null,
+      "name": "Drum'n'bass v3",
       "description": {
-        "en": "Palm-muted power chords and driving chorus drums",
-        "ru": "Глушёные пауэр-аккорды и напористые барабаны в припеве",
-        "zh": "闷音强力和弦与推进感十足的副歌鼓",
-        "ja": "パームミュートのパワーコードと疾走するサビのドラム",
-        "ko": "팜뮤트 파워 코드와 몰아치는 후렴 드럼"
+        "en": "Fast breakbeats the model otherwise avoids, from 17 of the author’s tracks. v3 is trained on SFT: the best of the three, up to 100 steps.",
+        "ru": "Быстрые брейкбиты, которых модель иначе избегает, по 17 трекам автора. v3 обучена на SFT: лучшая из трёх, до 100 шагов.",
+        "zh": "模型平时回避的快速碎拍，基于作者的 17 首曲目。v3 在 SFT 上训练：三版中最好，最多 100 步。",
+        "ja": "モデルが普段避ける速いブレイクビーツ。作者の17曲で学習。v3 は SFT で学習、3つの中で最良、最大100ステップ。",
+        "ko": "모델이 평소 피하는 빠른 브레이크비트, 작가의 17곡으로 학습. v3는 SFT에서 학습해 셋 중 가장 좋음, 최대 100스텝."
       },
       "scales": {
-        "lm": 1
+        "dit": 1.0
       },
-      "range": [
-        0,
-        1
-      ],
       "files": [
         {
-          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/pop-punk_step3400_comfyui.safetensors",
-          "file": "pop-punk_step3400_comfyui.safetensors",
-          "bytes": 15388872
+          "url": "https://huggingface.co/worstplayer/acestep15_drumnbass_lora/resolve/67d257e82e3a53fd024c71509b5e46cc12b57302/drumnbass_v3.safetensors",
+          "file": "drumnbass_v3.safetensors",
+          "bytes": 88130248
         }
       ]
     },
     {
-      "id": "mm3-slider-metal",
-      "engine": "minimaxmusic-cpp",
-      "kind": "slider",
-      "author": "ntc-ai",
-      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
-      "name": {
-        "en": "Metal",
-        "ru": "Метал",
-        "zh": "金属",
-        "ja": "メタル",
-        "ko": "메탈"
-      },
+      "id": "worstplayer-drumnbass-v2",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "worstplayer",
+      "page": "https://huggingface.co/worstplayer/acestep15_drumnbass_lora",
+      "likes": 19,
+      "downloads": 0,
+      "trigger": null,
+      "name": "Drum'n'bass v2",
       "description": {
-        "en": "Heavy guitar riffs, tight kicks and big melodic choruses",
-        "ru": "Тяжёлые гитарные риффы, плотная бочка и большие мелодичные припевы",
-        "zh": "沉重的吉他连复段、紧实的底鼓与宏大的旋律副歌",
-        "ja": "ヘヴィなギターリフ、タイトなキック、壮大なメロディックなサビ",
-        "ko": "묵직한 기타 리프, 타이트한 킥, 웅장한 멜로디 후렴"
+        "en": "The turbo version of the same drum’n’bass: fast breakbeats, rank 128.",
+        "ru": "Турбо-версия того же драм-н-бейса: быстрые брейкбиты, ранг 128.",
+        "zh": "同一套鼓打贝斯的 turbo 版本：快速碎拍，秩 128。",
+        "ja": "同じドラムンベースの turbo 版：速いブレイクビーツ、ランク 128。",
+        "ko": "같은 드럼앤베이스의 turbo 버전: 빠른 브레이크비트, 랭크 128."
       },
       "scales": {
-        "lm": 1
+        "dit": 1.0
       },
-      "range": [
-        0,
-        1
-      ],
       "files": [
         {
-          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/metal_step2000_comfyui.safetensors",
-          "file": "metal_step2000_comfyui.safetensors",
-          "bytes": 15388872
+          "url": "https://huggingface.co/worstplayer/acestep15_drumnbass_lora/resolve/67d257e82e3a53fd024c71509b5e46cc12b57302/drumnbass-v2.safetensors",
+          "file": "drumnbass-v2.safetensors",
+          "bytes": 176211424
         }
       ]
     },
     {
-      "id": "mm3-slider-country",
-      "engine": "minimaxmusic-cpp",
-      "kind": "slider",
-      "author": "ntc-ai",
-      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
-      "name": {
-        "en": "Country",
-        "ru": "Кантри",
-        "zh": "乡村",
-        "ja": "カントリー",
-        "ko": "컨트리"
-      },
+      "id": "worstplayer-drumnbass-drum-solo",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "worstplayer",
+      "page": "https://huggingface.co/worstplayer/acestep15_drumnbass_lora",
+      "likes": 19,
+      "downloads": 0,
+      "trigger": "drum solo",
+      "name": "Drum'n'bass drum solo",
       "description": {
-        "en": "Acoustic strum, twangy fills and an easy backbeat",
-        "ru": "Акустический бой, твэнговые сбивки и лёгкий бэкбит",
-        "zh": "原声扫弦、鼻音感的加花与轻松的反拍",
-        "ja": "アコースティックのストローク、トワンギーなフィル、軽いバックビート",
-        "ko": "어쿠스틱 스트럼, 트왱한 필, 편안한 백비트"
+        "en": "Looping drum’n’bass breaks on their own; say “drum solo”. Full songs come out with overwhelming drums.",
+        "ru": "Отдельные петли драм-н-бейсовых брейков; фраза «drum solo». Целые песни выходят с оглушительными барабанами.",
+        "zh": "单独的鼓打贝斯碎拍循环；在描述中写「drum solo」。完整歌曲会鼓声过重。",
+        "ja": "ドラムンベースのブレイクのループ単体。「drum solo」と書きます。曲全体ではドラムが強すぎになります。",
+        "ko": "드럼앤베이스 브레이크 루프 단독. 「drum solo」라고 적습니다. 전체 곡은 드럼이 너무 커집니다."
       },
       "scales": {
-        "lm": 1
+        "dit": 1.0
       },
-      "range": [
-        0,
-        1
-      ],
       "files": [
         {
-          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/country_step1000_comfyui.safetensors",
-          "file": "country_step1000_comfyui.safetensors",
-          "bytes": 15388872
+          "url": "https://huggingface.co/worstplayer/acestep15_drumnbass_lora/resolve/67d257e82e3a53fd024c71509b5e46cc12b57302/drumnbass_drum_solo.safetensors",
+          "file": "drumnbass_drum_solo.safetensors",
+          "bytes": 44089992
         }
       ]
     },
     {
-      "id": "mm3-slider-acoustic-folk",
-      "engine": "minimaxmusic-cpp",
-      "kind": "slider",
-      "author": "ntc-ai",
-      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
-      "name": {
-        "en": "Acoustic Folk",
-        "ru": "Акустический фолк",
-        "zh": "原声民谣",
-        "ja": "アコースティック・フォーク",
-        "ko": "어쿠스틱 포크"
-      },
+      "id": "tarn59-ace-step-1-5v-rain-techno-lora",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "tarn59",
+      "page": "https://huggingface.co/tarn59/ACE-STEP-1.5v-rain-techno-lora",
+      "likes": 2,
+      "downloads": 0,
+      "trigger": "Rain techno",
+      "name": "Rain techno",
       "description": {
-        "en": "Fingerpicked strings and a warm small-room performance",
-        "ru": "Перебор струн и тёплое исполнение в небольшой комнате",
-        "zh": "指弹与温暖的小房间演奏",
-        "ja": "フィンガーピッキングと温かい小部屋の演奏",
-        "ko": "핑거피킹과 따뜻한 작은 방 연주"
+        "en": "Moody techno with rain atmosphere.",
+        "ru": "Мрачное техно с атмосферой дождя.",
+        "zh": "带雨声氛围的阴郁 techno。",
+        "ja": "雨の雰囲気のあるムーディーなテクノ。",
+        "ko": "빗소리 분위기의 무디한 테크노."
       },
       "scales": {
-        "lm": 1
+        "dit": 1.0
       },
-      "range": [
-        0,
-        1
-      ],
       "files": [
         {
-          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/acoustic-folk_step2000_comfyui.safetensors",
-          "file": "acoustic-folk_step2000_comfyui.safetensors",
-          "bytes": 15388872
+          "url": "https://huggingface.co/tarn59/ACE-STEP-1.5v-rain-techno-lora/resolve/c320be7ed22e0e894b0482efc6d334d0f2110f06/adapter_model.safetensors",
+          "file": "adapter_model.safetensors",
+          "bytes": 176211424
         }
       ]
     },
     {
-      "id": "mm3-slider-house",
-      "engine": "minimaxmusic-cpp",
-      "kind": "slider",
-      "author": "ntc-ai",
-      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "id": "david-a-amoo-ace-step-1-5-naija-legacy-rhyt-final",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "David-A-Amoo",
+      "page": "https://huggingface.co/David-A-Amoo/ACE-Step-1.5-Naija-Legacy-Rhythms-LoRA-v2",
+      "likes": 1,
+      "downloads": 0,
+      "trigger": "afroNaijaOldaStyle",
       "name": {
-        "en": "House",
-        "ru": "Хаус",
-        "zh": "浩室",
-        "ja": "ハウス",
-        "ko": "하우스"
+        "en": "Naija legacy rhythms v2",
+        "ru": "Нигерийские ритмы v2",
+        "zh": "尼日利亚经典节奏 v2",
+        "ja": "ナイジャの伝統リズム v2",
+        "ko": "나이지리아 레거시 리듬 v2"
       },
       "description": {
-        "en": "Steady club kick, offbeat hats and a rolling bass line",
-        "ru": "Ровная клубная бочка, хэты в офбит и катящийся бас",
-        "zh": "稳定的俱乐部底鼓、反拍踩镲与滚动的贝斯",
-        "ja": "一定のクラブキック、裏拍のハット、転がるベース",
-        "ko": "일정한 클럽 킥, 오프비트 하이햇, 굴러가는 베이스"
+        "en": "The second version of the Afrobeats and classic Nigerian styles LoRA. Trained on 2B base.",
+        "ru": "Вторая версия LoRA афробита и классических нигерийских стилей. Обучена на 2B base.",
+        "zh": "Afrobeats 与经典尼日利亚风格 LoRA 的第二版。在 2B base 上训练。",
+        "ja": "アフロビーツと古典的ナイジェリアのスタイルの LoRA 第2版。2B base で学習。",
+        "ko": "아프로비츠와 클래식 나이지리아 스타일 LoRA 2판. 2B base에서 학습."
       },
       "scales": {
-        "lm": 1
+        "dit": 1.0
       },
-      "range": [
-        0,
-        1
-      ],
       "files": [
         {
-          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/house_step1000_comfyui.safetensors",
-          "file": "house_step1000_comfyui.safetensors",
-          "bytes": 15388872
+          "url": "https://huggingface.co/David-A-Amoo/ACE-Step-1.5-Naija-Legacy-Rhythms-LoRA-v2/resolve/9e99e9f6ebea941f2b77b1ece0f4b868a0911b4b/final/adapter_model.safetensors",
+          "file": "adapter_model.safetensors",
+          "bytes": 176211424
+        },
+        {
+          "url": "https://huggingface.co/David-A-Amoo/ACE-Step-1.5-Naija-Legacy-Rhythms-LoRA-v2/resolve/9e99e9f6ebea941f2b77b1ece0f4b868a0911b4b/final/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1035
         }
       ]
     },
     {
-      "id": "mm3-slider-disco-funk",
-      "engine": "minimaxmusic-cpp",
-      "kind": "slider",
-      "author": "ntc-ai",
-      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "id": "disturbingthef-vocal-instrument-merge-adapter-model",
+      "engine": "acestep-cpp",
+      "kind": "sound",
+      "model": "2b",
+      "author": "DisturbingTheField",
+      "page": "https://huggingface.co/DisturbingTheField/ACE-Step-v1.5-acoustic-guitar-and-a-merge-LoRA",
+      "likes": 1,
+      "downloads": 54,
+      "trigger": null,
       "name": {
-        "en": "Disco Funk",
-        "ru": "Диско-фанк",
-        "zh": "迪斯科放克",
-        "ja": "ディスコ・ファンク",
-        "ko": "디스코 펑크"
+        "en": "Guitar, hoarse voice and band",
+        "ru": "Гитара, сиплый голос и группа",
+        "zh": "吉他、沙哑人声与乐队",
+        "ja": "ギター、かすれ声、バンド",
+        "ko": "기타, 쉰 목소리, 밴드"
       },
       "description": {
-        "en": "Elastic bass, clipped guitar and bright dance-floor strings",
-        "ru": "Упругий бас, рубленая гитара и яркие танцевальные струнные",
-        "zh": "弹性的贝斯、切音吉他与明亮的舞池弦乐",
-        "ja": "弾むベース、カッティングギター、華やかなストリングス",
-        "ko": "탄력 있는 베이스, 커팅 기타, 화려한 댄스 스트링"
+        "en": "The author’s three LoRAs merged: instrumentals, hoarse singing and acoustic guitar; 0.2-0.7 recommended. Trained on 2B base.",
+        "ru": "Три LoRA автора, слитые в одну: инструменталы, сиплое пение и акустика; рекомендуется 0.2-0.7. Обучена на 2B base.",
+        "zh": "作者三个 LoRA 的合并：器乐、沙哑演唱与木吉他；建议 0.2-0.7。在 2B base 上训练。",
+        "ja": "作者の3つの LoRA を統合：インスト、かすれ声、アコギ。推奨 0.2〜0.7。2B base で学習。",
+        "ko": "작가의 LoRA 세 개를 합친 것: 연주곡, 쉰 목소리, 어쿠스틱 기타. 권장 0.2-0.7. 2B base에서 학습."
       },
       "scales": {
-        "lm": 1
+        "dit": 0.5
       },
-      "range": [
-        0,
-        1
-      ],
       "files": [
         {
-          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/disco-funk_step2000_comfyui.safetensors",
-          "file": "disco-funk_step2000_comfyui.safetensors",
-          "bytes": 15388872
+          "url": "https://huggingface.co/DisturbingTheField/ACE-Step-v1.5-acoustic-guitar-and-a-merge-LoRA/resolve/041aa44bbd79a685fa40d652078ecd6c91da18e9/vocal_instrument_merge_adapter_model.safetensors",
+          "file": "vocal_instrument_merge_adapter_model.safetensors",
+          "bytes": 176233424
+        },
+        {
+          "url": "https://huggingface.co/DisturbingTheField/ACE-Step-v1.5-acoustic-guitar-and-a-merge-LoRA/resolve/041aa44bbd79a685fa40d652078ecd6c91da18e9/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1053
         }
       ]
     },
     {
-      "id": "mm3-slider-kpop",
-      "engine": "minimaxmusic-cpp",
-      "kind": "slider",
-      "author": "ntc-ai",
-      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
-      "name": {
-        "en": "K-pop",
-        "ru": "K-pop",
-        "zh": "K-pop",
-        "ja": "K-POP",
-        "ko": "K-pop"
-      },
+      "id": "tarn59-super-eurobeats-ace-step-1-5-l",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "tarn59",
+      "page": "https://huggingface.co/tarn59/super_eurobeats_ACE_STEP-1.5-lora",
+      "likes": 9,
+      "downloads": 121,
+      "trigger": "Eurobeats",
+      "name": "Super Eurobeat",
       "description": {
-        "en": "Sharp synth hooks, tight edits and a big chorus lift",
-        "ru": "Острые синт-хуки, плотный монтаж и мощный подъём в припеве",
-        "zh": "尖锐的合成器旋律、紧凑的剪辑与副歌的大提升",
-        "ja": "鋭いシンセフック、タイトな編集、サビの大きな盛り上がり",
-        "ko": "날카로운 신스 훅, 타이트한 편집, 후렴의 큰 상승"
+        "en": "High-energy Eurobeat: fast synth riffs, driving four-on-the-floor, anime-racing energy.",
+        "ru": "Энергичный евробит: быстрые синт-риффы, прямая бочка, драйв гоночного аниме.",
+        "zh": "高能量 Eurobeat：快速合成器即兴、四四拍底鼓、动漫赛车般的冲劲。",
+        "ja": "ハイエナジーなユーロビート：速いシンセリフ、4つ打ち、アニメのレースのような疾走感。",
+        "ko": "고에너지 유로비트: 빠른 신스 리프, 포온더플로어 킥, 애니 레이싱 같은 질주감."
       },
       "scales": {
-        "lm": 1
+        "dit": 1.0
       },
-      "range": [
-        0,
-        1
-      ],
       "files": [
         {
-          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/kpop_step2000_comfyui.safetensors",
-          "file": "kpop_step2000_comfyui.safetensors",
-          "bytes": 15388872
+          "url": "https://huggingface.co/tarn59/super_eurobeats_ACE_STEP-1.5-lora/resolve/cce3124c1491aca7f15a127435103875499a5394/adapter_model.safetensors",
+          "file": "adapter_model.safetensors",
+          "bytes": 176231008
         }
       ]
     },
     {
-      "id": "mm3-slider-reggaeton",
-      "engine": "minimaxmusic-cpp",
-      "kind": "slider",
-      "author": "ntc-ai",
-      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
+      "id": "bdsqlsz-acestep-qinglong-lokr",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "bdsqlsz",
+      "page": "https://huggingface.co/bdsqlsz/Acestep1.5-qinglong-lokr",
+      "likes": 5,
+      "downloads": 8,
+      "trigger": null,
       "name": {
-        "en": "Reggaeton",
-        "ru": "Реггетон",
-        "zh": "雷鬼动",
-        "ja": "レゲトン",
-        "ko": "레게톤"
+        "en": "Qinglong: 939 styles",
+        "ru": "Qinglong: 939 стилей",
+        "zh": "青龙：939 种风格",
+        "ja": "青龍：939 スタイル",
+        "ko": "청룡: 939가지 스타일"
       },
       "description": {
-        "en": "Dembow drums, rounded sub bass and clipped melodic hooks",
-        "ru": "Барабаны дембоу, округлый саб-бас и рубленые мелодичные хуки",
-        "zh": "Dembow 鼓、圆润的超低音与切分旋律",
-        "ja": "デンボウのドラム、丸いサブベース、刻むメロディフック",
-        "ko": "뎀보우 드럼, 둥근 서브 베이스, 끊어지는 멜로디 훅"
+        "en": "A LoKr trained on SFT across 939 styles of a popular music service’s catalogue: broadens what style words the model understands.",
+        "ru": "LoKr на SFT по 939 стилям каталога популярного музыкального сервиса: модель понимает больше стилевых слов.",
+        "zh": "在 SFT 上训练的 LoKr，覆盖某热门音乐平台目录中的 939 种风格：让模型理解更多风格词。",
+        "ja": "人気音楽サービスのカタログにある 939 スタイルで SFT 上に学習した LoKr。モデルが理解するスタイル語が増えます。",
+        "ko": "인기 음악 서비스 카탈로그의 939가지 스타일로 SFT에서 학습한 LoKr: 모델이 이해하는 스타일 단어가 늘어납니다."
       },
       "scales": {
-        "lm": 1
+        "dit": 1.0
       },
-      "range": [
-        0,
-        1
-      ],
       "files": [
         {
-          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/reggaeton_step1000_comfyui.safetensors",
-          "file": "reggaeton_step1000_comfyui.safetensors",
-          "bytes": 15388872
+          "url": "https://huggingface.co/bdsqlsz/Acestep1.5-qinglong-lokr/resolve/553f3df201677f9f2a658fc4a56827e1c07363bb/acestep-qinglong-lokr.safetensors",
+          "file": "acestep-qinglong-lokr.safetensors",
+          "bytes": 43943432
         }
       ]
     },
     {
-      "id": "mm3-slider-afrobeats",
-      "engine": "minimaxmusic-cpp",
-      "kind": "slider",
-      "author": "ntc-ai",
-      "page": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders",
-      "name": {
-        "en": "Afrobeats",
-        "ru": "Афробит",
-        "zh": "非洲节拍",
-        "ja": "アフロビーツ",
-        "ko": "아프로비트"
-      },
+      "id": "disturbingthef-ace-step-v1-5-ambient-dream1-l",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "DisturbingTheField",
+      "page": "https://huggingface.co/DisturbingTheField/ACE-Step-v1.5-ambient_dream1-LoRA",
+      "likes": 4,
+      "downloads": 54,
+      "trigger": "ambient_dream1",
+      "name": "Ambient Dream",
       "description": {
-        "en": "Interlocking percussion, melodic bass and buoyant guitar",
-        "ru": "Переплетённая перкуссия, мелодичный бас и лёгкая гитара",
-        "zh": "交织的打击乐、旋律性贝斯与轻快的吉他",
-        "ja": "絡み合うパーカッション、メロディックなベース、軽やかなギター",
-        "ko": "얽히는 퍼커션, 멜로딕한 베이스, 경쾌한 기타"
+        "en": "Pure ambient soundscapes for turbo; weaker on pop and rock.",
+        "ru": "Чистый эмбиент для turbo; на попе и роке слабее.",
+        "zh": "适用于 turbo 的纯氛围音景；流行和摇滚上效果较弱。",
+        "ja": "turbo 向けの純粋なアンビエント。ポップやロックでは効きが弱め。",
+        "ko": "turbo용 순수 앰비언트 사운드스케이프. 팝과 록에서는 약함."
       },
       "scales": {
-        "lm": 1
+        "dit": 1.0
       },
-      "range": [
-        0,
-        1
-      ],
       "files": [
         {
-          "url": "https://huggingface.co/ntc-ai/minimax-music3-particle-sliders/resolve/86bae0899b41ad99179bd54adabf53a200ca4df0/comfyui/uni16-fresh-selected-v2/afrobeats_step1000_comfyui.safetensors",
-          "file": "afrobeats_step1000_comfyui.safetensors",
-          "bytes": 15388872
+          "url": "https://huggingface.co/DisturbingTheField/ACE-Step-v1.5-ambient_dream1-LoRA/resolve/9b3544f78237b059a8774a3c50f69a9643edb0b5/adapter_model.safetensors",
+          "file": "adapter_model.safetensors",
+          "bytes": 88130280
+        },
+        {
+          "url": "https://huggingface.co/DisturbingTheField/ACE-Step-v1.5-ambient_dream1-LoRA/resolve/9b3544f78237b059a8774a3c50f69a9643edb0b5/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1053
+        }
+      ]
+    },
+    {
+      "id": "smoki9999-smoki-lofi-acestep1-5",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "smoki9999",
+      "page": "https://huggingface.co/smoki9999/smoki-lofi-acestep1.5",
+      "likes": 4,
+      "downloads": 29,
+      "trigger": "smoki_lofi",
+      "name": "Smoki Lo-Fi",
+      "description": {
+        "en": "Warm, dusty lo-fi: vinyl crackle, tape saturation, softened piano and jazz guitar. 0.7-0.9 for a hint, 1.5-2.0 for the full character.",
+        "ru": "Тёплый пыльный лоу-фай: треск винила, плёночная сатурация, мягкое пиано и джазовая гитара. 0.7-0.9 — намёк, 1.5-2.0 — полный характер.",
+        "zh": "温暖、带尘感的 lo-fi：黑胶噼啪声、磁带饱和、柔和的钢琴与爵士吉他。0.7-0.9 为点缀，1.5-2.0 为完整风格。",
+        "ja": "温かく埃っぽいローファイ：レコードのノイズ、テープの飽和、柔らかいピアノとジャズギター。0.7〜0.9 でほのかに、1.5〜2.0 で全開。",
+        "ko": "따뜻하고 먼지 낀 로파이: 바이닐 잡음, 테이프 새추레이션, 부드러운 피아노와 재즈 기타. 0.7-0.9는 은은하게, 1.5-2.0은 완전하게."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/smoki9999/smoki-lofi-acestep1.5/resolve/9a1f1e6a33a9376f8fb4042ed6c502e8f6e17e08/adapter_model.safetensors",
+          "file": "adapter_model.safetensors",
+          "bytes": 176210656
+        },
+        {
+          "url": "https://huggingface.co/smoki9999/smoki-lofi-acestep1.5/resolve/9a1f1e6a33a9376f8fb4042ed6c502e8f6e17e08/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1048
+        }
+      ],
+      "range": [
+        0,
+        2
+      ]
+    },
+    {
+      "id": "6san-symphonic-metal-lora-for-ace-s-best",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "6san",
+      "page": "https://huggingface.co/6san/symphonic_metal_lora_for_ace-step_v15",
+      "likes": 3,
+      "downloads": 48,
+      "trigger": null,
+      "name": "Symphonic death metal",
+      "description": {
+        "en": "Technical, progressive and symphonic death metal; the author’s best checkpoint.",
+        "ru": "Технический, прогрессивный и симфонический дэт-метал; лучший чекпоинт автора.",
+        "zh": "技术、前卫与交响死亡金属；作者最好的检查点。",
+        "ja": "テクニカル、プログレッシブ、シンフォニックなデスメタル。作者のベストチェックポイント。",
+        "ko": "테크니컬·프로그레시브·심포닉 데스 메탈. 작가의 최고 체크포인트."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/6san/symphonic_metal_lora_for_ace-step_v15/resolve/6cbfb2789050a1e4ee2c93026f34de6fd2a6a62c/best/adapter_model.safetensors",
+          "file": "adapter_model.safetensors",
+          "bytes": 211482768
+        },
+        {
+          "url": "https://huggingface.co/6san/symphonic_metal_lora_for_ace-step_v15/resolve/6cbfb2789050a1e4ee2c93026f34de6fd2a6a62c/best/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 12742
+        }
+      ]
+    },
+    {
+      "id": "smoki9999-german-folk-metal-acestep1-5",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "smoki9999",
+      "page": "https://huggingface.co/smoki9999/german-folk_metal-acestep1.5",
+      "likes": 1,
+      "downloads": 21,
+      "trigger": "german_folkmetal",
+      "name": {
+        "en": "German folk metal",
+        "ru": "Немецкий фолк-метал",
+        "zh": "德国民谣金属",
+        "ja": "ドイツのフォークメタル",
+        "ko": "독일 포크 메탈"
+      },
+      "description": {
+        "en": "Distorted guitars and double bass drums with hurdy-gurdy and bagpipes, tavern atmosphere and German vocals.",
+        "ru": "Перегруженные гитары и двойная бочка с колёсной лирой и волынкой, атмосфера таверны и немецкий вокал.",
+        "zh": "失真吉他与双踩鼓，配上手摇琴和风笛，酒馆氛围与德语演唱。",
+        "ja": "歪んだギターとツーバスに、ハーディ・ガーディとバグパイプ。酒場の雰囲気とドイツ語ボーカル。",
+        "ko": "디스토션 기타와 더블 베이스 드럼에 허디거디와 백파이프, 선술집 분위기와 독일어 보컬."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/smoki9999/german-folk_metal-acestep1.5/resolve/019fe472a9120887fa0a45871a773ea01c3c95b7/adapter_model.safetensors",
+          "file": "adapter_model.safetensors",
+          "bytes": 176210656
+        },
+        {
+          "url": "https://huggingface.co/smoki9999/german-folk_metal-acestep1.5/resolve/019fe472a9120887fa0a45871a773ea01c3c95b7/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1048
+        }
+      ]
+    },
+    {
+      "id": "veeceey-ragalora-indian-music-ace-step",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "veeceey",
+      "page": "https://huggingface.co/veeceey/RagaLoRA-indian-music-ace-step",
+      "likes": 2,
+      "downloads": 39,
+      "trigger": null,
+      "name": {
+        "en": "Indian music (RagaLoRA)",
+        "ru": "Индийская музыка (RagaLoRA)",
+        "zh": "印度音乐（RagaLoRA）",
+        "ja": "インド音楽（RagaLoRA）",
+        "ko": "인도 음악 (RagaLoRA)"
+      },
+      "description": {
+        "en": "Ten Indian genres: Hindustani and Carnatic classical, Bollywood ballad, qawwali, ghazal, bhajan, Sufi rock, filmi dance, indie Hindi and Hinglish pop. 0.8 recommended.",
+        "ru": "Десять индийских жанров: хиндустанская и карнатическая классика, болливудская баллада, каввали, газель, бхаджан, суфи-рок, филми-дэнс, инди на хинди и хинглиш-поп. Рекомендуется 0.8.",
+        "zh": "十种印度曲风：印度斯坦与卡纳提克古典、宝莱坞抒情、卡瓦利、加扎勒、拜赞、苏菲摇滚、电影舞曲、印地独立与 Hinglish 流行。建议 0.8。",
+        "ja": "インドの10ジャンル：ヒンドゥスターニーとカルナータカ古典、ボリウッドのバラード、カッワーリー、ガザル、バジャン、スーフィーロック、フィルミ・ダンス、ヒンディー・インディー、ヒングリッシュ・ポップ。推奨 0.8。",
+        "ko": "인도 10개 장르: 힌두스타니·카르나틱 클래식, 볼리우드 발라드, 카왈리, 가잘, 바잔, 수피 록, 필미 댄스, 힌디 인디, 힝글리시 팝. 권장 0.8."
+      },
+      "scales": {
+        "dit": 0.8
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/veeceey/RagaLoRA-indian-music-ace-step/resolve/b1aa3b0872b57d60c15e5bf68669ca92958b898d/adapter_model.safetensors",
+          "file": "adapter_model.safetensors",
+          "bytes": 44089608
+        },
+        {
+          "url": "https://huggingface.co/veeceey/RagaLoRA-indian-music-ace-step/resolve/b1aa3b0872b57d60c15e5bf68669ca92958b898d/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1018
+        }
+      ]
+    },
+    {
+      "id": "pradipbasnet68-nepali-folk-acestep-1-5-lora",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "pradipbasnet68",
+      "page": "https://huggingface.co/pradipbasnet68/nepali-folk-acestep-1.5-lora",
+      "likes": 0,
+      "downloads": 43,
+      "trigger": null,
+      "name": {
+        "en": "Nepali folk",
+        "ru": "Непальский фолк",
+        "zh": "尼泊尔民谣",
+        "ja": "ネパール民謡",
+        "ko": "네팔 민속"
+      },
+      "description": {
+        "en": "Acoustic Nepali folk with madal, sarangi and bansuri; 0.5 recommended.",
+        "ru": "Акустический непальский фолк: мадал, саранги и бансури; рекомендуется 0.5.",
+        "zh": "以马达尔鼓、萨朗吉和班苏里笛为主的尼泊尔原声民谣；建议 0.5。",
+        "ja": "マダル、サーランギ、バンスリによるアコースティックなネパール民謡。推奨 0.5。",
+        "ko": "마달, 사랑기, 반수리가 어우러진 어쿠스틱 네팔 민속 음악. 권장 0.5."
+      },
+      "scales": {
+        "dit": 0.5
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/pradipbasnet68/nepali-folk-acestep-1.5-lora/resolve/ee5fd9ddb3bc66db4ca49dcaae0de4569a74ff0c/adapter_model.safetensors",
+          "file": "adapter_model.safetensors",
+          "bytes": 44089608
+        },
+        {
+          "url": "https://huggingface.co/pradipbasnet68/nepali-folk-acestep-1.5-lora/resolve/ee5fd9ddb3bc66db4ca49dcaae0de4569a74ff0c/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1097
+        }
+      ]
+    },
+    {
+      "id": "boobalanit-ace-step-1-5-southindiaparailo",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "boobalanit",
+      "page": "https://huggingface.co/boobalanit/ACE-Step-1.5-SouthIndiaParaiLoRA",
+      "likes": 1,
+      "downloads": 0,
+      "trigger": null,
+      "name": {
+        "en": "Parai percussion",
+        "ru": "Перкуссия параи",
+        "zh": "帕莱鼓",
+        "ja": "パライ打楽器",
+        "ko": "파라이 타악기"
+      },
+      "description": {
+        "en": "South Indian Parai drums of Tamil folk, festival and dappankuthu music; instrumental, for XL. 0.85 recommended.",
+        "ru": "Южноиндийские барабаны параи: тамильский фолк, праздники, даппанкуту; инструментал, для XL. Рекомендуется 0.85.",
+        "zh": "南印度帕莱鼓：泰米尔民谣、节庆与 dappankuthu；器乐，适用于 XL。建议 0.85。",
+        "ja": "南インドのパライ太鼓：タミルの民謡、祭り、ダッパンクトゥ。インスト、XL 向け。推奨 0.85。",
+        "ko": "남인도 파라이 북: 타밀 민속, 축제, 다판쿠투. 연주곡, XL용. 권장 0.85."
+      },
+      "scales": {
+        "dit": 0.85
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/boobalanit/ACE-Step-1.5-SouthIndiaParaiLoRA/resolve/4f13e2cbb7f930ebcb43efd75392fbb13d76d2c2/adapter_model.safetensors",
+          "file": "adapter_model.safetensors",
+          "bytes": 167839200
+        },
+        {
+          "url": "https://huggingface.co/boobalanit/ACE-Step-1.5-SouthIndiaParaiLoRA/resolve/4f13e2cbb7f930ebcb43efd75392fbb13d76d2c2/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1069
+        }
+      ]
+    },
+    {
+      "id": "david-a-amoo-ace-step-1-5-naija-legacy-rhyt",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "David-A-Amoo",
+      "page": "https://huggingface.co/David-A-Amoo/ACE-Step-1.5-Naija-Legacy-Rhythms-LoRA-v1",
+      "likes": 2,
+      "downloads": 64,
+      "trigger": "afroNaijaOldaStyle",
+      "name": {
+        "en": "Naija legacy rhythms",
+        "ru": "Нигерийские ритмы",
+        "zh": "尼日利亚经典节奏",
+        "ja": "ナイジャの伝統リズム",
+        "ko": "나이지리아 레거시 리듬"
+      },
+      "description": {
+        "en": "Afrobeats and classic Nigerian styles from 31 hours of music. Trained on 2B base; on turbo it may need a different strength.",
+        "ru": "Афробит и классические нигерийские стили по 31 часу музыки. Обучена на 2B base; на turbo может понадобиться другая сила.",
+        "zh": "基于 31 小时音乐的 Afrobeats 与经典尼日利亚风格。在 2B base 上训练；用于 turbo 时可能需要调整强度。",
+        "ja": "31時間の音楽によるアフロビーツと古典的なナイジェリアのスタイル。2B base で学習、turbo では強さの調整が必要な場合あり。",
+        "ko": "31시간 분량의 아프로비츠와 클래식 나이지리아 스타일. 2B base에서 학습, turbo에서는 강도 조정이 필요할 수 있음."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/David-A-Amoo/ACE-Step-1.5-Naija-Legacy-Rhythms-LoRA-v1/resolve/f7c5e2bda6e371cc0374faafe3e3b70fea96d113/adapter_model.safetensors",
+          "file": "adapter_model.safetensors",
+          "bytes": 176211424
+        }
+      ]
+    },
+    {
+      "id": "ai-music-90s2000s-style-ai-music-ace-1-5-sft",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ai-music",
+      "page": "https://huggingface.co/ai-music/ace-step-1.5-pop-rock",
+      "likes": 1,
+      "downloads": 0,
+      "trigger": null,
+      "name": {
+        "en": "90s-2000s pop rock",
+        "ru": "Поп-рок 90-х и 2000-х",
+        "zh": "90 年代至 2000 年代流行摇滚",
+        "ja": "90〜2000年代のポップロック",
+        "ko": "90~2000년대 팝 록"
+      },
+      "description": {
+        "en": "Pop rock in the sound of the nineties and two-thousands. Trained on 2B SFT.",
+        "ru": "Поп-рок в звучании девяностых и нулевых. Обучена на 2B SFT.",
+        "zh": "九十年代与两千年代音色的流行摇滚。在 2B SFT 上训练。",
+        "ja": "90年代と2000年代のサウンドのポップロック。2B SFT で学習。",
+        "ko": "90년대와 2000년대 사운드의 팝 록. 2B SFT에서 학습."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ai-music/ace-step-1.5-pop-rock/resolve/eaa460e4e8f195e040adcd4c728d619e8dd1b1f9/90s2000s-style-ai-music-ace-1.5-sft.safetensors",
+          "file": "90s2000s-style-ai-music-ace-1.5-sft.safetensors",
+          "bytes": 176211392
+        }
+      ]
+    },
+    {
+      "id": "wildminder-daft-punk-1000epoch",
+      "engine": "acestep-cpp",
+      "kind": "artist",
+      "model": "2b",
+      "author": "Wildminder",
+      "page": "https://huggingface.co/Wildminder/ace-step-loras",
+      "likes": 3,
+      "downloads": 0,
+      "trigger": null,
+      "name": "Daft Punk",
+      "description": {
+        "en": "French house in the manner of Daft Punk: filtered disco loops, vocoder, robotic funk. The final 1000-epoch checkpoint.",
+        "ru": "Френч-хаус в духе Daft Punk: фильтрованные диско-петли, вокодер, роботизированный фанк. Финальный чекпоинт на 1000 эпох.",
+        "zh": "Daft Punk 风格的法式 house：滤波迪斯科循环、声码器、机械感放克。最终的 1000 轮检查点。",
+        "ja": "Daft Punk 風のフレンチハウス：フィルターのかかったディスコループ、ボコーダー、ロボット的なファンク。最終の1000エポック版。",
+        "ko": "Daft Punk 풍 프렌치 하우스: 필터 디스코 루프, 보코더, 로봇 같은 펑크. 최종 1000 에포크 체크포인트."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Wildminder/ace-step-loras/resolve/0c60e87535c85758ea956fd9efb1183a4d5ff423/daft-punk/daft-punk-1000epoch.safetensors",
+          "file": "daft-punk-1000epoch.safetensors",
+          "bytes": 88130280
+        },
+        {
+          "url": "https://huggingface.co/Wildminder/ace-step-loras/resolve/0c60e87535c85758ea956fd9efb1183a4d5ff423/daft-punk/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 897
+        }
+      ]
+    },
+    {
+      "id": "wildminder-monstercat-edm-adapter",
+      "engine": "acestep-cpp",
+      "kind": "artist",
+      "model": "2b",
+      "author": "Wildminder",
+      "page": "https://huggingface.co/Wildminder/ace-step-loras",
+      "likes": 3,
+      "downloads": 0,
+      "trigger": "mstrct",
+      "name": "Monstercat EDM",
+      "description": {
+        "en": "Label-style EDM in the manner of Monstercat releases: big drops, bright leads, polished mix.",
+        "ru": "EDM в духе релизов лейбла Monstercat: мощные дропы, яркие лиды, вылизанный микс.",
+        "zh": "Monstercat 厂牌风格的 EDM：大 drop、明亮主旋律、精致混音。",
+        "ja": "Monstercat レーベル風の EDM：大きなドロップ、明るいリード、磨かれたミックス。",
+        "ko": "Monstercat 레이블 스타일 EDM: 큰 드롭, 밝은 리드, 다듬어진 믹스."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Wildminder/ace-step-loras/resolve/0c60e87535c85758ea956fd9efb1183a4d5ff423/monstercat-edm/monstercat-edm-adapter.safetensors",
+          "file": "monstercat-edm-adapter.safetensors",
+          "bytes": 176211424
+        },
+        {
+          "url": "https://huggingface.co/Wildminder/ace-step-loras/resolve/0c60e87535c85758ea956fd9efb1183a4d5ff423/monstercat-edm/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 897
+        }
+      ]
+    },
+    {
+      "id": "wildminder-nevermind",
+      "engine": "acestep-cpp",
+      "kind": "artist",
+      "model": "2b",
+      "author": "Wildminder",
+      "page": "https://huggingface.co/Wildminder/ace-step-loras",
+      "likes": 3,
+      "downloads": 0,
+      "trigger": "nevermind",
+      "name": "Nevermind",
+      "description": {
+        "en": "Early-nineties grunge in the sound of the album Nevermind: loud-quiet dynamics, raw guitars, hoarse vocals.",
+        "ru": "Гранж начала девяностых в звучании альбома Nevermind: перепады тихо-громко, сырые гитары, хриплый вокал.",
+        "zh": "九十年代初 Nevermind 专辑音色的垃圾摇滚：轻响动态、粗粝吉他、沙哑人声。",
+        "ja": "アルバム Nevermind の音の90年代初頭グランジ：静と動、生々しいギター、しゃがれた声。",
+        "ko": "앨범 Nevermind 사운드의 90년대 초 그런지: 조용함과 폭발의 대비, 거친 기타, 쉰 보컬."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Wildminder/ace-step-loras/resolve/0c60e87535c85758ea956fd9efb1183a4d5ff423/nevermind/nevermind.safetensors",
+          "file": "nevermind.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/Wildminder/ace-step-loras/resolve/0c60e87535c85758ea956fd9efb1183a4d5ff423/nevermind/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 897
+        }
+      ]
+    },
+    {
+      "id": "wildminder-prodigy",
+      "engine": "acestep-cpp",
+      "kind": "artist",
+      "model": "2b",
+      "author": "Wildminder",
+      "page": "https://huggingface.co/Wildminder/ace-step-loras",
+      "likes": 3,
+      "downloads": 0,
+      "trigger": null,
+      "name": "The Prodigy",
+      "description": {
+        "en": "Big beat and breakbeat in the manner of The Prodigy: distorted breaks, aggressive synths, shouted hooks.",
+        "ru": "Биг-бит и брейкбит в духе The Prodigy: перегруженные брейки, агрессивные синты, выкрики.",
+        "zh": "The Prodigy 风格的 big beat 与碎拍：失真碎拍、激进合成器、喊叫式 hook。",
+        "ja": "The Prodigy 風のビッグビートとブレイクビーツ：歪んだブレイク、攻撃的なシンセ、叫ぶフック。",
+        "ko": "The Prodigy 풍 빅비트와 브레이크비트: 디스토션 브레이크, 공격적인 신스, 외치는 훅."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Wildminder/ace-step-loras/resolve/0c60e87535c85758ea956fd9efb1183a4d5ff423/prodigy/prodigy.safetensors",
+          "file": "prodigy.safetensors",
+          "bytes": 44089960
+        },
+        {
+          "url": "https://huggingface.co/Wildminder/ace-step-loras/resolve/0c60e87535c85758ea956fd9efb1183a4d5ff423/prodigy/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 897
+        }
+      ]
+    },
+    {
+      "id": "wildminder-french-rap-iam",
+      "engine": "acestep-cpp",
+      "kind": "artist",
+      "model": "2b",
+      "author": "Wildminder",
+      "page": "https://huggingface.co/Wildminder/ace-step-loras",
+      "likes": 3,
+      "downloads": 0,
+      "trigger": null,
+      "name": "IAM",
+      "description": {
+        "en": "Nineties French rap in the manner of IAM: soulful samples, boom-bap drums, French verses.",
+        "ru": "Французский рэп девяностых в духе IAM: соул-сэмплы, бум-бэп, куплеты на французском.",
+        "zh": "九十年代 IAM 风格的法语说唱：灵魂乐采样、boom-bap 鼓、法语歌词。",
+        "ja": "IAM 風の90年代フレンチラップ：ソウルフルなサンプル、ブーンバップ、フランス語のヴァース。",
+        "ko": "IAM 풍 90년대 프렌치 랩: 소울 샘플, 붐뱁 드럼, 프랑스어 벌스."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Wildminder/ace-step-loras/resolve/0c60e87535c85758ea956fd9efb1183a4d5ff423/french-rap-iam/french-rap-iam.safetensors",
+          "file": "french-rap-iam.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/Wildminder/ace-step-loras/resolve/0c60e87535c85758ea956fd9efb1183a4d5ff423/french-rap-iam/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 897
+        }
+      ]
+    },
+    {
+      "id": "wildminder-riddim-dnb-underground",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "Wildminder",
+      "page": "https://huggingface.co/Wildminder/ace-step-loras",
+      "likes": 3,
+      "downloads": 0,
+      "trigger": null,
+      "name": "Riddim & underground DnB",
+      "description": {
+        "en": "Riddim dubstep and underground drum’n’bass: sparse heavy bass, rolling breaks.",
+        "ru": "Риддим-дабстеп и андеграундный драм-н-бейс: скупой тяжёлый бас, катящиеся брейки.",
+        "zh": "Riddim dubstep 与地下鼓打贝斯：简洁厚重的低音、滚动的碎拍。",
+        "ja": "リディム・ダブステップとアンダーグラウンドなドラムンベース：削ぎ落とした重低音、転がるブレイク。",
+        "ko": "리딤 덥스텝과 언더그라운드 드럼앤베이스: 절제된 무거운 베이스, 굴러가는 브레이크."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Wildminder/ace-step-loras/resolve/0c60e87535c85758ea956fd9efb1183a4d5ff423/riddim-dnb-underground/riddim-dnb-underground.safetensors",
+          "file": "riddim-dnb-underground.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/Wildminder/ace-step-loras/resolve/0c60e87535c85758ea956fd9efb1183a4d5ff423/riddim-dnb-underground/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 897
+        }
+      ]
+    },
+    {
+      "id": "wildminder-progressive-techno-ag-xl-turbo-best",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "Wildminder",
+      "page": "https://huggingface.co/Wildminder/ace-step-loras",
+      "likes": 3,
+      "downloads": 0,
+      "trigger": "JVS",
+      "name": "Progressive techno",
+      "description": {
+        "en": "Hypnotic progressive techno: long builds, rolling basslines, evolving synths.",
+        "ru": "Гипнотичное прогрессив-техно: долгие нарастания, катящийся бас, развивающиеся синты.",
+        "zh": "催眠般的前卫 techno：长铺垫、滚动贝斯线、渐变合成器。",
+        "ja": "催眠的なプログレッシブ・テクノ：長いビルド、転がるベースライン、変化していくシンセ。",
+        "ko": "최면적인 프로그레시브 테크노: 긴 빌드업, 굴러가는 베이스라인, 변해 가는 신스."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Wildminder/ace-step-loras/resolve/0c60e87535c85758ea956fd9efb1183a4d5ff423/progressive-techno/progressive-techno-ag-xl-turbo-best.safetensors",
+          "file": "progressive-techno-ag-xl-turbo-best.safetensors",
+          "bytes": 327225056
+        },
+        {
+          "url": "https://huggingface.co/Wildminder/ace-step-loras/resolve/0c60e87535c85758ea956fd9efb1183a4d5ff423/progressive-techno/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 897
+        }
+      ]
+    },
+    {
+      "id": "wildminder-hip-hop-anti-bleed-turbo",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "Wildminder",
+      "page": "https://huggingface.co/Wildminder/ace-step-loras",
+      "likes": 3,
+      "downloads": 0,
+      "trigger": null,
+      "name": {
+        "en": "Hip-hop, clean vocals",
+        "ru": "Хип-хоп без протечек",
+        "zh": "干净人声的嘻哈",
+        "ja": "クリーンな声のヒップホップ",
+        "ko": "깨끗한 보컬의 힙합"
+      },
+      "description": {
+        "en": "Hip-hop on turbo with less of the beat bleeding into the vocal.",
+        "ru": "Хип-хоп на turbo: бит меньше протекает в вокал.",
+        "zh": "turbo 上的嘻哈，节拍更少渗入人声。",
+        "ja": "turbo 用のヒップホップ。ビートがボーカルに滲みにくい。",
+        "ko": "turbo용 힙합, 비트가 보컬에 덜 번집니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Wildminder/ace-step-loras/resolve/0c60e87535c85758ea956fd9efb1183a4d5ff423/hip-hop-anti-bleed-turbo/hip-hop-anti-bleed-turbo.safetensors",
+          "file": "hip-hop-anti-bleed-turbo.safetensors",
+          "bytes": 44089608
+        },
+        {
+          "url": "https://huggingface.co/Wildminder/ace-step-loras/resolve/0c60e87535c85758ea956fd9efb1183a4d5ff423/hip-hop-anti-bleed-turbo/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 897
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-acoustic-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/acoustic-acestep1.5-xl-v1",
+      "likes": 1,
+      "downloads": 18,
+      "trigger": "roti-4custic",
+      "name": "Acoustic",
+      "description": {
+        "en": "Intimate guitar ballads and singer-songwriter songs. The trigger word must be in the caption.",
+        "ru": "Камерные гитарные баллады и авторская песня. Триггер-слово должно быть в описании.",
+        "zh": "亲密的吉他抒情与创作歌手作品。描述中必须包含触发词。",
+        "ja": "親密なギターバラードとシンガーソングライター。説明にトリガーワードが必要です。",
+        "ko": "친밀한 기타 발라드와 싱어송라이터 곡. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/acoustic-acestep1.5-xl-v1/resolve/1467e68ac86c3d088181de3a7ba0fdd116e9e5f3/acoustic-xl-v1.safetensors",
+          "file": "acoustic-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/acoustic-acestep1.5-xl-v1/resolve/1467e68ac86c3d088181de3a7ba0fdd116e9e5f3/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-alternative-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/alternative-acestep1.5-xl-v1",
+      "likes": 0,
+      "downloads": 16,
+      "trigger": "roti-4ltrntv",
+      "name": "Alternative",
+      "description": {
+        "en": "Anthemic, jangly indie and atmospheric alternative. The trigger word must be in the caption.",
+        "ru": "Гимновая, инди и атмосферная альтернатива. Триггер-слово должно быть в описании.",
+        "zh": "颂歌式、独立与氛围另类摇滚。描述中必须包含触发词。",
+        "ja": "アンセム的、インディー、アトモスフェリックなオルタナ。説明にトリガーワードが必要です。",
+        "ko": "앤섬풍, 인디, 분위기 있는 얼터너티브. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/alternative-acestep1.5-xl-v1/resolve/67251d5b47c4d69ff98b47998a48152d34a9dd9e/alternative-xl-v1.safetensors",
+          "file": "alternative-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/alternative-acestep1.5-xl-v1/resolve/67251d5b47c4d69ff98b47998a48152d34a9dd9e/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-alternative-rock-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/alternative_rock-acestep1.5-xl-v1",
+      "likes": 0,
+      "downloads": 14,
+      "trigger": "roti-4lt-r0kk",
+      "name": "Alternative Rock",
+      "description": {
+        "en": "Alt-rock anthems, indie post-punk and grunge. The trigger word must be in the caption.",
+        "ru": "Альт-рок-гимны, инди-пост-панк и гранж. Триггер-слово должно быть в описании.",
+        "zh": "另类摇滚颂歌、独立后朋克与垃圾摇滚。描述中必须包含触发词。",
+        "ja": "オルタナロックのアンセム、インディー・ポストパンク、グランジ。説明にトリガーワードが必要です。",
+        "ko": "얼터너티브 록 앤섬, 인디 포스트 펑크, 그런지. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/alternative_rock-acestep1.5-xl-v1/resolve/03b1e41f6fcf0fcae887a3a0ffd52085bb8cd8a6/alternative_rock-xl-v1.safetensors",
+          "file": "alternative_rock-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/alternative_rock-acestep1.5-xl-v1/resolve/03b1e41f6fcf0fcae887a3a0ffd52085bb8cd8a6/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-ambient-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/ambient-acestep1.5-xl-v1",
+      "likes": 1,
+      "downloads": 22,
+      "trigger": "roti-4mbnt",
+      "name": "Ambient",
+      "description": {
+        "en": "Drones, cinematic swells and dark ambient. The trigger word must be in the caption.",
+        "ru": "Дроуны, кинематографичные волны и дарк-эмбиент. Триггер-слово должно быть в описании.",
+        "zh": "持续音、电影感起伏与暗黑氛围。描述中必须包含触发词。",
+        "ja": "ドローン、映画的なうねり、ダークアンビエント。説明にトリガーワードが必要です。",
+        "ko": "드론, 시네마틱한 스웰, 다크 앰비언트. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/ambient-acestep1.5-xl-v1/resolve/bdc6c24e8f57ce39819b1cd0abc8d4c10117d78f/ambient-xl-v1.safetensors",
+          "file": "ambient-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/ambient-acestep1.5-xl-v1/resolve/bdc6c24e8f57ce39819b1cd0abc8d4c10117d78f/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-deep-house-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/deep_house-acestep1.5-xl-v1",
+      "likes": 1,
+      "downloads": 18,
+      "trigger": "roti-d33ph0us",
+      "name": "Deep House",
+      "description": {
+        "en": "Warm sub bass, jazzy keys and soulful vocals. The trigger word must be in the caption.",
+        "ru": "Тёплый саб-бас, джазовые клавиши и соул-вокал. Триггер-слово должно быть в описании.",
+        "zh": "温暖的超低音、爵士键盘与灵魂人声。描述中必须包含触发词。",
+        "ja": "温かいサブベース、ジャジーな鍵盤、ソウルフルな歌。説明にトリガーワードが必要です。",
+        "ko": "따뜻한 서브 베이스, 재지한 건반, 소울풀한 보컬. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/deep_house-acestep1.5-xl-v1/resolve/89b50a578f7aa0b0c1074c7d3088aca1b207f5aa/deep_house-xl-v1.safetensors",
+          "file": "deep_house-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/deep_house-acestep1.5-xl-v1/resolve/89b50a578f7aa0b0c1074c7d3088aca1b207f5aa/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-dream-pop-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/dream_pop-acestep1.5-xl-v1",
+      "likes": 1,
+      "downloads": 13,
+      "trigger": "roti-drmp0p",
+      "name": "Dream Pop",
+      "description": {
+        "en": "Shimmering reverb guitars and hazy ethereal vocals. The trigger word must be in the caption.",
+        "ru": "Мерцающие гитары в реверберации и туманный вокал. Триггер-слово должно быть в описании.",
+        "zh": "闪烁的混响吉他与朦胧空灵的人声。描述中必须包含触发词。",
+        "ja": "きらめくリバーブギターと霞んだ幽玄な歌声。説明にトリガーワードが必要です。",
+        "ko": "반짝이는 리버브 기타와 몽환적인 보컬. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/dream_pop-acestep1.5-xl-v1/resolve/c45f00cab45bbd1c9c15859462b141d294985f33/dream_pop-xl-v1.safetensors",
+          "file": "dream_pop-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/dream_pop-acestep1.5-xl-v1/resolve/c45f00cab45bbd1c9c15859462b141d294985f33/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-dubstep-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/dubstep-acestep1.5-xl-v1",
+      "likes": 1,
+      "downloads": 20,
+      "trigger": "roti-dubst3pp",
+      "name": "Dubstep",
+      "description": {
+        "en": "Wobble drops, riddim and chill dubstep. The trigger word must be in the caption.",
+        "ru": "Воббл-дропы, риддим и чилл-дабстеп. Триггер-слово должно быть в описании.",
+        "zh": "wobble drop、riddim 与 chill dubstep。描述中必须包含触发词。",
+        "ja": "ウォブルのドロップ、リディム、チル・ダブステップ。説明にトリガーワードが必要です。",
+        "ko": "워블 드롭, 리딤, 칠 덥스텝. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/dubstep-acestep1.5-xl-v1/resolve/9e2625aad14cf62fc26128513dcf8f462fb3a704/dubstep-xl-v1.safetensors",
+          "file": "dubstep-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/dubstep-acestep1.5-xl-v1/resolve/9e2625aad14cf62fc26128513dcf8f462fb3a704/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-edm-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/edm-acestep1.5-xl-v1",
+      "likes": 2,
+      "downloads": 20,
+      "trigger": "roti-3dmm",
+      "name": "EDM",
+      "description": {
+        "en": "Trance supersaws, festival anthems and progressive house. The trigger word must be in the caption.",
+        "ru": "Транс-суперсо, фестивальные гимны и прогрессив-хаус. Триггер-слово должно быть в описании.",
+        "zh": "迪斯科超锯齿、音乐节颂歌与前卫 house。描述中必须包含触发词。",
+        "ja": "トランスのスーパーソー、フェス・アンセム、プログレッシブ・ハウス。説明にトリガーワードが必要です。",
+        "ko": "트랜스 슈퍼소, 페스티벌 앤섬, 프로그레시브 하우스. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/edm-acestep1.5-xl-v1/resolve/16c9ace98b18c371bc70b114f69079c94326d717/edm-xl-v1.safetensors",
+          "file": "edm-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/edm-acestep1.5-xl-v1/resolve/16c9ace98b18c371bc70b114f69079c94326d717/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-electronic-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/electronic-acestep1.5-xl-v1",
+      "likes": 0,
+      "downloads": 17,
+      "trigger": "roti-3l3ktr0n",
+      "name": "Electronic",
+      "description": {
+        "en": "Hypnotic synth pulses, glitch and cinematic dance. The trigger word must be in the caption.",
+        "ru": "Гипнотичные синт-пульсации, глитч и кинематографичный дэнс. Триггер-слово должно быть в описании.",
+        "zh": "催眠般的合成器脉冲、故障音与电影感舞曲。描述中必须包含触发词。",
+        "ja": "催眠的なシンセのパルス、グリッチ、映画的なダンス。説明にトリガーワードが必要です。",
+        "ko": "최면적인 신스 펄스, 글리치, 시네마틱 댄스. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/electronic-acestep1.5-xl-v1/resolve/3f68d48d4e7257ae212548567def68a9f05f75ee/electronic-xl-v1.safetensors",
+          "file": "electronic-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/electronic-acestep1.5-xl-v1/resolve/3f68d48d4e7257ae212548567def68a9f05f75ee/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-electropop-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/electropop-acestep1.5-xl-v1",
+      "likes": 0,
+      "downloads": 10,
+      "trigger": "roti-3l3ktrp0p",
+      "name": "Electropop",
+      "description": {
+        "en": "Glossy four-on-the-floor hooks and dark electropop. The trigger word must be in the caption.",
+        "ru": "Глянцевые танцевальные хуки и мрачный электропоп. Триггер-слово должно быть в описании.",
+        "zh": "光鲜的四四拍 hook 与暗黑电子流行。描述中必须包含触发词。",
+        "ja": "ツヤのある4つ打ちのフックとダークなエレクトロポップ。説明にトリガーワードが必要です。",
+        "ko": "윤기 나는 포온더플로어 훅과 다크 일렉트로팝. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/electropop-acestep1.5-xl-v1/resolve/83b7db9ac22131a05be8d1fc18f6019b6cf7e53f/electropop-xl-v1.safetensors",
+          "file": "electropop-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/electropop-acestep1.5-xl-v1/resolve/83b7db9ac22131a05be8d1fc18f6019b6cf7e53f/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-emo-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/emo-acestep1.5-xl-v1",
+      "likes": 1,
+      "downloads": 14,
+      "trigger": "roti-em00",
+      "name": "Emo",
+      "description": {
+        "en": "Emo rock, pop emo and post-hardcore. The trigger word must be in the caption.",
+        "ru": "Эмо-рок, поп-эмо и пост-хардкор. Триггер-слово должно быть в описании.",
+        "zh": "情绪摇滚、流行 emo 与后硬核。描述中必须包含触发词。",
+        "ja": "エモロック、ポップエモ、ポストハードコア。説明にトリガーワードが必要です。",
+        "ko": "이모 록, 팝 이모, 포스트 하드코어. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/emo-acestep1.5-xl-v1/resolve/97d5a39ba477182eeff61fe0c089453d2cff7f70/emo-xl-v1.safetensors",
+          "file": "emo-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/emo-acestep1.5-xl-v1/resolve/97d5a39ba477182eeff61fe0c089453d2cff7f70/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-experimental-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/experimental-acestep1.5-xl-v1",
+      "likes": 1,
+      "downloads": 16,
+      "trigger": "roti-3xpr1mtl",
+      "name": "Experimental",
+      "description": {
+        "en": "Glitch, noise and processed field recordings. The trigger word must be in the caption.",
+        "ru": "Глитч, нойз и обработанные полевые записи. Триггер-слово должно быть в описании.",
+        "zh": "故障音、噪音与处理过的环境录音。描述中必须包含触发词。",
+        "ja": "グリッチ、ノイズ、加工したフィールドレコーディング。説明にトリガーワードが必要です。",
+        "ko": "글리치, 노이즈, 가공한 필드 레코딩. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/experimental-acestep1.5-xl-v1/resolve/8a3af441e5f44a680054ecc212322d0d51640ef1/experimental-xl-v1.safetensors",
+          "file": "experimental-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/experimental-acestep1.5-xl-v1/resolve/8a3af441e5f44a680054ecc212322d0d51640ef1/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-folk-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/folk-acestep1.5-xl-v1",
+      "likes": 2,
+      "downloads": 13,
+      "trigger": "roti-f0lkk",
+      "name": "Folk",
+      "description": {
+        "en": "Fingerpicked indie folk, fiddle and harmonica, americana. The trigger word must be in the caption.",
+        "ru": "Инди-фолк пальцами, скрипка и губная гармошка, американа. Триггер-слово должно быть в описании.",
+        "zh": "指弹独立民谣、小提琴与口琴、美式乡土。描述中必须包含触发词。",
+        "ja": "フィンガーピッキングのインディーフォーク、フィドルとハーモニカ、アメリカーナ。説明にトリガーワードが必要です。",
+        "ko": "핑거피킹 인디 포크, 피들과 하모니카, 아메리카나. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/folk-acestep1.5-xl-v1/resolve/7eee78e8d0387caf37a69dd52dbc05beeb8bec51/folk-xl-v1.safetensors",
+          "file": "folk-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/folk-acestep1.5-xl-v1/resolve/7eee78e8d0387caf37a69dd52dbc05beeb8bec51/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-funk-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/funk-acestep1.5-xl-v1",
+      "likes": 1,
+      "downloads": 14,
+      "trigger": "roti-funkk",
+      "name": "Funk",
+      "description": {
+        "en": "Slap bass and brass, disco funk and modern funk. The trigger word must be in the caption.",
+        "ru": "Слэп-бас и духовые, диско-фанк и современный фанк. Триггер-слово должно быть в описании.",
+        "zh": "击勾贝斯与铜管、迪斯科放克与现代放克。描述中必须包含触发词。",
+        "ja": "スラップベースとブラス、ディスコファンク、モダンファンク。説明にトリガーワードが必要です。",
+        "ko": "슬랩 베이스와 브라스, 디스코 펑크, 모던 펑크. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/funk-acestep1.5-xl-v1/resolve/e66c1480b971c5962b126db4546ea244f2600ed4/funk-xl-v1.safetensors",
+          "file": "funk-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/funk-acestep1.5-xl-v1/resolve/e66c1480b971c5962b126db4546ea244f2600ed4/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-future-bass-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/future_bass-acestep1.5-xl-v1",
+      "likes": 0,
+      "downloads": 20,
+      "trigger": "roti-fbass",
+      "name": "Future Bass",
+      "description": {
+        "en": "Detuned supersaws, vocal chops and chill drops. The trigger word must be in the caption.",
+        "ru": "Расстроенные суперсо, вокальные нарезки и мягкие дропы. Триггер-слово должно быть в описании.",
+        "zh": "失谐超锯齿、人声切片与轻柔 drop。描述中必须包含触发词。",
+        "ja": "デチューンしたスーパーソー、ボーカルチョップ、チルなドロップ。説明にトリガーワードが必要です。",
+        "ko": "디튠 슈퍼소, 보컬 찹, 칠한 드롭. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/future_bass-acestep1.5-xl-v1/resolve/d54872b42bffca11082b7289d5152b394cc76942/future_bass-xl-v1.safetensors",
+          "file": "future_bass-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/future_bass-acestep1.5-xl-v1/resolve/d54872b42bffca11082b7289d5152b394cc76942/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-grunge-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/grunge-acestep1.5-xl-v1",
+      "likes": 1,
+      "downloads": 14,
+      "trigger": "roti-grungg",
+      "name": "Grunge",
+      "description": {
+        "en": "Nineties power chords, loud-quiet dynamics and raspy vocals. The trigger word must be in the caption.",
+        "ru": "Пауэр-аккорды девяностых, перепады громкости и хриплый вокал. Триггер-слово должно быть в описании.",
+        "zh": "九十年代强力和弦、轻响对比与沙哑人声。描述中必须包含触发词。",
+        "ja": "90年代のパワーコード、静と動、しゃがれ声。説明にトリガーワードが必要です。",
+        "ko": "90년대 파워 코드, 강약 대비, 거친 보컬. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/grunge-acestep1.5-xl-v1/resolve/da757a4d6fa565f681f54143df0d5a5b30d85860/grunge-xl-v1.safetensors",
+          "file": "grunge-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/grunge-acestep1.5-xl-v1/resolve/da757a4d6fa565f681f54143df0d5a5b30d85860/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-hip-hop-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/hip_hop-acestep1.5-xl-v1",
+      "likes": 2,
+      "downloads": 20,
+      "trigger": "roti-h1php0p",
+      "name": "Hip Hop",
+      "description": {
+        "en": "Boom-bap with jazzy samples, modern 808s and lo-fi hip-hop. The trigger word must be in the caption.",
+        "ru": "Бум-бэп с джазовыми сэмплами, современные 808 и лоу-фай хип-хоп. Триггер-слово должно быть в описании.",
+        "zh": "爵士采样的 boom-bap、现代 808 与 lo-fi 嘻哈。描述中必须包含触发词。",
+        "ja": "ジャジーなサンプルのブーンバップ、現代的な808、ローファイ・ヒップホップ。説明にトリガーワードが必要です。",
+        "ko": "재지한 샘플의 붐뱁, 현대적 808, 로파이 힙합. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/hip_hop-acestep1.5-xl-v1/resolve/05d102d7fa3814f1d6ebecf44c819cdff5009d98/hip_hop-xl-v1.safetensors",
+          "file": "hip_hop-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/hip_hop-acestep1.5-xl-v1/resolve/05d102d7fa3814f1d6ebecf44c819cdff5009d98/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-house-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/house-acestep1.5-xl-v1",
+      "likes": 1,
+      "downloads": 15,
+      "trigger": "roti-h0us3",
+      "name": "House",
+      "description": {
+        "en": "Classic, vocal and tech house. The trigger word must be in the caption.",
+        "ru": "Классический, вокальный и тек-хаус. Триггер-слово должно быть в описании.",
+        "zh": "经典、人声与 tech house。描述中必须包含触发词。",
+        "ja": "クラシック、ボーカル、テックハウス。説明にトリガーワードが必要です。",
+        "ko": "클래식, 보컬, 테크 하우스. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/house-acestep1.5-xl-v1/resolve/3a1cae4ca28c4ea6620c706493ea64294cd1d92d/house-xl-v1.safetensors",
+          "file": "house-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/house-acestep1.5-xl-v1/resolve/3a1cae4ca28c4ea6620c706493ea64294cd1d92d/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-indie-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/indie-acestep1.5-xl-v1",
+      "likes": 0,
+      "downloads": 13,
+      "trigger": "roti-1nd33",
+      "name": "Indie",
+      "description": {
+        "en": "Indie pop, indie folk and indie rock. The trigger word must be in the caption.",
+        "ru": "Инди-поп, инди-фолк и инди-рок. Триггер-слово должно быть в описании.",
+        "zh": "独立流行、独立民谣与独立摇滚。描述中必须包含触发词。",
+        "ja": "インディーポップ、インディーフォーク、インディーロック。説明にトリガーワードが必要です。",
+        "ko": "인디 팝, 인디 포크, 인디 록. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/indie-acestep1.5-xl-v1/resolve/46c8d43e79d7291380a35e3fb04c320659b5c711/indie-xl-v1.safetensors",
+          "file": "indie-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/indie-acestep1.5-xl-v1/resolve/46c8d43e79d7291380a35e3fb04c320659b5c711/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-indie-rock-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/indie_rock-acestep1.5-xl-v1",
+      "likes": 0,
+      "downloads": 10,
+      "trigger": "roti-1ndr0k",
+      "name": "Indie Rock",
+      "description": {
+        "en": "Jangly, anthemic and dreamy indie rock. The trigger word must be in the caption.",
+        "ru": "Звенящий, гимновый и мечтательный инди-рок. Триггер-слово должно быть в описании.",
+        "zh": "清脆、颂歌式与梦幻的独立摇滚。描述中必须包含触发词。",
+        "ja": "ジャングリー、アンセム的、ドリーミーなインディーロック。説明にトリガーワードが必要です。",
+        "ko": "징글리, 앤섬풍, 몽환적인 인디 록. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/indie_rock-acestep1.5-xl-v1/resolve/4a26fd0b9ee09c52a754d6d14f91d5709d16f8f7/indie_rock-xl-v1.safetensors",
+          "file": "indie_rock-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/indie_rock-acestep1.5-xl-v1/resolve/4a26fd0b9ee09c52a754d6d14f91d5709d16f8f7/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-industrial-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/industrial-acestep1.5-xl-v1",
+      "likes": 1,
+      "downloads": 12,
+      "trigger": "roti-1ndstrl",
+      "name": "Industrial",
+      "description": {
+        "en": "Mechanical percussion, industrial rock and dance. The trigger word must be in the caption.",
+        "ru": "Механическая перкуссия, индастриал-рок и дэнс. Триггер-слово должно быть в описании.",
+        "zh": "机械打击乐、工业摇滚与工业舞曲。描述中必须包含触发词。",
+        "ja": "機械的なパーカッション、インダストリアル・ロックとダンス。説明にトリガーワードが必要です。",
+        "ko": "기계적 퍼커션, 인더스트리얼 록과 댄스. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/industrial-acestep1.5-xl-v1/resolve/ad6c6f69b4fd003b0341b4154f9b2cf0b72eed71/industrial-xl-v1.safetensors",
+          "file": "industrial-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/industrial-acestep1.5-xl-v1/resolve/ad6c6f69b4fd003b0341b4154f9b2cf0b72eed71/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-j-pop-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/j_pop-acestep1.5-xl-v1",
+      "likes": 0,
+      "downloads": 16,
+      "trigger": "roti-jp0pp",
+      "name": "J-Pop",
+      "description": {
+        "en": "Bright anime-style J-pop, idol pop and J-rock. The trigger word must be in the caption.",
+        "ru": "Яркий J-pop в духе аниме, айдол-поп и J-rock. Триггер-слово должно быть в описании.",
+        "zh": "明亮的动漫风 J-pop、偶像流行与 J-rock。描述中必须包含触发词。",
+        "ja": "明るいアニメ風 J-POP、アイドルポップ、J-ROCK。説明にトリガーワードが必要です。",
+        "ko": "밝은 애니풍 J팝, 아이돌 팝, J록. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/j_pop-acestep1.5-xl-v1/resolve/2e068a8bb9222ea1c356da4cec0916186de6cfd9/j_pop-xl-v1.safetensors",
+          "file": "j_pop-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/j_pop-acestep1.5-xl-v1/resolve/2e068a8bb9222ea1c356da4cec0916186de6cfd9/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-jazz-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/jazz-acestep1.5-xl-v1",
+      "likes": 1,
+      "downloads": 23,
+      "trigger": "roti-j4zzz",
+      "name": "Jazz",
+      "description": {
+        "en": "Smooth quartet, swing big band and fusion. The trigger word must be in the caption.",
+        "ru": "Смус-квартет, свинг-биг-бэнд и фьюжн. Триггер-слово должно быть в описании.",
+        "zh": "柔和四重奏、摇摆大乐队与融合爵士。描述中必须包含触发词。",
+        "ja": "スムースなカルテット、スウィングのビッグバンド、フュージョン。説明にトリガーワードが必要です。",
+        "ko": "스무스 콰르텟, 스윙 빅밴드, 퓨전. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/jazz-acestep1.5-xl-v1/resolve/9aa1aa725697d88f17d2cde5ac49edc96fb6ec1e/jazz-xl-v1.safetensors",
+          "file": "jazz-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/jazz-acestep1.5-xl-v1/resolve/9aa1aa725697d88f17d2cde5ac49edc96fb6ec1e/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-lo-fi-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/lo_fi-acestep1.5-xl-v1",
+      "likes": 1,
+      "downloads": 15,
+      "trigger": "roti-l0f1y",
+      "name": "Lo-Fi",
+      "description": {
+        "en": "Vinyl crackle, jazzy chords and study beats. The trigger word must be in the caption.",
+        "ru": "Треск винила, джазовые аккорды и биты для учёбы. Триггер-слово должно быть в описании.",
+        "zh": "黑胶噼啪声、爵士和弦与学习节拍。描述中必须包含触发词。",
+        "ja": "レコードのノイズ、ジャジーなコード、勉強用ビート。説明にトリガーワードが必要です。",
+        "ko": "바이닐 잡음, 재지한 코드, 공부용 비트. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/lo_fi-acestep1.5-xl-v1/resolve/25acf236a2af0fed13c0c6eb43a2ad04f94ec1d8/lo_fi-xl-v1.safetensors",
+          "file": "lo_fi-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/lo_fi-acestep1.5-xl-v1/resolve/25acf236a2af0fed13c0c6eb43a2ad04f94ec1d8/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-metal-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/metal-acestep1.5-xl-v1",
+      "likes": 0,
+      "downloads": 33,
+      "trigger": "roti-m3t4al",
+      "name": "Metal",
+      "description": {
+        "en": "Heavy, death and progressive metal. The trigger word must be in the caption.",
+        "ru": "Хеви, дэт и прогрессив-метал. Триггер-слово должно быть в описании.",
+        "zh": "重金属、死亡金属与前卫金属。描述中必须包含触发词。",
+        "ja": "ヘヴィ、デス、プログレッシブ・メタル。説明にトリガーワードが必要です。",
+        "ko": "헤비, 데스, 프로그레시브 메탈. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/metal-acestep1.5-xl-v1/resolve/47d6ed87fc6a880fd5f42da20d27b6f87e057a3d/metal-xl-v1.safetensors",
+          "file": "metal-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/metal-acestep1.5-xl-v1/resolve/47d6ed87fc6a880fd5f42da20d27b6f87e057a3d/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-metalcore-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/metalcore-acestep1.5-xl-v1",
+      "likes": 1,
+      "downloads": 16,
+      "trigger": "roti-mtcrr",
+      "name": "Metalcore",
+      "description": {
+        "en": "Breakdowns, screams with clean choruses and djent. The trigger word must be in the caption.",
+        "ru": "Брейкдауны, скрим с чистыми припевами и джент. Триггер-слово должно быть в описании.",
+        "zh": "breakdown、嘶吼配清嗓副歌与 djent。描述中必须包含触发词。",
+        "ja": "ブレイクダウン、スクリームとクリーンなサビ、ジェント。説明にトリガーワードが必要です。",
+        "ko": "브레이크다운, 스크림과 클린 코러스, 젠트. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/metalcore-acestep1.5-xl-v1/resolve/8250a89f21a503c2ef08ec5eb0b0195e8d32c02e/metalcore-xl-v1.safetensors",
+          "file": "metalcore-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/metalcore-acestep1.5-xl-v1/resolve/8250a89f21a503c2ef08ec5eb0b0195e8d32c02e/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-phonk-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/phonk-acestep1.5-xl-v1",
+      "likes": 0,
+      "downloads": 20,
+      "trigger": "roti-ph0nkk",
+      "name": "Phonk",
+      "description": {
+        "en": "Distorted 808s and cowbell, drift phonk and Brazilian phonk. The trigger word must be in the caption.",
+        "ru": "Перегруженные 808 и ковбелл, дрифт-фонк и бразильский фонк. Триггер-слово должно быть в описании.",
+        "zh": "失真 808 与牛铃、漂移 phonk 与巴西 phonk。描述中必须包含触发词。",
+        "ja": "歪んだ808とカウベル、ドリフト・フォンク、ブラジリアン・フォンク。説明にトリガーワードが必要です。",
+        "ko": "디스토션 808과 카우벨, 드리프트 퐁크, 브라질 퐁크. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/phonk-acestep1.5-xl-v1/resolve/8611aa947b34f7e943d5e25e44ffefb101ca15ce/phonk-xl-v1.safetensors",
+          "file": "phonk-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/phonk-acestep1.5-xl-v1/resolve/8611aa947b34f7e943d5e25e44ffefb101ca15ce/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-pop-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/pop-acestep1.5-xl-v1",
+      "likes": 0,
+      "downloads": 15,
+      "trigger": "roti-p0pp4",
+      "name": "Pop",
+      "description": {
+        "en": "Catchy synth pop, indie ballads and dance pop. The trigger word must be in the caption.",
+        "ru": "Цепкий синти-поп, инди-баллады и дэнс-поп. Триггер-слово должно быть в описании.",
+        "zh": "洗脑的合成流行、独立抒情与舞曲流行。描述中必须包含触发词。",
+        "ja": "キャッチーなシンセポップ、インディーバラード、ダンスポップ。説明にトリガーワードが必要です。",
+        "ko": "중독성 있는 신스 팝, 인디 발라드, 댄스 팝. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/pop-acestep1.5-xl-v1/resolve/c86b13ff0e50bbff0c47bdb82a5a7c164d5211a9/pop-xl-v1.safetensors",
+          "file": "pop-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/pop-acestep1.5-xl-v1/resolve/c86b13ff0e50bbff0c47bdb82a5a7c164d5211a9/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-post-punk-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/post_punk-acestep1.5-xl-v1",
+      "likes": 0,
+      "downloads": 17,
+      "trigger": "roti-p0stpnk",
+      "name": "Post-Punk",
+      "description": {
+        "en": "Angular guitars, driving bass, baritone vocals and dark revival. The trigger word must be in the caption.",
+        "ru": "Угловатые гитары, напористый бас, баритон и мрачный ревайвл. Триггер-слово должно быть в описании.",
+        "zh": "棱角吉他、推进贝斯、男中音与暗黑复兴。描述中必须包含触发词。",
+        "ja": "角ばったギター、推進力のあるベース、バリトン、ダークなリバイバル。説明にトリガーワードが必要です。",
+        "ko": "각진 기타, 몰아치는 베이스, 바리톤 보컬, 다크 리바이벌. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/post_punk-acestep1.5-xl-v1/resolve/90e6575d408fd43730d44b4976da5fa1b2c9223b/post_punk-xl-v1.safetensors",
+          "file": "post_punk-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/post_punk-acestep1.5-xl-v1/resolve/90e6575d408fd43730d44b4976da5fa1b2c9223b/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-progressive-rock-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/progressive_rock-acestep1.5-xl-v1",
+      "likes": 1,
+      "downloads": 16,
+      "trigger": "roti-prgr0k",
+      "name": "Progressive Rock",
+      "description": {
+        "en": "Complex structures, odd meters and soaring solos. The trigger word must be in the caption.",
+        "ru": "Сложные формы, нечётные размеры и парящие соло. Триггер-слово должно быть в описании.",
+        "zh": "复杂结构、奇数拍与高亢独奏。描述中必须包含触发词。",
+        "ja": "複雑な構成、変拍子、伸びやかなソロ。説明にトリガーワードが必要です。",
+        "ko": "복잡한 구조, 변박, 솟구치는 솔로. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/progressive_rock-acestep1.5-xl-v1/resolve/c26abd91c3738a2e5d394fdaf60cae5b0e497ed5/progressive_rock-xl-v1.safetensors",
+          "file": "progressive_rock-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/progressive_rock-acestep1.5-xl-v1/resolve/c26abd91c3738a2e5d394fdaf60cae5b0e497ed5/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-psychedelic-rock-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/psychedelic_rock-acestep1.5-xl-v1",
+      "likes": 2,
+      "downloads": 15,
+      "trigger": "roti-psych-r0kk",
+      "name": "Psychedelic Rock",
+      "description": {
+        "en": "Swirling phased guitars, fuzz riffs and organ jams. The trigger word must be in the caption.",
+        "ru": "Кружащие гитары с фейзером, фузз-риффы и органные джемы. Триггер-слово должно быть в описании.",
+        "zh": "相位效果的回旋吉他、法兹即兴与风琴 jam。描述中必须包含触发词。",
+        "ja": "フェイザーの渦巻くギター、ファズリフ、オルガンのジャム。説明にトリガーワードが必要です。",
+        "ko": "페이저로 소용돌이치는 기타, 퍼즈 리프, 오르간 잼. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/psychedelic_rock-acestep1.5-xl-v1/resolve/d48578f6d58f7a944bd6bc10300b82168c1054e8/psychedelic_rock-xl-v1.safetensors",
+          "file": "psychedelic_rock-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/psychedelic_rock-acestep1.5-xl-v1/resolve/d48578f6d58f7a944bd6bc10300b82168c1054e8/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-punk-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/punk-acestep1.5-xl-v1",
+      "likes": 1,
+      "downloads": 11,
+      "trigger": "roti-punkkk",
+      "name": "Punk",
+      "description": {
+        "en": "Punk rock, pop punk and hardcore. The trigger word must be in the caption.",
+        "ru": "Панк-рок, поп-панк и хардкор. Триггер-слово должно быть в описании.",
+        "zh": "朋克摇滚、流行朋克与硬核。描述中必须包含触发词。",
+        "ja": "パンクロック、ポップパンク、ハードコア。説明にトリガーワードが必要です。",
+        "ko": "펑크 록, 팝 펑크, 하드코어. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/punk-acestep1.5-xl-v1/resolve/eb9d82e6eb9ab6a5a27684f019e5a7281228e788/punk-xl-v1.safetensors",
+          "file": "punk-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/punk-acestep1.5-xl-v1/resolve/eb9d82e6eb9ab6a5a27684f019e5a7281228e788/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-r-b-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/r_b-acestep1.5-xl-v1",
+      "likes": 0,
+      "downloads": 15,
+      "trigger": "roti-rrnbb",
+      "name": "R&B",
+      "description": {
+        "en": "Smooth R&B, modern R&B with 808s and neo-soul. The trigger word must be in the caption.",
+        "ru": "Плавный R&B, современный R&B с 808 и неосоул. Триггер-слово должно быть в описании.",
+        "zh": "柔和 R&B、带 808 的现代 R&B 与新灵魂乐。描述中必须包含触发词。",
+        "ja": "スムースな R&B、808 の現代的 R&B、ネオソウル。説明にトリガーワードが必要です。",
+        "ko": "부드러운 R&B, 808의 모던 R&B, 네오 소울. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/r_b-acestep1.5-xl-v1/resolve/da71468c0bb6a7e5c274f62fd7cb31a90b8d3839/r_b-xl-v1.safetensors",
+          "file": "r_b-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/r_b-acestep1.5-xl-v1/resolve/da71468c0bb6a7e5c274f62fd7cb31a90b8d3839/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-rap-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/rap-acestep1.5-xl-v1",
+      "likes": 0,
+      "downloads": 14,
+      "trigger": "roti-r4pz",
+      "name": "Rap",
+      "description": {
+        "en": "Modern hip-hop, West Coast and trap rap. The trigger word must be in the caption.",
+        "ru": "Современный хип-хоп, вест-коуст и трэп-рэп. Триггер-слово должно быть в описании.",
+        "zh": "现代嘻哈、西海岸与陷阱说唱。描述中必须包含触发词。",
+        "ja": "モダンなヒップホップ、ウエストコースト、トラップラップ。説明にトリガーワードが必要です。",
+        "ko": "모던 힙합, 웨스트 코스트, 트랩 랩. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/rap-acestep1.5-xl-v1/resolve/2e0aedf64871b3b533b55afc9c5ae5f200a8f4f8/rap-xl-v1.safetensors",
+          "file": "rap-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/rap-acestep1.5-xl-v1/resolve/2e0aedf64871b3b533b55afc9c5ae5f200a8f4f8/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-rock-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/rock-acestep1.5-xl-v1",
+      "likes": 0,
+      "downloads": 16,
+      "trigger": "roti-r0kkk",
+      "name": "Rock",
+      "description": {
+        "en": "Alternative, indie and hard rock anthems. The trigger word must be in the caption.",
+        "ru": "Альтернатива, инди и хард-рок-гимны. Триггер-слово должно быть в описании.",
+        "zh": "另类、独立与硬摇滚颂歌。描述中必须包含触发词。",
+        "ja": "オルタナ、インディー、ハードロックのアンセム。説明にトリガーワードが必要です。",
+        "ko": "얼터너티브, 인디, 하드 록 앤섬. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/rock-acestep1.5-xl-v1/resolve/4dc637dd976bfd715df11fab847128160f6464a3/rock-xl-v1.safetensors",
+          "file": "rock-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/rock-acestep1.5-xl-v1/resolve/4dc637dd976bfd715df11fab847128160f6464a3/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-shoegaze-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/shoegaze-acestep1.5-xl-v1",
+      "likes": 1,
+      "downloads": 10,
+      "trigger": "roti-sh0gz",
+      "name": "Shoegaze",
+      "description": {
+        "en": "Walls of reverb guitar and buried dreamy vocals. The trigger word must be in the caption.",
+        "ru": "Стены гитар в реверберации и утопленный мечтательный вокал. Триггер-слово должно быть в описании.",
+        "zh": "混响吉他之墙与埋在其中的梦幻人声。描述中必须包含触发词。",
+        "ja": "リバーブギターの壁と埋もれた夢見る声。説明にトリガーワードが必要です。",
+        "ko": "리버브 기타의 벽과 묻힌 몽환적 보컬. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/shoegaze-acestep1.5-xl-v1/resolve/2deacaba68fa522608651905feb2d0425e0b3a88/shoegaze-xl-v1.safetensors",
+          "file": "shoegaze-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/shoegaze-acestep1.5-xl-v1/resolve/2deacaba68fa522608651905feb2d0425e0b3a88/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-synth-pop-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/synth_pop-acestep1.5-xl-v1",
+      "likes": 0,
+      "downloads": 18,
+      "trigger": "roti-s1nthp0p",
+      "name": "Synth-Pop",
+      "description": {
+        "en": "Retro analog synth pop, modern and dark synth-pop. The trigger word must be in the caption.",
+        "ru": "Ретро-синти-поп на аналоговых синтах, современный и мрачный. Триггер-слово должно быть в описании.",
+        "zh": "复古模拟合成流行、现代与暗黑合成流行。描述中必须包含触发词。",
+        "ja": "レトロなアナログ・シンセポップ、モダンとダーク。説明にトリガーワードが必要です。",
+        "ko": "레트로 아날로그 신스팝, 모던과 다크. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/synth_pop-acestep1.5-xl-v1/resolve/d1e17805f3b934822db7dae2221bbbfc34218d63/synth_pop-xl-v1.safetensors",
+          "file": "synth_pop-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/synth_pop-acestep1.5-xl-v1/resolve/d1e17805f3b934822db7dae2221bbbfc34218d63/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-synthwave-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/synthwave-acestep1.5-xl-v1",
+      "likes": 2,
+      "downloads": 16,
+      "trigger": "roti-s1nthwv",
+      "name": "Synthwave",
+      "description": {
+        "en": "Retro 80s analog synths, darksynth and outrun. The trigger word must be in the caption.",
+        "ru": "Ретро-синты 80-х, дарксинт и аутран. Триггер-слово должно быть в описании.",
+        "zh": "复古 80 年代模拟合成器、暗黑合成与 outrun。描述中必须包含触发词。",
+        "ja": "80年代のアナログシンセ、ダークシンセ、アウトラン。説明にトリガーワードが必要です。",
+        "ko": "레트로 80년대 아날로그 신스, 다크신스, 아웃런. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/synthwave-acestep1.5-xl-v1/resolve/090335bd81926ea45075756158b092f545a42d9a/synthwave-xl-v1.safetensors",
+          "file": "synthwave-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/synthwave-acestep1.5-xl-v1/resolve/090335bd81926ea45075756158b092f545a42d9a/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-techno-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/techno-acestep1.5-xl-v1",
+      "likes": 1,
+      "downloads": 23,
+      "trigger": "roti-t3kn0",
+      "name": "Techno",
+      "description": {
+        "en": "Driving, dark and minimal techno. The trigger word must be in the caption.",
+        "ru": "Драйвовое, тёмное и минимал-техно. Триггер-слово должно быть в описании.",
+        "zh": "律动、暗黑与极简 techno。描述中必须包含触发词。",
+        "ja": "ドライブ感、ダーク、ミニマルのテクノ。説明にトリガーワードが必要です。",
+        "ko": "드라이빙, 다크, 미니멀 테크노. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/techno-acestep1.5-xl-v1/resolve/5154315313eb08bf9ff4d685b611706bfb4a2832/techno-xl-v1.safetensors",
+          "file": "techno-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/techno-acestep1.5-xl-v1/resolve/5154315313eb08bf9ff4d685b611706bfb4a2832/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-trap-xl-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "xl",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/trap-acestep1.5-xl-v1",
+      "likes": 1,
+      "downloads": 24,
+      "trigger": "roti-tr4ph0p",
+      "name": "Trap",
+      "description": {
+        "en": "Hard hi-hat rolls, sliding 808s and UK drill. The trigger word must be in the caption.",
+        "ru": "Дробь хай-хэтов, скользящие 808 и UK-дрилл. Триггер-слово должно быть в описании.",
+        "zh": "密集踩镲、滑音 808 与英式 drill。描述中必须包含触发词。",
+        "ja": "激しいハイハット、スライドする808、UKドリル。説明にトリガーワードが必要です。",
+        "ko": "빠른 하이햇 롤, 슬라이딩 808, UK 드릴. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/trap-acestep1.5-xl-v1/resolve/cb0562e7dfca7ea2ee8ee54e1f7be36ca88b8f39/trap-xl-v1.safetensors",
+          "file": "trap-xl-v1.safetensors",
+          "bytes": 167839168
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/trap-acestep1.5-xl-v1/resolve/cb0562e7dfca7ea2ee8ee54e1f7be36ca88b8f39/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1014
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-acoustic-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/acoustic-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 17,
+      "trigger": "roti-4custic",
+      "name": "Acoustic",
+      "description": {
+        "en": "Intimate guitar ballads and singer-songwriter songs. The trigger word must be in the caption.",
+        "ru": "Камерные гитарные баллады и авторская песня. Триггер-слово должно быть в описании.",
+        "zh": "亲密的吉他抒情与创作歌手作品。描述中必须包含触发词。",
+        "ja": "親密なギターバラードとシンガーソングライター。説明にトリガーワードが必要です。",
+        "ko": "친밀한 기타 발라드와 싱어송라이터 곡. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/acoustic-acestep1.5-v1/resolve/7fa69128048dfb92365269ec88cb6f4d72239f4e/acoustic-v1.safetensors",
+          "file": "acoustic-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/acoustic-acestep1.5-v1/resolve/7fa69128048dfb92365269ec88cb6f4d72239f4e/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-alternative-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/alternative-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 13,
+      "trigger": "roti-4ltrntv",
+      "name": "Alternative",
+      "description": {
+        "en": "Anthemic, jangly indie and atmospheric alternative. The trigger word must be in the caption.",
+        "ru": "Гимновая, инди и атмосферная альтернатива. Триггер-слово должно быть в описании.",
+        "zh": "颂歌式、独立与氛围另类摇滚。描述中必须包含触发词。",
+        "ja": "アンセム的、インディー、アトモスフェリックなオルタナ。説明にトリガーワードが必要です。",
+        "ko": "앤섬풍, 인디, 분위기 있는 얼터너티브. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/alternative-acestep1.5-v1/resolve/95134c77a373b9964a0414a80ac012514e1e01a8/alternative-v1.safetensors",
+          "file": "alternative-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/alternative-acestep1.5-v1/resolve/95134c77a373b9964a0414a80ac012514e1e01a8/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-alternative-rock-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/alternative_rock-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 14,
+      "trigger": "roti-4lt-r0kk",
+      "name": "Alternative Rock",
+      "description": {
+        "en": "Alt-rock anthems, indie post-punk and grunge. The trigger word must be in the caption.",
+        "ru": "Альт-рок-гимны, инди-пост-панк и гранж. Триггер-слово должно быть в описании.",
+        "zh": "另类摇滚颂歌、独立后朋克与垃圾摇滚。描述中必须包含触发词。",
+        "ja": "オルタナロックのアンセム、インディー・ポストパンク、グランジ。説明にトリガーワードが必要です。",
+        "ko": "얼터너티브 록 앤섬, 인디 포스트 펑크, 그런지. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/alternative_rock-acestep1.5-v1/resolve/6660d417de77ee94a6954266da56bffbbccbe5e7/alternative_rock-v1.safetensors",
+          "file": "alternative_rock-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/alternative_rock-acestep1.5-v1/resolve/6660d417de77ee94a6954266da56bffbbccbe5e7/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-ambient-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/ambient-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 14,
+      "trigger": "roti-4mbnt",
+      "name": "Ambient",
+      "description": {
+        "en": "Drones, cinematic swells and dark ambient. The trigger word must be in the caption.",
+        "ru": "Дроуны, кинематографичные волны и дарк-эмбиент. Триггер-слово должно быть в описании.",
+        "zh": "持续音、电影感起伏与暗黑氛围。描述中必须包含触发词。",
+        "ja": "ドローン、映画的なうねり、ダークアンビエント。説明にトリガーワードが必要です。",
+        "ko": "드론, 시네마틱한 스웰, 다크 앰비언트. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/ambient-acestep1.5-v1/resolve/ec3f3a4138a2cfa13508c98f8bff795fd574afc5/ambient-v1.safetensors",
+          "file": "ambient-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/ambient-acestep1.5-v1/resolve/ec3f3a4138a2cfa13508c98f8bff795fd574afc5/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-deep-house-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/deep_house-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 16,
+      "trigger": "roti-d33ph0us",
+      "name": "Deep House",
+      "description": {
+        "en": "Warm sub bass, jazzy keys and soulful vocals. The trigger word must be in the caption.",
+        "ru": "Тёплый саб-бас, джазовые клавиши и соул-вокал. Триггер-слово должно быть в описании.",
+        "zh": "温暖的超低音、爵士键盘与灵魂人声。描述中必须包含触发词。",
+        "ja": "温かいサブベース、ジャジーな鍵盤、ソウルフルな歌。説明にトリガーワードが必要です。",
+        "ko": "따뜻한 서브 베이스, 재지한 건반, 소울풀한 보컬. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/deep_house-acestep1.5-v1/resolve/746cf4500a242c741d28577b0d85fe579b830133/deep_house-v1.safetensors",
+          "file": "deep_house-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/deep_house-acestep1.5-v1/resolve/746cf4500a242c741d28577b0d85fe579b830133/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-dream-pop-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/dream_pop-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 10,
+      "trigger": "roti-drmp0p",
+      "name": "Dream Pop",
+      "description": {
+        "en": "Shimmering reverb guitars and hazy ethereal vocals. The trigger word must be in the caption.",
+        "ru": "Мерцающие гитары в реверберации и туманный вокал. Триггер-слово должно быть в описании.",
+        "zh": "闪烁的混响吉他与朦胧空灵的人声。描述中必须包含触发词。",
+        "ja": "きらめくリバーブギターと霞んだ幽玄な歌声。説明にトリガーワードが必要です。",
+        "ko": "반짝이는 리버브 기타와 몽환적인 보컬. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/dream_pop-acestep1.5-v1/resolve/a0c59caf9c346cef1d2998294545cc0d36346564/dream_pop-v1.safetensors",
+          "file": "dream_pop-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/dream_pop-acestep1.5-v1/resolve/a0c59caf9c346cef1d2998294545cc0d36346564/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-dubstep-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/dubstep-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 19,
+      "trigger": "roti-dubst3pp",
+      "name": "Dubstep",
+      "description": {
+        "en": "Wobble drops, riddim and chill dubstep. The trigger word must be in the caption.",
+        "ru": "Воббл-дропы, риддим и чилл-дабстеп. Триггер-слово должно быть в описании.",
+        "zh": "wobble drop、riddim 与 chill dubstep。描述中必须包含触发词。",
+        "ja": "ウォブルのドロップ、リディム、チル・ダブステップ。説明にトリガーワードが必要です。",
+        "ko": "워블 드롭, 리딤, 칠 덥스텝. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/dubstep-acestep1.5-v1/resolve/edee4cf125933c6ccaa33fc62b0f4b0b116c2d6c/dubstep-v1.safetensors",
+          "file": "dubstep-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/dubstep-acestep1.5-v1/resolve/edee4cf125933c6ccaa33fc62b0f4b0b116c2d6c/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-edm-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/edm-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 27,
+      "trigger": "roti-3dmm",
+      "name": "EDM",
+      "description": {
+        "en": "Trance supersaws, festival anthems and progressive house. The trigger word must be in the caption.",
+        "ru": "Транс-суперсо, фестивальные гимны и прогрессив-хаус. Триггер-слово должно быть в описании.",
+        "zh": "迪斯科超锯齿、音乐节颂歌与前卫 house。描述中必须包含触发词。",
+        "ja": "トランスのスーパーソー、フェス・アンセム、プログレッシブ・ハウス。説明にトリガーワードが必要です。",
+        "ko": "트랜스 슈퍼소, 페스티벌 앤섬, 프로그레시브 하우스. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/edm-acestep1.5-v1/resolve/e725d72078a64f454ea115ffaf8157c886bdc381/edm-v1.safetensors",
+          "file": "edm-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/edm-acestep1.5-v1/resolve/e725d72078a64f454ea115ffaf8157c886bdc381/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-electronic-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/electronic-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 14,
+      "trigger": "roti-3l3ktr0n",
+      "name": "Electronic",
+      "description": {
+        "en": "Hypnotic synth pulses, glitch and cinematic dance. The trigger word must be in the caption.",
+        "ru": "Гипнотичные синт-пульсации, глитч и кинематографичный дэнс. Триггер-слово должно быть в описании.",
+        "zh": "催眠般的合成器脉冲、故障音与电影感舞曲。描述中必须包含触发词。",
+        "ja": "催眠的なシンセのパルス、グリッチ、映画的なダンス。説明にトリガーワードが必要です。",
+        "ko": "최면적인 신스 펄스, 글리치, 시네마틱 댄스. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/electronic-acestep1.5-v1/resolve/39d1f54aafc71266e46acc8ed8502e017d34b702/electronic-v1.safetensors",
+          "file": "electronic-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/electronic-acestep1.5-v1/resolve/39d1f54aafc71266e46acc8ed8502e017d34b702/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-electropop-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/electropop-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 11,
+      "trigger": "roti-3l3ktrp0p",
+      "name": "Electropop",
+      "description": {
+        "en": "Glossy four-on-the-floor hooks and dark electropop. The trigger word must be in the caption.",
+        "ru": "Глянцевые танцевальные хуки и мрачный электропоп. Триггер-слово должно быть в описании.",
+        "zh": "光鲜的四四拍 hook 与暗黑电子流行。描述中必须包含触发词。",
+        "ja": "ツヤのある4つ打ちのフックとダークなエレクトロポップ。説明にトリガーワードが必要です。",
+        "ko": "윤기 나는 포온더플로어 훅과 다크 일렉트로팝. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/electropop-acestep1.5-v1/resolve/7483f32c59f2bd7dc6e4ef3e9834c26953024ae8/electropop-v1.safetensors",
+          "file": "electropop-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/electropop-acestep1.5-v1/resolve/7483f32c59f2bd7dc6e4ef3e9834c26953024ae8/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-emo-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/emo-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 10,
+      "trigger": "roti-em00",
+      "name": "Emo",
+      "description": {
+        "en": "Emo rock, pop emo and post-hardcore. The trigger word must be in the caption.",
+        "ru": "Эмо-рок, поп-эмо и пост-хардкор. Триггер-слово должно быть в описании.",
+        "zh": "情绪摇滚、流行 emo 与后硬核。描述中必须包含触发词。",
+        "ja": "エモロック、ポップエモ、ポストハードコア。説明にトリガーワードが必要です。",
+        "ko": "이모 록, 팝 이모, 포스트 하드코어. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/emo-acestep1.5-v1/resolve/59d9989ce59c74c388ee1759230332f6dc987797/emo-v1.safetensors",
+          "file": "emo-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/emo-acestep1.5-v1/resolve/59d9989ce59c74c388ee1759230332f6dc987797/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-experimental-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/experimental-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 11,
+      "trigger": "roti-3xpr1mtl",
+      "name": "Experimental",
+      "description": {
+        "en": "Glitch, noise and processed field recordings. The trigger word must be in the caption.",
+        "ru": "Глитч, нойз и обработанные полевые записи. Триггер-слово должно быть в описании.",
+        "zh": "故障音、噪音与处理过的环境录音。描述中必须包含触发词。",
+        "ja": "グリッチ、ノイズ、加工したフィールドレコーディング。説明にトリガーワードが必要です。",
+        "ko": "글리치, 노이즈, 가공한 필드 레코딩. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/experimental-acestep1.5-v1/resolve/4ce3717ef56b528ee29edb7f45280dddf502f049/experimental-v1.safetensors",
+          "file": "experimental-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/experimental-acestep1.5-v1/resolve/4ce3717ef56b528ee29edb7f45280dddf502f049/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-folk-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/folk-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 11,
+      "trigger": "roti-f0lkk",
+      "name": "Folk",
+      "description": {
+        "en": "Fingerpicked indie folk, fiddle and harmonica, americana. The trigger word must be in the caption.",
+        "ru": "Инди-фолк пальцами, скрипка и губная гармошка, американа. Триггер-слово должно быть в описании.",
+        "zh": "指弹独立民谣、小提琴与口琴、美式乡土。描述中必须包含触发词。",
+        "ja": "フィンガーピッキングのインディーフォーク、フィドルとハーモニカ、アメリカーナ。説明にトリガーワードが必要です。",
+        "ko": "핑거피킹 인디 포크, 피들과 하모니카, 아메리카나. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/folk-acestep1.5-v1/resolve/552091546c051f9a458235129963e1e2c6615002/folk-v1.safetensors",
+          "file": "folk-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/folk-acestep1.5-v1/resolve/552091546c051f9a458235129963e1e2c6615002/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-funk-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/funk-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 11,
+      "trigger": "roti-funkk",
+      "name": "Funk",
+      "description": {
+        "en": "Slap bass and brass, disco funk and modern funk. The trigger word must be in the caption.",
+        "ru": "Слэп-бас и духовые, диско-фанк и современный фанк. Триггер-слово должно быть в описании.",
+        "zh": "击勾贝斯与铜管、迪斯科放克与现代放克。描述中必须包含触发词。",
+        "ja": "スラップベースとブラス、ディスコファンク、モダンファンク。説明にトリガーワードが必要です。",
+        "ko": "슬랩 베이스와 브라스, 디스코 펑크, 모던 펑크. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/funk-acestep1.5-v1/resolve/34865bc54f86797494324d4b5fe394d166e17597/funk-v1.safetensors",
+          "file": "funk-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/funk-acestep1.5-v1/resolve/34865bc54f86797494324d4b5fe394d166e17597/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-future-bass-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/future_bass-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 11,
+      "trigger": "roti-fbass",
+      "name": "Future Bass",
+      "description": {
+        "en": "Detuned supersaws, vocal chops and chill drops. The trigger word must be in the caption.",
+        "ru": "Расстроенные суперсо, вокальные нарезки и мягкие дропы. Триггер-слово должно быть в описании.",
+        "zh": "失谐超锯齿、人声切片与轻柔 drop。描述中必须包含触发词。",
+        "ja": "デチューンしたスーパーソー、ボーカルチョップ、チルなドロップ。説明にトリガーワードが必要です。",
+        "ko": "디튠 슈퍼소, 보컬 찹, 칠한 드롭. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/future_bass-acestep1.5-v1/resolve/3c43a3d0b93d65b229d7d8414d66e035b68136e5/future_bass-v1.safetensors",
+          "file": "future_bass-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/future_bass-acestep1.5-v1/resolve/3c43a3d0b93d65b229d7d8414d66e035b68136e5/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-grunge-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/grunge-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 13,
+      "trigger": "roti-grungg",
+      "name": "Grunge",
+      "description": {
+        "en": "Nineties power chords, loud-quiet dynamics and raspy vocals. The trigger word must be in the caption.",
+        "ru": "Пауэр-аккорды девяностых, перепады громкости и хриплый вокал. Триггер-слово должно быть в описании.",
+        "zh": "九十年代强力和弦、轻响对比与沙哑人声。描述中必须包含触发词。",
+        "ja": "90年代のパワーコード、静と動、しゃがれ声。説明にトリガーワードが必要です。",
+        "ko": "90년대 파워 코드, 강약 대비, 거친 보컬. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/grunge-acestep1.5-v1/resolve/64b0a4cb2239cb0c6bbc9368fc86b057b58416cf/grunge-v1.safetensors",
+          "file": "grunge-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/grunge-acestep1.5-v1/resolve/64b0a4cb2239cb0c6bbc9368fc86b057b58416cf/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-hip-hop-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/hip_hop-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 21,
+      "trigger": "roti-h1php0p",
+      "name": "Hip Hop",
+      "description": {
+        "en": "Boom-bap with jazzy samples, modern 808s and lo-fi hip-hop. The trigger word must be in the caption.",
+        "ru": "Бум-бэп с джазовыми сэмплами, современные 808 и лоу-фай хип-хоп. Триггер-слово должно быть в описании.",
+        "zh": "爵士采样的 boom-bap、现代 808 与 lo-fi 嘻哈。描述中必须包含触发词。",
+        "ja": "ジャジーなサンプルのブーンバップ、現代的な808、ローファイ・ヒップホップ。説明にトリガーワードが必要です。",
+        "ko": "재지한 샘플의 붐뱁, 현대적 808, 로파이 힙합. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/hip_hop-acestep1.5-v1/resolve/47da3d3546dabb405784d299640c558495cdead9/hip_hop-v1.safetensors",
+          "file": "hip_hop-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/hip_hop-acestep1.5-v1/resolve/47da3d3546dabb405784d299640c558495cdead9/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-house-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/house-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 18,
+      "trigger": "roti-h0us3",
+      "name": "House",
+      "description": {
+        "en": "Classic, vocal and tech house. The trigger word must be in the caption.",
+        "ru": "Классический, вокальный и тек-хаус. Триггер-слово должно быть в описании.",
+        "zh": "经典、人声与 tech house。描述中必须包含触发词。",
+        "ja": "クラシック、ボーカル、テックハウス。説明にトリガーワードが必要です。",
+        "ko": "클래식, 보컬, 테크 하우스. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/house-acestep1.5-v1/resolve/310af25a9bfbb0fecdb301f8f44f3adca589cc69/house-v1.safetensors",
+          "file": "house-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/house-acestep1.5-v1/resolve/310af25a9bfbb0fecdb301f8f44f3adca589cc69/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-indie-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/indie-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 11,
+      "trigger": "roti-1nd33",
+      "name": "Indie",
+      "description": {
+        "en": "Indie pop, indie folk and indie rock. The trigger word must be in the caption.",
+        "ru": "Инди-поп, инди-фолк и инди-рок. Триггер-слово должно быть в описании.",
+        "zh": "独立流行、独立民谣与独立摇滚。描述中必须包含触发词。",
+        "ja": "インディーポップ、インディーフォーク、インディーロック。説明にトリガーワードが必要です。",
+        "ko": "인디 팝, 인디 포크, 인디 록. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/indie-acestep1.5-v1/resolve/cf5a4f4da2ed4f1ba923d546cb3a0ab0873f772b/indie-v1.safetensors",
+          "file": "indie-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/indie-acestep1.5-v1/resolve/cf5a4f4da2ed4f1ba923d546cb3a0ab0873f772b/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-indie-rock-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/indie_rock-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 13,
+      "trigger": "roti-1ndr0k",
+      "name": "Indie Rock",
+      "description": {
+        "en": "Jangly, anthemic and dreamy indie rock. The trigger word must be in the caption.",
+        "ru": "Звенящий, гимновый и мечтательный инди-рок. Триггер-слово должно быть в описании.",
+        "zh": "清脆、颂歌式与梦幻的独立摇滚。描述中必须包含触发词。",
+        "ja": "ジャングリー、アンセム的、ドリーミーなインディーロック。説明にトリガーワードが必要です。",
+        "ko": "징글리, 앤섬풍, 몽환적인 인디 록. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/indie_rock-acestep1.5-v1/resolve/21808d089407fc3bbf51f4d4c8529d66ae579593/indie_rock-v1.safetensors",
+          "file": "indie_rock-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/indie_rock-acestep1.5-v1/resolve/21808d089407fc3bbf51f4d4c8529d66ae579593/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-industrial-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/industrial-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 14,
+      "trigger": "roti-1ndstrl",
+      "name": "Industrial",
+      "description": {
+        "en": "Mechanical percussion, industrial rock and dance. The trigger word must be in the caption.",
+        "ru": "Механическая перкуссия, индастриал-рок и дэнс. Триггер-слово должно быть в описании.",
+        "zh": "机械打击乐、工业摇滚与工业舞曲。描述中必须包含触发词。",
+        "ja": "機械的なパーカッション、インダストリアル・ロックとダンス。説明にトリガーワードが必要です。",
+        "ko": "기계적 퍼커션, 인더스트리얼 록과 댄스. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/industrial-acestep1.5-v1/resolve/ffe9c571a09a958091c4160ceb3f3e19e76c8218/industrial-v1.safetensors",
+          "file": "industrial-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/industrial-acestep1.5-v1/resolve/ffe9c571a09a958091c4160ceb3f3e19e76c8218/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-j-pop-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/j_pop-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 17,
+      "trigger": "roti-jp0pp",
+      "name": "J-Pop",
+      "description": {
+        "en": "Bright anime-style J-pop, idol pop and J-rock. The trigger word must be in the caption.",
+        "ru": "Яркий J-pop в духе аниме, айдол-поп и J-rock. Триггер-слово должно быть в описании.",
+        "zh": "明亮的动漫风 J-pop、偶像流行与 J-rock。描述中必须包含触发词。",
+        "ja": "明るいアニメ風 J-POP、アイドルポップ、J-ROCK。説明にトリガーワードが必要です。",
+        "ko": "밝은 애니풍 J팝, 아이돌 팝, J록. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/j_pop-acestep1.5-v1/resolve/6a9455638fb01636be211238f4cb7d2e58f737d5/j_pop-v1.safetensors",
+          "file": "j_pop-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/j_pop-acestep1.5-v1/resolve/6a9455638fb01636be211238f4cb7d2e58f737d5/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-jazz-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/jazz-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 18,
+      "trigger": "roti-j4zzz",
+      "name": "Jazz",
+      "description": {
+        "en": "Smooth quartet, swing big band and fusion. The trigger word must be in the caption.",
+        "ru": "Смус-квартет, свинг-биг-бэнд и фьюжн. Триггер-слово должно быть в описании.",
+        "zh": "柔和四重奏、摇摆大乐队与融合爵士。描述中必须包含触发词。",
+        "ja": "スムースなカルテット、スウィングのビッグバンド、フュージョン。説明にトリガーワードが必要です。",
+        "ko": "스무스 콰르텟, 스윙 빅밴드, 퓨전. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/jazz-acestep1.5-v1/resolve/556ca812942e535b3b1be13abef83917cfa1f938/jazz-v1.safetensors",
+          "file": "jazz-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/jazz-acestep1.5-v1/resolve/556ca812942e535b3b1be13abef83917cfa1f938/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-lo-fi-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/lo_fi-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 10,
+      "trigger": "roti-l0f1y",
+      "name": "Lo-Fi",
+      "description": {
+        "en": "Vinyl crackle, jazzy chords and study beats. The trigger word must be in the caption.",
+        "ru": "Треск винила, джазовые аккорды и биты для учёбы. Триггер-слово должно быть в описании.",
+        "zh": "黑胶噼啪声、爵士和弦与学习节拍。描述中必须包含触发词。",
+        "ja": "レコードのノイズ、ジャジーなコード、勉強用ビート。説明にトリガーワードが必要です。",
+        "ko": "바이닐 잡음, 재지한 코드, 공부용 비트. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/lo_fi-acestep1.5-v1/resolve/497b97b7e8548d916366ee534551413d32d0fbdc/lo_fi-v1.safetensors",
+          "file": "lo_fi-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/lo_fi-acestep1.5-v1/resolve/497b97b7e8548d916366ee534551413d32d0fbdc/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-metal-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/metal-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 22,
+      "trigger": "roti-m3t4al",
+      "name": "Metal",
+      "description": {
+        "en": "Heavy, death and progressive metal. The trigger word must be in the caption.",
+        "ru": "Хеви, дэт и прогрессив-метал. Триггер-слово должно быть в описании.",
+        "zh": "重金属、死亡金属与前卫金属。描述中必须包含触发词。",
+        "ja": "ヘヴィ、デス、プログレッシブ・メタル。説明にトリガーワードが必要です。",
+        "ko": "헤비, 데스, 프로그레시브 메탈. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/metal-acestep1.5-v1/resolve/6371e966fbfc2df510ec5c0980528715115c00ce/metal-v1.safetensors",
+          "file": "metal-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/metal-acestep1.5-v1/resolve/6371e966fbfc2df510ec5c0980528715115c00ce/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-metalcore-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/metalcore-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 19,
+      "trigger": "roti-mtcrr",
+      "name": "Metalcore",
+      "description": {
+        "en": "Breakdowns, screams with clean choruses and djent. The trigger word must be in the caption.",
+        "ru": "Брейкдауны, скрим с чистыми припевами и джент. Триггер-слово должно быть в описании.",
+        "zh": "breakdown、嘶吼配清嗓副歌与 djent。描述中必须包含触发词。",
+        "ja": "ブレイクダウン、スクリームとクリーンなサビ、ジェント。説明にトリガーワードが必要です。",
+        "ko": "브레이크다운, 스크림과 클린 코러스, 젠트. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/metalcore-acestep1.5-v1/resolve/8fd6ca778693adb3bd56e56345fec0519881237b/metalcore-v1.safetensors",
+          "file": "metalcore-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/metalcore-acestep1.5-v1/resolve/8fd6ca778693adb3bd56e56345fec0519881237b/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-phonk-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/phonk-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 18,
+      "trigger": "roti-ph0nkk",
+      "name": "Phonk",
+      "description": {
+        "en": "Distorted 808s and cowbell, drift phonk and Brazilian phonk. The trigger word must be in the caption.",
+        "ru": "Перегруженные 808 и ковбелл, дрифт-фонк и бразильский фонк. Триггер-слово должно быть в описании.",
+        "zh": "失真 808 与牛铃、漂移 phonk 与巴西 phonk。描述中必须包含触发词。",
+        "ja": "歪んだ808とカウベル、ドリフト・フォンク、ブラジリアン・フォンク。説明にトリガーワードが必要です。",
+        "ko": "디스토션 808과 카우벨, 드리프트 퐁크, 브라질 퐁크. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/phonk-acestep1.5-v1/resolve/f32264fd17fe386aeb85b1c1a70b7f7676999bdd/phonk-v1.safetensors",
+          "file": "phonk-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/phonk-acestep1.5-v1/resolve/f32264fd17fe386aeb85b1c1a70b7f7676999bdd/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-pop-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/pop-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 20,
+      "trigger": "roti-p0pp4",
+      "name": "Pop",
+      "description": {
+        "en": "Catchy synth pop, indie ballads and dance pop. The trigger word must be in the caption.",
+        "ru": "Цепкий синти-поп, инди-баллады и дэнс-поп. Триггер-слово должно быть в описании.",
+        "zh": "洗脑的合成流行、独立抒情与舞曲流行。描述中必须包含触发词。",
+        "ja": "キャッチーなシンセポップ、インディーバラード、ダンスポップ。説明にトリガーワードが必要です。",
+        "ko": "중독성 있는 신스 팝, 인디 발라드, 댄스 팝. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/pop-acestep1.5-v1/resolve/5cec3337307113fa0aeaa295ff79a045dad26c83/pop-v1.safetensors",
+          "file": "pop-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/pop-acestep1.5-v1/resolve/5cec3337307113fa0aeaa295ff79a045dad26c83/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-post-punk-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/post_punk-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 14,
+      "trigger": "roti-p0stpnk",
+      "name": "Post-Punk",
+      "description": {
+        "en": "Angular guitars, driving bass, baritone vocals and dark revival. The trigger word must be in the caption.",
+        "ru": "Угловатые гитары, напористый бас, баритон и мрачный ревайвл. Триггер-слово должно быть в описании.",
+        "zh": "棱角吉他、推进贝斯、男中音与暗黑复兴。描述中必须包含触发词。",
+        "ja": "角ばったギター、推進力のあるベース、バリトン、ダークなリバイバル。説明にトリガーワードが必要です。",
+        "ko": "각진 기타, 몰아치는 베이스, 바리톤 보컬, 다크 리바이벌. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/post_punk-acestep1.5-v1/resolve/16354991cf98a4a82c8516b478c668ea274ac669/post_punk-v1.safetensors",
+          "file": "post_punk-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/post_punk-acestep1.5-v1/resolve/16354991cf98a4a82c8516b478c668ea274ac669/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-progressive-rock-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/progressive_rock-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 11,
+      "trigger": "roti-prgr0k",
+      "name": "Progressive Rock",
+      "description": {
+        "en": "Complex structures, odd meters and soaring solos. The trigger word must be in the caption.",
+        "ru": "Сложные формы, нечётные размеры и парящие соло. Триггер-слово должно быть в описании.",
+        "zh": "复杂结构、奇数拍与高亢独奏。描述中必须包含触发词。",
+        "ja": "複雑な構成、変拍子、伸びやかなソロ。説明にトリガーワードが必要です。",
+        "ko": "복잡한 구조, 변박, 솟구치는 솔로. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/progressive_rock-acestep1.5-v1/resolve/e3dea1aabf095ae9b0331fbbe11075aed0d251c0/progressive_rock-v1.safetensors",
+          "file": "progressive_rock-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/progressive_rock-acestep1.5-v1/resolve/e3dea1aabf095ae9b0331fbbe11075aed0d251c0/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-psychedelic-rock-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/psychedelic_rock-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 15,
+      "trigger": "roti-psych-r0kk",
+      "name": "Psychedelic Rock",
+      "description": {
+        "en": "Swirling phased guitars, fuzz riffs and organ jams. The trigger word must be in the caption.",
+        "ru": "Кружащие гитары с фейзером, фузз-риффы и органные джемы. Триггер-слово должно быть в описании.",
+        "zh": "相位效果的回旋吉他、法兹即兴与风琴 jam。描述中必须包含触发词。",
+        "ja": "フェイザーの渦巻くギター、ファズリフ、オルガンのジャム。説明にトリガーワードが必要です。",
+        "ko": "페이저로 소용돌이치는 기타, 퍼즈 리프, 오르간 잼. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/psychedelic_rock-acestep1.5-v1/resolve/676866f0287455bd82d70f364f3abfdbb33bf3d5/psychedelic_rock-v1.safetensors",
+          "file": "psychedelic_rock-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/psychedelic_rock-acestep1.5-v1/resolve/676866f0287455bd82d70f364f3abfdbb33bf3d5/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-punk-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/punk-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 17,
+      "trigger": "roti-punkkk",
+      "name": "Punk",
+      "description": {
+        "en": "Punk rock, pop punk and hardcore. The trigger word must be in the caption.",
+        "ru": "Панк-рок, поп-панк и хардкор. Триггер-слово должно быть в описании.",
+        "zh": "朋克摇滚、流行朋克与硬核。描述中必须包含触发词。",
+        "ja": "パンクロック、ポップパンク、ハードコア。説明にトリガーワードが必要です。",
+        "ko": "펑크 록, 팝 펑크, 하드코어. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/punk-acestep1.5-v1/resolve/b5ad5472ffa94cc71e5e3aecca964a1d9e4a75ab/punk-v1.safetensors",
+          "file": "punk-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/punk-acestep1.5-v1/resolve/b5ad5472ffa94cc71e5e3aecca964a1d9e4a75ab/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-r-b-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/r_b-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 19,
+      "trigger": "roti-rrnbb",
+      "name": "R&B",
+      "description": {
+        "en": "Smooth R&B, modern R&B with 808s and neo-soul. The trigger word must be in the caption.",
+        "ru": "Плавный R&B, современный R&B с 808 и неосоул. Триггер-слово должно быть в описании.",
+        "zh": "柔和 R&B、带 808 的现代 R&B 与新灵魂乐。描述中必须包含触发词。",
+        "ja": "スムースな R&B、808 の現代的 R&B、ネオソウル。説明にトリガーワードが必要です。",
+        "ko": "부드러운 R&B, 808의 모던 R&B, 네오 소울. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/r_b-acestep1.5-v1/resolve/e7f205ba85413fa16e2c19b6089a8639c50ab749/r_b-v1.safetensors",
+          "file": "r_b-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/r_b-acestep1.5-v1/resolve/e7f205ba85413fa16e2c19b6089a8639c50ab749/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-rap-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/rap-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 18,
+      "trigger": "roti-r4pz",
+      "name": "Rap",
+      "description": {
+        "en": "Modern hip-hop, West Coast and trap rap. The trigger word must be in the caption.",
+        "ru": "Современный хип-хоп, вест-коуст и трэп-рэп. Триггер-слово должно быть в описании.",
+        "zh": "现代嘻哈、西海岸与陷阱说唱。描述中必须包含触发词。",
+        "ja": "モダンなヒップホップ、ウエストコースト、トラップラップ。説明にトリガーワードが必要です。",
+        "ko": "모던 힙합, 웨스트 코스트, 트랩 랩. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/rap-acestep1.5-v1/resolve/0a0428b8f3bb934db8763ab9649f30bceaa517e9/rap-v1.safetensors",
+          "file": "rap-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/rap-acestep1.5-v1/resolve/0a0428b8f3bb934db8763ab9649f30bceaa517e9/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-rock-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/rock-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 18,
+      "trigger": "roti-r0kkk",
+      "name": "Rock",
+      "description": {
+        "en": "Alternative, indie and hard rock anthems. The trigger word must be in the caption.",
+        "ru": "Альтернатива, инди и хард-рок-гимны. Триггер-слово должно быть в описании.",
+        "zh": "另类、独立与硬摇滚颂歌。描述中必须包含触发词。",
+        "ja": "オルタナ、インディー、ハードロックのアンセム。説明にトリガーワードが必要です。",
+        "ko": "얼터너티브, 인디, 하드 록 앤섬. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/rock-acestep1.5-v1/resolve/382d820e0dd84fc4a34b7b778701751c3bc36ad0/rock-v1.safetensors",
+          "file": "rock-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/rock-acestep1.5-v1/resolve/382d820e0dd84fc4a34b7b778701751c3bc36ad0/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-shoegaze-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/shoegaze-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 9,
+      "trigger": "roti-sh0gz",
+      "name": "Shoegaze",
+      "description": {
+        "en": "Walls of reverb guitar and buried dreamy vocals. The trigger word must be in the caption.",
+        "ru": "Стены гитар в реверберации и утопленный мечтательный вокал. Триггер-слово должно быть в описании.",
+        "zh": "混响吉他之墙与埋在其中的梦幻人声。描述中必须包含触发词。",
+        "ja": "リバーブギターの壁と埋もれた夢見る声。説明にトリガーワードが必要です。",
+        "ko": "리버브 기타의 벽과 묻힌 몽환적 보컬. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/shoegaze-acestep1.5-v1/resolve/24568c1339f4155c253f0a2c12feb0f0c976257f/shoegaze-v1.safetensors",
+          "file": "shoegaze-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/shoegaze-acestep1.5-v1/resolve/24568c1339f4155c253f0a2c12feb0f0c976257f/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-synth-pop-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/synth_pop-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 10,
+      "trigger": "roti-s1nthp0p",
+      "name": "Synth-Pop",
+      "description": {
+        "en": "Retro analog synth pop, modern and dark synth-pop. The trigger word must be in the caption.",
+        "ru": "Ретро-синти-поп на аналоговых синтах, современный и мрачный. Триггер-слово должно быть в описании.",
+        "zh": "复古模拟合成流行、现代与暗黑合成流行。描述中必须包含触发词。",
+        "ja": "レトロなアナログ・シンセポップ、モダンとダーク。説明にトリガーワードが必要です。",
+        "ko": "레트로 아날로그 신스팝, 모던과 다크. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/synth_pop-acestep1.5-v1/resolve/4e35f7dd4062aadc9b2b94fc65156fcb86f1e4c3/synth_pop-v1.safetensors",
+          "file": "synth_pop-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/synth_pop-acestep1.5-v1/resolve/4e35f7dd4062aadc9b2b94fc65156fcb86f1e4c3/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-synthwave-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/synthwave-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 16,
+      "trigger": "roti-s1nthwv",
+      "name": "Synthwave",
+      "description": {
+        "en": "Retro 80s analog synths, darksynth and outrun. The trigger word must be in the caption.",
+        "ru": "Ретро-синты 80-х, дарксинт и аутран. Триггер-слово должно быть в описании.",
+        "zh": "复古 80 年代模拟合成器、暗黑合成与 outrun。描述中必须包含触发词。",
+        "ja": "80年代のアナログシンセ、ダークシンセ、アウトラン。説明にトリガーワードが必要です。",
+        "ko": "레트로 80년대 아날로그 신스, 다크신스, 아웃런. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/synthwave-acestep1.5-v1/resolve/6b7fd261d3300e2f6f3f17758fd46a533793190d/synthwave-v1.safetensors",
+          "file": "synthwave-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/synthwave-acestep1.5-v1/resolve/6b7fd261d3300e2f6f3f17758fd46a533793190d/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-techno-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/techno-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 21,
+      "trigger": "roti-t3kn0",
+      "name": "Techno",
+      "description": {
+        "en": "Driving, dark and minimal techno. The trigger word must be in the caption.",
+        "ru": "Драйвовое, тёмное и минимал-техно. Триггер-слово должно быть в описании.",
+        "zh": "律动、暗黑与极简 techno。描述中必须包含触发词。",
+        "ja": "ドライブ感、ダーク、ミニマルのテクノ。説明にトリガーワードが必要です。",
+        "ko": "드라이빙, 다크, 미니멀 테크노. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/techno-acestep1.5-v1/resolve/c54e856d4114c9ba8cc635fe8a7e2d90720f49f6/techno-v1.safetensors",
+          "file": "techno-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/techno-acestep1.5-v1/resolve/c54e856d4114c9ba8cc635fe8a7e2d90720f49f6/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
+        }
+      ]
+    },
+    {
+      "id": "ryanontheinside-trap-v1",
+      "engine": "acestep-cpp",
+      "kind": "style",
+      "model": "2b",
+      "author": "ryanontheinside",
+      "page": "https://huggingface.co/ryanontheinside/trap-acestep1.5-v1",
+      "likes": 0,
+      "downloads": 18,
+      "trigger": "roti-tr4ph0p",
+      "name": "Trap",
+      "description": {
+        "en": "Hard hi-hat rolls, sliding 808s and UK drill. The trigger word must be in the caption.",
+        "ru": "Дробь хай-хэтов, скользящие 808 и UK-дрилл. Триггер-слово должно быть в описании.",
+        "zh": "密集踩镲、滑音 808 与英式 drill。描述中必须包含触发词。",
+        "ja": "激しいハイハット、スライドする808、UKドリル。説明にトリガーワードが必要です。",
+        "ko": "빠른 하이햇 롤, 슬라이딩 808, UK 드릴. 설명에 트리거 단어가 있어야 합니다."
+      },
+      "scales": {
+        "dit": 1.0
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/ryanontheinside/trap-acestep1.5-v1/resolve/77c9423e14c5cdaea0989d5070014d9d15cee8df/trap-v1.safetensors",
+          "file": "trap-v1.safetensors",
+          "bytes": 88130248
+        },
+        {
+          "url": "https://huggingface.co/ryanontheinside/trap-acestep1.5-v1/resolve/77c9423e14c5cdaea0989d5070014d9d15cee8df/adapter_config.json",
+          "file": "adapter_config.json",
+          "bytes": 1011
         }
       ]
     }

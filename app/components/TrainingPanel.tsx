@@ -28,6 +28,7 @@ import {
   deleteRun,
   describeItem,
   fetchTraining,
+  downloadTrainingBase,
   gigabytes,
   importDataset,
   installCheckpoint,
@@ -716,7 +717,26 @@ const TrainStep: React.FC<{ state: TrainingState; dataset: Dataset; job: Prepare
   const unstyled = dataset.items.filter(item => item.style_state !== 'done').length;
   const total = dataset.items.reduce((sum, item) => sum + item.seconds, 0);
   const preparing = Boolean(job && !job.finished);
-  const blocker = !dataset.items.length ? t('trainingNeedSongs') : unsung ? t('trainingNeedLyrics').replace('{count}', String(unsung)) : preparing ? t('trainingWaitPrepare') : state.active ? t('trainingBusy') : null;
+  const baseMissing = Boolean(state.base && !state.base.installed);
+  const blocker = !dataset.items.length ? t('trainingNeedSongs') : unsung ? t('trainingNeedLyrics').replace('{count}', String(unsung)) : preparing ? t('trainingWaitPrepare') : state.active ? t('trainingBusy') : baseMissing ? t('trainingBaseMissing') : null;
+  // the BF16 base downloads through the model manager; its progress is read from there
+  const [baseDownload, setBaseDownload] = useState<{ downloaded_bytes: number; total_bytes: number } | null>(null);
+  useEffect(() => {
+    if (!baseDownload) return;
+    const timer = window.setInterval(() => {
+      void fetch('/setup/status')
+        .then(response => response.json())
+        .then((status: { active?: { status: string; downloaded_bytes: number; total_bytes: number } | null }) => {
+          if (status.active?.status === 'downloading') setBaseDownload(status.active);
+          else {
+            setBaseDownload(null);
+            onRefresh();
+          }
+        })
+        .catch((problem: unknown) => onError(errorText(problem)));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [baseDownload, onRefresh, onError]);
   const start = async () => {
     setStarting(true);
     try {
@@ -751,6 +771,28 @@ const TrainStep: React.FC<{ state: TrainingState; dataset: Dataset; job: Prepare
           {check(unsung === 0, unsung ? t('trainingNeedLyrics').replace('{count}', String(unsung)) : t('trainingCheckLyrics'))}
           {check(unstyled === 0, unstyled ? t('trainingNeedStyle').replace('{count}', String(unstyled)) : t('trainingCheckStyle'))}
         </ul>
+        {state.base !== undefined && (
+          <div className="mt-3 text-xs text-zinc-600 dark:text-zinc-300">
+            {t('trainingBase')}: <b className="font-mono text-[11px]">{state.base ? state.base.dit.replace(/\.gguf$/, '') : '—'}</b>
+            <span className={`block ${HINT}`}>{t('trainingBaseHint')}</span>
+            {state.base && !state.base.installed && (
+              baseDownload ? (
+                <div className="mt-2 max-w-sm">
+                  <div className="flex justify-between text-[11px] tabular-nums text-zinc-500"><span>{t('trainingBaseDownloading')}</span><span>{gigabytes(baseDownload.downloaded_bytes)} / {gigabytes(baseDownload.total_bytes)}</span></div>
+                  <div className="mt-1 h-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-white/10"><div className="h-full bg-gradient-to-r from-orange-500 to-pink-600" style={{ width: `${baseDownload.total_bytes ? (100 * baseDownload.downloaded_bytes) / baseDownload.total_bytes : 0}%` }} /></div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void downloadTrainingBase(state.base!.download).then(() => setBaseDownload({ downloaded_bytes: 0, total_bytes: state.base!.bytes })).catch(problem => onError(errorText(problem)))}
+                  className={`${OUTLINE} mt-2`}
+                >
+                  <Download size={13} />{t('trainingBaseDownload').replace('{size}', gigabytes(state.base.bytes))}
+                </button>
+              )
+            )}
+          </div>
+        )}
         <RecipeForm recipe={recipe ?? state.recipe_defaults} defaults={state.recipe_defaults} fields={state.recipe_fields} onChange={setRecipe} only={['stop']} />
         {(recipe ?? state.recipe_defaults).stop === 'epochs' && (
           <p className={HINT}>
@@ -840,7 +882,7 @@ const LossLine: React.FC<{ steps: TrainingRun['steps'] }> = ({ steps }) => {
 
 /** Trains a stopped or finished run further: the steps it is to reach in
  *  all, from the checkpoint the server says it can go on from. */
-const ContinueRun: React.FC<{ run: TrainingRun; onChanged: () => void; onError: (message: string) => void }> = ({ run, onChanged, onError }) => {
+const ContinueRun: React.FC<{ run: TrainingRun; epochs: boolean; onChanged: () => void; onError: (message: string) => void }> = ({ run, epochs, onChanged, onError }) => {
   const { t, tt } = useStrings();
   const from = run.resume_step;
   const [steps, setSteps] = useState('');
@@ -848,7 +890,7 @@ const ContinueRun: React.FC<{ run: TrainingRun; onChanged: () => void; onError: 
   if (from === undefined) {
     return run.resume_refused && run.checkpoints.length > 0 ? <p className="mt-3 text-[11px] leading-4 text-zinc-500">{tt(`trainingResume_${run.resume_refused}`)}</p> : null;
   }
-  const suggested = from + Math.max(Number(run.recipe.save_every) || 1, 1) * 4;
+  const suggested = epochs ? from + 100 : from + Math.max(Number(run.recipe.save_every) || 1, 1) * 4;
   const target = Number(steps || suggested);
   const valid = Number.isInteger(target) && target > from;
   const start = () => {
@@ -879,16 +921,17 @@ const ContinueRun: React.FC<{ run: TrainingRun; onChanged: () => void; onError: 
           />
         </label>
       </div>
-      <p className="mt-1.5 text-[11px] leading-4 text-zinc-500">{tt('trainingContinueHint').replace('{step}', String(from))}</p>
+      <p className="mt-1.5 text-[11px] leading-4 text-zinc-500">{tt(epochs ? 'trainingContinueHintEpochs' : 'trainingContinueHint').replace('{step}', String(from))}</p>
     </div>
   );
 };
 
-const RunCard: React.FC<{ run: TrainingRun; onChanged: () => void; onError: (message: string) => void; onDelete: () => void }> = ({ run, onChanged, onError, onDelete }) => {
+const RunCard: React.FC<{ run: TrainingRun; epochs: boolean; onChanged: () => void; onError: (message: string) => void; onDelete: () => void }> = ({ run, epochs, onChanged, onError, onDelete }) => {
   const { t, tt } = useStrings();
   const running = run.status === 'running';
   const last = run.steps[run.steps.length - 1];
-  const cap = Number(run.recipe.steps) || 1;
+  // the trainer counts the run's steps itself where it can
+  const cap = Number(last?.total) || Number(run.recipe.steps) || 1;
   // an engine that stops on drift reports it per step; the stop is on the mean of the last 20
   const target = Number(run.recipe.target_kl ?? 0);
   const window = run.steps.slice(-20).map(step => step.ar_kl).filter((kl): kl is number => typeof kl === 'number');
@@ -904,7 +947,7 @@ const RunCard: React.FC<{ run: TrainingRun; onChanged: () => void; onError: (mes
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-zinc-900 dark:text-white">{run.name}</p>
-          <p className="mt-0.5 text-[11px] text-zinc-500">{run.dataset_name}{run.trigger ? ` · ${run.trigger}` : ''} · {target > 0 ? `KL ${target} · ` : ''}{target > 0 ? '≤ ' : ''}{cap} {t('trainingSteps')}</p>
+          <p className="mt-0.5 text-[11px] text-zinc-500">{run.dataset_name}{run.trigger ? ` · ${run.trigger}` : ''} · {target > 0 ? `KL ${target} · ` : ''}{target > 0 ? '≤ ' : ''}{epochs ? `${run.recipe.epochs} ${t('trainingEpochsUnit')}` : `${cap} ${t('trainingSteps')}`}{run.base ? ` · ${run.base.replace(/\.gguf$/, '')}` : ''}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <span className={`inline-flex items-center gap-1 text-xs font-semibold ${tone}`}>{running && <Loader2 size={12} className="animate-spin" />}{tt(`trainingStatus_${run.status}`)}</span>
@@ -979,7 +1022,7 @@ const RunCard: React.FC<{ run: TrainingRun; onChanged: () => void; onError: (mes
         </p>
       )}
 
-      {!running && <ContinueRun run={run} onChanged={onChanged} onError={onError} />}
+      {!running && <ContinueRun run={run} epochs={epochs} onChanged={onChanged} onError={onError} />}
 
       {run.error && <p role="alert" className="mt-3 text-xs text-rose-600 dark:text-rose-300">{run.error}</p>}
       {run.log && run.log.length > 0 && (
@@ -1181,7 +1224,7 @@ export const TrainingPanel: React.FC = () => {
       {dataset && step === 'result' && (
         <div className="space-y-3">
           {runs.length === 0 && <p className="text-sm text-zinc-500">{t('trainingNoRuns')}</p>}
-          {runs.map(run => <RunCard key={run.id} run={run} onChanged={() => void refresh()} onError={setError} onDelete={() => setDeleting({ kind: 'run', id: run.id })} />)}
+          {runs.map(run => <RunCard key={run.id} run={run} epochs={state?.progress_unit === 'epoch'} onChanged={() => void refresh()} onError={setError} onDelete={() => setDeleting({ kind: 'run', id: run.id })} />)}
         </div>
       )}
 

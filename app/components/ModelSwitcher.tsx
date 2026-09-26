@@ -6,10 +6,11 @@ import type { ModelComponent } from '../services/modelCatalog';
 /**
  * The model the studio renders with, switched where songs are made.
  *
- * One button per role the user actually changes (the DiT, the language
- * model). Its list holds every variant of the catalogue with its
- * quantisations: an installed one is used at once, a missing one is downloaded
- * and becomes the studio's model when the download finishes.
+ * Only the DiT, the model people change from song to song; the planner and
+ * the decoder are chosen in Settings - Models. Its list holds every variant of
+ * the catalogue with its quantisations: an installed one is used at once, a
+ * missing one is downloaded and becomes the studio's model when the download
+ * finishes.
  */
 
 export type SwitcherStatus = {
@@ -20,7 +21,7 @@ export type SwitcherStatus = {
 };
 
 type Catalog = { components: ModelComponent[]; profiles: Array<{ id: string; components: string[] }> };
-type Role = 'dit' | 'lm';
+type Role = 'dit';
 
 const QUANTS = ['q4', 'q5', 'q6', 'q8', 'mxfp4', 'bf16'];
 const QUANT_LABEL: Record<string, string> = { q4: 'Q4', q5: 'Q5', q6: 'Q6', q8: 'Q8', mxfp4: 'MXFP4', bf16: 'BF16' };
@@ -36,8 +37,8 @@ const DIT_GROUPS: Array<{ key: string; variants: string[] }> = [
   { key: 'xl', variants: ['xl-turbo', 'xl-sft', 'xl-base', 'xl-sftturbo50'] },
   { key: 'standard', variants: ['turbo', 'sft', 'base', 'sftturbo50', 'turbo-shift1', 'turbo-shift3', 'turbo-continuous'] },
   { key: 'merges', variants: ['merge-sft-turbo-xl-ta-0.3', 'merge-sft-turbo-xl-ta-0.7', 'merge-base-turbo-xl-ta-0.5', 'merge-base-sft-xl-ta-0.5'] },
+  { key: 'community', variants: ['xl-turbo-regrind'] },
 ];
-const LM_GROUPS: Array<{ key: string; variants: string[] }> = [{ key: 'lm', variants: ['4b', '1.7b', '0.6b'] }];
 
 const bytes = (value: number) => (value < 1024 ** 3 ? `${Math.round(value / 1024 ** 2)} MB` : `${(value / 1024 ** 3).toFixed(1)} GB`);
 
@@ -75,7 +76,13 @@ export const ModelSwitcher: React.FC<{ status: SwitcherStatus | null; onChanged:
   const chosen = (role: Role) => current.map(id => byId.get(id)).find(component => component?.kind === role);
   const downloading = status?.active?.status === 'downloading' ? status.active : null;
 
-  const name = (role: Role, variant: string) => (role === 'lm' ? `LM ${variant.toUpperCase()}` : tt(`aceVariant_${variant}`));
+  // what fits the model changes with it: the LoRA list marks adapters of the other size
+  const ditId = chosen('dit')?.id;
+  useEffect(() => {
+    if (ditId) window.dispatchEvent(new CustomEvent('studio:models-changed'));
+  }, [ditId]);
+
+  const name = (variant: string) => tt(`aceVariant_${variant}`);
 
   /** The current set with this role's component replaced. */
   const setWith = (component: ModelComponent) => {
@@ -117,9 +124,9 @@ export const ModelSwitcher: React.FC<{ status: SwitcherStatus | null; onChanged:
         onClick={() => setOpen(current => (current === role ? null : role))}
         className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors ${open === role ? 'border-pink-500 bg-pink-500/5' : 'border-zinc-200 bg-zinc-50 hover:border-pink-300 dark:border-white/10 dark:bg-black/25'}`}
       >
-        <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-zinc-400">{role === 'dit' ? 'DiT' : 'LM'}</span>
+        <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-zinc-400">DiT</span>
         <span className="min-w-0 flex-1 truncate text-xs font-semibold text-zinc-900 dark:text-white">
-          {parts ? `${role === 'lm' ? parts.variant.toUpperCase() : tt(`aceVariant_${parts.variant}`)} · ${QUANT_LABEL[parts.quant] ?? parts.quant}` : '—'}
+          {parts ? `${name(parts.variant)} · ${QUANT_LABEL[parts.quant] ?? parts.quant}` : '—'}
         </span>
         <ChevronDown size={14} className={`shrink-0 text-zinc-400 transition-transform ${open === role ? 'rotate-180' : ''}`} />
       </button>
@@ -127,7 +134,7 @@ export const ModelSwitcher: React.FC<{ status: SwitcherStatus | null; onChanged:
   };
 
   const list = (role: Role) => {
-    const groups = role === 'dit' ? DIT_GROUPS : LM_GROUPS;
+    const groups = DIT_GROUPS;
     const components = (catalog?.components ?? []).filter(component => component.kind === role);
     const active = chosen(role)?.id;
     return (
@@ -137,7 +144,7 @@ export const ModelSwitcher: React.FC<{ status: SwitcherStatus | null; onChanged:
         </p>
         {groups.map(group => (
           <div key={group.key} className="mb-1 last:mb-0">
-            {role === 'dit' && <p className="px-2 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-wide text-zinc-400">{tt(`aceVariantGroup_${group.key}`)}</p>}
+            <p className="px-2 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-wide text-zinc-400">{tt(`aceVariantGroup_${group.key}`)}</p>
             {group.variants.map(variant => {
               const quants = components.filter(component => split(component).variant === variant).sort((a, b) => QUANTS.indexOf(split(a).quant) - QUANTS.indexOf(split(b).quant));
               if (quants.length === 0) return null;
@@ -145,9 +152,9 @@ export const ModelSwitcher: React.FC<{ status: SwitcherStatus | null; onChanged:
               return (
                 <div key={variant} className={`rounded-lg px-2 py-2 ${selectedHere ? 'bg-pink-500/5' : ''}`}>
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-xs font-semibold text-zinc-900 dark:text-white">{name(role, variant)}</span>
+                    <span className="text-xs font-semibold text-zinc-900 dark:text-white">{name(variant)}</span>
                   </div>
-                  <p className="mt-0.5 text-[11px] leading-4 text-zinc-500">{tt(`aceVariantHint_${role === 'lm' ? `lm${variant}` : variant}`)}</p>
+                  <p className="mt-0.5 text-[11px] leading-4 text-zinc-500">{tt(`aceVariantHint_${variant}`)}</p>
                   <div className="mt-1.5 flex flex-wrap gap-1">
                     {quants.map(component => {
                       const here = installed.has(component.id);
@@ -194,7 +201,6 @@ export const ModelSwitcher: React.FC<{ status: SwitcherStatus | null; onChanged:
     <div ref={box} className="relative rounded-xl border border-zinc-200 bg-white p-2 dark:border-white/5 dark:bg-suno-card">
       <div className="flex gap-1.5">
         {button('dit')}
-        {button('lm')}
       </div>
       {open && list(open)}
       {downloading && (

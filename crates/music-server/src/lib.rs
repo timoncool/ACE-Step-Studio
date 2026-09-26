@@ -289,6 +289,14 @@ struct SetupDownloadRequest {
     #[serde(default, alias = "component_ids")]
     ids: Vec<String>,
     profile_id: Option<String>,
+    /// Make the set the studio's once it is on disk; a file fetched for
+    /// training only leaves the studio's set as it is.
+    #[serde(default = "selects")]
+    select: bool,
+}
+
+fn selects() -> bool {
+    true
 }
 
 #[derive(Debug, Deserialize)]
@@ -1388,6 +1396,7 @@ async fn list_adapters(State(state): State<AppState>) -> Json<Value> {
         "slots": music_engine::model::ADAPTER_SLOTS,
         "installed": state.adapters.installed(views.as_ref()),
         "catalog": state.adapters.offered(),
+        "model": selected_model_files(&state).await.ok().and_then(|files| music_engine::model::model_family(&files.synth_model)),
         "engine_checked": views.is_some(),
         "download": state.adapters.downloader().active_for(adapters::SCOPE).await,
         "installing": state.adapters.installing(),
@@ -1899,6 +1908,14 @@ async fn read_training(State(state): State<AppState>) -> Json<Value> {
         "recipe_defaults": training::Recipe::default(),
         "recipe_fields": music_engine::train::recipe_fields(),
         "min_vram_gb": music_engine::train::MIN_VRAM_GB,
+        "progress_unit": music_engine::train::PROGRESS_UNIT,
+        // the DiT a new run trains on: the BF16 of the one the studio renders with
+        "base": training_weights(&state).await.ok().map(|weights| serde_json::json!({
+            "dit": weights.base.dit,
+            "installed": weights.installed,
+            "bytes": weights.bytes,
+            "download": weights.download,
+        })),
         "item_style": "caption",
         "download": training_download,
         "listen": {
@@ -2055,13 +2072,27 @@ async fn add_training_songs(State(state): State<AppState>, Path(id): Path<String
             .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
             .ok_or_else(|| api_error(StatusCode::NOT_FOUND, format!("song {song_id} is not in the library")))?;
         let audio = state.library.media_path_for_song(&song).ok_or_else(|| api_error(StatusCode::BAD_REQUEST, format!("{} has no stored audio", song.title)))?;
-        sources.push((audio, song.title, song.caption, song.lyrics, song.id));
+        // what the song was made with is what it is: tempo, key, metre, language
+        let meta = |key: &str| song.metadata.get(key).cloned().unwrap_or(Value::Null);
+        let text = |key: &str| meta(key).as_str().map(str::to_owned);
+        let patch = training::ItemPatch {
+            bpm: meta("bpm").as_u64().map(|bpm| bpm as u32),
+            keyscale: text("keyscale"),
+            timesignature: text("timesignature"),
+            language: text("vocal_language").filter(|language| language != "unknown"),
+            ..Default::default()
+        };
+        sources.push((audio, song.title, song.caption, song.lyrics, song.id, patch));
     }
     let training = state.training.clone();
     tokio::task::spawn_blocking(move || {
         let mut dataset = training.dataset(&id)?;
-        for (audio, title, style, lyrics, song_id) in sources {
-            dataset = training.add_item(&id, &audio, &title, "", &style, &lyrics, lyrics.trim().is_empty(), &format!("song:{song_id}"))?;
+        for (audio, title, style, lyrics, song_id, patch) in sources {
+            let instrumental = lyrics.trim().is_empty() || lyrics.trim() == "[Instrumental]";
+            dataset = training.add_item(&id, &audio, &title, "", &style, if instrumental { "" } else { &lyrics }, instrumental, &format!("song:{song_id}"))?;
+            if let Some(item) = dataset.items.last().map(|item| item.id.clone()) {
+                dataset = training.update_item(&id, &item, patch)?;
+            }
         }
         Ok::<_, anyhow::Error>(dataset)
     })
@@ -2158,15 +2189,73 @@ async fn start_training(State(state): State<AppState>, Json(input): Json<StartTr
         .map_err(|error| api_error(StatusCode::CONFLICT, error))
 }
 
+/// The model files the studio renders with now: the set chosen in the model
+/// manager, or the one chosen on the create page.
+async fn selected_model_files(state: &AppState) -> Result<model_manager::ProfileModelFiles, String> {
+    let selected_profile = state.selected_profile_id.read().await.clone();
+    let selected_components = state.selected_component_ids.read().await.clone();
+    match (selected_components, selected_profile) {
+        (Some(components), _) => state.model_manager.installed_component_files(&components),
+        (None, Some(profile)) => state.model_manager.installed_profile_files(&profile),
+        (None, None) => return Err("no model set is installed yet; install one in Settings - Models".into()),
+    }
+    .map_err(|error| error.to_string())
+}
+
+/// The weights a run trains on: the unquantised (BF16) DiT of the variant the
+/// studio renders with - the trainer refuses a quantised base, and the adapter
+/// it makes fits every quantisation of that variant - with the studio's VAE
+/// and text encoder.
+struct TrainingWeights {
+    base: music_engine::train::TrainingBase,
+    installed: bool,
+    bytes: u64,
+    /// The studio's set with the DiT swapped, for the model manager to fetch
+    /// the one missing file of.
+    download: Vec<String>,
+}
+
+async fn training_weights(state: &AppState) -> Result<TrainingWeights, String> {
+    let files = selected_model_files(state).await?;
+    let catalog = state.model_manager.catalog();
+    let current = catalog.components.iter().find(|component| component.filename == files.synth_model).ok_or_else(|| format!("{} is not a DiT of the catalogue", files.synth_model))?;
+    let variant = current.id.rsplit_once('-').map(|(variant, _)| variant).unwrap_or(current.id);
+    let bf16_id = format!("{variant}-bf16");
+    let bf16 = catalog.components.iter().find(|component| component.id == bf16_id).ok_or_else(|| format!("{variant} has no BF16 weights to train on"))?;
+    let set: Vec<String> = catalog
+        .components
+        .iter()
+        .filter(|component| [files.lm_model.as_str(), files.text_encoder.as_str(), files.vae.as_str()].contains(&component.filename))
+        .map(|component| component.id.to_string())
+        .chain(std::iter::once(bf16.id.to_string()))
+        .collect();
+    let root = state.model_manager.models_directory().to_path_buf();
+    Ok(TrainingWeights {
+        installed: root.join(bf16.filename).is_file(),
+        bytes: bf16.bytes,
+        download: set,
+        base: music_engine::train::TrainingBase { models: root, dit: bf16.filename.to_string(), vae: files.vae, text_encoder: files.text_encoder },
+    })
+}
+
+async fn training_base(state: &AppState) -> Result<music_engine::train::TrainingBase, String> {
+    let weights = training_weights(state).await?;
+    if !weights.installed {
+        return Err(format!("the trainer needs the unquantised {} ({:.1} GB); download it on the training page", weights.base.dit, weights.bytes as f64 / 1e9));
+    }
+    Ok(weights.base)
+}
+
 /// A run of `dataset`, refused while a song renders.
 async fn start_training_run(state: &AppState, dataset: &str, name: &str, recipe: training::Recipe) -> Result<training::Run, String> {
     let rendering = state.jobs.read().await.values().any(|job| matches!(job.status, MusicJobStatus::Queued | MusicJobStatus::Running));
     if rendering {
         return Err("a song is being made; train once it is done".into());
     }
+    let base = training_base(state).await?;
     state
         .training
-        .start(Some(engine_bundle_root()), dataset, name, recipe, card_hooks(state).await)
+        .start(Some(engine_bundle_root()), dataset, name, recipe, base, card_hooks(state).await)
         .await
         .map_err(|error| format!("{error:#}"))
 }
@@ -2227,7 +2316,7 @@ async fn continue_training(State(state): State<AppState>, Path(id): Path<String>
     }
     state
         .training
-        .continue_run(Some(engine_bundle_root()), &id, input.steps, card_hooks(&state).await)
+        .continue_run(Some(engine_bundle_root()), &id, input.steps, training_base(&state).await.map_err(|error| api_error(StatusCode::CONFLICT, error))?, card_hooks(&state).await)
         .await
         .map(Json)
         .map_err(|error| api_error(StatusCode::CONFLICT, format!("{error:#}")))
@@ -2266,7 +2355,7 @@ async fn install_training_checkpoint(
     let trigger = Some(run.trigger.clone());
     let meta = state
         .adapters
-        .import_trained(&name, trigger, &checkpoint.files, adapters::Origin::Trained { run: id.clone(), step })
+        .import_trained(&name, trigger, run.base.as_deref().and_then(music_engine::model::model_family).map(str::to_owned), &checkpoint.files, adapters::Origin::Trained { run: id.clone(), step })
         .map_err(training_error)?;
     state.training.mark_installed(&id, step).map_err(training_error)?;
     Ok(Json(meta))
@@ -5554,9 +5643,11 @@ async fn setup_download(
         })
         .await
         .map_err(|error| api_error(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let state_for_completion = state.clone();
-    let job_id = job.id.clone();
-    tokio::spawn(async move { persist_completed_download_profile(state_for_completion, job_id).await });
+    if request.select {
+        let state_for_completion = state.clone();
+        let job_id = job.id.clone();
+        tokio::spawn(async move { persist_completed_download_profile(state_for_completion, job_id).await });
+    }
     Ok((StatusCode::ACCEPTED, Json(job)))
 }
 
@@ -5837,14 +5928,7 @@ struct AceRun {
 async fn ace_request_from(state: &AppState, request: &CreateMusicJobRequest) -> Result<Value, String> {
     let mut fields = request.engine.clone();
     if !fields.contains_key("synth_model") || !fields.contains_key("lm_model") || !fields.contains_key("vae") {
-        let selected_profile = state.selected_profile_id.read().await.clone();
-        let selected_components = state.selected_component_ids.read().await.clone();
-        let files = match (selected_components, selected_profile) {
-            (Some(components), _) => state.model_manager.installed_component_files(&components),
-            (None, Some(profile)) => state.model_manager.installed_profile_files(&profile),
-            (None, None) => return Err("no model set is installed yet; install one in Settings - Models".into()),
-        }
-        .map_err(|error| error.to_string())?;
+        let files = selected_model_files(state).await?;
         fields.entry("synth_model").or_insert_with(|| Value::from(files.synth_model));
         fields.entry("lm_model").or_insert_with(|| Value::from(files.lm_model));
         fields.entry("vae").or_insert_with(|| Value::from(files.vae));

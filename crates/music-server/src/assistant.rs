@@ -251,7 +251,7 @@ fn beats(value: &str) -> Option<String> {
 }
 
 /// "Eb major" is the form's "D# major"; anything but a note and a mode is dropped.
-fn key_in_sharps(value: &str) -> Option<String> {
+pub(crate) fn key_in_sharps(value: &str) -> Option<String> {
     let mut words = value.split_whitespace();
     let note = words.next()?.replace('♭', "b").replace('♯', "#");
     let mode = words.next()?.to_lowercase();

@@ -66,11 +66,13 @@ export interface TrainingRun {
   dataset_name: string;
   name: string;
   trigger: string;
+  /** The model the run trained on, when the engine records it. */
+  base?: string | null;
   recipe: Recipe;
   status: RunStatus;
   stage: string | null;
   stages: string[];
-  steps: { step: number; loss: number; ar_kl?: number | null; step_ms?: number | null }[];
+  steps: { step: number; loss: number; ar_kl?: number | null; step_ms?: number | null; total?: number | null }[];
   error?: string | null;
   created_at: string;
   finished_at?: string | null;
@@ -91,6 +93,10 @@ export interface TrainingState {
   recipe_fields: RecipeField[];
   /** Video memory a run of the default recipe needs, in GB. */
   min_vram_gb: number;
+  /** What checkpoints and "train further" count: steps, or epochs. */
+  progress_unit?: 'step' | 'epoch';
+  /** The unquantised model a new run trains on, when the engine trains on the one it renders with. */
+  base?: { dit: string; installed: boolean; bytes: number; download: string[] } | null;
   /** What a song's style field holds for this engine: a short style, or a structured caption. */
   item_style: 'style' | 'caption';
   download: { downloaded_bytes: number; total_bytes: number; done: boolean; error?: string | null } | null;
@@ -122,6 +128,8 @@ const json = (method: string, body: unknown): RequestInit => ({
 });
 
 export const fetchTraining = () => call<TrainingState>('/v1/training');
+/** Fetches the training base without making it the studio's set. */
+export const downloadTrainingBase = (componentIds: string[]) => call<void>('/setup/download', json('POST', { component_ids: componentIds, select: false }));
 export const installTrainingPack = () => call<void>('/v1/training/pack/install', { method: 'POST' });
 export const installListenPack = () => call<void>('/v1/training/listen/install', { method: 'POST' });
 export const cancelTrainingPack = () => call<void>('/v1/training/pack/cancel', { method: 'POST' });

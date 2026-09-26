@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Layers, Plus, X } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
-import { AdapterUse, InstalledAdapter, localized, startingScales, useAdapterLibrary } from '../services/adapters';
+import { AdapterUse, InstalledAdapter, familyLabel, localized, startingScales, useAdapterLibrary } from '../services/adapters';
 
 /**
  * The LoRA card of the create form: the adapters this song uses, one strength
@@ -22,7 +22,9 @@ interface AdapterPickerProps {
 export const AdapterPicker: React.FC<AdapterPickerProps> = ({ value, onChange, onTrigger, frame, iconClass }) => {
   const { t, language } = useI18n();
   const tt = t as unknown as (key: string) => string;
-  const { installed, slots } = useAdapterLibrary();
+  const { installed, slots, model } = useAdapterLibrary();
+  /** An adapter made for the other size of the model, which the engine cannot merge. */
+  const otherSize = (adapter?: InstalledAdapter) => Boolean(adapter?.model && adapter.model !== 'lm' && model && adapter.model !== model);
   const [choosing, setChoosing] = useState(false);
   const menu = useRef<HTMLDivElement | null>(null);
 
@@ -85,6 +87,12 @@ export const AdapterPicker: React.FC<AdapterPickerProps> = ({ value, onChange, o
                 {t('adaptersMissing')}
               </p>
             )}
+            {adapter?.model && otherSize(adapter) && model && (
+              <p className="mt-1 flex items-start gap-1 text-[11px] leading-4 text-amber-600 dark:text-amber-300">
+                <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                {t('adaptersFamilyOther').replace('{model}', familyLabel(adapter.model)).replace('{current}', familyLabel(model))}
+              </p>
+            )}
             {touched.map(slot => {
               const scale = use.scales[slot] ?? 0;
               return (
@@ -141,8 +149,13 @@ export const AdapterPicker: React.FC<AdapterPickerProps> = ({ value, onChange, o
                     className="flex w-full items-center justify-between gap-2 border-b border-zinc-100 px-3 py-2 text-left last:border-b-0 hover:bg-zinc-100 dark:border-white/5 dark:hover:bg-white/5"
                   >
                     <span className="min-w-0 truncate text-sm text-zinc-800 dark:text-zinc-200">{localized(adapter.name, language)}</span>
-                    <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-pink-600 dark:text-pink-300">
-                      {tt(`adapterKind_${adapter.kind}`) || adapter.kind}
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      {adapter.model && (
+                        <span className={`text-[10px] font-bold ${otherSize(adapter) ? 'text-amber-600 dark:text-amber-300' : 'text-zinc-400'}`}>{familyLabel(adapter.model)}</span>
+                      )}
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-pink-600 dark:text-pink-300">
+                        {tt(`adapterKind_${adapter.kind}`) || adapter.kind}
+                      </span>
                     </span>
                   </button>
                 ))}

@@ -7,6 +7,7 @@ import { TrainingPanel } from './TrainingPanel';
 import {
   AdapterSlot,
   AdapterState,
+  DitFamily,
   InstalledAdapter,
   OfferedAdapter,
   HubListing,
@@ -17,6 +18,7 @@ import {
   looksLikeHubReference,
   searchHub,
   deleteAdapter,
+  familyLabel,
   fetchAdapters,
   importAdapter,
   installCatalogAdapters,
@@ -38,7 +40,7 @@ const OUTLINE =
   'inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:border-pink-400 hover:text-pink-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-zinc-200';
 const PRIMARY =
   'inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-pink-600 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50';
-const KIND_ORDER = ['trained', 'style', 'artist', 'composition', 'sound', 'slider', 'other'];
+const KIND_ORDER = ['trained', 'quality', 'style', 'artist', 'composition', 'sound', 'slider', 'other'];
 
 type Tab = 'installed' | 'catalog' | 'hub' | 'training';
 
@@ -55,6 +57,39 @@ function slotLabel(tt: (key: string) => string, slots: AdapterSlot[], id: string
   const role = slots.find(slot => slot.id === id)?.role;
   return role ? tt(`adapterRole_${role}`) : id;
 }
+
+/** The DiT width an adapter fits, amber when the studio renders with the other one. */
+const FamilyBadge: React.FC<{ model?: DitFamily | null; current?: DitFamily | null }> = ({ model, current }) => {
+  if (!model) return null;
+  const other = model !== 'lm' && current && current !== model;
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide ${other ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300' : 'bg-zinc-200/70 text-zinc-600 dark:bg-white/10 dark:text-zinc-300'}`}>
+      {familyLabel(model)}
+    </span>
+  );
+};
+
+/** Why an adapter will not apply to the model the studio renders with now. */
+const FamilyNote: React.FC<{ model?: DitFamily | null; current?: DitFamily | null }> = ({ model, current }) => {
+  const { t } = useStrings();
+  if (!model || model === 'lm' || !current || current === model) return null;
+  return (
+    <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-4 text-amber-700 dark:text-amber-300">
+      <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+      {t('adaptersFamilyOther').replace('{model}', familyLabel(model)).replace('{current}', familyLabel(current))}
+    </p>
+  );
+};
+
+const Popularity: React.FC<{ likes: number; downloads: number }> = ({ likes, downloads }) => {
+  const { t } = useStrings();
+  return (
+    <>
+      {likes > 0 && <span className="inline-flex items-center gap-0.5" title={t('adaptersLikes')}><Heart size={10} />{likes}</span>}
+      {downloads > 0 && <span className="inline-flex items-center gap-0.5" title={t('adaptersDownloads')}><Download size={10} />{downloads}</span>}
+    </>
+  );
+};
 
 const KindBadge: React.FC<{ kind: string }> = ({ kind }) => {
   const { tt } = useStrings();
@@ -86,21 +121,26 @@ const SlotBadges: React.FC<{ ids: string[]; slots: AdapterSlot[] }> = ({ ids, sl
 const CatalogCard: React.FC<{
   entry: OfferedAdapter;
   slots: AdapterSlot[];
+  current?: DitFamily | null;
   selected: boolean;
   downloading: boolean;
   onToggle: () => void;
-}> = ({ entry, slots, selected, downloading, onToggle }) => {
+}> = ({ entry, slots, current, selected, downloading, onToggle }) => {
   const { t, language } = useStrings();
   return (
     <section className={`${CARD} flex flex-col ${selected ? 'border-pink-400 dark:border-pink-500/60' : ''}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-zinc-900 dark:text-white">{localized(entry.name, language)}</p>
-          <p className="mt-0.5 text-[11px] text-zinc-500">{entry.author}{entry.trigger ? ` · ${entry.trigger}` : ''}</p>
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-zinc-500">
+            <span>{entry.author}{entry.trigger ? ` · ${entry.trigger}` : ''}</span>
+            <Popularity likes={entry.likes} downloads={entry.downloads} />
+          </p>
         </div>
-        <KindBadge kind={entry.kind} />
+        <span className="flex shrink-0 items-center gap-1"><FamilyBadge model={entry.model} current={current} /><KindBadge kind={entry.kind} /></span>
       </div>
       <p className="mt-2 flex-1 text-xs leading-5 text-zinc-600 dark:text-zinc-300">{localized(entry.description, language)}</p>
+      <FamilyNote model={entry.model} current={current} />
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <SlotBadges ids={entry.slots} slots={slots} />
         <div className="flex items-center gap-2">
@@ -128,10 +168,11 @@ const CatalogCard: React.FC<{
 const InstalledCard: React.FC<{
   adapter: InstalledAdapter;
   slots: AdapterSlot[];
+  current?: DitFamily | null;
   onDelete: () => void;
   onSaved: () => void;
   onError: (message: string) => void;
-}> = ({ adapter, slots, onDelete, onSaved, onError }) => {
+}> = ({ adapter, slots, current, onDelete, onSaved, onError }) => {
   const { t, tt, language } = useStrings();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
@@ -178,6 +219,7 @@ const InstalledCard: React.FC<{
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
+          <FamilyBadge model={adapter.model} current={current} />
           <KindBadge kind={adapter.kind} />
           {adapter.page && (
             <button type="button" onClick={() => openExternal(adapter.page!)} className={OUTLINE} title={t('adaptersAuthorPage')}><ExternalLink size={13} /></button>
@@ -193,6 +235,7 @@ const InstalledCard: React.FC<{
       </div>
 
       {description && <p className="mt-2 text-xs leading-5 text-zinc-600 dark:text-zinc-300">{description}</p>}
+      <FamilyNote model={adapter.model} current={current} />
       {adapter.error && (
         <p className="mt-2 flex items-start gap-1.5 text-xs text-rose-600 dark:text-rose-300"><AlertTriangle size={13} className="mt-0.5 shrink-0" />{t('adaptersBrokenFiles')}: {adapter.error}</p>
       )}
@@ -240,7 +283,7 @@ const InstalledCard: React.FC<{
  * link pasted straight in. A repository opens into its weight files; the
  * ticked ones download together, each becoming its own adapter.
  */
-const HubPanel: React.FC<{ downloading: boolean; onStarted: () => void; onError: (message: string) => void }> = ({ downloading, onStarted, onError }) => {
+const HubPanel: React.FC<{ current?: DitFamily | null; downloading: boolean; onStarted: () => void; onError: (message: string) => void }> = ({ current, downloading, onStarted, onError }) => {
   const { t } = useStrings();
   const [query, setQuery] = useState('');
   const [repos, setRepos] = useState<HubRepo[] | null>(null);
@@ -324,7 +367,7 @@ const HubPanel: React.FC<{ downloading: boolean; onStarted: () => void; onError:
                   <p className="truncate text-sm font-semibold text-zinc-900 dark:text-white">{repo.repo.split('/')[1]}</p>
                   <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-zinc-500">
                     <span>{repo.author}</span>
-                    {repo.likes > 0 && <span className="inline-flex items-center gap-0.5"><Heart size={10} />{repo.likes}</span>}
+                    <Popularity likes={repo.likes} downloads={repo.downloads} />
                     {repo.updated && <span>{new Date(repo.updated).toLocaleDateString()}</span>}
                   </p>
                   {repo.tags.length > 0 && (
@@ -338,9 +381,24 @@ const HubPanel: React.FC<{ downloading: boolean; onStarted: () => void; onError:
               {expanded && open && (
                 <div className="mt-3 space-y-1.5 border-t border-zinc-200 pt-3 dark:border-white/10">
                   {files.length === 0 && <p className="text-xs text-zinc-500">{t('adaptersHubNoFiles')}</p>}
+                  {/* said once for the repository, the amber size on each file marks which */}
+                  <FamilyNote model={files.find(file => !file.problem && file.model && file.model !== 'lm' && file.model !== current)?.model} current={current} />
                   {files.map(file => (
                     <div key={file.path} className="flex items-center justify-between gap-3">
-                      <span className="min-w-0 truncate text-xs text-zinc-700 dark:text-zinc-200" title={file.path}>{file.path}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span className="min-w-0 truncate text-xs text-zinc-700 dark:text-zinc-200" title={file.path}>{file.path}</span>
+                          <FamilyBadge model={file.model} current={current} />
+                          {file.format && <span className="shrink-0 text-[10px] uppercase text-zinc-400">{file.format}</span>}
+                        </span>
+                        {file.problem ? (
+                          <span className="mt-0.5 block text-[11px] text-rose-600 dark:text-rose-300">{t('adaptersHubProblem').replace('{problem}', file.problem)}</span>
+                        ) : file.model === 'lm' ? (
+                          <span className="mt-0.5 block text-[11px] text-zinc-500">{t('adaptersHubPlanner')}</span>
+                        ) : !file.model ? (
+                          <span className="mt-0.5 block text-[11px] text-zinc-500">{t('adaptersHubUnknown')}</span>
+                        ) : null}
+                      </span>
                       {file.installed ? (
                         <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400"><Check size={13} />{t('adaptersInstalled')}</span>
                       ) : (
@@ -377,7 +435,7 @@ const HubPanel: React.FC<{ downloading: boolean; onStarted: () => void; onError:
 };
 
 export function AdaptersPage(): React.ReactElement {
-  const { t, language } = useStrings();
+  const { t, tt, language } = useStrings();
   const [state, setState] = useState<AdapterState | null>(null);
   const [tab, setTab] = useState<Tab>('installed');
   const [error, setError] = useState<string | null>(null);
@@ -386,6 +444,8 @@ export function AdaptersPage(): React.ReactElement {
   const [deleting, setDeleting] = useState<InstalledAdapter | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [starting, setStarting] = useState(false);
+  const [catalogQuery, setCatalogQuery] = useState('');
+  const [family, setFamily] = useState<DitFamily | 'all'>('all');
   const filePicker = useRef<HTMLInputElement | null>(null);
 
   const refresh = useCallback(async () => {
@@ -449,8 +509,23 @@ export function AdaptersPage(): React.ReactElement {
 
   const slots = state?.slots ?? [];
   const download = state?.download;
-  const offered = state?.catalog ?? [];
-  const chosen = offered.filter(entry => selected.includes(entry.id) && !entry.installed);
+  const current = state?.model ?? null;
+  const families = [...new Set((state?.catalog ?? []).map(entry => entry.model).filter((model): model is DitFamily => Boolean(model)))];
+  const words = catalogQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  // the adapters that fit the model in use first, then by kind, the most liked and downloaded first within each
+  const offered = (state?.catalog ?? [])
+    .filter(entry => family === 'all' || entry.model === family)
+    .filter(entry => {
+      const text = [localized(entry.name, language), localized(entry.description, language), entry.author ?? '', entry.trigger ?? '', tt(`adapterKind_${entry.kind}`)].join(' ').toLowerCase();
+      return words.every(word => text.includes(word));
+    })
+    .sort((a, b) =>
+      Number(b.model === current) - Number(a.model === current)
+      || KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind)
+      || b.likes - a.likes
+      || b.downloads - a.downloads);
+  // what is ticked goes down even when a search hides it
+  const chosen = (state?.catalog ?? []).filter(entry => selected.includes(entry.id) && !entry.installed);
   const toggle = (id: string) => setSelected(current => (current.includes(id) ? current.filter(value => value !== id) : [...current, id]));
   const missing = offered.filter(entry => !entry.installed);
   const allChosen = missing.length > 0 && missing.every(entry => selected.includes(entry.id));
@@ -553,6 +628,7 @@ export function AdaptersPage(): React.ReactElement {
                   key={adapter.id}
                   adapter={adapter}
                   slots={slots}
+                  current={current}
                   onDelete={() => setDeleting(adapter)}
                   onSaved={() => {
                     window.dispatchEvent(new CustomEvent('studio:adapters-changed'));
@@ -568,12 +644,36 @@ export function AdaptersPage(): React.ReactElement {
         {tab === 'catalog' && (
           <>
             <p className="text-sm text-zinc-600 dark:text-zinc-400">{t('adaptersSelectHint')}</p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative flex-1">
+                <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                <input value={catalogQuery} onChange={event => setCatalogQuery(event.target.value)} placeholder={t('adaptersCatalogSearch')} aria-label={t('adaptersCatalogSearch')} className={`${CONTROL} pl-9`} />
+              </div>
+              {families.length > 1 && (
+                <div role="radiogroup" className="flex shrink-0 rounded-lg bg-zinc-100 p-1 dark:bg-white/5">
+                  {(['all', ...families] as Array<DitFamily | 'all'>).map(value => (
+                    <button
+                      key={value}
+                      type="button"
+                      role="radio"
+                      aria-checked={family === value}
+                      onClick={() => setFamily(value)}
+                      className={`rounded-md px-3 py-1 text-xs font-semibold ${family === value ? 'bg-white text-black shadow-sm dark:bg-zinc-800 dark:text-white' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'}`}
+                    >
+                      {value === 'all' ? t('adaptersFamilyAll') : value === current ? t('adaptersFamilyFits').replace('{model}', familyLabel(value)) : familyLabel(value)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {offered.length === 0 && <p className="text-sm text-zinc-500">{t('adaptersCatalogEmpty')}</p>}
             <div className="grid gap-3 md:grid-cols-2">
-              {byKind<OfferedAdapter>(offered).map(entry => (
+              {offered.map(entry => (
                 <CatalogCard
                   key={entry.id}
                   entry={entry}
                   slots={slots}
+                  current={current}
                   selected={selected.includes(entry.id)}
                   downloading={downloading && (state?.installing ?? []).includes(entry.id)}
                   onToggle={() => toggle(entry.id)}
@@ -597,7 +697,7 @@ export function AdaptersPage(): React.ReactElement {
 
         {tab === 'training' && <TrainingPanel />}
 
-        {tab === 'hub' && <HubPanel downloading={downloading} onStarted={() => void refresh()} onError={setError} />}
+        {tab === 'hub' && <HubPanel current={current} downloading={downloading} onStarted={() => void refresh()} onError={setError} />}
 
         {error && <p role="alert" className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">{error}</p>}
       </div>

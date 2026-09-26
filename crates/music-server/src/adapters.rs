@@ -19,10 +19,12 @@ use std::sync::OnceLock;
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use futures_util::StreamExt;
 
 use std::sync::Arc;
 
 use crate::downloads::{Asset, AssetKind, Downloader};
+use music_engine::model::AdapterWeights;
 
 /// The downloader scope the adapters page reads its progress under.
 pub const SCOPE: &str = "adapters";
@@ -66,6 +68,13 @@ struct CatalogEntry {
     scales: BTreeMap<String, f64>,
     #[serde(default)]
     range: Option<[f64; 2]>,
+    /// The DiT width the weights were trained on: `2b` or `xl`.
+    #[serde(default)]
+    model: Option<String>,
+    #[serde(default)]
+    likes: u64,
+    #[serde(default)]
+    downloads: u64,
     files: Vec<CatalogFile>,
 }
 
@@ -157,6 +166,9 @@ pub struct AdapterMeta {
     /// The slider range, when the adapter is only meaningful inside one.
     #[serde(default)]
     pub range: Option<[f64; 2]>,
+    /// The DiT width the weights fit, `2b` or `xl`, when it is known.
+    #[serde(default)]
+    pub model: Option<String>,
     /// The slots the engine found weights for, remembered from its last answer
     /// so the page can show them while the engine is not running.
     #[serde(default)]
@@ -189,6 +201,9 @@ pub struct Offered {
     pub slots: Vec<String>,
     pub bytes: u64,
     pub installed: bool,
+    pub model: Option<String>,
+    pub likes: u64,
+    pub downloads: u64,
 }
 
 /// What a partial update may change.
@@ -330,6 +345,9 @@ impl AdapterLibrary {
                 slots: item.entry.scales.keys().cloned().collect(),
                 bytes: item.entry.files.iter().map(|file| file.bytes).sum(),
                 installed: self.read_meta(&item.entry.id).is_some(),
+                model: item.entry.model.clone(),
+                likes: item.entry.likes,
+                downloads: item.entry.downloads,
             })
             .collect()
     }
@@ -397,6 +415,7 @@ impl AdapterLibrary {
             page: entry.page.clone(),
             scales: entry.scales.clone(),
             range: entry.range,
+            model: entry.model.clone(),
             slots: entry.scales.keys().cloned().collect(),
             origin: Origin::Catalog { catalog_id: entry.id.clone() },
             created_at: String::new(),
@@ -405,7 +424,7 @@ impl AdapterLibrary {
 
     /// Records a trained checkpoint as an adapter, copying its files from the
     /// run so the run can be removed without losing it.
-    pub fn import_trained(&self, name: &str, trigger: Option<String>, files: &[PathBuf], origin: Origin) -> Result<AdapterMeta> {
+    pub fn import_trained(&self, name: &str, trigger: Option<String>, model: Option<String>, files: &[PathBuf], origin: Origin) -> Result<AdapterMeta> {
         if files.is_empty() {
             bail!("the checkpoint has no adapter files");
         }
@@ -427,6 +446,7 @@ impl AdapterLibrary {
             page: None,
             scales: BTreeMap::new(),
             range: None,
+            model,
             slots: Vec::new(),
             origin,
             created_at: now(),
@@ -471,6 +491,7 @@ impl AdapterLibrary {
             page: None,
             scales: BTreeMap::new(),
             range: None,
+            model: None,
             slots: Vec::new(),
             origin,
             created_at: now(),
@@ -532,6 +553,11 @@ struct HubConfig {
     /// Further tag sets, searched besides `tags`.
     #[serde(default)]
     also: Vec<Vec<String>>,
+    /// Words searched in repository names, for the many adapters published
+    /// with no tag at all; what they find is kept only when it looks like an
+    /// adapter and the typed words are in its name.
+    #[serde(default)]
+    search: Vec<String>,
 }
 
 impl HubConfig {
@@ -557,6 +583,14 @@ fn hub_config(engine: &str) -> Option<&'static HubConfig> {
 
 const HUB: &str = "https://huggingface.co";
 
+/// Whether a repository found by name holds an adapter rather than a model:
+/// its tags or its name say LoRA, LoKr, PEFT or a slider.
+fn looks_like_adapter(repo: &str, tags: &[&str]) -> bool {
+    let name = repo.to_lowercase();
+    ["lora", "lokr", "loha", "lycoris", "slider"].iter().any(|word| name.contains(word))
+        || tags.iter().any(|tag| matches!(tag.to_lowercase().as_str(), "lora" | "lokr" | "peft" | "lycoris") || tag.starts_with("base_model:adapter:"))
+}
+
 /// A repository of adapters on Hugging Face, as a search lists it.
 #[derive(Debug, Clone, Serialize)]
 pub struct HubRepo {
@@ -575,6 +609,20 @@ pub struct HubFile {
     pub bytes: u64,
     pub adapter_id: String,
     pub installed: bool,
+    #[serde(flatten)]
+    pub weights: AdapterWeights,
+}
+
+/// The header of a safetensors file on the Hub, fetched by range: eight bytes
+/// of length, then the JSON, never the weights.
+async fn hub_header(http: &reqwest::Client, url: &str) -> Result<serde_json::Map<String, Value>> {
+    let length = http.get(url).header(reqwest::header::RANGE, "bytes=0-7").send().await?.error_for_status()?.bytes().await?;
+    let length = u64::from_le_bytes(length.get(..8).context("a safetensors file shorter than its header")?.try_into()?);
+    if length > 64 << 20 {
+        bail!("a safetensors header of {length} bytes");
+    }
+    let body = http.get(url).header(reqwest::header::RANGE, format!("bytes=8-{}", 7 + length)).send().await?.error_for_status()?.bytes().await?;
+    Ok(serde_json::from_slice(&body)?)
 }
 
 /// A repository's adapter files at one commit.
@@ -626,29 +674,52 @@ fn hub_adapter_id(repo: &str, path: &str) -> String {
 }
 
 impl AdapterLibrary {
-    /// Adapters for this engine on Hugging Face, the most liked first; the
-    /// query narrows them by name.
+    /// Adapters for this engine on Hugging Face, the most liked first and
+    /// the most downloaded among equals; the query narrows them by name.
     pub async fn hub_search(&self, http: &reqwest::Client, query: &str) -> Result<Vec<HubRepo>> {
         let config = hub_config(&self.engine).context("this engine has no adapters on Hugging Face")?;
         let known: Vec<&String> = config.tag_sets().flatten().collect();
-        let mut repos: Vec<HubRepo> = Vec::new();
-        for set in config.tag_sets() {
+        let query = query.trim();
+        let words: Vec<String> = query.to_lowercase().split_whitespace().map(str::to_owned).collect();
+        let url = |tags: &[String], search: &str| -> Result<reqwest::Url> {
             let mut url = reqwest::Url::parse(&format!("{HUB}/api/models"))?;
             {
                 let mut pairs = url.query_pairs_mut();
-                for tag in set {
+                for tag in tags {
                     pairs.append_pair("filter", tag);
                 }
-                let query = query.trim();
-                if !query.is_empty() {
-                    pairs.append_pair("search", query);
+                if !search.is_empty() {
+                    pairs.append_pair("search", search);
                 }
-                pairs.append_pair("sort", "likes").append_pair("direction", "-1").append_pair("limit", "100").append_pair("full", "true");
+                pairs.append_pair("sort", "likes").append_pair("direction", "-1").append_pair("limit", "1000");
+                for field in ["likes", "downloads", "lastModified", "tags"] {
+                    pairs.append_pair("expand[]", field);
+                }
             }
-            let found: Vec<Value> = http.get(url).send().await?.error_for_status()?.json().await?;
-            for model in found {
+            Ok(url)
+        };
+        // (url, found by a name search rather than by tags)
+        let mut requests: Vec<(reqwest::Url, bool)> = Vec::new();
+        for set in config.tag_sets() {
+            requests.push((url(set, query)?, false));
+        }
+        for term in &config.search {
+            requests.push((url(&[], term)?, true));
+        }
+        let answers = futures_util::future::join_all(requests.iter().map(|(url, _)| async move {
+            let found: Vec<Value> = http.get(url.clone()).send().await?.error_for_status()?.json().await?;
+            anyhow::Ok(found)
+        }))
+        .await;
+        let mut repos: Vec<HubRepo> = Vec::new();
+        for ((_, by_name), answer) in requests.iter().zip(answers) {
+            for model in answer? {
                 let Some(repo) = model.get("id").and_then(Value::as_str).map(str::to_owned) else { continue };
                 if repos.iter().any(|known| known.repo == repo) {
+                    continue;
+                }
+                let tags: Vec<&str> = model.get("tags").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).collect();
+                if *by_name && !(looks_like_adapter(&repo, &tags) && words.iter().all(|word| repo.to_lowercase().contains(word))) {
                     continue;
                 }
                 let skip = |tag: &str| known.iter().any(|known| known.as_str() == tag) || tag.contains(':');
@@ -657,16 +728,7 @@ impl AdapterLibrary {
                     likes: model.get("likes").and_then(Value::as_u64).unwrap_or(0),
                     downloads: model.get("downloads").and_then(Value::as_u64).unwrap_or(0),
                     updated: model.get("lastModified").and_then(Value::as_str).map(str::to_owned),
-                    tags: model
-                        .get("tags")
-                        .and_then(Value::as_array)
-                        .into_iter()
-                        .flatten()
-                        .filter_map(Value::as_str)
-                        .filter(|tag| !skip(tag))
-                        .take(6)
-                        .map(str::to_owned)
-                        .collect(),
+                    tags: tags.iter().filter(|tag| !skip(tag)).take(6).map(|tag| tag.to_string()).collect(),
                     repo,
                 });
             }
@@ -696,12 +758,26 @@ impl AdapterLibrary {
             let bytes = item.pointer("/lfs/size").or_else(|| item.get("size")).and_then(Value::as_u64).unwrap_or(0);
             all.insert(path.to_string(), bytes);
         }
-        let files = all
-            .iter()
-            .filter(|(path, _)| path.ends_with(".safetensors"))
-            .map(|(path, bytes)| {
+        let weights: Vec<(&String, &u64)> = all.iter().filter(|(path, _)| path.ends_with(".safetensors")).collect();
+        let urls: Vec<String> = weights.iter().map(|(path, _)| format!("{HUB}/{repo}/resolve/{revision}/{path}")).collect();
+        let kinds: Vec<AdapterWeights> = futures_util::stream::iter(urls.into_iter().map(|url| {
+            let http = http.clone();
+            async move {
+                match hub_header(&http, &url).await {
+                    Ok(header) => music_engine::model::describe_adapter(&header),
+                    Err(error) => AdapterWeights { problem: Some(format!("unreadable header: {error:#}")), ..AdapterWeights::default() },
+                }
+            }
+        }))
+        .buffered(6)
+        .collect()
+        .await;
+        let files = weights
+            .into_iter()
+            .zip(kinds)
+            .map(|((path, bytes), weights)| {
                 let adapter_id = hub_adapter_id(&repo, path);
-                HubFile { installed: self.read_meta(&adapter_id).is_some(), path: path.clone(), bytes: *bytes, adapter_id }
+                HubFile { installed: self.read_meta(&adapter_id).is_some(), path: path.clone(), bytes: *bytes, adapter_id, weights }
             })
             .collect();
         Ok(HubListing { page: format!("{HUB}/{repo}"), repo, revision, files, all })
@@ -753,6 +829,7 @@ impl AdapterLibrary {
                     page: Some(listing.page.clone()),
                     scales: BTreeMap::new(),
                     range: None,
+                    model: file.weights.model.clone(),
                     slots: Vec::new(),
                     origin: Origin::Hub { repo: listing.repo.clone(), revision: listing.revision.clone(), file: file.path.clone() },
                     created_at: String::new(),
@@ -829,12 +906,21 @@ mod tests {
             for file in &entry.files {
                 assert!(file.url.contains("/resolve/") && !file.url.contains("/resolve/main/"), "{} is not pinned", file.url);
                 assert!(file.bytes > 0);
-                assert!(file.file.ends_with(".safetensors"));
+                assert!(file.file.ends_with(".safetensors") || file.file == "adapter_config.json", "{} is not an adapter file", file.file);
             }
+            assert_eq!(entry.files.iter().filter(|file| file.file.ends_with(".safetensors")).count(), 1, "{} is not one adapter", entry.id);
+            // a model with several sizes names the one each adapter fits
+            let families = music_engine::model::MODEL_FAMILIES;
+            assert!(families.is_empty() || families.iter().any(|(name, _)| entry.model.as_deref() == Some(*name)), "{} names no model size", entry.id);
             if let Text::Localized(names) = &entry.name {
                 for lang in ["en", "ru", "zh", "ja", "ko"] {
                     assert!(names.contains_key(lang), "{} has no {lang} name", entry.id);
                 }
+            }
+            // a curated entry is described in every interface language
+            let Text::Localized(descriptions) = &entry.description else { panic!("{} is not described per language", entry.id) };
+            for lang in ["en", "ru", "zh", "ja", "ko"] {
+                assert!(descriptions.get(lang).is_some_and(|text| !text.trim().is_empty()), "{} has no {lang} description", entry.id);
             }
         }
         let mut ids: Vec<&str> = entries.iter().map(|item| item.entry.id.as_str()).collect();

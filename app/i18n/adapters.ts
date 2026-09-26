@@ -5,6 +5,17 @@
  */
 
 const en = {
+  adapterKind_quality: 'Quality',
+  adaptersCatalogSearch: 'Search the catalog: genre, artist, author…',
+  adaptersFamilyAll: 'All',
+  adaptersFamilyFits: 'Fits {model}',
+  adaptersFamilyOther: 'Made for the {model} DiT; the studio renders with {current} now. Switch the model above the create form to use it.',
+  adaptersLikes: 'Likes',
+  adaptersDownloads: 'Downloads',
+  adaptersHubPlanner: 'Planner (LM)',
+  adaptersHubProblem: 'The engine cannot load this: {problem}',
+  adaptersHubUnknown: 'size unknown',
+  adaptersCatalogEmpty: 'Nothing in the catalog matches.',
   adaptersNav: 'LoRA',
   adaptersEyebrow: 'LoRA',
   adaptersHeading: 'Styles, artists and sounds',
@@ -65,6 +76,17 @@ const en = {
 export type AdapterStrings = { readonly [K in keyof typeof en]: string };
 
 const ru: AdapterStrings = {
+  adapterKind_quality: 'Качество',
+  adaptersCatalogSearch: 'Поиск по каталогу: жанр, артист, автор…',
+  adaptersFamilyAll: 'Все',
+  adaptersFamilyFits: 'Подходят к {model}',
+  adaptersFamilyOther: 'Сделана для DiT {model}, а студия сейчас рендерит на {current}. Чтобы её использовать, переключите модель над формой создания.',
+  adaptersLikes: 'Лайки',
+  adaptersDownloads: 'Скачивания',
+  adaptersHubPlanner: 'Планировщик (LM)',
+  adaptersHubProblem: 'Движок это не загрузит: {problem}',
+  adaptersHubUnknown: 'размер не определён',
+  adaptersCatalogEmpty: 'В каталоге ничего не нашлось.',
   adaptersNav: 'LoRA',
   adaptersEyebrow: 'LoRA',
   adaptersHeading: 'Стили, артисты и звучание',
@@ -123,6 +145,17 @@ const ru: AdapterStrings = {
 };
 
 const zh: AdapterStrings = {
+  adapterKind_quality: '质量',
+  adaptersCatalogSearch: '搜索目录：流派、艺人、作者…',
+  adaptersFamilyAll: '全部',
+  adaptersFamilyFits: '适用于 {model}',
+  adaptersFamilyOther: '为 {model} DiT 制作；工作室当前使用 {current} 渲染。要使用它，请在创作表单上方切换模型。',
+  adaptersLikes: '点赞',
+  adaptersDownloads: '下载量',
+  adaptersHubPlanner: '规划模型（LM）',
+  adaptersHubProblem: '引擎无法加载：{problem}',
+  adaptersHubUnknown: '尺寸未知',
+  adaptersCatalogEmpty: '目录中没有匹配项。',
   adaptersNav: 'LoRA',
   adaptersEyebrow: 'LoRA',
   adaptersHeading: '风格、艺人与音色',
@@ -181,6 +214,17 @@ const zh: AdapterStrings = {
 };
 
 const ja: AdapterStrings = {
+  adapterKind_quality: '品質',
+  adaptersCatalogSearch: 'カタログを検索：ジャンル、アーティスト、作者…',
+  adaptersFamilyAll: 'すべて',
+  adaptersFamilyFits: '{model} 対応',
+  adaptersFamilyOther: '{model} の DiT 用です。スタジオは今 {current} で描画しています。使うには作成フォーム上でモデルを切り替えてください。',
+  adaptersLikes: 'いいね',
+  adaptersDownloads: 'ダウンロード数',
+  adaptersHubPlanner: 'プランナー（LM）',
+  adaptersHubProblem: 'エンジンが読み込めません：{problem}',
+  adaptersHubUnknown: 'サイズ不明',
+  adaptersCatalogEmpty: 'カタログに一致するものがありません。',
   adaptersNav: 'LoRA',
   adaptersEyebrow: 'LoRA',
   adaptersHeading: 'スタイル、アーティスト、サウンド',
@@ -239,6 +283,17 @@ const ja: AdapterStrings = {
 };
 
 const ko: AdapterStrings = {
+  adapterKind_quality: '품질',
+  adaptersCatalogSearch: '카탈로그 검색: 장르, 아티스트, 작가…',
+  adaptersFamilyAll: '전체',
+  adaptersFamilyFits: '{model}에 맞음',
+  adaptersFamilyOther: '{model} DiT용입니다. 스튜디오는 지금 {current}로 렌더링합니다. 사용하려면 만들기 양식 위에서 모델을 바꾸세요.',
+  adaptersLikes: '좋아요',
+  adaptersDownloads: '다운로드',
+  adaptersHubPlanner: '플래너 (LM)',
+  adaptersHubProblem: '엔진이 불러올 수 없음: {problem}',
+  adaptersHubUnknown: '크기 알 수 없음',
+  adaptersCatalogEmpty: '카탈로그에 맞는 항목이 없습니다.',
   adaptersNav: 'LoRA',
   adaptersEyebrow: 'LoRA',
   adaptersHeading: '스타일, 아티스트, 사운드',

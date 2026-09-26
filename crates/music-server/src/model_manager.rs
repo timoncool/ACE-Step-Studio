@@ -22,6 +22,9 @@ const MAIN: (&str, &str) = ("Serveurperso/ACE-Step-1.5-GGUF", "666ac70204440867d
 const MERGES: (&str, &str) = ("scragnog/ace-step-1.5-gguf-merge-models", "c4750313bd892420f5902d346b805d686d963784");
 const MXFP4: (&str, &str) = ("scragnog/Ace-Step-1.5-MXFP4-Quants", "05a04ec24513e44f21947a2d1ee8d1cae91d1095");
 const SCRAGVAE: (&str, &str) = ("scragnog/Ace-Step-1.5-ScragVAE", "0547ba36ff72b94ca3db3fa9194a59899ca37e5c");
+/// mdmachine's Regrind: an XL turbo DiT and VAE decoders retrained against the
+/// harmonic hum of the stock weights. CC BY-NC-SA 4.0, not for commercial use.
+const REGRIND: (&str, &str) = ("mdmachine/ACEStep-XL-Regrind-V1", "e9b48a00c0f6f59f1ed988774e673ac70816474b");
 const REPOSITORY: &str = MAIN.0;
 const REVISION: &str = MAIN.1;
 
@@ -73,6 +76,10 @@ pub struct Component {
     /// someone else, and a single hard-coded repository is what kept them out.
     pub repository: &'static str,
     pub revision: &'static str,
+    /// The path inside the repository, when the file lives in a folder there;
+    /// it is stored under its own name.
+    #[serde(skip)]
+    pub remote_path: &'static str,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -363,7 +370,7 @@ impl ModelManager {
         let part = part_path(&target);
         let url = format!(
             "https://huggingface.co/{}/resolve/{}/{}?download=true",
-            component.repository, component.revision, component.filename
+            component.repository, component.revision, component.remote_path
         );
 
         let plan = crate::chunked::probe(&self.http, &url).await?;
@@ -748,11 +755,23 @@ fn components() -> Vec<Component> {
         c("dit-xl-sftturbo50-mxfp4", "dit", "acestep-v15-xl-sftturbo50-MXFP4.gguf", 2660726496, "faf4bc94052c0c9ce6bc9ddb32a6b78220d512e8ab4d83f79ac54b1f2a755c5c", MXFP4),
         c("dit-xl-turbo-mxfp4", "dit", "acestep-v15-xl-turbo-MXFP4.gguf", 2660726464, "dfb0ba27f2dd25c6bb31ad7f1a7c8d6e5c538593c5fff92e3329d186c81751e4", MXFP4),
         c("vae-scragvae-bf16", "vae", "scragvae-BF16.gguf", 337420928, "2e56bd72b2c1599932513c9089171c171221d6edee02f1f903c9d34daa7d63d6", SCRAGVAE),
+        nested(c("dit-xl-turbo-regrind-q4", "dit", "acestep_1.5_xl_turbo_regrind_v1-Q4_K_M.gguf", 2989922688, "f0f77a5c40d3fdee2a3c46731fa181cb8965a9c9e69cbd5d9eaee3057216c692", REGRIND), "dit"),
+        nested(c("dit-xl-turbo-regrind-q6", "dit", "acestep_1.5_xl_turbo_regrind_v1-Q6_K.gguf", 4098812992, "bd4690a6233d88de52bc3c222c3695f05a5be4af441f2d3d285eaed3933de254", REGRIND), "dit"),
+        nested(c("dit-xl-turbo-regrind-q8", "dit", "acestep_1.5_xl_turbo_regrind_v1-Q8_0.gguf", 5305828736, "63bd1ce2e9668e5373558813e64e6d9b2e3c7eb2710ff808f5dff6ada08d7d34", REGRIND), "dit"),
+        nested(c("vae-regrind-v10b-bf16", "vae", "acestep_1.5_vae_Regrind_V10b-BF16.gguf", 337420960, "f1a0dd870b59a4c15f528ff3f890f8d31ff33225533d19e633579f1893263603", REGRIND), "vae"),
+        nested(c("vae-regrind-v10b-blend50-bf16", "vae", "acestep_1.5_vae_Regrind_V10b_blend50-BF16.gguf", 337420928, "9cca7d4f48b977e97189cdf80491a87da30a50e8e5c15c2d8d33494390bcc4e7", REGRIND), "vae"),
+        nested(c("vae-regrind-v9b-bf16", "vae", "acestep_1.5_vae_Regrind_V9b-BF16.gguf", 337420928, "3758d496e23fa06c12fa963375f75feb52d574525589d498c483ffc470ce1399", REGRIND), "vae"),
+        nested(c("vae-regrind-v9b-blend50-bf16", "vae", "acestep_1.5_vae_Regrind_V9b_blend50-BF16.gguf", 337420928, "cf9fa7cc273f2b6215a1ef59eff9a4b945b986d5ece4dfc0cd9e73f12296f6ae", REGRIND), "vae"),
     ]
 }
 
 fn c(id: &'static str, kind: &'static str, filename: &'static str, bytes: u64, sha256: &'static str, source: (&'static str, &'static str)) -> Component {
-    Component { id, kind, filename, bytes, sha256, repository: source.0, revision: source.1 }
+    Component { id, kind, filename, bytes, sha256, repository: source.0, revision: source.1, remote_path: filename }
+}
+
+/// A component its repository keeps in a folder.
+fn nested(component: Component, folder: &'static str) -> Component {
+    Component { remote_path: Box::leak(format!("{folder}/{}", component.filename).into_boxed_str()), ..component }
 }
 
 #[cfg(test)]

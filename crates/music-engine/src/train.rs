@@ -1,39 +1,36 @@
-//! How MiniMax Music 3 adapters are trained: the weights the trainer needs,
-//! the stages it runs and what they print.
+//! How ACE-Step DiT adapters are trained: the stages the trainer runs, the
+//! recipe it takes and what it prints.
 //!
 //! The trainer is HOT-Step's `ace-train`, built from a pinned commit and
-//! shipped as `music-train`. It trains the planner LM - the half that writes
-//! the song - on RVQ codes it encodes from the dataset's audio, and exports a
-//! PEFT LoRA the engine merges at load. It reads its own GGUF conversion of
-//! the model, which is why the training pack brings its own LM.
+//! shipped as `music-train`. `preprocess` encodes every song with the
+//! studio's own VAE, text encoder and DiT condition encoder into a tensor
+//! cache; `train-dit` trains a LoRA or LoKr on the DiT from it and exports
+//! the adapter the engine loads (a PEFT folder, or `lokr_weights.safetensors`).
 //!
-//! A dataset reaches the trainer as a folder of 44.1 kHz stereo float WAV
-//! files the studio writes, each with a `<id>.mm3.txt` structured caption, and
-//! a `dataset.json` listing them with their lyrics.
+//! A dataset reaches the trainer as a Side-Step `dataset.json` beside the
+//! songs, each with its caption, genre, lyrics and metadata; the trigger word
+//! is the dataset's `custom_tag`, put in front of every caption.
+//!
+//! The defaults are HOT-Step's Training Studio's (`TRAIN_DIT_DEFAULTS`,
+//! `TRAIN_DIT_LOKR_DEFAULTS` at 8a5e42c4): flow-SNR loss, rank 128 / alpha 256
+//! with the MLP trained, Prodigy, fused flash attention with the crop fitted
+//! to the card.
 
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-/// The Hugging Face repository and commit the training weights come from.
-pub const WEIGHTS_REPOSITORY: &str = "scragnog/MiniMax-Music3-GGUF";
-pub const WEIGHTS_REVISION: &str = "3bc27a90ab1b182a692744f46be18385098293c7";
+/// The rate the trainer resamples to; the studio writes the songs at it.
+pub const SAMPLE_RATE: u32 = 48_000;
 
-/// The rate the trainer's audio encoder takes.
-pub const SAMPLE_RATE: u32 = 44_100;
+/// Video memory the smallest configuration the trainer fits needs, in GB:
+/// the XL base mirrored in bf16 is 8.1 GB, and the author measured full-depth
+/// training on a card with 12 GB free.
+pub const MIN_VRAM_GB: u32 = 12;
 
-/// Frames per second of the LM's code stream; 9000 frames is its 6:00 limit.
-pub const FRAMES_PER_SECOND: u32 = 25;
-pub const MAX_FRAMES: u32 = 9000;
-
-/// Video memory a run of the default recipe needs, in GB: the q8_0 base, rank
-/// 128 HOT-PiZZA with AdamW and a 1536 frame window of exact attention, as
-/// measured on a 24 GB card with room to spare.
-pub const MIN_VRAM_GB: u32 = 22;
-
-/// One file of the training pack, stored flat in the training models folder.
-#[derive(Debug, Clone, Copy, Serialize)]
+/// Weights the trainer needs beyond the studio's own models: none, it trains
+/// on the DiT, VAE and text encoder the studio renders with.
 pub struct TrainingFile {
     pub id: &'static str,
     pub label: &'static str,
@@ -41,114 +38,100 @@ pub struct TrainingFile {
     pub bytes: u64,
 }
 
-pub const TRAINING_FILES: &[TrainingFile] = &[
-    TrainingFile { id: "mm3-train-lm", label: "MiniMax Music 3 LM for training (Q8_0)", file: "mm3-lm-q8_0.gguf", bytes: 9_129_105_696 },
-    TrainingFile { id: "mm3-train-depth", label: "Depth decoder (acoustic loss)", file: "mm3-depth-f16.gguf", bytes: 1_292_259_232 },
-    TrainingFile { id: "mm3-train-rvq", label: "RVQ encoder", file: "mm3-rvq-53kpooled-f32.gguf", bytes: 676_044_352 },
-    TrainingFile { id: "mm3-train-enc", label: "Audio encoder", file: "mm3-enc-f16.gguf", bytes: 89_466_528 },
-];
+pub const TRAINING_FILES: &[TrainingFile] = &[];
 
 pub fn training_file_url(file: &TrainingFile) -> String {
-    format!("https://huggingface.co/{WEIGHTS_REPOSITORY}/resolve/{WEIGHTS_REVISION}/{}", file.file)
+    file.file.to_string()
 }
 
-/// What a run is asked for. The defaults are HOT-Step's Balanced recipe for
-/// MM3 planner adapters (`MM3_LM_DEFAULTS` with the Balanced preset), except
-/// for the window: a whole song needs a 32 GB card, and 1536 frames of exact
-/// attention fit 24 GB.
+/// What a run is asked for.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Recipe {
-    /// `steps`: train `steps`; `epochs`: train `epochs` passes over the songs.
-    pub stop: String,
-    /// One epoch is one pass over the dataset: a step trains one song.
+    /// Passes over the songs; the run stops earlier once the smoothed loss
+    /// reaches `target_loss`, and the best adapter is what it leaves.
     pub epochs: u32,
-    pub steps: u32,
-    pub save_every: u32,
+    pub target_loss: f64,
     pub seed: u32,
-    /// `hot_pizza` (PiSSA with principal-subspace dropout, the author's
-    /// default and his best by ear), `pissa` or plain `lora`.
-    pub method: String,
+    /// `lora` or `lokr`.
+    pub adapter: String,
     pub rank: u32,
     pub alpha: f64,
-    /// Share of the rank dropped each step; the mask is what HOT-PiZZA is.
-    pub rank_dropout: f64,
-    /// `adamw`, `prodigy` (finds its own step size) or `muon`.
+    pub lokr_dim: u32,
+    pub lokr_alpha: f64,
+    pub lokr_factor: u32,
+    /// Train the feed-forward blocks too, not only attention.
+    pub target_mlp: bool,
+    /// `prodigy` (finds its own step size), `adamw` or `muon`.
     pub optimizer: String,
     pub learning_rate: f64,
-    pub warmup: u32,
-    /// Frames of a song one step sees; 9000 is a whole song.
-    pub max_frames: u32,
-    /// `exact` or `flash`; flash has a large fixed cost and pays off only for
-    /// long windows.
+    pub grad_accum: u32,
+    /// Percent of steps that train on the genre tags instead of the caption,
+    /// so the adapter answers a short prompt too.
+    pub genre_ratio: u32,
+    /// Share of steps with the caption dropped, which classifier-free
+    /// guidance needs at generation.
+    pub cfg_ratio: f64,
+    /// `flash` (fused, attention memory linear in the crop) or `exact`.
     pub attention: String,
-    /// Weight of the acoustic codebooks' loss through the depth decoder;
-    /// without it the adapter damages the timbre.
-    pub depth_loss_weight: f64,
+    /// Steps one epoch takes; filled in from the trainer's own report.
+    pub steps: u32,
 }
 
 impl Default for Recipe {
     fn default() -> Self {
         Self {
-            stop: "steps".into(),
-            epochs: 40,
-            steps: 600,
-            save_every: 100,
+            epochs: 500,
+            target_loss: 0.3,
             seed: 42,
-            method: "hot_pizza".into(),
+            adapter: "lora".into(),
             rank: 128,
-            alpha: 128.0,
-            rank_dropout: 0.1,
-            optimizer: "adamw".into(),
-            learning_rate: 8e-5,
-            warmup: 25,
-            max_frames: 1536,
-            attention: "exact".into(),
-            depth_loss_weight: 1.0,
+            alpha: 256.0,
+            lokr_dim: 512,
+            lokr_alpha: 512.0,
+            lokr_factor: 6,
+            target_mlp: true,
+            optimizer: "prodigy".into(),
+            learning_rate: 5e-4,
+            grad_accum: 4,
+            genre_ratio: 30,
+            cfg_ratio: 0.15,
+            attention: "flash".into(),
+            steps: 0,
         }
     }
 }
 
 impl Recipe {
-    /// The recipe the trainer runs for a dataset of `songs`: by epochs, the
-    /// steps are the epochs times the songs.
-    pub fn for_songs(&self, songs: usize) -> Recipe {
-        let mut recipe = self.clone();
-        if recipe.stop == "epochs" {
-            recipe.steps = recipe.epochs.saturating_mul(songs.max(1) as u32);
-        }
-        recipe
+    /// The recipe for a dataset of `songs`: nothing depends on the count
+    /// before the trainer reports its steps.
+    pub fn for_songs(&self, _songs: usize) -> Recipe {
+        self.clone()
     }
 
     /// Refuses what the trainer would refuse, before any stage starts.
     pub fn check(&self) -> Result<(), String> {
-        if self.epochs == 0 {
-            return Err("epochs must be at least 1".into());
+        if self.epochs == 0 || self.grad_accum == 0 {
+            return Err("epochs and gradient accumulation must be at least 1".into());
         }
-        if !matches!(self.stop.as_str(), "steps" | "epochs") {
-            return Err(format!("unknown stopping rule {}", self.stop));
+        if !matches!(self.adapter.as_str(), "lora" | "lokr") {
+            return Err(format!("unknown adapter {}", self.adapter));
         }
-        if self.steps == 0 || self.save_every == 0 {
-            return Err("steps and the checkpoint interval must be at least 1".into());
-        }
-        if !matches!(self.method.as_str(), "hot_pizza" | "pissa" | "lora") {
-            return Err(format!("unknown method {}", self.method));
-        }
-        if !matches!(self.optimizer.as_str(), "adamw" | "prodigy" | "muon") {
+        if !matches!(self.optimizer.as_str(), "prodigy" | "adamw" | "muon") {
             return Err(format!("unknown optimizer {}", self.optimizer));
         }
-        if !matches!(self.attention.as_str(), "exact" | "flash") {
+        if !matches!(self.attention.as_str(), "flash" | "exact") {
             return Err(format!("unknown attention {}", self.attention));
         }
-        if self.rank == 0 || !(64..=MAX_FRAMES).contains(&self.max_frames) {
-            return Err(format!("the rank must be at least 1 and the window between 64 and {MAX_FRAMES} frames"));
+        if self.rank == 0 || self.lokr_dim == 0 || self.lokr_factor == 0 {
+            return Err("the rank, the LoKr dimension and its factor must be at least 1".into());
         }
-        let finite = [self.alpha, self.learning_rate, self.rank_dropout, self.depth_loss_weight].iter().all(|value| value.is_finite());
-        if !finite || self.alpha <= 0.0 || self.learning_rate <= 0.0 || !(0.0..1.0).contains(&self.rank_dropout) || self.depth_loss_weight < 0.0 {
+        let numbers = [self.alpha, self.lokr_alpha, self.learning_rate, self.target_loss, self.cfg_ratio];
+        if !numbers.iter().all(|value| value.is_finite()) || self.alpha <= 0.0 || self.lokr_alpha <= 0.0 || self.learning_rate <= 0.0 {
             return Err("a recipe number is out of range".into());
         }
-        if self.method == "hot_pizza" && self.rank_dropout <= 0.0 {
-            return Err("HOT-PiZZA needs a rank dropout above 0: the mask is the method".into());
+        if self.genre_ratio > 100 || !(0.0..1.0).contains(&self.cfg_ratio) || self.target_loss < 0.0 {
+            return Err("the genre share is a percent and the dropped-caption share below 1".into());
         }
         Ok(())
     }
@@ -206,34 +189,51 @@ const fn choice(key: &'static str, group: &'static str, choices: &'static [&'sta
     RecipeField { key, group, kind: FieldKind::Choice, min: None, max: None, step: None, choices, shown_when: None, off_when: None }
 }
 
-/// The settings of a MiniMax Music 3 run, in the order the page shows them.
+const fn toggle(key: &'static str, group: &'static str) -> RecipeField {
+    RecipeField { key, group, kind: FieldKind::Toggle, min: None, max: None, step: None, choices: &[], shown_when: None, off_when: None }
+}
+
+const LORA: FieldCondition = FieldCondition { field: "adapter", values: &["lora"] };
+const LOKR: FieldCondition = FieldCondition { field: "adapter", values: &["lokr"] };
+
+/// The settings of an ACE-Step run, in the order the page shows them.
 pub fn recipe_fields() -> Vec<RecipeField> {
     vec![
-        choice("stop", "stop", &["steps", "epochs"]),
-        RecipeField { shown_when: Some(FieldCondition { field: "stop", values: &["steps"] }), ..integer("steps", "stop", 1.0, 5000.0, 50.0) },
-        RecipeField { shown_when: Some(FieldCondition { field: "stop", values: &["epochs"] }), ..integer("epochs", "stop", 1.0, 500.0, 1.0) },
-        integer("save_every", "stop", 1.0, 1000.0, 10.0),
+        integer("epochs", "stop", 1.0, 2000.0, 10.0),
+        number("target_loss", "stop", 0.0, 2.0, 0.05),
         integer("seed", "stop", 0.0, 4_294_967_295.0, 1.0),
-        choice("method", "adapter", &["hot_pizza", "pissa", "lora"]),
-        integer("rank", "adapter", 1.0, 512.0, 8.0),
-        number("alpha", "adapter", 1.0, 1024.0, 8.0),
-        RecipeField { off_when: Some(FieldCondition { field: "method", values: &["lora", "pissa"] }), ..number("rank_dropout", "adapter", 0.0, 0.9, 0.05) },
-        choice("optimizer", "optimizer", &["adamw", "prodigy", "muon"]),
-        RecipeField { off_when: Some(FieldCondition { field: "optimizer", values: &["prodigy"] }), ..number("learning_rate", "optimizer", 0.0, 0.01, 0.00001) },
-        integer("warmup", "optimizer", 0.0, 1000.0, 5.0),
-        integer("max_frames", "window", 64.0, MAX_FRAMES as f64, 250.0),
-        choice("attention", "window", &["exact", "flash"]),
-        number("depth_loss_weight", "window", 0.0, 4.0, 0.1),
+        choice("adapter", "adapter", &["lora", "lokr"]),
+        RecipeField { shown_when: Some(LORA), ..integer("rank", "adapter", 1.0, 512.0, 8.0) },
+        RecipeField { shown_when: Some(LORA), ..number("alpha", "adapter", 1.0, 1024.0, 8.0) },
+        RecipeField { shown_when: Some(LOKR), ..integer("lokr_dim", "adapter", 1.0, 4096.0, 64.0) },
+        RecipeField { shown_when: Some(LOKR), ..number("lokr_alpha", "adapter", 1.0, 4096.0, 64.0) },
+        RecipeField { shown_when: Some(LOKR), ..integer("lokr_factor", "adapter", 1.0, 64.0, 1.0) },
+        toggle("target_mlp", "adapter"),
+        choice("optimizer", "optimizer", &["prodigy", "adamw", "muon"]),
+        RecipeField { off_when: Some(FieldCondition { field: "optimizer", values: &["prodigy"] }), ..number("learning_rate", "optimizer", 0.0, 0.05, 0.0001) },
+        integer("grad_accum", "optimizer", 1.0, 64.0, 1.0),
+        integer("genre_ratio", "data", 0.0, 100.0, 5.0),
+        number("cfg_ratio", "data", 0.0, 0.5, 0.05),
+        choice("attention", "window", &["flash", "exact"]),
     ]
+}
+
+/// The studio's models a run encodes and trains with.
+#[derive(Debug, Clone)]
+pub struct TrainingBase {
+    /// The folder the engine reads its models from.
+    pub models: PathBuf,
+    pub dit: String,
+    pub vae: String,
+    pub text_encoder: String,
 }
 
 /// What a run is asked to do.
 #[derive(Debug, Clone)]
 pub struct TrainingInputs {
-    /// `dataset.json`, the captions and the WAV files, written by the studio.
+    /// `dataset.json` and the WAV files, written by the studio.
     pub data: PathBuf,
-    /// The training models folder, holding [`TRAINING_FILES`].
-    pub models: PathBuf,
+    pub base: TrainingBase,
     /// The run's own folder; every stage writes below it.
     pub run: PathBuf,
     pub recipe: Recipe,
@@ -251,120 +251,159 @@ fn path(value: &Path) -> OsString {
     value.as_os_str().to_owned()
 }
 
-/// The trainer's stages of a run, in order: RVQ codes from the audio, then
-/// training. The audio and captions they read are the studio's to write first.
-pub fn training_stages(inputs: &TrainingInputs) -> Vec<TrainingStage> {
-    let models = &inputs.models;
+/// The folder a stage of training exports the adapter into.
+fn output(run: &Path) -> PathBuf {
+    run.join("output")
+}
+
+fn base_args(base: &TrainingBase) -> Vec<OsString> {
+    vec![
+        OsString::from("--models"),
+        path(&base.models),
+        OsString::from("--dit"),
+        OsString::from(&base.dit),
+    ]
+}
+
+/// The train-dit invocation of a recipe, writing into `out`.
+fn train_args(inputs: &TrainingInputs, out: &Path) -> Vec<OsString> {
     let recipe = &inputs.recipe;
-    let codes = inputs.run.join("codes");
-    let manifest = inputs.data.join("dataset.json");
     let arg = |text: &str| OsString::from(text);
     let text = |value: &dyn ToString| OsString::from(value.to_string());
-    let codes_stage = vec![
-        arg("mm3-codes"),
-        arg("--jsonl"),
-        arg("--dataset"),
-        path(&manifest),
-        arg("--rvq"),
-        path(&models.join(TRAINING_FILES[2].file)),
-        arg("--enc"),
-        path(&models.join(TRAINING_FILES[3].file)),
-        arg("--out"),
-        path(&codes),
-        arg("--ffmpeg"),
-        arg("none"),
-    ];
-    let mut train = vec![
-        arg("mm3-lm-train"),
-        arg("--jsonl"),
-        arg("--lm"),
-        path(&models.join(TRAINING_FILES[0].file)),
-        arg("--depth"),
-        path(&models.join(TRAINING_FILES[1].file)),
-        arg("--manifest"),
-        path(&manifest),
-        arg("--captions"),
-        path(&inputs.data),
-        arg("--codes"),
-        path(&codes.join("codes")),
-        arg("--out"),
-        path(&inputs.run.join("output")),
-        arg("--rank"),
-        text(&recipe.rank),
-        arg("--alpha"),
-        text(&recipe.alpha),
-        arg("--lr"),
-        text(&recipe.learning_rate),
-        arg("--lr-end-frac"),
-        arg("0.005"),
-        arg("--steps"),
-        text(&recipe.steps),
-        arg("--save-every"),
-        text(&recipe.save_every.max(1)),
-        arg("--warmup"),
-        text(&recipe.warmup),
-        arg("--seed"),
-        text(&recipe.seed),
-        arg("--max-frames"),
-        text(&recipe.max_frames),
-        arg("--drop-over-frames"),
-        text(&MAX_FRAMES),
-        arg("--crop-mode"),
-        arg("structured"),
-        arg("--crop-start-frac"),
-        arg("0.2"),
-        arg("--crop-end-frac"),
-        arg("0.15"),
-        arg("--crop-anchor"),
-        arg("song"),
+    let mut train = vec![arg("train-dit"), arg("--jsonl"), arg("--stages"), arg("train,export"), arg("--tensors"), path(&inputs.run.join("tensors")), arg("--out"), path(out)];
+    train.extend(base_args(&inputs.base));
+    train.extend([arg("--adapter-type"), arg(&recipe.adapter)]);
+    if recipe.adapter == "lokr" {
+        train.extend([arg("--lokr-dim"), text(&recipe.lokr_dim), arg("--lokr-alpha"), text(&recipe.lokr_alpha), arg("--lokr-factor"), text(&recipe.lokr_factor)]);
+    } else {
+        train.extend([arg("--rank"), text(&recipe.rank), arg("--alpha"), text(&recipe.alpha)]);
+    }
+    train.push(arg(if recipe.target_mlp { "--target-mlp" } else { "--no-target-mlp" }));
+    train.extend([
         arg("--optimizer"),
         arg(&recipe.optimizer),
+        arg("--lr"),
+        text(&recipe.learning_rate),
+        arg("--epochs"),
+        text(&recipe.epochs),
+        arg("--target-loss"),
+        text(&recipe.target_loss),
+        arg("--grad-accum"),
+        text(&recipe.grad_accum),
+        arg("--genre-ratio"),
+        text(&recipe.genre_ratio),
+        arg("--cfg-ratio"),
+        text(&recipe.cfg_ratio),
+        arg("--seed"),
+        text(&recipe.seed),
         arg("--attn"),
         arg(&recipe.attention),
-        arg("--depth-loss-weight"),
-        text(&recipe.depth_loss_weight),
-        arg("--depth-loss-frames"),
-        arg("128"),
-        arg("--holdout"),
-        arg("0"),
+        // the author's shipped companions of the flash crop: bf16 storage
+        // computed in f32, the mul_mat backward
+        arg("--mirror"),
+        arg(if recipe.attention == "flash" { "bf16-f32" } else { "f32" }),
+        arg("--bwd"),
+        arg("mm"),
+        arg("--loss-weighting"),
+        arg("flow_snr"),
+        arg("--overwrite"),
+    ]);
+    train
+}
+
+/// The trainer's stages of a run, in order: the tensor cache from the songs,
+/// then training and export. The audio and `dataset.json` are the studio's
+/// to write first.
+pub fn training_stages(inputs: &TrainingInputs) -> Vec<TrainingStage> {
+    let arg = |text: &str| OsString::from(text);
+    let mut preprocess = vec![
+        arg("preprocess"),
+        arg("--jsonl"),
+        arg("--dataset"),
+        path(&inputs.data.join("dataset.json")),
+        arg("--out"),
+        path(&inputs.run.join("tensors")),
     ];
-    match recipe.method.as_str() {
-        "hot_pizza" => train.extend([arg("--hot-pizza"), arg("--rank-dropout"), text(&recipe.rank_dropout)]),
-        "pissa" => train.push(arg("--pissa")),
-        _ => {}
+    preprocess.extend(base_args(&inputs.base));
+    preprocess.extend([arg("--vae"), arg(&inputs.base.vae), arg("--text-enc"), arg(&inputs.base.text_encoder), arg("--overwrite")]);
+    vec![
+        TrainingStage { id: "preprocess", args: preprocess },
+        TrainingStage { id: "train", args: train_args(inputs, &output(&inputs.run)) },
+    ]
+}
+
+/// A run trained further from the adapter it left: `train-dit` starts from
+/// it (`--init-adapter`) and writes a new export beside it, so the one
+/// already installed stays as it was.
+pub fn continuation_stage(inputs: &TrainingInputs, resume: &Path, out: &Path) -> TrainingStage {
+    let mut train = train_args(inputs, out);
+    // the adapter's shape is the one it was trained with; the trainer adopts it
+    let identity = ["--adapter-type", "--rank", "--alpha", "--lokr-dim", "--lokr-alpha", "--lokr-factor", "--target-mlp", "--no-target-mlp"];
+    let mut kept = Vec::with_capacity(train.len());
+    let mut skip = 0;
+    for (index, arg) in train.drain(..).enumerate() {
+        if skip > 0 {
+            skip -= 1;
+            continue;
+        }
+        let text = arg.to_string_lossy().into_owned();
+        if identity.contains(&text.as_str()) && index > 0 {
+            skip = usize::from(!text.starts_with("--target-mlp") && !text.starts_with("--no-target-mlp"));
+            continue;
+        }
+        kept.push(arg);
     }
-    if recipe.method != "lora" {
-        // A plain rank-2r LoRA on the original base, which the engine merges;
-        // the default delta form needs a residual file no loader here reads.
-        // The frozen factors in F16 halve their memory, as HOT-Step runs it.
-        train.extend([arg("--pissa-standalone"), arg("--pissa-frozen-f16")]);
+    kept.extend([OsString::from("--init-adapter"), path(resume)]);
+    TrainingStage { id: "train", args: kept }
+}
+
+/// Every recipe can be trained further: the adapter itself is the state.
+pub fn continuation_refused(_recipe: &Recipe) -> bool {
+    false
+}
+
+/// The adapter files of an export folder, when it holds a finished one.
+fn adapter_files(folder: &Path) -> Option<Vec<PathBuf>> {
+    let lokr = folder.join("lokr_weights.safetensors");
+    if lokr.is_file() {
+        return Some(vec![lokr]);
     }
-    vec![TrainingStage { id: "codes", args: codes_stage }, TrainingStage { id: "train", args: train }]
+    let files: Vec<PathBuf> = ["adapter_model.safetensors", "adapter_config.json"].iter().map(|name| folder.join(name)).collect();
+    files.iter().all(|file| file.is_file()).then_some(files)
 }
 
-/// A run trained further, up to `inputs.recipe.steps`: the trainer resumes
-/// the optimizer, the song order and the step count from `resume` and keeps
-/// writing into the run's output. Its songs and codes are the run's already.
-pub fn continuation_stage(inputs: &TrainingInputs, resume: &Path) -> TrainingStage {
-    let mut train = training_stages(inputs).pop().expect("the training stage").args;
-    train.extend([OsString::from("--resume"), path(resume)]);
-    TrainingStage { id: "train", args: train }
+/// The epoch an export's adapter is from, from the log the trainer writes
+/// beside it: the best epoch it kept, else the last it ran.
+fn trained_epochs(folder: &Path) -> Option<u32> {
+    let log: serde_json::Value = serde_json::from_slice(&std::fs::read(folder.join("dit_train_log.json")).ok()?).ok()?;
+    ["saved_epoch", "epochs_run"].iter().find_map(|key| log.get(*key).and_then(serde_json::Value::as_u64)).map(|epochs| epochs as u32)
 }
 
-/// The trainer's refusal, before it is asked: PiSSA and HOT-PiZZA fit frozen
-/// factors to the base at step 0, and the resume state does not carry them.
-pub fn continuation_refused(recipe: &Recipe) -> bool {
-    recipe.method != "lora"
+/// What a run counts its progress and its checkpoints in: epochs.
+pub const PROGRESS_UNIT: &str = "epoch";
+
+/// The export folders of a run, oldest first: `output`, then the
+/// continuations' `output-<n>`.
+fn exports(run: &Path) -> Vec<PathBuf> {
+    let mut folders: Vec<PathBuf> = std::fs::read_dir(run)
+        .map(|entries| entries.flatten().map(|entry| entry.path()).filter(|path| path.is_dir()).collect())
+        .unwrap_or_default();
+    folders.retain(|folder| folder.file_name().and_then(|name| name.to_str()).is_some_and(|name| name == "output" || name.starts_with("output-")));
+    folders.sort_by_key(|folder| std::fs::metadata(folder).and_then(|meta| meta.modified()).ok());
+    folders
 }
 
-/// The state a run can be continued from, and its step: the trainer writes it
-/// on a clean finish, `resume-state.bin` with `resume-state.json` beside it.
+/// Where a run can be trained further from: its latest adapter, and the
+/// epochs trained into it, the continuations' included.
 pub fn resume_point(run: &Path) -> Option<(u32, PathBuf)> {
-    let output = run.join("output");
-    let state = output.join("resume-state.bin");
-    let meta: serde_json::Value = serde_json::from_slice(&std::fs::read(output.join("resume-state.json")).ok()?).ok()?;
-    let step = meta.get("step")?.as_u64()? as u32;
-    state.is_file().then_some((step, state))
+    let finished: Vec<PathBuf> = exports(run).into_iter().filter(|folder| adapter_files(folder).is_some()).collect();
+    let epochs = finished.iter().filter_map(|folder| trained_epochs(folder)).sum();
+    Some((epochs, finished.last()?.clone()))
+}
+
+/// The folder a continuation exports into.
+pub fn continuation_output(run: &Path) -> PathBuf {
+    run.join(format!("output-{}", exports(run).len()))
 }
 
 /// A step of the training stage, as the trainer reports it.
@@ -373,6 +412,8 @@ pub struct TrainingStep {
     pub step: u32,
     pub loss: f64,
     pub step_ms: Option<f64>,
+    /// The steps the whole run takes, as the trainer counts them.
+    pub total: Option<u32>,
 }
 
 /// Reads one line of the trainer's output; progress lines are JSON.
@@ -385,129 +426,124 @@ pub fn parse_training_step(line: &str) -> Option<TrainingStep> {
     Some(TrainingStep {
         step: value.get("step")?.as_u64()? as u32,
         loss,
-        step_ms: value.get("stepMs").and_then(serde_json::Value::as_f64).filter(|value| value.is_finite()),
+        step_ms: value.get("ms").and_then(serde_json::Value::as_f64).filter(|value| value.is_finite()),
+        total: value.get("totalSteps").and_then(serde_json::Value::as_u64).map(|total| total as u32),
     })
 }
 
-/// A finished checkpoint: its step and the adapter files generation uses.
+/// A finished adapter: the epochs it trained, continuations included, and the
+/// files generation uses.
 #[derive(Debug, Clone, Serialize)]
 pub struct TrainingCheckpoint {
     pub step: u32,
     pub files: Vec<PathBuf>,
 }
 
-/// The checkpoints a run has written so far, the latest first: PEFT folders
-/// `ckpt-<step>` with the weights and the config that carries their alpha.
+/// The adapters a run has exported, the latest first.
 pub fn checkpoints(run: &Path) -> Vec<TrainingCheckpoint> {
-    let Ok(entries) = std::fs::read_dir(run.join("output")) else { return Vec::new() };
-    let mut found: Vec<TrainingCheckpoint> = entries
-        .flatten()
-        .filter_map(|entry| {
-            let step = entry.file_name().to_str()?.strip_prefix("ckpt-")?.parse().ok()?;
-            let files: Vec<PathBuf> = ["adapter_model.safetensors", "adapter_config.json"].iter().map(|name| entry.path().join(name)).collect();
-            files.iter().all(|file| file.is_file()).then_some(TrainingCheckpoint { step, files })
+    let mut trained = 0;
+    let mut found: Vec<TrainingCheckpoint> = exports(run)
+        .into_iter()
+        .filter_map(|folder| {
+            let files = adapter_files(&folder)?;
+            trained += trained_epochs(&folder).unwrap_or(0);
+            Some(TrainingCheckpoint { step: trained, files })
         })
         .collect();
-    found.sort_by(|a, b| b.step.cmp(&a.step));
+    found.reverse();
     found
-}
-
-/// The caption a song trains with: its structured caption, the trigger word
-/// leading the Global Metadata section, where the create form puts it too.
-pub fn caption_with_trigger(caption: &str, trigger: &str) -> String {
-    const HEADING: &str = "Global Metadata";
-    let caption = caption.trim();
-    let trigger = trigger.trim();
-    let structured = caption.starts_with(HEADING);
-    let (head, body) = if structured { caption.split_at(HEADING.len()) } else { ("", caption) };
-    let body = body.trim_start_matches(['\r', '\n']);
-    let lead = if trigger.is_empty() || body.split(',').any(|part| part.trim().eq_ignore_ascii_case(trigger)) {
-        body.to_string()
-    } else if body.is_empty() {
-        trigger.to_string()
-    } else {
-        format!("{trigger}, {body}")
-    };
-    format!("{}\n{lead}", if structured { head } else { HEADING })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn a_run_goes_on_from_the_state_it_finished_with() {
-        let run = std::env::temp_dir().join(format!("mm-train-resume-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&run);
-        let output = run.join("output");
-        std::fs::create_dir_all(&output).unwrap();
-        assert!(resume_point(&run).is_none(), "no state, nothing to go on from");
-        std::fs::write(output.join("resume-state.bin"), b"state").unwrap();
-        std::fs::write(output.join("resume-state.json"), br#"{"reason": "final", "state": "x", "step": 600, "totalSteps": 600}"#).unwrap();
-        let (step, state) = resume_point(&run).unwrap();
-        assert_eq!(step, 600);
-        let inputs = TrainingInputs { data: run.join("data"), models: PathBuf::from("models"), run: run.clone(), recipe: Recipe { method: "lora".into(), steps: 850, ..Recipe::default() } };
-        let stage = continuation_stage(&inputs, &state);
-        let args: Vec<String> = stage.args.iter().map(|arg| arg.to_string_lossy().into_owned()).collect();
-        assert_eq!(stage.id, "train");
-        assert_eq!(args[args.iter().position(|arg| arg == "--resume").unwrap() + 1], state.to_string_lossy());
-        assert_eq!(args[args.iter().position(|arg| arg == "--steps").unwrap() + 1], "850");
-        assert!(!args.iter().any(|arg| arg.starts_with("--pissa") || arg == "--hot-pizza"));
-        assert!(continuation_refused(&Recipe::default()), "HOT-PiZZA, the default, cannot be continued");
-        let _ = std::fs::remove_dir_all(&run);
+    fn inputs(recipe: Recipe) -> TrainingInputs {
+        TrainingInputs {
+            data: "d".into(),
+            base: TrainingBase { models: "m".into(), dit: "acestep-v15-turbo-Q8_0.gguf".into(), vae: "vae-BF16.gguf".into(), text_encoder: "Qwen3-Embedding-0.6B-Q8_0.gguf".into() },
+            run: "r".into(),
+            recipe,
+        }
+    }
+
+    fn strings(stage: &TrainingStage) -> Vec<String> {
+        stage.args.iter().map(|arg| arg.to_string_lossy().into_owned()).collect()
+    }
+
+    fn has(args: &[String], pair: [&str; 2]) -> bool {
+        args.windows(2).any(|window| window == pair)
     }
 
     #[test]
-    fn epochs_become_steps() {
-        let by_epochs = Recipe { stop: "epochs".into(), epochs: 40, ..Recipe::default() }.for_songs(13);
-        assert_eq!(by_epochs.steps, 520);
-        assert_eq!(Recipe::default().for_songs(13).steps, 600);
+    fn stages_preprocess_then_train_with_the_studio_s_models() {
+        let stages = training_stages(&inputs(Recipe::default()));
+        assert_eq!(stages.iter().map(|stage| stage.id).collect::<Vec<_>>(), ["preprocess", "train"]);
+        let preprocess = strings(&stages[0]);
+        for pair in [["--dit", "acestep-v15-turbo-Q8_0.gguf"], ["--vae", "vae-BF16.gguf"], ["--text-enc", "Qwen3-Embedding-0.6B-Q8_0.gguf"], ["--models", "m"]] {
+            assert!(has(&preprocess, pair), "{pair:?}");
+        }
+        let train = strings(&stages[1]);
+        for pair in [["--rank", "128"], ["--alpha", "256"], ["--optimizer", "prodigy"], ["--attn", "flash"], ["--mirror", "bf16-f32"], ["--genre-ratio", "30"], ["--stages", "train,export"]] {
+            assert!(has(&train, pair), "{pair:?}");
+        }
+        assert!(train.contains(&"--target-mlp".to_string()));
+        assert!(!train.iter().any(|arg| arg == "--lokr-dim"));
+    }
+
+    #[test]
+    fn a_lokr_recipe_trains_a_lokr() {
+        let train = strings(&training_stages(&inputs(Recipe { adapter: "lokr".into(), target_mlp: false, ..Recipe::default() }))[1]);
+        assert!(has(&train, ["--adapter-type", "lokr"]) && has(&train, ["--lokr-factor", "6"]));
+        assert!(!train.iter().any(|arg| arg == "--rank"));
+        assert!(train.contains(&"--no-target-mlp".to_string()));
+    }
+
+    #[test]
+    fn a_continuation_starts_from_the_adapter_and_keeps_its_shape() {
+        let stage = continuation_stage(&inputs(Recipe::default()), Path::new("r/output"), Path::new("r/output-1"));
+        let args = strings(&stage);
+        assert!(has(&args, ["--init-adapter", "r/output"]));
+        assert!(has(&args, ["--out", "r/output-1"]));
+        for flag in ["--adapter-type", "--rank", "--alpha", "--target-mlp"] {
+            assert!(!args.iter().any(|arg| arg == flag), "{flag} is the adapter's identity");
+        }
+        assert!(has(&args, ["--epochs", "500"]), "the schedule is kept");
     }
 
     #[test]
     fn a_step_line_becomes_a_step_and_other_lines_do_not() {
-        let step = parse_training_step(r#"{"type":"step","step":12,"totalSteps":600,"loss":2.5,"lr":8e-5,"gradNorm":1,"clipScale":1,"ms":900,"stepMs":750,"reg":false,"depthLoss":0.4}"#).unwrap();
-        assert_eq!(step, TrainingStep { step: 12, loss: 2.5, step_ms: Some(750.0) });
-        assert!(parse_training_step(r#"{"type":"vram","step":0,"usedMb":1}"#).is_none());
-        assert!(parse_training_step("[mm3-lm-train] loading").is_none());
+        let step = parse_training_step(r#"{"type":"step","epoch":2,"step":12,"totalSteps":600,"micro":4,"loss":0.52,"rawLoss":0.6,"lr":1,"gradNorm":0.1,"clipScale":1,"t":0.4,"crop":1500,"cropStart":0,"cfgDrop":0,"ms":900,"vramMb":14000}"#).unwrap();
+        assert_eq!(step, TrainingStep { step: 12, loss: 0.52, step_ms: Some(900.0), total: Some(600) });
+        assert!(parse_training_step(r#"{"type":"epoch","epoch":1,"epochs":500,"loss":0.6}"#).is_none());
+        assert!(parse_training_step("[train-dit] loading").is_none());
     }
 
     #[test]
-    fn stages_encode_codes_then_train_with_the_recipe() {
-        let inputs = TrainingInputs { data: "d".into(), models: "m".into(), run: "r".into(), recipe: Recipe::default() };
-        let stages = training_stages(&inputs);
-        assert_eq!(stages.iter().map(|stage| stage.id).collect::<Vec<_>>(), ["codes", "train"]);
-        let strings = |index: usize| -> Vec<String> { stages[index].args.iter().map(|arg| arg.to_string_lossy().into_owned()).collect() };
-        assert!(strings(0).windows(2).any(|pair| pair == ["--ffmpeg", "none"]));
-        let train = strings(1);
-        for pair in [["--rank", "128"], ["--optimizer", "adamw"], ["--max-frames", "1536"], ["--attn", "exact"], ["--rank-dropout", "0.1"]] {
-            assert!(train.windows(2).any(|window| window == pair), "{pair:?}");
-        }
-        assert!(train.iter().any(|arg| arg == "--hot-pizza"));
-        assert!(train.iter().any(|arg| arg == "--pissa-standalone"), "the engine merges plain LoRA only");
-        assert!(!train.iter().any(|arg| arg == "--pissa-cache-dir"), "a PiSSA cache would export a delta the engine cannot merge");
-        let plain = TrainingInputs { recipe: Recipe { method: "lora".into(), ..Recipe::default() }, ..inputs };
-        assert!(!training_stages(&plain)[1].args.iter().any(|arg| arg == "--hot-pizza" || arg == "--rank-dropout"));
+    fn exports_are_the_checkpoints_and_the_latest_resumes() {
+        let run = std::env::temp_dir().join(format!("ace-train-exports-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&run);
+        std::fs::create_dir_all(run.join("output")).unwrap();
+        assert!(resume_point(&run).is_none() && checkpoints(&run).is_empty(), "nothing exported yet");
+        std::fs::write(run.join("output").join("adapter_model.safetensors"), b"w").unwrap();
+        std::fs::write(run.join("output").join("adapter_config.json"), b"{}").unwrap();
+        std::fs::write(run.join("output").join("dit_train_log.json"), br#"{"saved_epoch": 300, "epochs_run": 320}"#).unwrap();
+        let (step, folder) = resume_point(&run).unwrap();
+        assert_eq!((step, folder.file_name().unwrap().to_str().unwrap()), (300, "output"));
+        assert_eq!(continuation_output(&run).file_name().unwrap().to_str().unwrap(), "output-1");
+        assert_eq!(checkpoints(&run)[0].files.len(), 2);
+        let _ = std::fs::remove_dir_all(&run);
     }
 
     #[test]
     fn every_recipe_setting_has_a_field() {
         let recipe = serde_json::to_value(Recipe::default()).unwrap();
-        let keys: Vec<&str> = recipe.as_object().unwrap().keys().map(String::as_str).collect();
+        let keys: Vec<&str> = recipe.as_object().unwrap().keys().map(String::as_str).filter(|key| *key != "steps").collect();
         let fields: Vec<&str> = recipe_fields().iter().map(|field| field.key).collect();
         assert_eq!(keys.len(), fields.len());
         for key in &keys {
             assert!(fields.contains(key), "{key} has no field");
         }
         assert!(Recipe::default().check().is_ok());
-    }
-
-    #[test]
-    fn the_trigger_leads_the_global_metadata() {
-        let caption = "Global Metadata\nindie pop, 90 BPM\nVocal Details\nsoft female";
-        assert_eq!(caption_with_trigger(caption, "monetochka"), "Global Metadata\nmonetochka, indie pop, 90 BPM\nVocal Details\nsoft female");
-        assert_eq!(caption_with_trigger("indie pop", "monetochka"), "Global Metadata\nmonetochka, indie pop");
-        assert_eq!(caption_with_trigger("Global Metadata\nmonetochka, pop", "monetochka"), "Global Metadata\nmonetochka, pop");
-        assert_eq!(caption_with_trigger("indie pop", ""), "Global Metadata\nindie pop");
     }
 }

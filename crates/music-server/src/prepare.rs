@@ -690,12 +690,20 @@ async fn listen_branch(state: &AppState, job: &Job, style_items: &[&training::Da
                     }
                     std::thread::sleep(std::time::Duration::from_millis(100));
                 };
-                // MiniMax trains on the structured caption MOSS writes itself;
-                // only its numbers are replaced with the measured ones
-                let outcome = measured.map_err(|error| anyhow::anyhow!("measure tempo and key: {error}")).and_then(|facts| Ok(listen::heard(&caption?, &facts)));
+                // ACE-Step trains on the plain caption MOSS writes, with the
+                // measured tempo and key beside it
+                let outcome = measured.map_err(|error| anyhow::anyhow!("measure tempo and key: {error}")).and_then(|facts| listen::heard(&caption?, &facts));
                 match outcome {
                     Ok(heard) => {
-                        let done = training::ItemPatch { style: Some(heard.mm3), style_state: Some(training::StyleState::Done), ..Default::default() };
+                        let done = training::ItemPatch {
+                            style: Some(heard.caption),
+                            genre: Some(heard.genre),
+                            bpm: Some(heard.bpm),
+                            keyscale: Some(heard.keyscale),
+                            timesignature: Some(heard.timesignature),
+                            style_state: Some(training::StyleState::Done),
+                            ..Default::default()
+                        };
                         if let Err(error) = training.update_item(&dataset_id, item, done) {
                             fail(&task_shared, item, "style", format!("{error:#}"));
                         }
@@ -741,7 +749,9 @@ async fn write_lyrics(state: &AppState, job: &Job, timed: &HashMap<String, Strin
         let target = if item.lyrics_source == "recognised" { assistant::AssistTarget::Transcript } else { assistant::AssistTarget::Sheet };
         match lay_out_lyrics(state, text, target).await {
             Ok(lyrics) => {
-                let done = training::ItemPatch { lyrics: Some(lyrics), instrumental: Some(false), lyrics_state: Some(LyricsState::Done), ..Default::default() };
+                // the trainer conditions on the language sung; Latin letters alone do not tell it
+                let language = job.language.clone().or_else(|| sung_language(std::iter::once(lyrics.as_str())).map(str::to_string));
+                let done = training::ItemPatch { lyrics: Some(lyrics), instrumental: Some(false), language, lyrics_state: Some(LyricsState::Done), ..Default::default() };
                 store(&state.training, &shared, &job.dataset, &item.id, "lyrics", done);
             }
             Err(error) => fail(&shared, &item.id, "lyrics", error),
@@ -896,6 +906,11 @@ mod tests {
             lyrics_state: lyrics,
             style_state: style,
             heard: None,
+            genre: String::new(),
+            bpm: 0,
+            keyscale: String::new(),
+            timesignature: String::new(),
+            language: String::new(),
         }
     }
 
