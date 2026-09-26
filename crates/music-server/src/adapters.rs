@@ -626,15 +626,32 @@ async fn hub_header(http: &reqwest::Client, url: &str) -> Result<serde_json::Map
         bail!("the server answered {} to a range request", answer.status());
     }
     let start = answer.bytes().await?;
+    match header_in(&start)? {
+        HeaderRead::Whole(header) => Ok(header),
+        HeaderRead::Longer(length) => {
+            let body = http.get(url).header(reqwest::header::RANGE, format!("bytes=8-{}", 7 + length)).send().await?.error_for_status()?.bytes().await?;
+            Ok(serde_json::from_slice(&body)?)
+        }
+    }
+}
+
+/// What the start of a safetensors file says of its header.
+#[derive(Debug)]
+enum HeaderRead {
+    Whole(serde_json::Map<String, Value>),
+    /// The header is this many bytes and runs past what was read.
+    Longer(u64),
+}
+
+fn header_in(start: &[u8]) -> Result<HeaderRead> {
     let length = u64::from_le_bytes(start.get(..8).context("a safetensors file shorter than its header")?.try_into()?);
     if length > 64 << 20 {
         bail!("a safetensors header of {length} bytes");
     }
-    if let Some(header) = start.get(8..8 + length as usize) {
-        return Ok(serde_json::from_slice(header)?);
-    }
-    let body = http.get(url).header(reqwest::header::RANGE, format!("bytes=8-{}", 7 + length)).send().await?.error_for_status()?.bytes().await?;
-    Ok(serde_json::from_slice(&body)?)
+    Ok(match start.get(8..8 + length as usize) {
+        Some(header) => HeaderRead::Whole(serde_json::from_slice(header)?),
+        None => HeaderRead::Longer(length),
+    })
 }
 
 /// A repository's adapter files at one commit.
@@ -876,6 +893,18 @@ fn now() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_header_is_read_from_the_start_or_asked_for_whole() {
+        let json = br#"{"x.lora_A.weight":{"dtype":"F32","shape":[8,64],"data_offsets":[0,2048]}}"#;
+        let mut start = (json.len() as u64).to_le_bytes().to_vec();
+        start.extend_from_slice(json);
+        start.extend_from_slice(&[0; 16]);
+        assert!(matches!(header_in(&start).unwrap(), HeaderRead::Whole(header) if header.contains_key("x.lora_A.weight")));
+        assert!(matches!(header_in(&start[..20]).unwrap(), HeaderRead::Longer(length) if length == json.len() as u64));
+        assert!(header_in(&(65u64 << 20).to_le_bytes()).is_err(), "an oversized header is refused");
+        assert!(header_in(&[1, 2, 3]).is_err(), "a file shorter than the length prefix is refused");
+    }
 
     #[test]
     fn hub_links_name_the_repository_and_the_file() {
