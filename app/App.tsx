@@ -109,6 +109,10 @@ import { FilesPanel } from './components/FilesPanel';
 import { SearchPage } from './components/SearchPage';
 import { NewsPage } from './components/NewsPage';
 import { AdaptersPage } from './components/AdaptersPage';
+import { PlayerExtras } from './components/player/PlayerExtras';
+import { audioGraph, registerPlayer, resumeAudioGraph } from './services/audioGraph';
+import { serveVisualizerFeed } from './services/visualizerFeed';
+import { winampControl, winampOn } from './services/winamp';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { SetupGate } from './components/SetupGate';
 import { EngineStarting } from './components/EngineStarting';
@@ -659,6 +663,8 @@ function AppContent() {
     audioRef.current.crossOrigin = "anonymous";
     const audio = audioRef.current;
     audio.volume = volume;
+    // the equalizer and the visualisers hear the player through a Web Audio graph made when first needed
+    registerPlayer(audio);
 
     const onTimeUpdate = () => setCurrentTime(audio.currentTime);
     const applyPendingSeek = () => {
@@ -727,6 +733,7 @@ function AppContent() {
 
     const playAudio = async () => {
       try {
+        if (audioGraph()) await resumeAudioGraph();
         await audio.play();
       } catch (err) {
         if (err instanceof Error && err.name !== 'AbortError') {
@@ -765,10 +772,13 @@ function AppContent() {
     }
   }, [playbackRate]);
 
+  // a visualiser in its own window hears the player through this window
+  useEffect(() => serveVisualizerFeed(), []);
+
   // Spacebar play/pause
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code !== 'Space') return;
+      if (e.code !== 'Space' || winampOn()) return;
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target as HTMLElement)?.isContentEditable) return;
       e.preventDefault();
@@ -1154,7 +1164,7 @@ function AppContent() {
     setShowSettingsModal(true);
     return { text: 'Settings are open.' };
   });
-  useBridgeCommand('player_state', () => ({
+  useBridgeCommand('player_state', () => winampControl() ? { winamp: true, ...winampControl()!.state() } : ({
     song: currentSong ? { id: currentSong.id, title: currentSong.title } : null,
     playing: isPlaying,
     position_seconds: Math.round(currentTime * 10) / 10,
@@ -1164,7 +1174,26 @@ function AppContent() {
     repeat: repeatMode,
     queue: playQueue.length,
   }));
-  useBridgeCommand('player_play', ({ song_id, stem }) => {
+  // while the Winamp mode is on, Winamp is the player the agent drives
+  const inWinamp = async (change: Record<string, unknown>) => ({ text: `Winamp: ${await winampControl()!.set(change)}` });
+  useBridgeCommand('library_liked', () => ({
+    songs: songs.filter((song) => likedSongIds.has(song.id)).map((song) => ({ id: song.id, title: song.title, made: song.createdAt })),
+  }));
+  useBridgeCommand('library_song_like', ({ song_id, liked }) => {
+    const song = songById(song_id);
+    if (likedSongIds.has(song.id) !== (liked !== false)) toggleLike(song.id);
+    return { text: `${song.title} is ${liked !== false ? 'liked' : 'no longer liked'}.` };
+  });
+  useBridgeCommand('player_play', ({ song_id, song_ids, stem }) => {
+    if (Array.isArray(song_ids) && song_ids.length) {
+      // a list of songs becomes the queue, played from its first
+      const list = song_ids.map((id) => songById(id)).filter((song) => song.audioUrl);
+      if (!list.length) throw new Error('None of those songs has audio to play.');
+      if (winampControl()) return inWinamp({ song_ids: list.map((song) => song.id) });
+      playSong(list[0], list);
+      return { text: `Playing ${list.length} song(s) from ${list[0].title}.` };
+    }
+    if (winampControl() && !stem) return inWinamp(song_id ? { song_id } : { action: 'play' });
     if (song_id && stem) {
       // one separated stem of the song, played on its own
       const song = songById(song_id);
@@ -1183,22 +1212,33 @@ function AppContent() {
     return { text: `Playing ${currentSong.title}.` };
   });
   useBridgeCommand('player_pause', () => {
+    if (winampControl()) return inWinamp({ action: 'pause' });
     setIsPlaying(false);
     return { text: 'Paused.' };
   });
   useBridgeCommand('player_seek', ({ seconds }) => {
+    if (winampControl()) return inWinamp({ seek_seconds: Number(seconds) || 0 });
     handleSeek(Number(seconds) || 0);
     return { text: `At ${Number(seconds) || 0} s.` };
   });
   useBridgeCommand('player_next', () => {
+    if (winampControl()) return inWinamp({ action: 'next' });
     playNext();
     return { text: 'Next song.' };
   });
   useBridgeCommand('player_previous', () => {
+    if (winampControl()) return inWinamp({ action: 'previous' });
     playPrevious();
     return { text: 'Previous song.' };
   });
   useBridgeCommand('player_set', ({ volume: level, shuffle, repeat }) => {
+    if (winampControl()) {
+      return inWinamp({
+        ...(level !== undefined ? { volume: Number(level) } : {}),
+        ...(shuffle !== undefined ? { shuffle: Boolean(shuffle) } : {}),
+        ...(repeat === 'none' || repeat === 'all' ? { repeat: repeat === 'all' } : {}),
+      });
+    }
     if (level !== undefined) setVolume(Math.max(0, Math.min(1, Number(level))));
     if (shuffle !== undefined) setIsShuffle(Boolean(shuffle));
     if (repeat === 'none' || repeat === 'all' || repeat === 'one') setRepeatMode(repeat);
@@ -1625,6 +1665,33 @@ function AppContent() {
         onToggleLike={() => currentSong && toggleLike(currentSong.id)}
         onPlayFirst={playFirst}
       />}
+
+      <PlayerExtras
+        queue={playQueue}
+        currentSong={currentSong}
+        currentTime={currentTime}
+        isPlaying={isPlaying}
+        volume={volume}
+        library={songs}
+        onPause={() => setIsPlaying(false)}
+        onLeaveWinamp={(exit) => {
+          setVolume(exit.volume);
+          const song = exit.songId ? songs.find((entry) => entry.id === exit.songId) : null;
+          if (song && song.id !== currentSong?.id) {
+            // the position waits for the new song to load
+            pendingSeekRef.current = exit.seconds;
+            playSong(song, playQueue.some((entry) => entry.id === song.id) ? playQueue : undefined);
+          } else if (song) {
+            handleSeek(exit.seconds);
+          }
+          setIsPlaying(exit.playing);
+        }}
+        onSavePlaylist={async (songIds) => {
+          const playlist = await createNativePlaylist(`Winamp ${new Date().toLocaleString()}`, '', songIds);
+          setPlaylists((prev) => [playlist, ...prev]);
+          showToast(t('playlistCreated'));
+        }}
+      />
 
       <CreatePlaylistModal
         isOpen={isCreatePlaylistModalOpen}

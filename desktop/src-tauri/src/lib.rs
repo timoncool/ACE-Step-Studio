@@ -316,7 +316,9 @@ fn hide_own_console_window() {
 /// variable WebView2 documents for exactly this.
 #[cfg(windows)]
 fn webview_browser_arguments() -> String {
-    let mut own = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection".to_owned();
+    // The visualiser's own window hears the studio through an audio context
+    // of its own, which nothing in that window has clicked on to start.
+    let mut own = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required".to_owned();
     // "No proxy" for what the window loads itself; a proxy of the user's own
     // is given through Tauri's proxy_url where it takes the scheme.
     let proxy = music_server::saved_proxy();
@@ -329,6 +331,32 @@ fn webview_browser_arguments() -> String {
         Ok(extra) if !extra.trim().is_empty() => format!("{own} {}", extra.trim()),
         _ => own,
     }
+}
+
+/// The visualiser in a window of its own, or the one already open brought
+/// forward. Built here rather than from the page: every window of the app
+/// shares one WebView2 environment, which must be opened with the same
+/// switches the main window was, or the new window fails to open. Async:
+/// on Windows a window made from a synchronous command deadlocks WebView2.
+#[tauri::command]
+async fn open_visualizer_window(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::Manager as _;
+    if let Some(window) = app.get_webview_window("visualizer") {
+        window.show().map_err(|error| error.to_string())?;
+        return window.set_focus().map_err(|error| error.to_string());
+    }
+    let title = format!("{} - Visualizer", app.package_info().name);
+    let window = tauri::WebviewWindowBuilder::new(&app, "visualizer", tauri::WebviewUrl::App("visualizer.html".into()))
+        .title(title)
+        .inner_size(960.0, 540.0)
+        .min_inner_size(320.0, 200.0);
+    #[cfg(windows)]
+    let window = window.additional_browser_args(&webview_browser_arguments());
+    let window = match music_server::saved_proxy().window_proxy().filter(|url| matches!(url.scheme(), "http" | "socks5")) {
+        Some(url) => window.proxy_url(url),
+        None => window,
+    };
+    window.build().map(|_| ()).map_err(|error| error.to_string())
 }
 
 pub fn run() {
@@ -381,7 +409,8 @@ pub fn run() {
 
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init());
+        .plugin(tauri_plugin_opener::init())
+        .invoke_handler(tauri::generate_handler![open_visualizer_window]);
     if updater_configured {
         builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     }

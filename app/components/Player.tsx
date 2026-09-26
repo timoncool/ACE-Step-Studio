@@ -6,6 +6,7 @@ import { useResponsive } from '../context/ResponsiveContext';
 import { useI18n } from '../context/I18nContext';
 import { SongDropdownMenu } from './SongDropdownMenu';
 import { AlbumCover } from './AlbumCover';
+import { PlayerExtraButtons } from './player/PlayerExtraButtons';
 import { downloadSongAudio } from '../services/songDownload';
 import { captionSummary } from '../services/examples';
 import { getCurrentLrcIndex, parseLrc } from '../services/lrc-parser';
@@ -752,6 +753,7 @@ export const Player: React.FC<PlayerProps> = ({
                         )}
                     </div>
 
+                    <PlayerExtraButtons />
                     <button
                         onClick={handleDownload}
                         className="p-1.5 lg:p-2 hover:bg-zinc-100 dark:hover:bg-white/10 rounded-full transition-colors hidden lg:block"

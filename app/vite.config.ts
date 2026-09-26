@@ -35,6 +35,15 @@ export default defineConfig(({ mode }) => {
         // request fails loudly in development instead of silently 500-ing.
       },
     },
+    build: {
+      rollupOptions: {
+        // the visualiser's own window is a second page
+        input: {
+          main: path.resolve(__dirname, 'index.html'),
+          visualizer: path.resolve(__dirname, 'visualizer.html'),
+        },
+      },
+    },
     optimizeDeps: {
       exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
     },

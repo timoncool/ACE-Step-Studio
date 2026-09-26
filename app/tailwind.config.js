@@ -5,7 +5,7 @@
  */
 export default {
   darkMode: 'class',
-  content: ['./index.html', './App.tsx', './index.tsx', './components/**/*.{ts,tsx}', './context/**/*.{ts,tsx}', './services/**/*.{ts,tsx}'],
+  content: ['./index.html', './visualizer.html', './App.tsx', './index.tsx', './visualizerWindow.tsx', './components/**/*.{ts,tsx}', './context/**/*.{ts,tsx}', './services/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {

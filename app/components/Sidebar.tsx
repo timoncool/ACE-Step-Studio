@@ -3,6 +3,7 @@ import { Disc, Layers, Library, Moon, Newspaper, Search, SlidersHorizontal, Sun 
 import { View } from '../types';
 import { useI18n } from '../context/I18nContext';
 import { ResourceMonitor } from './ResourceMonitor';
+import { PlayerExtraButtons } from './player/PlayerExtraButtons';
 import { STUDIO } from '../studio';
 import { profileLabel } from '../services/modelCatalog';
 
@@ -160,6 +161,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="mt-auto flex flex-col gap-2">
             {/* the files panel docks its chip here */}
             <div id="dock-slot" className="flex flex-col" />
+            {/* the player's extras, also when no song is loaded and the player bar is away */}
+            <div className={isOpen ? 'flex flex-col gap-1' : 'flex flex-col gap-2'}>
+              <PlayerExtraButtons layout={isOpen ? 'list' : 'rail'} />
+            </div>
             <ResourceMonitor isOpen={isOpen} />
             <SystemWidget isOpen={isOpen} />
             <button type="button" onClick={onToggleTheme} className={`flex w-full items-center gap-3 rounded-xl text-zinc-500 transition-all duration-200 hover:bg-zinc-100 hover:text-black dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white ${isOpen ? 'justify-start px-3 py-2.5' : 'aspect-square justify-center'}`} title={theme === 'dark' ? t('lightMode') : t('darkMode')}>

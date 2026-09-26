@@ -244,8 +244,19 @@ fn shape(name: &str, args: &Value, value: Value) -> Value {
         }
         "library_songs_list" => {
             let query = args.get("query").and_then(Value::as_str).unwrap_or_default().to_lowercase();
+            let bound = |name: &str, end: bool| match args.get(name).and_then(Value::as_str) {
+                Some(text) => moment(text, end).map(Some),
+                None => Ok(None),
+            };
+            let (since, until) = match (bound("since", false), bound("until", true)) {
+                (Ok(since), Ok(until)) => (since, until),
+                (Err(problem), _) | (_, Err(problem)) => return json!({ "error": problem }),
+            };
             let songs = value.as_array().cloned().unwrap_or_default().into_iter().filter(|song| {
-                query.is_empty() || song["title"].as_str().unwrap_or_default().to_lowercase().contains(&query) || song["caption"].as_str().unwrap_or_default().to_lowercase().contains(&query)
+                let made = song["created_at"].as_str().and_then(|text| text.parse::<i64>().ok()).or_else(|| song["created_at"].as_i64()).unwrap_or_default();
+                (query.is_empty() || song["title"].as_str().unwrap_or_default().to_lowercase().contains(&query) || song["caption"].as_str().unwrap_or_default().to_lowercase().contains(&query))
+                    && since.is_none_or(|since| made >= since)
+                    && until.is_none_or(|until| made <= until)
             });
             if detailed {
                 return Value::Array(songs.collect());
@@ -801,7 +812,7 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "ui_press_key",
-                description: "Press a key in the window: Enter, Escape (closes a dialog), Tab, ArrowDown...",
+                description: "Press a key in the window: Enter, Escape (closes a dialog), Tab, ArrowDown..., or a shortcut with modifiers joined by +: Ctrl+M (the Winamp mode on and off), Shift+Tab.",
                 schema: || id_only("key", "the key"),
                 call: |args| window("press_key", args, 15),
             },
@@ -876,8 +887,8 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "player_play",
-                description: "Play a library song (song_id) in the studio's player, or resume what is loaded. With stem (drums, bass, other, vocals, guitar, piano) it plays that separated stem of the song alone; stems_split makes them, stems_get lists them.",
-                schema: || object(json!({ "song_id": { "type": "string" }, "stem": { "type": "string", "enum": ["drums", "bass", "other", "vocals", "guitar", "piano"] } }), &[]),
+                description: "Play a library song (song_id) in the studio's player, or resume what is loaded. song_ids plays a list of songs as the queue, from its first (the day's best: library_songs_list since today, library_liked). With stem (drums, bass, other, vocals, guitar, piano) it plays that separated stem of the song alone; stems_split makes them, stems_get lists them.",
+                schema: || object(json!({ "song_id": { "type": "string" }, "song_ids": { "type": "array", "items": { "type": "string" } }, "stem": { "type": "string", "enum": ["drums", "bass", "other", "vocals", "guitar", "piano"] } }), &[]),
                 call: |args| window("player_play", args, 15),
             },
             Tool {
@@ -909,6 +920,125 @@ fn tools() -> &'static [Tool] {
                 description: "Set the player's volume (0 to 1), shuffle, and repeat (none, all, one).",
                 schema: || object(json!({ "volume": { "type": "number" }, "shuffle": { "type": "boolean" }, "repeat": { "type": "string", "enum": ["none", "all", "one"] } }), &[]),
                 call: |args| window("player_set", args, 15),
+            },
+            // ---------------------------------------------------------------- the equalizer, the visualiser, the Winamp mode
+            Tool {
+                name: "equalizer_get",
+                description: "The player's ten-band equalizer (Winamp's bands, 60 Hz to 16 kHz, -12..+12 dB): on or off, preamp, every band, the preset it came from, balance, mono, whether its panel is open, and every preset by name - Winamp's, ones for common situations (Bass Booster, Vocal Booster, Night Listening...), the user's own. Balance and mono apply with the equalizer off too. In the Winamp mode, winamp_get shows Winamp's own equalizer.",
+                schema: nothing,
+                call: |args| window("equalizer_get", args, 15),
+            },
+            Tool {
+                name: "equalizer_set",
+                description: "Set the player's equalizer, as its panel does; what is not given stays. preset: a preset by name (turns the equalizer on). bands: ten values in dB from 60 Hz up, or an object hz -> dB for some. preamp_db. enabled. balance: -1 all left .. 1 all right. mono. panel_open: show or hide the equalizer panel. save_preset: keep the current curve as the user's preset under this name. delete_preset: remove a preset of the user's. Returns the equalizer as equalizer_get does.",
+                schema: || object(json!({
+                    "preset": { "type": "string" },
+                    "bands": { "anyOf": [{ "type": "array", "items": { "type": "number" }, "minItems": 10, "maxItems": 10 }, { "type": "object" }] },
+                    "preamp_db": { "type": "number" },
+                    "enabled": { "type": "boolean" },
+                    "balance": { "type": "number", "minimum": -1, "maximum": 1 },
+                    "mono": { "type": "boolean" },
+                    "panel_open": { "type": "boolean" },
+                    "save_preset": { "type": "string" },
+                    "delete_preset": { "type": "string" }
+                }), &[]),
+                call: |args| window("equalizer_set", args, 15),
+            },
+            Tool {
+                name: "equalizer_import",
+                description: "Import a Winamp .EQF preset file from this computer: its presets join the user's own and the first is switched on.",
+                schema: || object(json!({ "path": { "type": "string" } }), &["path"]),
+                call: |args| {
+                    use base64::Engine;
+                    let path = PathBuf::from(text(args, "path")?);
+                    let bytes = std::fs::read(&path).map_err(|error| format!("read {}: {error}", path.display()))?;
+                    let name = path.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
+                    window("equalizer_import", &json!({ "name": name, "data": base64::engine::general_purpose::STANDARD.encode(bytes) }), 15)
+                },
+            },
+            Tool {
+                name: "equalizer_export",
+                description: "Save the equalizer's current curve as a Winamp .EQF file at path (a full path ending in .eqf); name is the preset's name inside it, the current preset's by default.",
+                schema: || object(json!({ "path": { "type": "string" }, "name": { "type": "string" } }), &["path"]),
+                call: |_| composite("equalizer_export"),
+            },
+            Tool {
+                name: "visualizer_get",
+                description: "The visualiser: where it is (closed, panel over the studio, window of its own), fullscreen, the engine (milkdrop or spectrum), the MilkDrop preset on screen, the spectrum look and the looks there are, held or cycling, random or in order, the preset name shown, seconds per preset, the panel's size.",
+                schema: nothing,
+                call: |args| window("visualizer_get", args, 15),
+            },
+            Tool {
+                name: "visualizer_set",
+                description: "Work the visualiser as its buttons and keys do; what is not given stays. place: closed | panel (floating over the studio, resizable) | window (a window of its own). fullscreen. engine: milkdrop | spectrum. preset: a MilkDrop preset by name or part of one (visualizer_presets lists them). look: a spectrum look (visualizer_get lists them). step: next | previous. locked: stay on this preset. random: random or in order. show_name. cycle_seconds: how long MilkDrop stays on a preset. panel_size: {width, height} in pixels. It hears the player after the equalizer; press play for it to move.",
+                schema: || object(json!({
+                    "place": { "type": "string", "enum": ["closed", "panel", "window"] },
+                    "fullscreen": { "type": "boolean" },
+                    "engine": { "type": "string", "enum": ["milkdrop", "spectrum"] },
+                    "preset": { "type": "string" },
+                    "look": { "type": "string" },
+                    "step": { "type": "string", "enum": ["next", "previous"] },
+                    "locked": { "type": "boolean" },
+                    "random": { "type": "boolean" },
+                    "show_name": { "type": "boolean" },
+                    "cycle_seconds": { "type": "number", "minimum": 3 },
+                    "panel_size": { "type": "object", "properties": { "width": { "type": "number" }, "height": { "type": "number" } } }
+                }), &[]),
+                call: |args| window("visualizer_set", args, 30),
+            },
+            Tool {
+                name: "visualizer_presets",
+                description: "The MilkDrop presets by name (several hundred, from Butterchurn's packs); search narrows them to names containing the text.",
+                schema: || object(json!({ "search": { "type": "string" } }), &[]),
+                call: |args| window("visualizer_presets", args, 30),
+            },
+            Tool {
+                name: "winamp_get",
+                description: "The Winamp mode, where the whole studio window becomes a classic Winamp 2 player: whether it is on, the skin, random skin, double size, always on top, scale, skip_menu, and while on its windows (main, equalizer, playlist, milkdrop: open, shaded), the song and position, playing, volume, balance, shuffle, repeat, its equalizer and its MilkDrop preset. While it is on, the player_* tools drive Winamp.",
+                schema: nothing,
+                call: |args| window("winamp_get", args, 15),
+            },
+            Tool {
+                name: "winamp_set",
+                description: "Work the Winamp mode as its buttons do; what is not given stays. on: switch the studio into Winamp, starting from the player's queue, song and position, or back (the song, position, volume and equalizer go back to the studio's player). skin: a skin by name (winamp_skins). random_skin: a different skin each time it opens. double_size. always_on_top. scale: how large the whole player is drawn, 1 to 3 (1.2 = 120 %). skip_menu: the player bar's Winamp button starts the mode at once, its settings open on a long press. windows: {main|equalizer|playlist|milkdrop: {open, shade}}. song_id: play a library song in it. action: play | pause | stop | next | previous. seek_seconds. volume 0..1. balance -1..1. shuffle. repeat. equalizer: {on, preamp, bands: ten dB values}. milkdrop: {preset (name), next, random, cycling}.",
+                schema: || object(json!({
+                    "on": { "type": "boolean" },
+                    "skin": { "type": "string" },
+                    "random_skin": { "type": "boolean" },
+                    "double_size": { "type": "boolean" },
+                    "always_on_top": { "type": "boolean" },
+                    "scale": { "type": "number", "minimum": 1, "maximum": 3 },
+                    "skip_menu": { "type": "boolean" },
+                    "windows": { "type": "object" },
+                    "song_id": { "type": "string" },
+                    "action": { "type": "string", "enum": ["play", "pause", "stop", "next", "previous"] },
+                    "seek_seconds": { "type": "number" },
+                    "volume": { "type": "number" },
+                    "balance": { "type": "number" },
+                    "shuffle": { "type": "boolean" },
+                    "repeat": { "type": "boolean" },
+                    "equalizer": { "type": "object", "properties": { "on": { "type": "boolean" }, "preamp": { "type": "number" }, "bands": { "type": "array", "items": { "type": "number" } } } },
+                    "milkdrop": { "type": "object", "properties": { "preset": { "type": "string" }, "next": { "type": "boolean" }, "random": { "type": "boolean" }, "cycling": { "type": "boolean" } } }
+                }), &[]),
+                call: |args| window("winamp_set", args, 30),
+            },
+            Tool {
+                name: "winamp_skins",
+                description: "The Winamp skins there are: the ones the studio carries and the ones the user added, which is chosen, whether it is random, and the Winamp Skin Museum's address.",
+                schema: nothing,
+                call: |args| window("winamp_skins", args, 15),
+            },
+            Tool {
+                name: "winamp_skin_add",
+                description: "Add a Winamp 2 skin (.wsz) from this computer to the studio's skins; name defaults to the file's. winamp_set skin then puts it on.",
+                schema: || object(json!({ "path": { "type": "string" }, "name": { "type": "string" } }), &["path"]),
+                call: |_| composite("winamp_skin_add"),
+            },
+            Tool {
+                name: "winamp_museum",
+                description: "Open the Winamp Skin Museum (skins.webamp.org) in the user's browser, where skins are found and downloaded.",
+                schema: nothing,
+                call: |args| window("winamp_museum", args, 15),
             },
             // ---------------------------------------------------------------- the video editor
             Tool {
@@ -1143,9 +1273,21 @@ fn tools() -> &'static [Tool] {
             // ---------------------------------------------------------------- the library
             Tool {
                 name: "library_songs_list",
-                description: "The songs in the library, newest first: id, title, when made, made_from and made_by for a track a tool made from another (stems, processing, replay), and the start of the caption. query filters by title or caption; library_song_get gives one song whole. response_format detailed gives every field of every song.",
-                schema: || object(json!({ "query": { "type": "string" }, "response_format": { "type": "string", "enum": ["concise", "detailed"] } }), &[]),
+                description: "The songs in the library, newest first: id, title, when made (unix seconds), made_from and made_by for a track a tool made from another (stems, processing, replay), and the start of the caption. query filters by title or caption; since and until (a date or date-time, or today / yesterday, in this computer's time zone) by when it was made. library_liked names the songs the user liked - the best ones; library_song_get gives one song whole. response_format detailed gives every field of every song.",
+                schema: || object(json!({ "query": { "type": "string" }, "since": { "type": "string" }, "until": { "type": "string" }, "response_format": { "type": "string", "enum": ["concise", "detailed"] } }), &[]),
                 call: |_| get("/v1/library/songs".into()),
+            },
+            Tool {
+                name: "library_liked",
+                description: "The songs the user liked (the thumbs-up in the library): the ones they count as the best. With library_songs_list since today it gives today's best.",
+                schema: nothing,
+                call: |args| window("library_liked", args, 15),
+            },
+            Tool {
+                name: "library_song_like",
+                description: "Like a library song (liked true, the default) or take the like back (liked false), as the thumbs-up in the library does.",
+                schema: || object(json!({ "song_id": { "type": "string" }, "liked": { "type": "boolean" } }), &["song_id"]),
+                call: |args| window("library_song_like", args, 15),
             },
             Tool {
                 name: "library_song_get",
@@ -2152,6 +2294,14 @@ pub async fn handle(headers: HeaderMap, body: axum::body::Bytes) -> Response {
                     }
                     Err(problem) => answer(problem, true),
                 },
+                Ok(call) if call.path == "composite:equalizer_export" => match export_equalizer(&args).await {
+                    Ok(text) => answer(text, false),
+                    Err(problem) => answer(problem, true),
+                },
+                Ok(call) if call.path == "composite:winamp_skin_add" => match add_skin(&args) {
+                    Ok(text) => answer(text, false),
+                    Err(problem) => answer(problem, true),
+                },
                 Ok(call) if call.path == "composite:status" => tool_json(id, status_summary().await),
                 Ok(call) if call.path == "composite:wait" => match wait_for(&args).await {
                     Ok(state) => tool_json(id, state),
@@ -2177,6 +2327,53 @@ pub async fn handle(headers: HeaderMap, body: axum::body::Bytes) -> Response {
         }
         _ => rpc_failure(StatusCode::NOT_FOUND, id, -32601, format!("Method not found: {method}"), None),
     }
+}
+
+/// The equalizer's curve as a .EQF file at the agent's path: the window writes the file's bytes, this puts them there.
+async fn export_equalizer(args: &Value) -> Result<String, String> {
+    use base64::Engine;
+    let path = PathBuf::from(text(args, "path")?);
+    let exported = ask_window("equalizer_export", json!({ "name": args.get("name").cloned().unwrap_or(Value::Null) }), 15).await?;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(exported["eqf_base64"].as_str().ok_or("the window sent no .EQF")?)
+        .map_err(|error| format!("the window's .EQF: {error}"))?;
+    if let Some(parent) = path.parent().filter(|parent| !parent.as_os_str().is_empty()) {
+        std::fs::create_dir_all(parent).map_err(|error| format!("create {}: {error}", parent.display()))?;
+    }
+    std::fs::write(&path, bytes).map_err(|error| format!("write {}: {error}", path.display()))?;
+    Ok(format!("Saved the preset {} to {}.", exported["name"].as_str().unwrap_or_default(), path.display()))
+}
+
+/// A .wsz from the agent's path into the studio's skins.
+fn add_skin(args: &Value) -> Result<String, String> {
+    let path = PathBuf::from(text(args, "path")?);
+    let bytes = std::fs::read(&path).map_err(|error| format!("read {}: {error}", path.display()))?;
+    let name = match args.get("name").and_then(Value::as_str).filter(|name| !name.trim().is_empty()) {
+        Some(name) => name.to_string(),
+        None => path.file_stem().map(|stem| stem.to_string_lossy().into_owned()).unwrap_or_default(),
+    };
+    let saved = crate::skins::save(&name, &bytes)?;
+    Ok(format!("Added the skin {}; winamp_set skin puts it on.", saved["name"].as_str().unwrap_or_default()))
+}
+
+/// A moment an agent names, as unix seconds in this computer's time zone:
+/// today, yesterday, a date (its start, or its end for an upper bound) or a date-time.
+fn moment(text: &str, end: bool) -> Result<i64, String> {
+    use chrono::{Duration as Days, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone};
+    let text = text.trim();
+    let day = match text.to_lowercase().as_str() {
+        "today" => Some(Local::now().date_naive()),
+        "yesterday" => Some(Local::now().date_naive() - Days::days(1)),
+        _ => NaiveDate::parse_from_str(text, "%Y-%m-%d").ok(),
+    };
+    let at = match day {
+        Some(day) => day.and_time(if end { NaiveTime::from_hms_opt(23, 59, 59).unwrap_or_default() } else { NaiveTime::MIN }),
+        None => NaiveDateTime::parse_from_str(text, "%Y-%m-%dT%H:%M:%S")
+            .or_else(|_| NaiveDateTime::parse_from_str(text, "%Y-%m-%d %H:%M"))
+            .or_else(|_| NaiveDateTime::parse_from_str(text, "%Y-%m-%dT%H:%M"))
+            .map_err(|_| format!("'{text}' is not a moment: today, yesterday, 2026-09-26 or 2026-09-26T18:00."))?,
+    };
+    Local.from_local_datetime(&at).earliest().map(|at| at.timestamp()).ok_or_else(|| format!("'{text}' does not exist in this time zone."))
 }
 
 /// What an agent is told when it connects.

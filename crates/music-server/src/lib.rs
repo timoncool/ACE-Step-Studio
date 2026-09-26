@@ -31,6 +31,7 @@ mod midi;
 mod sizes;
 pub mod net;
 mod saving;
+mod skins;
 pub use saving::{set_save_dialog, SaveDialog};
 mod skill;
 mod library;
@@ -661,6 +662,8 @@ pub async fn serve() -> anyhow::Result<()> {
         .route("/v1/files/save", post(saving::choose))
         .route("/v1/files/save/{id}", post(saving::write).layer(DefaultBodyLimit::disable()))
         .route("/v1/files/reveal", post(saving::reveal))
+        .route("/v1/skins", get(skins::list).post(skins::add).layer(DefaultBodyLimit::max(skins::LIMIT)))
+        .route("/v1/skins/file/{name}", get(skins::file))
         .route("/v1/network/proxy", get(read_proxy).put(update_proxy))
         .route("/v1/network/proxy/test", post(test_proxy))
         .route("/v1/assistant/status", get(assistant_status).put(update_assistant_settings))

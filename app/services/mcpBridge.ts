@@ -191,10 +191,39 @@ function watchConsole(): void {
   window.addEventListener('unhandledrejection', (event) => remember('error', ['unhandled rejection', event.reason]));
 }
 
+/**
+ * WebGL canvases (MilkDrop) keep no picture between frames, so a copy of the
+ * page shows them black. Read in the frame they were drawn in, they are laid
+ * over themselves as pictures while the copy is taken.
+ */
+function freezeWebGl(): Promise<HTMLImageElement[]> {
+  // the studio's MilkDrop and Winamp's; asking any other canvas for WebGL would give it a context it must not have
+  const canvases = [...document.querySelectorAll<HTMLCanvasElement>('canvas[data-webgl], #webamp .gen-window canvas')].filter(visible);
+  if (!canvases.length) return Promise.resolve([]);
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      resolve(canvases.map((canvas) => {
+        const box = canvas.getBoundingClientRect();
+        const image = document.createElement('img');
+        image.src = canvas.toDataURL('image/png');
+        Object.assign(image.style, { position: 'fixed', left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`, zIndex: '2147483647', pointerEvents: 'none' });
+        document.body.appendChild(image);
+        return image;
+      }));
+    });
+  });
+}
+
 const builtIn: Record<string, Handler> = {
   async screenshot(args) {
     const scale = Math.min(1, Number(args.max_width ?? 1600) / window.innerWidth);
-    const data = await domToPng(document.documentElement, { scale, width: window.innerWidth, height: window.innerHeight, backgroundColor: getComputedStyle(document.body).backgroundColor });
+    const frozen = await freezeWebGl();
+    let data: string;
+    try {
+      data = await domToPng(document.documentElement, { scale, width: window.innerWidth, height: window.innerHeight, backgroundColor: getComputedStyle(document.body).backgroundColor });
+    } finally {
+      frozen.forEach((image) => image.remove());
+    }
     return { image: data.replace(/^data:image\/png;base64,/, ''), text: `${window.innerWidth}x${window.innerHeight} window` };
   },
   read_page: () => ({ text: readPage() }),
@@ -225,11 +254,24 @@ const builtIn: Record<string, Handler> = {
   },
   async press_key(args) {
     const target = (document.activeElement as HTMLElement | null) ?? document.body;
-    const key = String(args.key ?? '');
-    target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
-    target.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true }));
+    const combo = String(args.key ?? '');
+    // Ctrl+M, Shift+Tab: modifiers before the key, joined by +
+    const parts = combo.split('+').map((part) => part.trim()).filter(Boolean);
+    const key = parts.length > 1 ? parts[parts.length - 1] : combo;
+    const held = parts.slice(0, -1).map((part) => part.toLowerCase());
+    const init = {
+      key: key.length === 1 ? key.toLowerCase() : key,
+      bubbles: true,
+      cancelable: true,
+      ctrlKey: held.includes('ctrl') || held.includes('control'),
+      shiftKey: held.includes('shift'),
+      altKey: held.includes('alt'),
+      metaKey: held.includes('meta') || held.includes('cmd') || held.includes('win'),
+    };
+    target.dispatchEvent(new KeyboardEvent('keydown', init));
+    target.dispatchEvent(new KeyboardEvent('keyup', init));
     await settle();
-    return { text: `Pressed ${key}.` };
+    return { text: `Pressed ${combo}.` };
   },
   async scroll(args) {
     const amount = Number(args.amount ?? 600) * (args.direction === 'up' ? -1 : 1);

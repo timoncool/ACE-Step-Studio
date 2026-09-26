@@ -19,13 +19,20 @@
     "@ffmpeg/util": "^0.12.2",
     "@openrouter/sdk": "^0.12.26",
     "@tauri-apps/api": "^2.9.1",
+    "audiomotion-analyzer": "^4.5.4",
+    "butterchurn": "^2.6.7",
+    "butterchurn-presets": "^2.4.7",
+    "jszip": "^3.10.2",
     "lucide-react": "^0.563.0",
     "modern-screenshot": "^4.7.0",
     "mp4-muxer": "^5.2.2",
+    "music-metadata": "^11.16.1",
     "partial-json": "^0.1.7",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-resizable-panels": "^4.9.0"
+    "react-resizable-panels": "^4.9.0",
+    "webamp": "^2.3.1",
+    "winamp-eqf": "^2.3.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

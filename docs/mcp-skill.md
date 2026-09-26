@@ -185,6 +185,22 @@ a minimised window or a hidden tab holds the preview and the render.
    a background picture or video from a path. `video_seek` and `ui_screenshot` to look.
 3. `video_render`, then `video_get` until `export.saved` names the MP4 (or `export.error` says why not).
 
+**Listening: equalizer, visualiser, Winamp**
+
+- The day's best: `library_songs_list` with `since: "today"`, `library_liked` (the user's
+  thumbs-up), then `player_play` with `song_ids` plays them as the queue.
+
+- Equalizer: `equalizer_get` names every preset; `equalizer_set` with `preset` ("Rock",
+  "Vocal Booster"...), or `bands` / `preamp_db`, `balance`, `mono`, `panel_open`,
+  `save_preset`. `.EQF` files: `equalizer_import`, `equalizer_export`.
+- Visualiser: `visualizer_set` with `place` (panel, window), `fullscreen`, `engine`
+  (milkdrop, spectrum), `preset` (`visualizer_presets` searches them), `look`, `step`.
+- Winamp mode, the whole window as a Winamp 2 player: `winamp_set` `on: true` (with a
+  `skin` from `winamp_skins`), `on: false` to come back. While it is on, `player_*` drive it;
+  `winamp_set` also opens its windows, shades them, sets its equalizer and MilkDrop,
+  its `scale` (1.2 = 120 %) and `skip_menu`.
+  New skins: `winamp_museum` opens the museum, `winamp_skin_add` takes a downloaded `.wsz`.
+
 **Anything the tools do not cover**
 
 `ui_read_page` lists every control of the window with a ref; `ui_click`, `ui_type`,
@@ -200,7 +216,8 @@ move around. Check the result with `ui_screenshot`.
   defaults (what a field left out becomes), job get/list/cancel, replay.
 - **writing**: guide, examples; **assistant**: write, sections, status, set, runtime,
   models; requests wait and answer (when you are the assistant).
-- **library**: songs list, song get/update/delete/files, import audio, versions;
+- **library**: songs list (since/until), liked, song like, song get/update/delete/files,
+  import audio, versions;
   **playlist**: list/create/update/delete.
 - **cover**: draw, set from file, templates, prompt render; **karaoke**: make, delete,
   settings; **recogniser**: install/remove; **stems**: split, get; **separator**: status,
@@ -213,8 +230,9 @@ move around. Check the result with `ui_screenshot`.
   **training**: status, start, continue, cancel, checkpoint install, run delete, packs.
 - **ui**: screenshot, read page, click, type, select, press key, scroll, navigate, open
   settings, notify, console; **create_form**: get, set, submit; **player**: state, play,
-  pause, seek, next, previous, set; **video**: open, get, set, render, play, pause, seek,
-  close.
+  pause, seek, next, previous, set; **equalizer**: get, set, import, export; **visualizer**:
+  get, set, presets; **winamp**: get, set, skins, skin add, museum; **video**: open, get, set,
+  render, play, pause, seek, close.
 - **openrouter**: status, key, catalog, log, complete, cover, transcribe.
 
 ## Turn a track into MIDI
