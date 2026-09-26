@@ -3184,13 +3184,23 @@ fn song_files(state: &AppState, song: &library::Song) -> Vec<PathBuf> {
     }
     files.push(midi_path(state, &song.id));
     files.push(midi_sidecar(&midi_path(state, &song.id)));
-    files.sort();
-    files.dedup();
+    // the engine's latent, kept for an exact re-render
+    files.push(latent_path(state, &song.id));
     if let Some((cover, _)) = state.library.cover_path_for_song(song) {
         files.push(cover);
     }
-    files.retain(|path| path.parent() == Some(media) && path.is_file());
+    files.retain(|path| in_media_folder(media, path));
+    files.sort();
+    files.dedup();
     files
+}
+
+/// Whether a file sits directly in the media folder, however either path is
+/// written: the library resolves its paths to `\\?\F:\…` while the folder
+/// is kept as `F:\…`, and comparing them as written removed nothing.
+fn in_media_folder(media: &std::path::Path, path: &std::path::Path) -> bool {
+    let (Ok(root), Ok(file)) = (media.canonicalize(), path.canonicalize()) else { return false };
+    file.is_file() && file.parent() == Some(root.as_path())
 }
 async fn library_playlists(State(state):State<AppState>)->Result<Json<Vec<library::Playlist>>,(StatusCode,Json<ApiError>)>{state.library.list_playlists().map(Json).map_err(|e|api_error(StatusCode::INTERNAL_SERVER_ERROR,e.to_string()))}
 async fn create_library_playlist(State(state):State<AppState>,Json(input):Json<library::PlaylistInput>)->Result<(StatusCode,Json<library::Playlist>),(StatusCode,Json<ApiError>)>{state.library.create_playlist(input).map(|p|(StatusCode::CREATED,Json(p))).map_err(|e|api_error(StatusCode::BAD_REQUEST,e.to_string()))}
@@ -6752,6 +6762,20 @@ fn api_error(status: StatusCode, error: String) -> (StatusCode, Json<ApiError>) 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_song_file_is_found_in_the_media_folder_however_its_path_is_written() {
+        let root = tempfile::tempdir().unwrap();
+        let media = root.path().join("media");
+        std::fs::create_dir_all(&media).unwrap();
+        let track = media.join("song.mp3");
+        std::fs::write(&track, b"mp3").unwrap();
+        std::fs::write(root.path().join("outside.mp3"), b"mp3").unwrap();
+        assert!(in_media_folder(&media, &track.canonicalize().unwrap()), "a canonical path is in the folder");
+        assert!(in_media_folder(&media, &track));
+        assert!(!in_media_folder(&media, &root.path().join("outside.mp3")));
+        assert!(!in_media_folder(&media, &media.join("missing.mp3")));
+    }
 
     #[test]
     fn a_lora_of_the_other_size_is_refused_before_the_engine() {
