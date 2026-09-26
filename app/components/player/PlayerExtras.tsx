@@ -11,6 +11,7 @@ import { EqualizerPanel } from './EqualizerPanel';
 import { VisualizerPanel, openVisualizerWindow, setVisualizerPanelSize, visualizerPanelSize } from './VisualizerPanel';
 import { SPECTRUM_LOOK_IDS, milkdropPresetNames } from './VisualizerView';
 import { WinampMode, restoreWindowAfterReload, type WinampExit } from './WinampMode';
+import { placePanel } from '../../services/useFloatable';
 
 /**
  * The player's extras over the studio - the equalizer panel, the visualiser
@@ -127,6 +128,8 @@ export const PlayerExtras: React.FC<Props> = ({ queue, currentSong, currentTime,
     if (typeof args.mono === 'boolean') change.mono = args.mono;
     setEqualizer(change);
     if (typeof args.panel_open === 'boolean') setEqualizerPanelOpen(args.panel_open);
+    const eqPlace = args.panel_position as { x?: number; y?: number } | undefined;
+    if (eqPlace) placePanel('equalizer', Number(eqPlace.x) || 0, Number(eqPlace.y) || 0);
     if (typeof args.save_preset === 'string' && args.save_preset.trim()) {
       const name = args.save_preset.trim();
       const eq = equalizer();
@@ -178,6 +181,8 @@ export const PlayerExtras: React.FC<Props> = ({ queue, currentSong, currentTime,
       if (typeof value === 'boolean') change[key] = value;
     }
     if (args.cycle_seconds !== undefined) change.cycleSeconds = Math.max(3, Number(args.cycle_seconds) || 15);
+    const vizPlace = args.panel_position as { x?: number; y?: number } | undefined;
+    if (vizPlace) placePanel('visualizer', Number(vizPlace.x) || 0, Number(vizPlace.y) || 0);
     if (args.panel_size && typeof args.panel_size === 'object') {
       const size = args.panel_size as { width?: number; height?: number };
       setVisualizerPanelSize({ width: Math.max(240, Number(size.width) || 480), height: Math.max(160, Number(size.height) || 300) });

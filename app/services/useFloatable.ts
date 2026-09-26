@@ -60,6 +60,15 @@ export function useFloatable(key: string, initial: { x: number; y: number }): Fl
 
   useEffect(() => { remember(`fl:${key}:on`, floating ? '1' : '0'); }, [key, floating]);
   useEffect(() => { remember(`fl:${key}:pos`, JSON.stringify(placed)); }, [key, placed]);
+  // the agent places a panel by its key, as the user drags it
+  useEffect(() => {
+    const onPlace = (event: Event) => {
+      const place = (event as CustomEvent<{ key: string; x: number; y: number }>).detail;
+      if (place?.key === key) setPlaced(clampPos({ x: place.x, y: place.y }));
+    };
+    window.addEventListener(PLACE_EVENT, onPlace);
+    return () => window.removeEventListener(PLACE_EVENT, onPlace);
+  }, [key]);
   useEffect(() => {
     const onResize = () => redraw((n) => n + 1);
     window.addEventListener('resize', onResize);
@@ -98,6 +107,15 @@ export function useFloatable(key: string, initial: { x: number; y: number }): Fl
     dock: () => setFloating(false),
     onDragStart,
   };
+}
+
+const PLACE_EVENT = 'studio:place-panel';
+
+/** Moves the floating panel `key` to a place in the window, as dragging it does. */
+export function placePanel(key: string, x: number, y: number): void {
+  // kept first: a panel that opens with this call reads its place when it appears
+  remember(`fl:${key}:pos`, JSON.stringify({ x, y }));
+  window.dispatchEvent(new CustomEvent(PLACE_EVENT, { detail: { key, x, y } }));
 }
 
 /** Where a docked panel shows its chip. */

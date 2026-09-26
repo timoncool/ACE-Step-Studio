@@ -1,5 +1,8 @@
 <div align="center">
 
+<!-- studio family tabs -->
+[![YuE2 Studio](https://img.shields.io/badge/YuE2_Studio-songs_with_a_score-3f3f46?style=for-the-badge)](https://github.com/timoncool/YuE2-Studio) [![MiniMax Music3 Studio](https://img.shields.io/badge/MiniMax_Music3_Studio-full--length_tracks-3f3f46?style=for-the-badge)](https://github.com/timoncool/MiniMax-Music3-Studio) [![ACE-Step Studio](https://img.shields.io/badge/ACE--Step_Studio-Suno_at_home-ec4899?style=for-the-badge)](https://github.com/timoncool/ACE-Step-Studio)
+
 <img src="docs/logo.png" alt="" width="112" height="112" />
 
 # ACE-Step Studio

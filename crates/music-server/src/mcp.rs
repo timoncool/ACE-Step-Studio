@@ -930,7 +930,7 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "equalizer_set",
-                description: "Set the player's equalizer, as its panel does; what is not given stays. preset: a preset by name (turns the equalizer on). bands: ten values in dB from 60 Hz up, or an object hz -> dB for some. preamp_db. enabled. balance: -1 all left .. 1 all right. mono. panel_open: show or hide the equalizer panel. save_preset: keep the current curve as the user's preset under this name. delete_preset: remove a preset of the user's. Returns the equalizer as equalizer_get does.",
+                description: "Set the player's equalizer, as its panel does; what is not given stays. preset: a preset by name (turns the equalizer on). bands: ten values in dB from 60 Hz up, or an object hz -> dB for some. preamp_db. enabled. balance: -1 all left .. 1 all right. mono. panel_open: show or hide the equalizer panel. panel_position: {x, y} of the panel in the window, in pixels. save_preset: keep the current curve as the user's preset under this name. delete_preset: remove a preset of the user's. Returns the equalizer as equalizer_get does.",
                 schema: || object(json!({
                     "preset": { "type": "string" },
                     "bands": { "anyOf": [{ "type": "array", "items": { "type": "number" }, "minItems": 10, "maxItems": 10 }, { "type": "object" }] },
@@ -939,6 +939,7 @@ fn tools() -> &'static [Tool] {
                     "balance": { "type": "number", "minimum": -1, "maximum": 1 },
                     "mono": { "type": "boolean" },
                     "panel_open": { "type": "boolean" },
+                    "panel_position": { "type": "object", "properties": { "x": { "type": "number" }, "y": { "type": "number" } } },
                     "save_preset": { "type": "string" },
                     "delete_preset": { "type": "string" }
                 }), &[]),
@@ -970,7 +971,7 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "visualizer_set",
-                description: "Work the visualiser as its buttons and keys do; what is not given stays. place: closed | panel (floating over the studio, resizable) | window (a window of its own). fullscreen. engine: milkdrop | spectrum. preset: a MilkDrop preset by name or part of one (visualizer_presets lists them). look: a spectrum look (visualizer_get lists them). step: next | previous. locked: stay on this preset. random: random or in order. show_name. cycle_seconds: how long MilkDrop stays on a preset. panel_size: {width, height} in pixels. It hears the player after the equalizer; press play for it to move.",
+                description: "Work the visualiser as its buttons and keys do; what is not given stays. place: closed | panel (floating over the studio, resizable) | window (a window of its own). fullscreen. engine: milkdrop | spectrum. preset: a MilkDrop preset by name or part of one (visualizer_presets lists them). look: a spectrum look (visualizer_get lists them). step: next | previous. locked: stay on this preset. random: random or in order. show_name. cycle_seconds: how long MilkDrop stays on a preset. panel_size: {width, height} and panel_position: {x, y} in pixels. It hears the player after the equalizer; press play for it to move.",
                 schema: || object(json!({
                     "place": { "type": "string", "enum": ["closed", "panel", "window"] },
                     "fullscreen": { "type": "boolean" },
@@ -982,7 +983,8 @@ fn tools() -> &'static [Tool] {
                     "random": { "type": "boolean" },
                     "show_name": { "type": "boolean" },
                     "cycle_seconds": { "type": "number", "minimum": 3 },
-                    "panel_size": { "type": "object", "properties": { "width": { "type": "number" }, "height": { "type": "number" } } }
+                    "panel_size": { "type": "object", "properties": { "width": { "type": "number" }, "height": { "type": "number" } } },
+                    "panel_position": { "type": "object", "properties": { "x": { "type": "number" }, "y": { "type": "number" } } }
                 }), &[]),
                 call: |args| window("visualizer_set", args, 30),
             },

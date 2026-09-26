@@ -84,6 +84,7 @@ export const VisualizerView: React.FC<{
   const canvas = useRef<HTMLCanvasElement>(null);
   const milkdrop = useRef<ButterchurnVisualizer | null>(null);
   const analyser = useRef<AudioMotionAnalyzer | null>(null);
+  const blended = useRef(false);
   const [view, setView] = useState<VisualizerState>(visualizer);
   const [presets, setPresets] = useState<[string, object][]>([]);
   const [ready, setReady] = useState(false);
@@ -124,9 +125,14 @@ export const VisualizerView: React.FC<{
         if (cancelled || !canvas.current || !box.current) return;
         const width = box.current.clientWidth || 640;
         const height = box.current.clientHeight || 360;
-        const drawer = module.default.createVisualizer(context, canvas.current, { width, height, pixelRatio: window.devicePixelRatio || 1, textureRatio: 1 });
+        // the canvas holds as many pixels as it shows before MilkDrop draws its first frame into it
+        const ratio = window.devicePixelRatio || 1;
+        canvas.current.width = Math.round(width * ratio);
+        canvas.current.height = Math.round(height * ratio);
+        const drawer = module.default.createVisualizer(context, canvas.current, { width, height, pixelRatio: ratio, textureRatio: 1 });
         drawer.connectAudio(source);
         milkdrop.current = drawer;
+        blended.current = false;
         setPresets(list);
         setReady(true);
         const draw = () => {
@@ -164,7 +170,9 @@ export const VisualizerView: React.FC<{
         if (presets.length) setVisualizer({ preset: presets[Math.floor(Math.random() * presets.length)][0] });
         return undefined;
       }
-      milkdrop.current?.loadPreset(found[1], BLEND);
+      // the first preset of a new drawing comes in at once: a blend from nothing washes out white
+      milkdrop.current?.loadPreset(found[1], blended.current ? BLEND : 0);
+      blended.current = true;
     } else {
       analyser.current?.setOptions({ ...BASE, ...SPECTRUM_LOOKS[lookIndex].options });
     }

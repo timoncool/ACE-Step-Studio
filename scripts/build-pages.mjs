@@ -18,6 +18,14 @@ const cards = (list) => list
   .map(([title, body]) => `      <div class="card"><h3>${escape(title)}</h3><p>${escape(body)}</p></div>`)
   .join('\n');
 
+// The studio family as tabs over the page: the same language on each site.
+const FAMILY = [
+  ['yue2', 'YuE2 Studio', 'https://timoncool.github.io/YuE2-Studio/'],
+  ['minimax', 'MiniMax Music3 Studio', 'https://timoncool.github.io/MiniMax-Music3-Studio/'],
+  ['ace', 'ACE-Step Studio', 'https://timoncool.github.io/ACE-Step-Studio/'],
+];
+const CURRENT = 'ace';
+
 function page(lang) {
   const s = STRINGS[lang];
   for (const key of Object.keys(STRINGS.en)) {
@@ -25,6 +33,9 @@ function page(lang) {
   }
   const alternates = ORDER
     .map((code) => `<link rel="alternate" hreflang="${code}" href="${SITE}${code === 'en' ? '' : file(code)}" />`)
+    .join('\n');
+  const family = FAMILY
+    .map(([id, name, url]) => `    <a href="${url}${lang === 'en' ? '' : file(lang)}"${id === CURRENT ? ' aria-current="page"' : ''}>${name}</a>`)
     .join('\n');
   const nav = ORDER
     .map((code) => `      <a href="${file(code)}"${code === lang ? ' aria-current="page"' : ''}>${escape(STRINGS[code].label)}</a>`)
@@ -64,6 +75,9 @@ ${css.trimEnd()}
 </head>
 <body>
 <header>
+  <nav class="family" aria-label="Studios"><div class="wrap family-bar">
+${family}
+  </div></nav>
   <div class="wrap bar">
     <img class="mark" src="logo.png" alt="" />
     <div class="name">ACE-Step Studio</div>

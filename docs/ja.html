@@ -41,6 +41,14 @@ header {
   background: rgba(10,10,12,.82); backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
+.family { border-bottom: 1px solid var(--line); }
+.family-bar { display: flex; gap: 4px; padding: 8px 0 0; overflow-x: auto; }
+.family a {
+  padding: 6px 14px; border: 1px solid transparent; border-bottom: none; border-radius: 9px 9px 0 0;
+  color: var(--muted); font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap;
+}
+.family a:hover { color: var(--text); background: rgba(255,255,255,.04); }
+.family a[aria-current="page"] { color: var(--text); border-color: var(--line); background: rgba(236,72,153,.14); box-shadow: inset 0 2px 0 var(--pink); }
 .bar { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
 .mark { width: 30px; height: 30px; border-radius: 9px; flex: none; }
 .name { font-weight: 800; letter-spacing: -.01em; }
@@ -138,6 +146,11 @@ footer a { color: var(--text); }
 </head>
 <body>
 <header>
+  <nav class="family" aria-label="Studios"><div class="wrap family-bar">
+    <a href="https://timoncool.github.io/YuE2-Studio/ja.html">YuE2 Studio</a>
+    <a href="https://timoncool.github.io/MiniMax-Music3-Studio/ja.html">MiniMax Music3 Studio</a>
+    <a href="https://timoncool.github.io/ACE-Step-Studio/ja.html" aria-current="page">ACE-Step Studio</a>
+  </div></nav>
   <div class="wrap bar">
     <img class="mark" src="logo.png" alt="" />
     <div class="name">ACE-Step Studio</div>
