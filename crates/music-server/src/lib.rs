@@ -2179,9 +2179,15 @@ async fn upload_training_files(State(state): State<AppState>, Path(id): Path<Str
                 dataset = training.add_album(&id, &path, tracks, &album_artist, &format!("file:{relative}"))?;
                 continue;
             }
-            let lyrics = texts.get(&stem).map(|text| training::plain_lyrics(text)).unwrap_or_default();
+            // a text beside the file, else the lyrics the file carries in its own tags
+            let tags = audio_pcm::tags(&path);
+            let lyrics = texts.get(&stem).map(|text| training::plain_lyrics(text)).filter(|text| !text.trim().is_empty()).unwrap_or_else(|| training::plain_lyrics(&tags.lyrics));
             let (artist, title) = training::identify(&path, &relative);
             dataset = training.add_item(&id, &path, &title, &artist, "", &lyrics, false, &format!("file:{relative}"))?;
+            let details = training::tag_details(&tags);
+            if let (Some(item), Some(details)) = (dataset.items.last().map(|item| item.id.clone()), details) {
+                dataset = training.edit_item(&id, &item, details)?;
+            }
         }
         Ok::<_, anyhow::Error>(dataset)
     })

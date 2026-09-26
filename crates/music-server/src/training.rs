@@ -1392,6 +1392,38 @@ pub fn cue_sheet(bytes: &[u8]) -> (Option<String>, Vec<CueTrack>) {
     (file, tracks)
 }
 
+/// The genre, tempo and key a file's tags give, as a dataset song keeps them;
+/// nothing when they give none of the three.
+pub fn tag_details(tags: &crate::audio_pcm::FileTags) -> Option<ItemPatch> {
+    let genre = Some(tags.genre.trim().to_string()).filter(|genre| !genre.is_empty());
+    let bpm = tags.bpm.trim().parse::<f64>().ok().filter(|bpm| (30.0..=300.0).contains(bpm)).map(|bpm| bpm.round() as u32);
+    let keyscale = keyscale_from_tag(&tags.key);
+    (genre.is_some() || bpm.is_some() || keyscale.is_some()).then(|| ItemPatch { genre, bpm, keyscale, ..ItemPatch::default() })
+}
+
+/// "Am", "F#m", "C", "A minor", "Eb major" as ACE-Step writes a key: "A minor".
+/// A Camelot or Open Key code ("8A", "1d") is not read.
+pub fn keyscale_from_tag(raw: &str) -> Option<String> {
+    let text = raw.trim();
+    let mut characters = text.chars();
+    let note = characters.next()?.to_ascii_uppercase();
+    if !('A'..='G').contains(&note) {
+        return None;
+    }
+    let rest: String = characters.collect();
+    let (accidental, rest) = match rest.chars().next() {
+        Some('#') | Some('♯') => ("#", rest[rest.chars().next().unwrap().len_utf8()..].to_string()),
+        Some('b') | Some('♭') if !rest.to_lowercase().starts_with("b") || rest.len() == 1 || !rest[1..].trim().is_empty() => ("b", rest[rest.chars().next().unwrap().len_utf8()..].to_string()),
+        _ => ("", rest),
+    };
+    let mode = match rest.trim().to_lowercase().as_str() {
+        "" | "maj" | "major" => "major",
+        "m" | "min" | "minor" => "minor",
+        _ => return None,
+    };
+    Some(format!("{note}{accidental} {mode}"))
+}
+
 /// Artist and title of an audio file: its own tags first, then its name,
 /// then the folders it was dropped in. `relative` is the path inside what
 /// was dropped ("Artist/2011 - Album/01. Title.flac"), or just the file name.
@@ -1604,6 +1636,40 @@ mod tests {
         assert_eq!(split_file_name("Song").1, "Song");
     }
 
+
+    #[test]
+    fn a_key_tag_is_written_the_way_ace_step_writes_keys() {
+        assert_eq!(keyscale_from_tag("Am").as_deref(), Some("A minor"));
+        assert_eq!(keyscale_from_tag("F#m").as_deref(), Some("F# minor"));
+        assert_eq!(keyscale_from_tag("Eb").as_deref(), Some("Eb major"));
+        assert_eq!(keyscale_from_tag("C major").as_deref(), Some("C major"));
+        assert_eq!(keyscale_from_tag("b minor").as_deref(), Some("B minor"));
+        assert_eq!(keyscale_from_tag("8A"), None);
+        assert_eq!(keyscale_from_tag(""), None);
+    }
+
+    #[test]
+    fn an_mp3_brings_its_lyrics_genre_and_tempo_from_its_tags() {
+        let path = std::env::temp_dir().join(format!("studio-tags-{}.mp3", uuid::Uuid::now_v7()));
+        let mut frame = vec![0xFF, 0xFB, 0x90, 0x64];
+        frame.resize(418, 0);
+        std::fs::write(&path, frame.repeat(20)).unwrap();
+        crate::tagging::write_mp3_tags(&path, &crate::tagging::TrackTags {
+            title: "Дорога домой".into(),
+            artist: "ACE-Step".into(),
+            genre: Some("Russian folk rock".into()),
+            lyrics: Some("[Verse 1]\nПыль дороги на сапогах".into()),
+            bpm: Some(142),
+            ..Default::default()
+        })
+        .unwrap();
+        let tags = crate::audio_pcm::tags(&path);
+        assert_eq!(tags.lyrics, "[Verse 1]\nПыль дороги на сапогах");
+        let details = tag_details(&tags).unwrap();
+        assert_eq!(details.genre.as_deref(), Some("Russian folk rock"));
+        assert_eq!(details.bpm, Some(142));
+        let _ = std::fs::remove_file(path);
+    }
 
     #[test]
     fn lrc_files_become_plain_lyrics() {

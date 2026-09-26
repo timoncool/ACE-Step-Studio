@@ -164,6 +164,12 @@ pub fn write_wav_f32(path: &Path, audio: &audio_post::Stereo) -> Result<()> {
 pub struct FileTags {
     pub title: String,
     pub artist: String,
+    /// Unsynchronised lyrics: ID3 USLT, Vorbis LYRICS.
+    pub lyrics: String,
+    pub genre: String,
+    pub bpm: String,
+    /// As written: "Am", "F# minor", or a Camelot code nobody here reads.
+    pub key: String,
 }
 
 pub fn tags(path: &Path) -> FileTags {
@@ -184,6 +190,10 @@ pub fn tags(path: &Path) -> FileTags {
                 Some(StandardTagKey::TrackTitle) if found.title.is_empty() => found.title = value,
                 Some(StandardTagKey::Artist) if found.artist.is_empty() => found.artist = value,
                 Some(StandardTagKey::AlbumArtist) if found.artist.is_empty() => found.artist = value,
+                Some(StandardTagKey::Lyrics) if found.lyrics.is_empty() => found.lyrics = value,
+                Some(StandardTagKey::Genre) if found.genre.is_empty() => found.genre = value,
+                Some(StandardTagKey::Bpm) if found.bpm.is_empty() => found.bpm = value,
+                None if found.key.is_empty() && matches!(tag.key.to_ascii_uppercase().as_str(), "TKEY" | "INITIALKEY" | "KEY") => found.key = value,
                 _ => {}
             }
         }
