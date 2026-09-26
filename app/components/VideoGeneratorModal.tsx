@@ -174,11 +174,12 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
   const [customImage, setCustomImage] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string>('');
   const bgVideoRef = useRef<HTMLVideoElement | null>(null);
+  const [bgVideoState, setBgVideoState] = useState<'loading' | 'ready' | 'failed'>('loading');
 
   // Custom Album Art
   const [customAlbumArt, setCustomAlbumArt] = useState<string | null>(null);
   const albumArtInputRef = useRef<HTMLInputElement>(null);
-  const customAlbumArtImageRef = useRef<HTMLImageElement | null>(null);
+  const albumArtImageRef = useRef<HTMLImageElement | null>(null);
 
   // Pexels Browser State
   const [showPexelsBrowser, setShowPexelsBrowser] = useState(false);
@@ -517,15 +518,18 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
     video.muted = true;
     video.playsInline = true;
     video.autoplay = true;
+    setBgVideoState('loading');
 
     video.onloadeddata = () => {
       bgVideoRef.current = video;
+      setBgVideoState('ready');
       video.play().catch(console.error);
     };
 
     video.onerror = () => {
-      console.error('Failed to load video:', videoUrl);
+      console.error('[ERROR] the background video did not load:', videoUrl);
       bgVideoRef.current = null;
+      setBgVideoState('failed');
     };
 
     return () => {
@@ -534,31 +538,23 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
     };
   }, [backgroundType, videoUrl]);
 
-  // Load Custom Album Art
+  // The picture in the centre: the one chosen here, or the song's cover.
+  // Loaded once and drawn from memory on every frame.
+  const albumArtSource = customAlbumArt || song?.coverUrl || '';
   useEffect(() => {
-    if (!customAlbumArt) {
-      customAlbumArtImageRef.current = null;
-      return;
-    }
-
-    // Clear ref immediately so we don't show stale image
-    customAlbumArtImageRef.current = null;
-
+    albumArtImageRef.current = null;
+    if (!albumArtSource) return;
     const img = new Image();
     img.crossOrigin = 'anonymous';
-
-    // Use proxy for external URLs to avoid CORS issues
-    const isExternal = customAlbumArt.startsWith('http');
-    img.src = isExternal ? `/v1/proxy/image?url=${encodeURIComponent(customAlbumArt)}` : customAlbumArt;
-
+    // External pictures come through the service, which the canvas may read.
+    img.src = albumArtSource.startsWith('http') ? `/v1/proxy/image?url=${encodeURIComponent(albumArtSource)}` : albumArtSource;
     img.onload = () => {
-      customAlbumArtImageRef.current = img;
+      albumArtImageRef.current = img;
     };
     img.onerror = () => {
-      console.error('Failed to load custom album art:', customAlbumArt);
-      customAlbumArtImageRef.current = null;
+      console.error('[ERROR] the centre picture did not load:', albumArtSource);
     };
-  }, [customAlbumArt]);
+  }, [albumArtSource]);
 
   // Initialize Audio & Canvas
   useEffect(() => {
@@ -1525,12 +1521,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
     drawParticles(ctx, width, height, time, bass, currentConfig.particleCount, currentConfig.primaryColor);
 
     if (['NCS Circle', 'Hexagon', 'Orbital', 'Shockwave'].includes(currentConfig.preset)) {
-        const rawAlbumArtUrl = customAlbumArt || song.coverUrl;
-        // Proxy external URLs to avoid CORS issues in fallback
-        const albumArtUrl = rawAlbumArtUrl.startsWith('http')
-            ? `/v1/proxy/image?url=${encodeURIComponent(rawAlbumArtUrl)}`
-            : rawAlbumArtUrl;
-        drawAlbumArt(ctx, centerX, centerY, pulse, albumArtUrl, currentConfig.primaryColor, customAlbumArtImageRef.current);
+        drawAlbumArt(ctx, centerX, centerY, pulse, currentConfig.primaryColor, albumArtImageRef.current);
     }
 
     // Pixelate effect (applied before text so text stays sharp)
@@ -2183,7 +2174,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
       ctx.shadowBlur = 0;
   };
 
-  const drawAlbumArt = (ctx: CanvasRenderingContext2D, cx: number, cy: number, pulse: number, url: string, borderColor: string, preloadedImage?: HTMLImageElement | null) => {
+  const drawAlbumArt = (ctx: CanvasRenderingContext2D, cx: number, cy: number, pulse: number, borderColor: string, picture: HTMLImageElement | null) => {
     ctx.save();
     ctx.translate(cx, cy);
     ctx.scale(pulse, pulse);
@@ -2197,18 +2188,12 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
     ctx.stroke();
     ctx.clip();
 
-    // Use preloaded image if available, otherwise try to draw from URL
-    if (preloadedImage && preloadedImage.complete) {
-        ctx.drawImage(preloadedImage, -150, -150, 300, 300);
+    // Until the picture has arrived the circle is empty.
+    if (picture) {
+        ctx.drawImage(picture, -150, -150, 300, 300);
     } else {
-        const img = new Image();
-        img.src = url;
-        if (img.complete) {
-            ctx.drawImage(img, -150, -150, 300, 300);
-        } else {
-            ctx.fillStyle = '#111';
-            ctx.fillRect(-150, -150, 300, 300);
-        }
+        ctx.fillStyle = '#111';
+        ctx.fillRect(-150, -150, 300, 300);
     }
     ctx.restore();
   };
@@ -2505,7 +2490,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                          {/* Background */}
                          <div className="space-y-3">
                             <label className="text-xs font-bold text-zinc-500 uppercase flex justify-between">
-                                Background
+                                {t('videoBackground')}
                             </label>
                             <div className="bg-black/20 p-3 rounded-lg border border-white/5 space-y-3">
                                 {/* Type Selection */}
@@ -2514,19 +2499,19 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                         onClick={() => { setBackgroundType('random'); setBackgroundSeed(Date.now()); }}
                                         className={`py-2 rounded text-xs font-bold flex items-center justify-center gap-1 ${backgroundType === 'random' ? 'bg-pink-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}
                                      >
-                                         <Wand2 size={12}/> Random
+                                         <Wand2 size={12}/> {t('bgRandom')}
                                      </button>
                                      <button
                                         onClick={() => setBackgroundType('custom')}
                                         className={`py-2 rounded text-xs font-bold flex items-center justify-center gap-1 ${backgroundType === 'custom' ? 'bg-pink-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}
                                      >
-                                         <ImageIcon size={12}/> Image
+                                         <ImageIcon size={12}/> {t('bgImage')}
                                      </button>
                                      <button
                                         onClick={() => setBackgroundType('video')}
                                         className={`py-2 rounded text-xs font-bold flex items-center justify-center gap-1 ${backgroundType === 'video' ? 'bg-pink-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}
                                      >
-                                         <Video size={12}/> Video
+                                         <Video size={12}/> {t('bgVideo')}
                                      </button>
                                 </div>
 
@@ -2538,7 +2523,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                                 onClick={() => fileInputRef.current?.click()}
                                                 className="py-2 px-3 bg-zinc-700 hover:bg-zinc-600 rounded text-xs text-white flex items-center justify-center gap-1"
                                             >
-                                                <Upload size={12}/> Upload
+                                                <Upload size={12}/> {t('upload')}
                                             </button>
                                             <button
                                                 onClick={() => openPexelsBrowser('background', 'photos')}
@@ -2563,7 +2548,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                                 onClick={() => videoFileInputRef.current?.click()}
                                                 className="py-2 px-3 bg-zinc-700 hover:bg-zinc-600 rounded text-xs text-white flex items-center justify-center gap-1"
                                             >
-                                                <Upload size={12}/> Upload
+                                                <Upload size={12}/> {t('upload')}
                                             </button>
                                             <button
                                                 onClick={() => openPexelsBrowser('background', 'videos')}
@@ -2579,8 +2564,14 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                             onChange={(e) => setVideoUrl(e.target.value)}
                                             className="w-full bg-zinc-800 rounded px-3 py-2 text-xs text-white border border-white/10 placeholder-zinc-500"
                                         />
-                                        {videoUrl && (
-                                            <p className="text-[10px] text-emerald-400 truncate">✓ Video loaded</p>
+                                        {videoUrl && bgVideoState === 'loading' && (
+                                            <p className="text-[10px] text-zinc-400">{t('videoLoading')}</p>
+                                        )}
+                                        {videoUrl && bgVideoState === 'ready' && (
+                                            <p className="text-[10px] text-emerald-400 truncate">✓ {t('videoReady')}</p>
+                                        )}
+                                        {videoUrl && bgVideoState === 'failed' && (
+                                            <p className="text-[10px] text-rose-400">{t('videoFailed')}</p>
                                         )}
                                     </div>
                                 )}
@@ -2718,7 +2709,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                                 onClick={() => albumArtInputRef.current?.click()}
                                                 className="py-1.5 px-2 bg-zinc-700 hover:bg-zinc-600 rounded text-[10px] text-white flex items-center justify-center gap-1"
                                             >
-                                                <Upload size={10}/> Upload
+                                                <Upload size={10}/> {t('upload')}
                                             </button>
                                             <button
                                                 onClick={() => openPexelsBrowser('albumArt')}
@@ -2732,7 +2723,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                                 onClick={() => setCustomAlbumArt(null)}
                                                 className="w-full py-1 text-[10px] text-zinc-500 hover:text-red-400"
                                             >
-                                                Reset to default
+                                                {t('resetToDefault')}
                                             </button>
                                         )}
                                     </div>
@@ -2884,19 +2875,19 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                 {activeTab === 'effects' && (
                     <div className="space-y-2">
                         {[
-                            { id: 'shake', label: 'Bass Shake', desc: 'Camera reacts to low freq', icon: <Activity size={16}/> },
-                            { id: 'glitch', label: 'Digital Glitch', desc: 'Random artifacting', icon: <Zap size={16}/> },
-                            { id: 'vhs', label: 'VHS Tape', desc: 'Color bleeding & noise', icon: <Disc size={16}/> },
-                            { id: 'cctv', label: 'CCTV Mode', desc: 'Night vision style', icon: <Monitor size={16}/> },
-                            { id: 'scanlines', label: 'Scanlines', desc: 'Old monitor effect', icon: <Grid size={16}/> },
-                            { id: 'chromatic', label: 'Aberration', desc: 'RGB Split', icon: <Layers size={16}/> },
-                            { id: 'bloom', label: 'Bloom', desc: 'Glow on bright areas', icon: <Sun size={16}/> },
-                            { id: 'filmGrain', label: 'Film Grain', desc: 'Cinematic noise', icon: <Film size={16}/> },
-                            { id: 'pixelate', label: 'Pixelate', desc: 'Retro pixel look', icon: <Grid size={16}/> },
-                            { id: 'strobe', label: 'Strobe', desc: 'Flash on bass hits', icon: <Zap size={16}/> },
-                            { id: 'vignette', label: 'Vignette', desc: 'Dark edges', icon: <Circle size={16}/> },
-                            { id: 'hueShift', label: 'Hue Shift', desc: 'Color rotation', icon: <Palette size={16}/> },
-                            { id: 'letterbox', label: 'Letterbox', desc: 'Cinematic bars', icon: <Minus size={16}/> },
+                            { id: 'shake', label: t('fx_shake'), desc: t('fxDesc_shake'), icon: <Activity size={16}/> },
+                            { id: 'glitch', label: t('fx_glitch'), desc: t('fxDesc_glitch'), icon: <Zap size={16}/> },
+                            { id: 'vhs', label: t('fx_vhs'), desc: t('fxDesc_vhs'), icon: <Disc size={16}/> },
+                            { id: 'cctv', label: t('fx_cctv'), desc: t('fxDesc_cctv'), icon: <Monitor size={16}/> },
+                            { id: 'scanlines', label: t('fx_scanlines'), desc: t('fxDesc_scanlines'), icon: <Grid size={16}/> },
+                            { id: 'chromatic', label: t('fx_chromatic'), desc: t('fxDesc_chromatic'), icon: <Layers size={16}/> },
+                            { id: 'bloom', label: t('fx_bloom'), desc: t('fxDesc_bloom'), icon: <Sun size={16}/> },
+                            { id: 'filmGrain', label: t('fx_filmGrain'), desc: t('fxDesc_filmGrain'), icon: <Film size={16}/> },
+                            { id: 'pixelate', label: t('fx_pixelate'), desc: t('fxDesc_pixelate'), icon: <Grid size={16}/> },
+                            { id: 'strobe', label: t('fx_strobe'), desc: t('fxDesc_strobe'), icon: <Zap size={16}/> },
+                            { id: 'vignette', label: t('fx_vignette'), desc: t('fxDesc_vignette'), icon: <Circle size={16}/> },
+                            { id: 'hueShift', label: t('fx_hueShift'), desc: t('fxDesc_hueShift'), icon: <Palette size={16}/> },
+                            { id: 'letterbox', label: t('fx_letterbox'), desc: t('fxDesc_letterbox'), icon: <Minus size={16}/> },
                         ].map((effect) => {
                              const effectId = effect.id as keyof EffectConfig;
                              const isActive = effects[effectId];
@@ -3115,7 +3106,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                     onClick={() => savePexelsApiKey(pexelsApiKey)}
                     className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-white font-bold text-sm"
                   >
-                    Save
+                    {t('save')}
                   </button>
                 </div>
                 <p className="text-xs text-zinc-500">{t('apiKeyStoredLocally')}</p>
@@ -3131,7 +3122,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                     onClick={() => setShowPexelsApiKeyInput(true)}
                     className="text-red-300 underline hover:text-red-200"
                   >
-                    Set API key
+                    {t('setApiKey')}
                   </button>
                 )}
               </div>
@@ -3145,13 +3136,13 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                   onClick={() => { setPexelsTab('photos'); searchPexels(pexelsQuery, 'photos'); }}
                   className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 ${pexelsTab === 'photos' ? 'bg-emerald-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}
                 >
-                  <ImageIcon size={14} /> Photos
+                  <ImageIcon size={14} /> {t('pexelsPhotos')}
                 </button>
                 <button
                   onClick={() => { setPexelsTab('videos'); searchPexels(pexelsQuery, 'videos'); }}
                   className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 ${pexelsTab === 'videos' ? 'bg-emerald-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}
                 >
-                  <Video size={14} /> Videos
+                  <Video size={14} /> {t('pexelsVideos')}
                 </button>
               </div>
               )}
@@ -3170,7 +3161,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-white font-bold text-sm flex items-center gap-2 disabled:opacity-50"
                 >
                   {pexelsLoading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-                  Search
+                  {t('search')}
                 </button>
               </div>
               {/* Quick Tags */}
@@ -3203,7 +3194,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                     >
                       <img src={photo.src.large} alt="" className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <span className="text-white text-xs font-bold bg-emerald-600 px-3 py-1 rounded-full">Select</span>
+                        <span className="text-white text-xs font-bold bg-emerald-600 px-3 py-1 rounded-full">{t('select')}</span>
                       </div>
                       <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
                         <p className="text-[10px] text-zinc-300 truncate">by {photo.photographer}</p>
@@ -3221,10 +3212,10 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                     >
                       <img src={video.image} alt="" className="w-full h-full object-cover" />
                       <div className="absolute top-2 right-2 bg-black/60 px-2 py-0.5 rounded text-[10px] text-white font-bold">
-                        <Video size={10} className="inline mr-1" />VIDEO
+                        <Video size={10} className="inline mr-1" />{t('videoBadge')}
                       </div>
                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <span className="text-white text-xs font-bold bg-emerald-600 px-3 py-1 rounded-full">Select</span>
+                        <span className="text-white text-xs font-bold bg-emerald-600 px-3 py-1 rounded-full">{t('select')}</span>
                       </div>
                       <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
                         <p className="text-[10px] text-zinc-300 truncate">by {video.user.name}</p>
