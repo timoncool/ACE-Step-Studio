@@ -22,18 +22,6 @@
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
-/// The client every download uses.
-///
-/// It carries a name. Hugging Face is stricter with clients that do not send
-/// one, and `reqwest` sends none unless told to - which is the difference
-/// between this and the `ureq` these downloads were modelled on.
-pub fn client() -> reqwest::Client {
-    reqwest::Client::builder()
-        .user_agent(music_core::studio().user_agent(env!("CARGO_PKG_VERSION")))
-        .build()
-        .unwrap_or_default()
-}
-
 fn table() -> &'static Mutex<HashMap<String, u64>> {
     static KNOWN: OnceLock<Mutex<HashMap<String, u64>>> = OnceLock::new();
     KNOWN.get_or_init(|| Mutex::new(HashMap::new()))

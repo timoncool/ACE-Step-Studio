@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check, Cloud, Cpu, Eye, EyeOff, Loader2, RefreshCw } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
+import { ProxySettings } from './ProxySettings';
 
 /**
  * Provider matrix.
@@ -267,6 +268,8 @@ export const ProviderSettings: React.FC = () => {
           <span className="text-xs text-zinc-500">{catalogCount > 0 ? `${catalogCount}` : t('catalogNotLoaded')}</span>
         </div>
       </section>
+
+      <ProxySettings />
 
       <section className="space-y-3">
         <h4 className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-white">

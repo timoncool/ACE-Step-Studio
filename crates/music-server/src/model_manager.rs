@@ -164,7 +164,7 @@ impl ModelManager {
         Ok(Self {
             root,
             state_path,
-            http: crate::sizes::client(),
+            http: crate::net::client(),
             state: Arc::new(RwLock::new(state)),
             cancelled: Arc::new(AtomicBool::new(false)),
         })

@@ -27,6 +27,8 @@ music-engine = { path = "../music-engine" }
 flate2.workspace = true
 id3 = "1.17"
 reqwest.workspace = true
+hyper-util.workspace = true
+http.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

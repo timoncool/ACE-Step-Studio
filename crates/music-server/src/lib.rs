@@ -29,6 +29,7 @@ mod chunked;
 mod separation;
 mod midi;
 mod sizes;
+pub mod net;
 mod skill;
 mod library;
 mod ace;
@@ -347,6 +348,8 @@ struct PersistedStudioSettings {
     /// Whether a finished track gets its cover drawn without being asked.
     #[serde(default)]
     cover_auto: Option<bool>,
+    #[serde(default)]
+    proxy: Option<net::ProxySettings>,
 }
 
 #[derive(Default)]
@@ -549,6 +552,7 @@ struct OpenRouterResponse {
 pub async fn serve() -> anyhow::Result<()> {
     let settings_path = studio_settings_path();
     let persisted = load_studio_settings(&settings_path);
+    net::set(persisted.as_ref().and_then(|settings| settings.proxy.clone()).unwrap_or_default());
     let model_manager = ModelManager::from_environment()?;
     let persisted_components = persisted
         .as_ref()
@@ -652,6 +656,8 @@ pub async fn serve() -> anyhow::Result<()> {
         .route("/v1/proxy/image", get(proxy_image))
         .route("/v1/openrouter/settings", get(openrouter_settings).put(update_openrouter_settings))
         .route("/v1/openrouter/logs", get(openrouter_logs))
+        .route("/v1/network/proxy", get(read_proxy).put(update_proxy))
+        .route("/v1/network/proxy/test", post(test_proxy))
         .route("/v1/assistant/status", get(assistant_status).put(update_assistant_settings))
         .route("/v1/assistant/local-models", get(assistant_local_models))
         .route("/v1/assistant/write", post(assistant_write))
@@ -1463,7 +1469,7 @@ struct HubQuery {
 }
 
 async fn search_hub_adapters(State(state): State<AppState>, Query(query): Query<HubQuery>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
-    let found = state.adapters.hub_search(&sizes::client(), &query.q).await.map_err(|error| api_error(StatusCode::BAD_GATEWAY, format!("{error:#}")))?;
+    let found = state.adapters.hub_search(&net::client(), &query.q).await.map_err(|error| api_error(StatusCode::BAD_GATEWAY, format!("{error:#}")))?;
     Ok(Json(serde_json::json!({ "repos": found })))
 }
 
@@ -1472,7 +1478,7 @@ async fn search_hub_adapters(State(state): State<AppState>, Query(query): Query<
 async fn list_hub_files(State(state): State<AppState>, Query(query): Query<HubQuery>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
     let (repo, file) = adapters::hub_reference(&query.repo)
         .ok_or_else(|| api_error(StatusCode::BAD_REQUEST, "that is not a Hugging Face repository or file link".into()))?;
-    let listing = state.adapters.hub_files(&sizes::client(), &repo).await.map_err(|error| api_error(StatusCode::BAD_GATEWAY, format!("{error:#}")))?;
+    let listing = state.adapters.hub_files(&net::client(), &repo).await.map_err(|error| api_error(StatusCode::BAD_GATEWAY, format!("{error:#}")))?;
     Ok(Json(serde_json::json!({ "listing": listing, "file": file })))
 }
 
@@ -1485,7 +1491,7 @@ struct InstallHubRequest {
 async fn install_hub_adapters(State(state): State<AppState>, Json(input): Json<InstallHubRequest>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
     state
         .adapters
-        .begin_hub_install(&sizes::client(), &input.repo, &input.paths)
+        .begin_hub_install(&net::client(), &input.repo, &input.paths)
         .await
         .map_err(|error| api_error(StatusCode::CONFLICT, format!("{error:#}")))?;
     Ok(Json(serde_json::json!({ "started": true })))
@@ -3214,6 +3220,28 @@ async fn library_playlist(State(state):State<AppState>,Path(id):Path<String>)->R
 async fn update_library_playlist(State(state):State<AppState>,Path(id):Path<String>,Json(input):Json<library::PlaylistInput>)->Result<Json<library::Playlist>,(StatusCode,Json<ApiError>)>{state.library.update_playlist(&id,input).map_err(|e|api_error(StatusCode::BAD_REQUEST,e.to_string()))?.map(Json).ok_or_else(||api_error(StatusCode::NOT_FOUND,"Playlist not found".into()))}
 async fn delete_library_playlist(State(state):State<AppState>,Path(id):Path<String>)->Result<StatusCode,(StatusCode,Json<ApiError>)>{if state.library.delete_playlist(&id).map_err(|e|api_error(StatusCode::INTERNAL_SERVER_ERROR,e.to_string()))?{Ok(StatusCode::NO_CONTENT)}else{Err(api_error(StatusCode::NOT_FOUND,"Playlist not found".into()))}}
 
+async fn read_proxy() -> Json<net::ProxySettings> {
+    Json(net::current())
+}
+
+/// Takes effect at once for the studio's own requests; the window's browser
+/// takes it at the next start.
+async fn update_proxy(
+    State(state): State<AppState>,
+    Json(settings): Json<net::ProxySettings>,
+) -> Result<Json<net::ProxySettings>, (StatusCode, Json<ApiError>)> {
+    let settings = settings.validated().map_err(|error| api_error(StatusCode::BAD_REQUEST, format!("{error:#}")))?;
+    net::set(settings.clone());
+    persist_studio_settings(&state)
+        .await
+        .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("the proxy is in use but was not saved: {error:#}")))?;
+    Ok(Json(settings))
+}
+
+async fn test_proxy(Json(settings): Json<net::ProxySettings>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    net::test(settings).await.map(Json).map_err(|error| api_error(StatusCode::BAD_REQUEST, format!("{error:#}")))
+}
+
 async fn shutdown() {
     let _ = tokio::signal::ctrl_c().await;
 }
@@ -3685,7 +3713,7 @@ async fn catalog_for(state: &AppState) -> Result<providers::openrouter::Capabili
         cached.catalog = Some(catalog.clone());
         return Ok(catalog);
     }
-    let client = reqwest::Client::new();
+    let client = net::client();
     let fetch = |path: &'static str| {
         let client = client.clone();
         async move {
@@ -3713,7 +3741,7 @@ async fn catalog_for(state: &AppState) -> Result<providers::openrouter::Capabili
 }
 
 async fn refresh_openrouter_catalog(State(state): State<AppState>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
-    let client = reqwest::Client::new();
+    let client = net::client();
     let fetch = |path: &'static str| {
         let client = client.clone();
         async move {
@@ -3763,7 +3791,7 @@ async fn execute_openrouter_json(
         .to_string();
     request_log::asked(what, &model, authenticated.request.body.to_string().chars().count());
     let started = std::time::Instant::now();
-    let response = reqwest::Client::new()
+    let response = net::client()
         .post(format!("{}{}", providers::openrouter::API_BASE_URL, authenticated.request.path))
         .bearer_auth(authenticated.api_key)
         .json(&authenticated.request.body)
@@ -3916,6 +3944,12 @@ pub fn studio_data_root() -> Option<PathBuf> {
     None
 }
 
+/// The saved proxy, for the desktop shell to hand the window's browser before
+/// the service is up.
+pub fn saved_proxy() -> net::ProxySettings {
+    load_studio_settings(&studio_settings_path()).and_then(|settings| settings.proxy).unwrap_or_default()
+}
+
 fn load_studio_settings(path: &PathBuf) -> Option<PersistedStudioSettings> {
     fs::read_to_string(path).ok().and_then(|body| serde_json::from_str(&body).ok())
 }
@@ -3932,6 +3966,7 @@ async fn persist_studio_settings(state: &AppState) -> anyhow::Result<()> {
         cover_template_default: state.cover_template_default.read().await.clone(),
         separation: Some(state.separation_config.read().await.clone()),
         cover_auto: Some(*state.cover_auto.read().await),
+        proxy: Some(net::current()),
     };
     if let Some(parent) = state.settings_path.parent() { fs::create_dir_all(parent)?; }
     let temporary = state.settings_path.with_extension("json.part");
@@ -4167,7 +4202,7 @@ async fn assistant_local_models(
         return Err(api_error(StatusCode::BAD_REQUEST, "no server address".into()));
     }
     let url = format!("{base}/models");
-    let response = reqwest::Client::new()
+    let response = net::client()
         .get(&url)
         .timeout(std::time::Duration::from_secs(8))
         .send()
@@ -4193,7 +4228,7 @@ async fn assistant_local_models(
 /// None for any other server, or while the model is not loaded yet.
 async fn local_server_context(base: &str, model: &str) -> Option<(assistant::LocalServer, u64)> {
     let root = base.trim().trim_end_matches('/').trim_end_matches("/v1");
-    let client = reqwest::Client::new();
+    let client = net::client();
     let read = |path: &'static str| {
         let request = client.get(format!("{root}{path}")).timeout(std::time::Duration::from_secs(3));
         async move {
@@ -4853,7 +4888,7 @@ async fn assistant_write_stream(
         request_log::asked("assistant", &model, prompt_chars);
         let started = std::time::Instant::now();
 
-        let client = reqwest::Client::new();
+        let client = net::client();
         let mut outgoing = client
             .post(format!("{}/chat/completions", base.trim_end_matches('/')))
             .json(&body)
@@ -5101,7 +5136,7 @@ async fn assistant_ask(
                     config.local_model.clone().unwrap_or_default(),
                 ),
             };
-            let sent = reqwest::Client::new()
+            let sent = net::client()
                 .post(format!("{}/chat/completions", base.trim_end_matches('/')))
                 .json(&assistant::fit_to_local_task(
                     assistant::chat_body_constrained(
@@ -6633,7 +6668,7 @@ fn openrouter_music_prompt(request: &CreateMusicJobRequest) -> String {
 
 async fn run_openrouter_music_generation(state: AppState, job_id: String, stream_request: providers::openrouter::OpenRouterMusicStreamRequest) {
     let outcome = async {
-        let response = reqwest::Client::new()
+        let response = net::client()
             .post(format!("{}{}", providers::openrouter::API_BASE_URL, stream_request.request.path))
             .bearer_auth(stream_request.api_key)
             .json(&stream_request.request.body)
@@ -7022,6 +7057,7 @@ mod tests {
             selected_component_ids: Some(vec!["lm-q8".into(), "depth-q8".into(), "condition-f32".into(), "dit-q6".into(), "vocoder-f32".into()]),
             cover_templates: Some(cover_prompt::default_templates()),
             cover_auto: Some(true),
+            proxy: None,
             separation: Some(separation::SeparationConfig::default()),
             cover_template_default: Some("photographic".into()),
         };

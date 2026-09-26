@@ -19,7 +19,9 @@ base64 = "0.22"
 axum = { version = "0.8", features = ["multipart"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream", "blocking", "multipart"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream", "blocking", "multipart", "socks"] }
+hyper-util = { version = "0.1.20", features = ["client-proxy", "client-proxy-system"] }
+http = "1"
 fs2 = "0.4"
 futures-util = "0.3"
 sha2 = "0.10"

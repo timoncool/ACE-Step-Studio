@@ -230,7 +230,7 @@ impl AceClient {
         // The engine is on loopback: a connection takes microseconds when it
         // listens. Without a limit a closed port costs Windows two seconds per
         // attempt, and a filtered one twenty, and the status polls pile up.
-        let http = reqwest::Client::builder()
+        let http = crate::net::builder()
             .connect_timeout(Duration::from_millis(500))
             .build()
             .expect("the HTTP client builds with a connect timeout");

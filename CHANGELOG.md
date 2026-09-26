@@ -4,8 +4,23 @@ What changed, newest first. Dates are release dates.
 
 ## 2026-09-26 — 2.0.1
 
+### Added
+
+- **A proxy for the whole studio** (Settings - Providers - Proxy): as Windows is set, the
+  user's own, or none. HTTP, HTTPS, SOCKS5 and SOCKS4, with a login, written in any usual form -
+  `host:port`, `host:port:login:password`, `login:password@host:port` or
+  `socks5://login:password@host:port`; SOCKS5 resolves site names on the proxy. Model downloads,
+  Hugging Face, OpenRouter, lyrics lookups and updates go through it and take a change at once;
+  the window's own image and video search takes it at the next start. "Check" tries Hugging Face
+  and OpenRouter through the proxy on the form before it is saved and says why one fails.
+
 ### Fixed
 
+- **The engine is found behind a proxy.** A proxy set in HTTP_PROXY or ALL_PROXY took the
+  studio's requests to its own engine on 127.0.0.1 as well, and the window waited on "Loading the
+  models into memory" for good. The studio's own traffic, and the local network's, now always goes
+  straight.
+- **The Library page scrolls.** Everything below the first screen of it was cut off.
 - **The writing assistant stops.** With Ollama the magic wand could not be stopped: the
   studio named no length, Ollama generates without end when none is named, and a small model
   that never closed the style string listed words until the app was restarted. Stop also left

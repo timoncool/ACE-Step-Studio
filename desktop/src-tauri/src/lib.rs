@@ -229,8 +229,14 @@ fn spawn_update_check(app: tauri::AppHandle, portable: bool) {
         // folder and installed a second copy into its default one. NSIS takes
         // the folder as `/D=`, which must be the last argument and unquoted.
         let install_directory = format!("/D={}", executable_directory().display());
-        let updater = match app
-            .updater_builder()
+        // The proxy chosen in Settings: GitHub, where updates come from, is
+        // among the sites a proxy is set up for.
+        let builder = match music_server::net::fixed() {
+            music_server::net::Fixed::System => app.updater_builder(),
+            music_server::net::Fixed::Direct => app.updater_builder().no_proxy(),
+            music_server::net::Fixed::Through(proxy) => app.updater_builder().proxy(proxy),
+        };
+        let updater = match builder
             .installer_arg(install_directory)
             .on_before_exit(move || {
                 cleanup.cleanup_before_exit();
@@ -310,10 +316,18 @@ fn hide_own_console_window() {
 /// variable WebView2 documents for exactly this.
 #[cfg(windows)]
 fn webview_browser_arguments() -> String {
-    let own = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection";
+    let mut own = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection".to_owned();
+    // "No proxy" for what the window loads itself; a proxy of the user's own
+    // is given through Tauri's proxy_url where it takes the scheme.
+    let proxy = music_server::saved_proxy();
+    if proxy.mode == music_server::net::ProxyMode::Off {
+        own.push_str(" --no-proxy-server");
+    } else if let Some(url) = proxy.window_proxy().filter(|url| !matches!(url.scheme(), "http" | "socks5")) {
+        own.push_str(&format!(" --proxy-server={}://{}:{}", url.scheme(), url.host_str().unwrap_or_default(), url.port_or_known_default().unwrap_or_default()));
+    }
     match std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS") {
         Ok(extra) if !extra.trim().is_empty() => format!("{own} {}", extra.trim()),
-        _ => own.to_owned(),
+        _ => own,
     }
 }
 
@@ -390,6 +404,13 @@ pub fn run() {
             let window = tauri::WebviewWindowBuilder::from_config(app.handle(), &window_config)?;
             #[cfg(windows)]
             let window = window.additional_browser_args(&webview_browser_arguments());
+            // The proxy chosen in Settings for what the window loads itself -
+            // the image and video searches of the video maker; the service
+            // routes its own requests.
+            let window = match music_server::saved_proxy().window_proxy().filter(|url| matches!(url.scheme(), "http" | "socks5")) {
+                Some(url) => window.proxy_url(url),
+                None => window,
+            };
             window.build()?;
             if updater_configured {
                 spawn_update_check(app.handle().clone(), is_portable());

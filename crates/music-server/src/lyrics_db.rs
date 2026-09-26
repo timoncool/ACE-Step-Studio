@@ -56,7 +56,7 @@ pub struct Sources {
 
 impl Sources {
     pub fn new() -> Result<Self> {
-        let http = reqwest::Client::builder()
+        let http = crate::net::builder()
             .timeout(Duration::from_secs(12))
             .connect_timeout(Duration::from_secs(5))
             .build()
