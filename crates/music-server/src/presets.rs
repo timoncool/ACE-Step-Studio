@@ -89,10 +89,12 @@ pub fn hardware() -> Hardware {
 /// VRAM tiers follow the weights of each complete four-component set plus room
 /// for activations: the thresholds are the presets' own `min_vram_gb`.
 fn recommend_for_hardware(gpu_name: &str, total_vram_gb: f64) -> (&'static str, String) {
+    // The smallest set runs on Vulkan or the processor, where the engine
+    // goes on its own when CUDA cannot hold it; cloud music stays a choice.
     if total_vram_gb <= 0.0 {
         return (
-            "full-openrouter",
-            "No NVIDIA VRAM was detected; Full OpenRouter avoids selecting a local set that cannot fit.".into(),
+            "native-minimal",
+            "No NVIDIA VRAM was detected; the smallest set runs on Vulkan or the processor.".into(),
         );
     }
     let preset = PRESETS
@@ -101,7 +103,10 @@ fn recommend_for_hardware(gpu_name: &str, total_vram_gb: f64) -> (&'static str, 
         .find(|preset| total_vram_gb >= preset.min_vram_gb);
     match preset {
         Some(preset) => (preset.id, format!("{gpu_name} with {total_vram_gb:.1} GB VRAM matches {}", preset.title)),
-        None => ("full-openrouter", format!("{gpu_name} with {total_vram_gb:.1} GB VRAM holds no local set")),
+        None => (
+            "native-minimal",
+            format!("{gpu_name} with {total_vram_gb:.1} GB VRAM holds no set; the smallest runs on the processor instead"),
+        ),
     }
 }
 
@@ -203,8 +208,8 @@ mod tests {
         assert_eq!(recommend_for_hardware("RTX 4070", 11.9).0, "native-balanced");
         assert_eq!(recommend_for_hardware("RTX 4060", 8.0).0, "native-efficient");
         assert_eq!(recommend_for_hardware("GTX 1660", 6.0).0, "native-minimal");
-        assert_eq!(recommend_for_hardware("GT 1030", 2.0).0, "full-openrouter");
-        assert_eq!(recommend_for_hardware("No NVIDIA GPU detected", 0.0).0, "full-openrouter");
+        assert_eq!(recommend_for_hardware("GT 1030", 2.0).0, "native-minimal");
+        assert_eq!(recommend_for_hardware("No NVIDIA GPU detected", 0.0).0, "native-minimal");
     }
 
     #[test]

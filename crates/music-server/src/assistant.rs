@@ -466,6 +466,27 @@ pub fn fit_to_task(mut body: Value, target: AssistTarget) -> Value {
     body
 }
 
+/// The same for a server on this machine, which bounds nothing on its own:
+/// Ollama generates without end unless the request names a limit, and a small
+/// model that never closes a string under the schema lists words until the
+/// connection is dropped. Every target is bounded there. OpenRouter models
+/// carry their own limit, and there thinking counts against `max_tokens`.
+pub fn fit_to_local_task(body: Value, target: AssistTarget) -> Value {
+    let mut body = fit_to_task(body, target);
+    body["max_tokens"] = Value::from(max_tokens_for(target));
+    body
+}
+
+/// Room for the longest answer a target can need on a local server, thinking
+/// included.
+pub fn max_tokens_for(target: AssistTarget) -> u32 {
+    match target {
+        AssistTarget::Prompt => 2048,
+        AssistTarget::Transcript | AssistTarget::Sheet => 4096,
+        AssistTarget::All | AssistTarget::Lyrics => 8192,
+    }
+}
+
 /// A Cyrillic word with Latin look-alikes in it ("Tут", "oстов"), which a
 /// small model writes at the start of a line, spelled in Cyrillic. Only the
 /// letters that are one letter both by sight and by sound are swapped: a
@@ -628,6 +649,15 @@ pub fn cyrillic_share(text: &str) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_target_names_a_length_limit() {
+        // Ollama generates without end when a request names none.
+        for target in [AssistTarget::All, AssistTarget::Lyrics, AssistTarget::Prompt, AssistTarget::Transcript, AssistTarget::Sheet] {
+            let body = super::fit_to_local_task(serde_json::json!({}), target);
+            assert_eq!(body["max_tokens"].as_u64(), Some(u64::from(super::max_tokens_for(target))));
+        }
+    }
 
     #[test]
     fn section_tags_go_and_the_words_stay() {

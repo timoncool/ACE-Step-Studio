@@ -2,6 +2,21 @@
 
 What changed, newest first. Dates are release dates.
 
+## 2026-09-26 — 2.0.1
+
+### Fixed
+
+- **The writing assistant stops.** With Ollama the magic wand could not be stopped: the
+  studio named no length, Ollama generates without end when none is named, and a small model
+  that never closed the style string listed words until the app was restarted. Stop also left
+  the model writing, because the service went on reading an answer nobody waited for. A local
+  server is now told how long each answer may be, a run that reaches it ends with a message
+  instead of a wait, and Stop closes the connection, which is what makes the model stop.
+- **A song added to a dataset brings its lyrics, genre, tempo and key** from its own tags
+  (ID3 USLT, TCON, TBPM, TKEY and their Vorbis names) when no text file lies beside it.
+- **Without an NVIDIA card the first set offered is Minimal**, which runs on Vulkan or the
+  processor, not cloud music. OpenRouter stays a choice for any part of the studio.
+
 ## 2026-09-26 — 2.0.0
 
 A new studio on a new stack. The Python and Node.js folder of 1.x is replaced by one Windows
