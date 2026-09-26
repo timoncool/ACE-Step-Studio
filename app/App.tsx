@@ -940,20 +940,29 @@ function AppContent() {
 
   /// Jobs keep running in the service when the window reloads, and an agent
   /// connected over MCP starts its own: both get a card, and the same poller
-  /// lands their tracks. The service is asked every few seconds.
+  /// lands their tracks. The service is asked when the window opens and each
+  /// time it reports an agent's change.
   useEffect(() => {
     if (!nativeSetupReady) return;
+    // a notice that lands while the service is being asked asks it once more
     let busy = false;
-    const adopt = () => {
-      if (busy) return;
+    let again = false;
+    const adopt = async () => {
+      if (busy) {
+        again = true;
+        return;
+      }
       busy = true;
-      void fetch('/v1/music/jobs')
-        .then(response => (response.ok ? response.json() : []))
-        .then((jobs: AceJob[]) => {
+      try {
+        do {
+          again = false;
+          const response = await fetch('/v1/music/jobs');
+          if (!response.ok) throw new Error(`the running jobs did not load (${response.status})`);
+          const jobs: AceJob[] = await response.json();
           const own = ownRequestsRef.current;
           const fresh = jobs.filter(job =>
             !activeJobsRef.current.has(job.id) && !(job.client_ref && own.has(job.client_ref)));
-          if (fresh.length === 0) return;
+          if (fresh.length === 0) continue;
           setSongs(prev => [
             ...fresh.map(job => ({
               id: `restored_${job.id}`,
@@ -972,13 +981,17 @@ function AppContent() {
           ]);
           setIsGenerating(true);
           fresh.forEach(job => beginPollingJob(job.id, `restored_${job.id}`));
-        })
-        .catch(() => undefined)
-        .finally(() => { busy = false; });
+        } while (again);
+      } catch (error) {
+        console.error('[ERROR] adopting running jobs:', error);
+      } finally {
+        busy = false;
+      }
     };
-    adopt();
-    const timer = window.setInterval(adopt, 4000);
-    return () => window.clearInterval(timer);
+    const onChange = () => { void adopt(); };
+    onChange();
+    window.addEventListener('studio:jobs-changed', onChange);
+    return () => window.removeEventListener('studio:jobs-changed', onChange);
   }, [nativeSetupReady, beginPollingJob, t]);
 
   /// The engine reports a job's state, not a percentage, but its log counts the

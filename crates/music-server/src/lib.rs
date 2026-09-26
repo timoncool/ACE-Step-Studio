@@ -47,7 +47,7 @@ use axum::{
     Json, Router,
 };
 use music_core::{Capability, EngineDescriptor, ExecutionMode, StudioConfiguration};
-use model_manager::{InstallRequest, ModelManager};
+use model_manager::{DownloadStatus, InstallRequest, ModelManager};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::RwLock;
@@ -68,6 +68,9 @@ struct AppState {
     library: library::Library,
     /// Owned local engine process, when this service started one.
     engine: Arc<tokio::sync::Mutex<Option<music_engine::server::ServerSupervisor>>>,
+    /// Held for reading by everything that sends the engine work and for
+    /// writing by a rescan, which restarts the engine: never under a song.
+    engine_use: Arc<tokio::sync::RwLock<()>>,
     engine_options: Arc<RwLock<EngineOptions>>,
     /// Devices that failed under Auto in this session - the engine did not
     /// start on them, or died with a CUDA or Vulkan error - and the one the
@@ -615,6 +618,7 @@ pub async fn serve() -> anyhow::Result<()> {
         openrouter_catalog: Arc::new(RwLock::new(OpenRouterCatalogState::default())),
         library: library::Library::open_default()?,
         engine: Arc::new(tokio::sync::Mutex::new(None)),
+        engine_use: Arc::new(tokio::sync::RwLock::new(())),
         engine_options: Arc::new(RwLock::new(persisted.as_ref().map(|settings| settings.engine_options).unwrap_or_default())),
         failed_devices: Arc::new(RwLock::new(Vec::new())),
         active_device: Arc::new(RwLock::new(None)),
@@ -642,6 +646,7 @@ pub async fn serve() -> anyhow::Result<()> {
         .route("/engine/preset", post(apply_engine_preset))
         .route("/engine/options", get(engine_options).put(update_engine_options))
         .route("/engine/restart", post(restart_local_engine))
+        .route("/v1/resources/rescan", post(rescan_resources_route))
         .route("/v1/engine/logs", get(engine_logs))
         .route("/v1/system/resources", get(system_resources))
         .route("/v1/proxy/image", get(proxy_image))
@@ -801,14 +806,31 @@ pub async fn serve() -> anyhow::Result<()> {
             // a startup that is failing, and repeating "stopped answering" every
             // two seconds is what filled a whole log with one sentence.
             let mut was_running = false;
+            // The last finished model download seen; the one a previous session
+            // left behind is not news.
+            let mut last_download: Option<Option<String>> = None;
             loop {
-                let ready = state.model_manager.status(effective_install_target(&state).await).await.ready;
+                let status = state.model_manager.status(effective_install_target(&state).await).await;
+                let ready = status.ready;
                 let running = state.music_server.health().await;
+                let finished = status.active.as_ref().filter(|job| matches!(job.status, DownloadStatus::Completed)).map(|job| job.id.clone());
+                if last_download.as_ref().is_some_and(|seen| *seen != finished) && finished.is_some() && running {
+                    // a model that came down after the engine started is found by a rescan
+                    let state = state.clone();
+                    tokio::spawn(async move {
+                        if let Err(error) = rescan_resources(&state).await {
+                            eprintln!("[ERROR] finding the downloaded model: {error}");
+                        }
+                    });
+                }
+                last_download = Some(finished);
                 // the card has one owner: a preparation or a training run
                 // holding it is left alone, and the engine comes back after
                 let preparing = state.prepare.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).as_ref().is_some_and(|job| !job.finished);
                 let card_taken = preparing || state.training.active_run().await.is_some();
-                if ready && !running && !card_taken {
+                // a rescan restarting the engine, or songs still on it, are left alone
+                let quiet = state.engine_use.try_write().ok();
+                if ready && !running && !card_taken && quiet.is_some() && !state.music_server.health().await {
                     if was_running {
                         // It was answering and now it is not: the one line that
                         // explains a log which suddenly starts again from
@@ -839,6 +861,7 @@ pub async fn serve() -> anyhow::Result<()> {
                         }
                     }
                 }
+                drop(quiet);
                 was_running = running;
                 tokio::time::sleep(std::time::Duration::from_secs(if running { 5 } else { 2 })).await;
             }
@@ -3305,6 +3328,7 @@ async fn update_engine_options(
 
     let mut restarted = false;
     if changed && state.music_server.health().await {
+        let _restart = state.engine_use.write().await;
         restart_engine(&state).await.map_err(|error| api_error(StatusCode::SERVICE_UNAVAILABLE, error))?;
         restarted = true;
     }
@@ -3315,7 +3339,27 @@ async fn update_engine_options(
     })))
 }
 
+/// Makes the engine find every model and LoRA on disk again. It reads its
+/// folders once, when it starts, so a file that arrived later - a download, a
+/// file put there by hand - is found by restarting it, after the work in
+/// flight is done; new work waits for it.
+async fn rescan_resources(state: &AppState) -> Result<Value, String> {
+    let _rescan = state.engine_use.write().await;
+    if !state.music_server.health().await {
+        return Ok(serde_json::json!({ "restarted": false, "message": "The engine is not running; it finds every model and LoRA when it starts." }));
+    }
+    restart_engine(state).await?;
+    mcp::announce("resources_rescanned");
+    let props = state.music_server.props().await.map_err(|error| format!("the engine did not answer after the rescan: {error}"))?;
+    Ok(serde_json::json!({ "restarted": true, "models": props["models"], "adapters": props["adapters"] }))
+}
+
+async fn rescan_resources_route(State(state): State<AppState>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    rescan_resources(&state).await.map(Json).map_err(|error| api_error(StatusCode::SERVICE_UNAVAILABLE, error))
+}
+
 async fn restart_local_engine(State(state): State<AppState>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    let _restart = state.engine_use.write().await;
     restart_engine(&state).await.map_err(|error| api_error(StatusCode::SERVICE_UNAVAILABLE, error))?;
     Ok(Json(serde_json::json!({ "engine_id": PRIMARY_MUSIC_ENGINE_ID, "restarted": true })))
 }
@@ -5953,6 +5997,12 @@ async fn ace_request_from(state: &AppState, request: &CreateMusicJobRequest) -> 
         }
     }
     if !request.adapters.is_empty() {
+        let dit = fields.get("synth_model").and_then(Value::as_str).and_then(music_engine::model::model_family);
+        for adapter in &request.adapters {
+            if let Some(problem) = adapter_misfit(&adapter.id, state.adapters.model_of(&adapter.id).as_deref(), dit) {
+                return Err(problem);
+            }
+        }
         let views = adapter_views(state).await;
         let mut dit = Vec::new();
         let mut lm: Option<(String, f64)> = None;
@@ -5993,6 +6043,16 @@ async fn ace_request_from(state: &AppState, request: &CreateMusicJobRequest) -> 
         return Err(format!("{task} works on a recording; choose the source track"));
     }
     ace::prepare(&Value::Object(fields)).map_err(|error| error.to_string())
+}
+
+/// Why a DiT LoRA cannot go on the chosen DiT: its weights are the width of
+/// the other size, and the engine merges none of them and fails the song.
+fn adapter_misfit(id: &str, made_for: Option<&str>, dit: Option<&str>) -> Option<String> {
+    let (made_for, dit) = (made_for?, dit?);
+    (made_for != "lm" && made_for != dit).then(|| {
+        let size = |family: &str| family.to_uppercase();
+        format!("{id} is a LoRA for {} models and the chosen DiT is {}; switch the DiT above the create form to {} or leave this LoRA out", size(made_for), size(dit), size(made_for))
+    })
 }
 
 /// The adapters the engine sees, by folder, with the half of the model each
@@ -6037,7 +6097,10 @@ where
 
 async fn run_ace_job(state: AppState, run: AceRun) {
     let job_id = run.job_id.clone();
-    let outcome = ace_job(&state, run).await;
+    let outcome = {
+        let _using = state.engine_use.read().await;
+        ace_job(&state, run).await
+    };
     let cancelled = job_cancelled(&state, &job_id).await;
     set_job(&state, &job_id, |job| {
         job.engine_job = None;
@@ -6271,6 +6334,7 @@ async fn ace_plan(State(state): State<AppState>, Json(input): Json<PlanRequest>)
     }
     request.insert("lm_mode".into(), Value::from(input.mode));
     let request = Value::Object(request);
+    let _using = state.engine_use.read().await;
     let job = state.music_server.submit_lm(std::slice::from_ref(&request)).await.map_err(|error| api_error(StatusCode::SERVICE_UNAVAILABLE, error.to_string()))?;
     state.music_server.wait(&job).await.map_err(|error| api_error(StatusCode::BAD_GATEWAY, error.to_string()))?;
     let planned = state.music_server.lm_result(&job).await.map_err(|error| api_error(StatusCode::BAD_GATEWAY, error.to_string()))?;
@@ -6291,6 +6355,7 @@ async fn ace_understand(State(state): State<AppState>, Json(input): Json<Underst
     let (audio, _) = song_audio_and_latent(&state, &input.song_id).map_err(|error| api_error(StatusCode::NOT_FOUND, error.to_string()))?;
     let files = selected_model_files(&state).await.map_err(|error| api_error(StatusCode::CONFLICT, error))?;
     let lm_model = Some(serde_json::json!({ "lm_model": files.lm_model }));
+    let _using = state.engine_use.read().await;
     let job = state.music_server.submit_understand(audio, lm_model).await.map_err(|error| api_error(StatusCode::SERVICE_UNAVAILABLE, error.to_string()))?;
     state.music_server.wait(&job).await.map_err(|error| api_error(StatusCode::BAD_GATEWAY, error.to_string()))?;
     let (content_type, body) = state.music_server.result(&job).await.map_err(|error| api_error(StatusCode::BAD_GATEWAY, error.to_string()))?;
@@ -6669,6 +6734,14 @@ fn api_error(status: StatusCode, error: String) -> (StatusCode, Json<ApiError>) 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_lora_of_the_other_size_is_refused_before_the_engine() {
+        assert!(adapter_misfit("synthwave", Some("xl"), Some("2b")).is_some_and(|problem| problem.contains("for XL models") && problem.contains("chosen DiT is 2B")));
+        assert_eq!(adapter_misfit("synthwave", Some("xl"), Some("xl")), None);
+        assert_eq!(adapter_misfit("planner", Some("lm"), Some("2b")), None);
+        assert_eq!(adapter_misfit("unknown", None, Some("2b")), None);
+    }
 
     #[test]
     fn the_window_mark_comes_back_on_the_job_and_never_reaches_the_engine() {

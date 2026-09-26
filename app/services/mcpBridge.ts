@@ -243,20 +243,35 @@ const builtIn: Record<string, Handler> = {
 
 // ---------------------------------------------------------------- the connection
 
+/// The screens that read again when an agent changes something: the library,
+/// the running jobs, the LoRA lists and the settings.
+const AGENT_CHANGES = ['studio:library-changed', 'studio:jobs-changed', 'studio:adapters-changed', 'studio:settings-changed'];
+
+function agentChanged(): void {
+  for (const name of AGENT_CHANGES) window.dispatchEvent(new CustomEvent(name));
+}
+
 let started = false;
 
 export function startBridge(): void {
   if (started || typeof window === 'undefined' || typeof EventSource === 'undefined') return;
   started = true;
   watchConsole();
+  let reconnecting = false;
   const connect = () => {
     const events = new EventSource(apiUrl('/mcp/window'));
     // the service names this window first; a command for another window is not ours
     let ours: number | null = null;
     events.onmessage = async (message) => {
-      const data = JSON.parse(message.data) as { window: number; id?: string; command?: string; args?: Record<string, unknown> };
+      const data = JSON.parse(message.data) as { window?: number; id?: string; command?: string; args?: Record<string, unknown>; changed?: string };
+      if (data.changed) {
+        agentChanged();
+        return;
+      }
       if (data.id === undefined) {
-        ours = data.window;
+        ours = data.window ?? null;
+        // what an agent changed while the stream was down is read now
+        if (reconnecting) agentChanged();
         return;
       }
       if (data.window !== ours) return;
@@ -277,6 +292,7 @@ export function startBridge(): void {
     // the service restarting closes the stream; the page subscribes again
     events.onerror = () => {
       events.close();
+      reconnecting = true;
       setTimeout(connect, 2000);
     };
   };

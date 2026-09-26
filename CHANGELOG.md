@@ -31,7 +31,7 @@ ACE-Step 1.5. No Python, no PyTorch, no Node.js at run time.
   weights of the DiT you use; datasets prepared by the studio, and **Train further** from the
   adapter a run left.
 - **Stems, MIDI, karaoke, audio processing, VST3 and video clips** from the studio family.
-- **MCP**: 163 tools for an agent, and the agent as the studio's writing assistant.
+- **MCP**: 164 tools for an agent, and the agent as the studio's writing assistant.
 - **FLAC** output.
 
 ### Not carried over from 1.x

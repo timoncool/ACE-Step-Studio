@@ -31,6 +31,7 @@ const engineNames = { ...prefixed('aceSolver_', solverNames), ...prefixed('aceSc
 const en = {
   ...engineNames,
   aceInstalledLegend: 'on disk', aceDownloadLegend: 'to download',
+  rescanResources: 'Find models and LoRA again', rescanRunning: 'Looking…', rescanHint: 'Looks through the studio’s folders for every model and LoRA again, for files put there by hand. The engine restarts once the songs in progress are done.', rescanFound: 'Found again: {dit} DiT models, {lora} LoRA.', rescanEngineOff: 'The engine is not running; it finds every model and LoRA when it starts.', rescanFailed: 'Models and LoRA were not found again',
   aceVariantGroup_xl: 'XL · 4B', aceVariantGroup_standard: 'Standard · 2B', aceVariantGroup_merges: 'Community merges',
   acePlanStrength: 'Plan strength', acePlanStrengthHint: 'The share of steps the render follows the language model\'s plan; after that only the caption and lyrics. Lower gives the DiT and a LoRA more room.',
   aceLyricsFromAssistant: 'Write the lyrics or let the assistant write them (the wand on the Lyrics card), or switch to instrumental.',
@@ -124,6 +125,7 @@ type Strings = typeof en;
 const ru: Strings = {
   ...en,
   aceInstalledLegend: 'скачано', aceDownloadLegend: 'скачать',
+  rescanResources: 'Найти модели и LoRA заново', rescanRunning: 'Ищу…', rescanHint: 'Заново просматривает папки студии и находит все модели и LoRA — например, положенные туда вручную. Движок перезапустится, когда допоются песни в работе.', rescanFound: 'Найдено заново: моделей DiT — {dit}, LoRA — {lora}.', rescanEngineOff: 'Движок не запущен; при старте он сам найдёт все модели и LoRA.', rescanFailed: 'Не удалось заново найти модели и LoRA',
   aceVariantGroup_xl: 'XL · 4B', aceVariantGroup_standard: 'Стандартные · 2B', aceVariantGroup_merges: 'Мёржи сообщества',
   acePlanStrength: 'Сила плана', acePlanStrengthHint: 'Какую долю шагов рендер следует плану языковой модели; дальше — только описанию и тексту. Меньше — больше свободы DiT и LoRA.',
   aceLyricsFromAssistant: 'Напишите текст или попросите ассистента (волшебная палочка на карточке «Текст»), либо включите инструментал.',
@@ -215,6 +217,7 @@ const ru: Strings = {
 const zh: Strings = {
   ...en,
   aceInstalledLegend: '已下载', aceDownloadLegend: '需下载',
+  rescanResources: '重新查找模型和 LoRA', rescanRunning: '查找中…', rescanHint: '重新扫描工作室的文件夹，找到所有模型和 LoRA（包括手动放入的文件）。正在生成的歌曲完成后引擎会重启。', rescanFound: '重新找到：DiT 模型 {dit} 个，LoRA {lora} 个。', rescanEngineOff: '引擎未运行；启动时会自动找到所有模型和 LoRA。', rescanFailed: '未能重新查找模型和 LoRA',
   aceVariantGroup_xl: 'XL · 4B', aceVariantGroup_standard: '标准 · 2B', aceVariantGroup_merges: '社区融合模型',
   acePlanStrength: '规划强度', acePlanStrengthHint: '渲染遵循语言模型规划的步数比例，之后只按描述和歌词。越低，DiT 和 LoRA 的发挥空间越大。',
   aceLyricsFromAssistant: '请写歌词，或让助手来写（歌词卡片上的魔杖），或切换为纯音乐。',
@@ -294,6 +297,7 @@ const zh: Strings = {
 const ja: Strings = {
   ...en,
   aceInstalledLegend: 'ダウンロード済み', aceDownloadLegend: '要ダウンロード',
+  rescanResources: 'モデルと LoRA を再検出', rescanRunning: '検出中…', rescanHint: 'スタジオのフォルダを見直し、手動で置いたファイルも含めてすべてのモデルと LoRA を見つけます。生成中の曲が終わるとエンジンが再起動します。', rescanFound: '再検出：DiT モデル {dit} 個、LoRA {lora} 個。', rescanEngineOff: 'エンジンは停止中です。起動時にすべてのモデルと LoRA を見つけます。', rescanFailed: 'モデルと LoRA を再検出できませんでした',
   aceVariantGroup_xl: 'XL · 4B', aceVariantGroup_standard: '標準 · 2B', aceVariantGroup_merges: 'コミュニティのマージ',
   acePlanStrength: 'プランの強さ', acePlanStrengthHint: '描画が言語モデルのプランに従うステップの割合。その後は説明と歌詞だけに従います。低いほど DiT と LoRA の自由度が増します。',
   aceLyricsFromAssistant: '歌詞を書くか、アシスタントに書かせるか（歌詞カードの魔法の杖）、インストに切り替えてください。',
@@ -373,6 +377,7 @@ const ja: Strings = {
 const ko: Strings = {
   ...en,
   aceInstalledLegend: '받음', aceDownloadLegend: '받기',
+  rescanResources: '모델과 LoRA 다시 찾기', rescanRunning: '찾는 중…', rescanHint: '스튜디오 폴더를 다시 살펴 직접 넣은 파일을 포함해 모든 모델과 LoRA를 찾습니다. 생성 중인 곡이 끝나면 엔진이 다시 시작됩니다.', rescanFound: '다시 찾음: DiT 모델 {dit}개, LoRA {lora}개.', rescanEngineOff: '엔진이 실행 중이 아닙니다. 시작할 때 모든 모델과 LoRA를 찾습니다.', rescanFailed: '모델과 LoRA를 다시 찾지 못했습니다',
   aceVariantGroup_xl: 'XL · 4B', aceVariantGroup_standard: '표준 · 2B', aceVariantGroup_merges: '커뮤니티 병합',
   acePlanStrength: '계획 강도', acePlanStrengthHint: '렌더링이 언어 모델의 계획을 따르는 스텝 비율. 그 뒤로는 설명과 가사만 따릅니다. 낮을수록 DiT와 LoRA의 자유가 커집니다.',
   aceLyricsFromAssistant: '가사를 쓰거나 어시스턴트에게 맡기세요(가사 카드의 마법봉), 또는 연주곡으로 바꾸세요.',

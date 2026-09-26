@@ -450,6 +450,21 @@ pub async fn window_result(headers: HeaderMap, Json(answer): Json<WindowAnswer>)
     }
 }
 
+/// Tells every open window that something changed behind it, so the screens
+/// showing songs, jobs, LoRA and settings read them again: an agent's call, or
+/// background work finishing after the call that started it returned.
+pub fn announce(what: &str) {
+    let _ = bridge().commands.send(json!({ "changed": what }).to_string());
+}
+
+/// An agent's call that changes something reaches the windows. The window
+/// never calls the MCP server itself, so each such notice is an agent's doing.
+fn announce_change(tool: &str) {
+    if annotations(tool)["readOnlyHint"].as_bool() == Some(false) {
+        announce(tool);
+    }
+}
+
 async fn ask_window(command: &str, args: Value, seconds: u64) -> Result<Value, String> {
     let Some(window) = open_windows().last().copied() else {
         return Err(format!("The studio's window is not open. Open {} and call the tool again; everything else works without it.", music_core::studio().name));
@@ -729,6 +744,12 @@ fn tools() -> &'static [Tool] {
                 description: "Restart the music engine, for example after changing its options or models.",
                 schema: nothing,
                 call: |_| post("/engine/restart".into(), json!({})),
+            },
+            Tool {
+                name: "resources_rescan",
+                description: "Find every model and LoRA on disk again, for files put in the folders by hand. The engine restarts once the songs in flight are done; a model the studio downloads is found without this.",
+                schema: nothing,
+                call: |_| post("/v1/resources/rescan".into(), json!({})),
             },
             Tool {
                 name: "engine_presets_get",
@@ -2137,10 +2158,13 @@ pub async fn handle(headers: HeaderMap, body: axum::body::Bytes) -> Response {
                     Err(problem) => answer(problem, true),
                 },
                 Ok(call) => match call_route(call).await {
-                    Ok((status, text)) if status.is_success() => match serde_json::from_str::<Value>(&text) {
-                        Ok(value) => tool_json(id, shape(name, &args, value)),
-                        Err(_) => answer(text, false),
-                    },
+                    Ok((status, text)) if status.is_success() => {
+                        announce_change(name);
+                        match serde_json::from_str::<Value>(&text) {
+                            Ok(value) => tool_json(id, shape(name, &args, value)),
+                            Err(_) => answer(text, false),
+                        }
+                    }
                     Ok((_, text)) => answer(text, true),
                     Err(problem) => answer(problem, true),
                 },
@@ -2158,6 +2182,19 @@ fn instructions() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_change_reaches_the_windows_and_a_read_does_not() {
+        let mut windows = bridge().commands.subscribe();
+        announce_change("library_songs_list");
+        announce_change("song_create");
+        let mut notices = Vec::new();
+        while let Ok(message) = windows.try_recv() {
+            notices.push(serde_json::from_str::<Value>(&message).unwrap());
+        }
+        assert!(notices.contains(&json!({ "changed": "song_create" })));
+        assert!(!notices.contains(&json!({ "changed": "library_songs_list" })));
+    }
 
     #[test]
     fn every_tool_has_a_unique_name_and_an_object_schema() {

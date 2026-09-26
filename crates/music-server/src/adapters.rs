@@ -399,6 +399,7 @@ impl AdapterLibrary {
                 eprintln!("[ERROR] LoRA download: {error:#}");
             }
             library.installing_now().clear();
+            crate::mcp::announce("lora_installed");
         });
         Ok(())
     }
@@ -524,6 +525,11 @@ impl AdapterLibrary {
             bail!("no adapter {id}");
         }
         fs::remove_dir_all(&folder).with_context(|| format!("remove {}", folder.display()))
+    }
+
+    /// The model size an installed adapter was made for, `2b`, `xl` or `lm`.
+    pub fn model_of(&self, id: &str) -> Option<String> {
+        self.read_meta(id).and_then(|meta| meta.model)
     }
 
     pub fn exists(&self, id: &str) -> bool {
