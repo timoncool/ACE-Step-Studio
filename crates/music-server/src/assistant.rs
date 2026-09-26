@@ -2,7 +2,7 @@
 //!
 //! ACE-Step plans songs with its own language model, so the assistant is an
 //! option: a text model (local or OpenRouter) that turns an idea into the
-//! request the form holds - a tag caption, sectioned lyrics, tempo, key, time
+//! request the form holds - a caption, sectioned lyrics, tempo, key, time
 //! signature and duration. Its contract is ACE-Step Studio's own song-writer
 //! prompt, the one the Python studio shipped, with the studio's field names.
 //!
@@ -49,12 +49,12 @@ const TRANSCRIPT_RULES: &str = r#"The transcript comes from speech recognition r
 
 /// A dataset song is described from what was heard, as ACE-Step's own
 /// captioner describes a recording.
-const RECORDING_RULE: &str = "The song is a finished recording; describe what it sounds like, from its title, its notes and its lyrics, as tags an ACE-Step caption is written in.";
+const RECORDING_RULE: &str = "The song is a finished recording; describe what it sounds like, from its title, its notes and its lyrics, in a few plain sentences as ACE-Step's own captioner describes a recording: genre, instruments, vocals, timbre, production and mood.";
 
 /// The writing guides an agent connected over MCP reads, by topic.
 pub const GUIDE_TOPICS: &[(&str, &str)] = &[
     ("song", "writing a whole song for song_create: caption, lyrics, metadata, title, cover prompt"),
-    ("caption", "the tag caption ACE-Step reads and the metadata fields beside it"),
+    ("caption", "the caption ACE-Step reads and the metadata fields beside it"),
     ("lyrics", "lyrics: section tags, density, language, instrumentals"),
     ("transcript", "turning recognised words into a lyric sheet"),
     ("sections", "marking the sections of a published lyric sheet without changing a word"),

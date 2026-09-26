@@ -6253,16 +6253,10 @@ async fn ace_plan(State(state): State<AppState>, Json(input): Json<PlanRequest>)
         return Err(api_error(StatusCode::CONFLICT, "a LoRA is training on the card; plan once it finishes".into()));
     }
     let mut request = input.request.as_object().cloned().ok_or_else(|| api_error(StatusCode::BAD_REQUEST, "request must be an object".into()))?;
+    // the planner the studio renders with, whether the set is a profile or picked by hand
     if !request.contains_key("lm_model") {
-        let files = state
-            .selected_profile_id
-            .read()
-            .await
-            .clone()
-            .and_then(|profile| state.model_manager.installed_profile_files(&profile).ok());
-        if let Some(files) = files {
-            request.insert("lm_model".into(), Value::from(files.lm_model));
-        }
+        let files = selected_model_files(&state).await.map_err(|error| api_error(StatusCode::CONFLICT, error))?;
+        request.insert("lm_model".into(), Value::from(files.lm_model));
     }
     request.insert("lm_mode".into(), Value::from(input.mode));
     let request = Value::Object(request);
@@ -6284,13 +6278,8 @@ async fn ace_understand(State(state): State<AppState>, Json(input): Json<Underst
         return Err(api_error(StatusCode::CONFLICT, "a LoRA is training on the card; listen once it finishes".into()));
     }
     let (audio, _) = song_audio_and_latent(&state, &input.song_id).map_err(|error| api_error(StatusCode::NOT_FOUND, error.to_string()))?;
-    let lm_model = state
-        .selected_profile_id
-        .read()
-        .await
-        .clone()
-        .and_then(|profile| state.model_manager.installed_profile_files(&profile).ok())
-        .map(|files| serde_json::json!({ "lm_model": files.lm_model }));
+    let files = selected_model_files(&state).await.map_err(|error| api_error(StatusCode::CONFLICT, error))?;
+    let lm_model = Some(serde_json::json!({ "lm_model": files.lm_model }));
     let job = state.music_server.submit_understand(audio, lm_model).await.map_err(|error| api_error(StatusCode::SERVICE_UNAVAILABLE, error.to_string()))?;
     state.music_server.wait(&job).await.map_err(|error| api_error(StatusCode::BAD_GATEWAY, error.to_string()))?;
     let (content_type, body) = state.music_server.result(&job).await.map_err(|error| api_error(StatusCode::BAD_GATEWAY, error.to_string()))?;

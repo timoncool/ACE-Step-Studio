@@ -468,7 +468,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       lyrics: instrumental ? '[Instrumental]' : lyrics.replace(/\r\n?/g, '\n').trim(),
       task_type: task,
       think,
-      use_cot_caption: cotCaption,
+      use_cot_caption: assistantReady ? false : cotCaption,
       inference_steps: numberOrUndefined(steps) ?? dit.steps,
       shift: numberOrUndefined(shift) ?? dit.shift,
       solver: solver || dit.solver,
@@ -594,9 +594,13 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     setAssistStage(null);
     setAssistDraft('');
   };
-  /** The optional writing assistant (a local model or OpenRouter) writes caption and lyrics. */
-  const askAssistant = async (target: 'all' | 'lyrics' | 'prompt') => {
-    if (!assistantReady || assisting) return;
+  /**
+   * The optional writing assistant (a local model or OpenRouter) writes caption and lyrics.
+   * While it is set up it is the only writer: ACE-Step's own planner then plans the audio
+   * and leaves the words alone.
+   */
+  const askAssistant = async (target: 'all' | 'lyrics' | 'prompt'): Promise<Record<string, unknown> | null> => {
+    if (!assistantReady || assisting) return null;
     remember();
     const run = new AbortController();
     assistRun.current = run;
@@ -664,9 +668,11 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       if (typeof body.bpm === 'number') setBpm(String(body.bpm));
       if (typeof body.keyscale === 'string' && KEYS.includes(body.keyscale)) setKeyscale(body.keyscale);
       if (typeof body.timesignature === 'string' && TIME_SIGNATURES.includes(body.timesignature)) setTimesignature(body.timesignature);
+      return body;
     } catch (reason) {
       const cancelled = reason instanceof DOMException && reason.name === 'AbortError';
       if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason));
+      return null;
     } finally {
       assistRun.current = null;
       setAssisting(null);
@@ -780,15 +786,21 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
 
   const totalTracks = (numberOrUndefined(songs) ?? 1) * (numberOrUndefined(takes) ?? 1);
 
-  /** The simple form: the idea goes to the language model, which writes and plans the song in the same run. */
-  const buildSimpleRequest = (): AceCreateRequest => {
+  /**
+   * The simple form. Without the assistant the idea goes to ACE-Step's language model,
+   * which writes and plans the song in the same run; with it, the assistant's draft is
+   * the song and the model only plans its audio.
+   */
+  const buildSimpleRequest = (draft?: Record<string, unknown>): AceCreateRequest => {
     const genderLine = gender === 'male' ? 'Male vocals' : gender === 'female' ? 'Female vocals' : '';
+    const text = (key: string) => (draft && typeof draft[key] === 'string' ? (draft[key] as string).trim() : '');
+    const described = draft ? text('caption') : idea.trim();
     const request: AceCreateRequest = {
-      caption: genderLine && !instrumental ? `${idea.trim()}\n${genderLine}` : idea.trim(),
-      lyrics: instrumental ? '[Instrumental]' : '',
+      caption: genderLine && !instrumental && !described.includes(genderLine) ? `${described}\n${genderLine}` : described,
+      lyrics: instrumental ? '[Instrumental]' : text('lyrics'),
       task_type: 'text2music',
       think: true,
-      use_cot_caption: true,
+      use_cot_caption: !draft,
       inference_steps: dit.steps,
       shift: dit.shift,
       solver: dit.solver,
@@ -798,21 +810,31 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     };
     if (!turbo) request.guidance_scale = dit.guidance;
     if (language) request.vocal_language = language;
-    const seconds = numberOrUndefined(duration);
-    if (seconds !== undefined) request.duration = Math.min(seconds, MAX_DURATION_SECONDS);
+    const seconds = numberOrUndefined(duration) ?? (typeof draft?.duration_seconds === 'number' ? draft.duration_seconds : undefined);
+    if (seconds !== undefined) request.duration = Math.min(Math.round(seconds), MAX_DURATION_SECONDS);
+    if (draft) {
+      if (typeof draft.bpm === 'number') request.bpm = draft.bpm;
+      if (typeof draft.keyscale === 'string' && KEYS.includes(draft.keyscale)) request.keyscale = draft.keyscale;
+      if (typeof draft.timesignature === 'string' && TIME_SIGNATURES.includes(draft.timesignature)) request.timesignature = draft.timesignature;
+      if (text('title')) request.title = text('title');
+    }
     if (adapters.length) request.adapters = adapters;
     return request;
   };
 
-  const submit = () => {
+  const submit = async () => {
     if (!ready) { setError(t('downloadProfileFirst')); return; }
     if (mode === 'simple') {
       if (!idea.trim()) { setError(t('captionRequired')); return; }
       setError(null);
-      onGenerate(buildSimpleRequest());
+      if (!assistantReady) { onGenerate(buildSimpleRequest()); return; }
+      const draft = await askAssistant('all');
+      if (draft) onGenerate(buildSimpleRequest(draft));
       return;
     }
     if (!caption.trim() && !baseOnly(task)) { setError(t('captionRequired')); return; }
+    // with the assistant set up, empty lyrics would be written by the planner after all
+    if (assistantReady && think && !instrumental && !lyrics.trim() && !baseOnly(task)) { setError(tt('aceLyricsFromAssistant')); return; }
     if (needsSource(task) && !sourceSong) { setError(tt('aceSourceRequired')); return; }
     if (baseOnly(task) && tracks.length === 0) { setError(tt('aceTrackRequired')); return; }
     if (totalTracks > MAX_TAKES) { setError(tt('aceTooManyTakes')); return; }
@@ -897,7 +919,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     return { text: 'Filled in; create_form_get shows the form, ui_screenshot shows it on screen.' };
   });
   useBridgeCommand('create_submit', () => {
-    submit();
+    void submit();
     return { text: 'Pressed Create. studio_status shows the new job; if the form refused, create_form_get says why under error.' };
   });
 
@@ -1045,26 +1067,16 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
               </Card>
 
               <div className="space-y-2">
+                {/* one writer: the assistant when it is set up, ACE-Step's planner otherwise */}
                 <button
                   type="button"
-                  onClick={() => void plan('inspire')}
+                  onClick={() => void (assistantReady ? askAssistant('all').then(draft => { if (draft) setMode('studio'); }) : plan('inspire'))}
                   disabled={busy || !idea.trim() || !ready}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white py-2 text-xs font-semibold text-zinc-700 transition-colors hover:border-pink-400 hover:text-pink-600 disabled:opacity-50 dark:border-white/15 dark:bg-transparent dark:text-zinc-200"
                 >
-                  {planning === 'inspire' ? <Loader2 size={13} className="animate-spin" /> : <Lightbulb size={13} />}
-                  {planning === 'inspire' ? `${tt('acePlanning')} · ${assistSeconds} ${t('secondsShort')}` : tt('aceOpenInStudio')}
+                  {planning === 'inspire' || assisting === 'all' ? <Loader2 size={13} className="animate-spin" /> : assistantReady ? <Wand2 size={13} /> : <Lightbulb size={13} />}
+                  {planning === 'inspire' ? `${tt('acePlanning')} · ${assistSeconds} ${t('secondsShort')}` : assisting === 'all' ? `${t('assistantWriting')} · ${assistSeconds} ${t('secondsShort')}` : tt('aceOpenInStudio')}
                 </button>
-                {assistantReady && (
-                  <button
-                    type="button"
-                    onClick={() => void askAssistant('all').then(() => setMode('studio'))}
-                    disabled={busy || !idea.trim()}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white py-2 text-xs font-semibold text-zinc-700 transition-colors hover:border-pink-400 hover:text-pink-600 disabled:opacity-50 dark:border-white/15 dark:bg-transparent dark:text-zinc-200"
-                  >
-                    {assisting === 'all' ? <Loader2 size={13} className="animate-spin" /> : <Wand2 size={13} />}
-                    {t('writeEverything')}
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={() => setMode('studio')}
@@ -1166,7 +1178,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
               <Card
                 title={tt('aceSongParams')}
                 actions={
-                  <button type="button" onClick={() => void plan('format')} disabled={busy || !ready || (!caption.trim() && !lyrics.trim())} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold text-pink-600 transition-colors hover:bg-pink-500/10 disabled:opacity-40 dark:text-pink-300">
+                  !assistantReady && <button type="button" onClick={() => void plan('format')} disabled={busy || !ready || (!caption.trim() && !lyrics.trim())} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold text-pink-600 transition-colors hover:bg-pink-500/10 disabled:opacity-40 dark:text-pink-300">
                     {planning === 'format' ? <Loader2 size={12} className="animate-spin" /> : <ListChecks size={12} />}
                     {tt('aceFormat')}
                   </button>
@@ -1354,7 +1366,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
                   <div className="space-y-4 border-t border-zinc-100 p-3 dark:border-white/5">
                 <Stage title={t('stageLm')} hint={tt('aceStageLmHint')}>
                   <div className="space-y-3">
-                    <Switch checked={cotCaption} onChange={setCotCaption} label={tt('aceCotCaption')} hint={tt('aceCotCaptionHint')} />
+                    {!assistantReady && <Switch checked={cotCaption} onChange={setCotCaption} label={tt('aceCotCaption')} hint={tt('aceCotCaptionHint')} />}
                     <SliderRow label={tt('aceTemperature')} value={lmTemperature} fallback={0.85} min={0} max={2} step={0.05} onChange={setLmTemperature} />
                     <SliderRow label={t('cfgScale')} value={lmCfg} fallback={2} min={1} max={4} step={0.1} onChange={setLmCfg} />
                     <SliderRow label="Top-P" value={lmTopP} fallback={0.9} min={0} max={1} step={0.01} onChange={setLmTopP} />
@@ -1481,7 +1493,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       <footer className="shrink-0 border-t border-zinc-200 bg-zinc-50/95 p-4 backdrop-blur dark:border-white/5 dark:bg-suno-panel/95">
         <button
           type="button"
-          onClick={submit}
+          onClick={() => void submit()}
           disabled={activeJobCount >= 10}
           className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-pink-600 text-base font-bold text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
         >
