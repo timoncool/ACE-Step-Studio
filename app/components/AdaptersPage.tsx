@@ -284,9 +284,10 @@ const InstalledCard: React.FC<{
  * link pasted straight in. A repository opens into its weight files; the
  * ticked ones download together, each becoming its own adapter.
  */
-const HubPanel: React.FC<{ current?: DitFamily | null; downloading: boolean; onStarted: () => void; onError: (message: string) => void }> = ({ current, downloading, onStarted, onError }) => {
+const HubPanel: React.FC<{ current?: DitFamily | null; downloading: boolean; onStarted: () => void }> = ({ current, downloading, onStarted }) => {
   const { t } = useStrings();
   const [query, setQuery] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const [repos, setRepos] = useState<HubRepo[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [open, setOpen] = useState<HubListing | null>(null);
@@ -296,16 +297,17 @@ const HubPanel: React.FC<{ current?: DitFamily | null; downloading: boolean; onS
 
   const openRepo = useCallback(async (reference: string) => {
     setOpening(reference);
+    setError(null);
     try {
       const { listing, file } = await hubFiles(reference);
       setOpen(listing);
       setPicked(file && listing.files.some(entry => entry.path === file && !entry.installed) ? [file] : []);
     } catch (problem) {
-      onError(problem instanceof Error ? problem.message : String(problem));
+      setError(problem instanceof Error ? problem.message : String(problem));
     } finally {
       setOpening(null);
     }
-  }, [onError]);
+  }, []);
 
   const search = useCallback(async (text: string) => {
     if (looksLikeHubReference(text)) {
@@ -313,14 +315,15 @@ const HubPanel: React.FC<{ current?: DitFamily | null; downloading: boolean; onS
       return;
     }
     setSearching(true);
+    setError(null);
     try {
       setRepos(await searchHub(text));
     } catch (problem) {
-      onError(problem instanceof Error ? problem.message : String(problem));
+      setError(problem instanceof Error ? problem.message : String(problem));
     } finally {
       setSearching(false);
     }
-  }, [onError, openRepo]);
+  }, [openRepo]);
 
   // searches as the user types or pastes, once the text settles
   useEffect(() => {
@@ -333,12 +336,13 @@ const HubPanel: React.FC<{ current?: DitFamily | null; downloading: boolean; onS
   const download = async () => {
     if (!open) return;
     setStarting(true);
+    setError(null);
     try {
       await installHubAdapters(open.repo, chosen.map(file => file.path));
       setPicked([]);
       onStarted();
     } catch (problem) {
-      onError(problem instanceof Error ? problem.message : String(problem));
+      setError(problem instanceof Error ? problem.message : String(problem));
     } finally {
       setStarting(false);
     }
@@ -356,6 +360,7 @@ const HubPanel: React.FC<{ current?: DitFamily | null; downloading: boolean; onS
           </button>
         )}
       </form>
+      {error && <p role="alert" className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">{error}</p>}
       {searching && <p className="flex items-center gap-2 text-sm text-zinc-500"><Loader2 size={14} className="animate-spin" />{t('adaptersHubSearching')}</p>}
       {repos && !searching && repos.length === 0 && !open && <p className="text-sm text-zinc-500">{t('adaptersHubEmpty')}</p>}
       <div className="space-y-3">
@@ -699,7 +704,7 @@ export function AdaptersPage(): React.ReactElement {
 
         {tab === 'training' && <TrainingPanel />}
 
-        {tab === 'hub' && <HubPanel current={current} downloading={downloading} onStarted={() => void refresh()} onError={setError} />}
+        {tab === 'hub' && <HubPanel current={current} downloading={downloading} onStarted={() => void refresh()} />}
 
         {error && <p role="alert" className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">{error}</p>}
       </div>
