@@ -12,6 +12,7 @@ import { EQ_BANDS, equalizer, setEqualizer } from '../../services/audioGraph';
 import { addWinampSkin, pickSkin, registerWinampControl, setWinampSettings, winampSettings, winampSkins, type WinampSkin } from '../../services/winamp';
 import { sharpenSkin, sharpSkinCss, skinScale } from '../../services/winampSharp';
 import { loadMilkdropPresets } from './VisualizerView';
+import { loadButterchurn } from '../../services/butterchurn';
 
 /**
  * The Winamp mode: the whole studio window turns into a Winamp 2 player
@@ -307,7 +308,7 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
         },
         requireMusicMetadata: async () => (await import('music-metadata')) as never,
         __butterchurnOptions: {
-          importButterchurn: () => import('butterchurn'),
+          importButterchurn: async () => ({ default: await loadButterchurn() }),
           getPresets: milkdropPresets,
           butterchurnOpen: false,
         },

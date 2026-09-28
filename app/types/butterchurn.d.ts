@@ -6,10 +6,12 @@ declare module 'butterchurn' {
     setRendererSize(width: number, height: number): void;
     render(): void;
   }
-  const butterchurn: {
+  export interface Butterchurn {
     createVisualizer(context: AudioContext, canvas: HTMLCanvasElement, options: { width: number; height: number; pixelRatio?: number; textureRatio?: number }): ButterchurnVisualizer;
-  };
-  export default butterchurn;
+  }
+  /// A CommonJS module: the class is `module.exports.default`, and since Vite 8 the default import is `module.exports`.
+  const exports: { default: Butterchurn };
+  export default exports;
 }
 
 declare module 'butterchurn-presets' {

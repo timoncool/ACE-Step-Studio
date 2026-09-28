@@ -4,6 +4,7 @@ import type AudioMotionAnalyzer from 'audiomotion-analyzer';
 import type { ConstructorOptions } from 'audiomotion-analyzer';
 import { useI18n } from '../../context/I18nContext';
 import { onVisualizer, onVisualizerCommand, setVisualizer, visualizer, type VisualizerEngine, type VisualizerState } from '../../services/visualizerState';
+import { loadButterchurn } from '../../services/butterchurn';
 
 /**
  * One picture of the music, from a Web Audio source: MilkDrop through
@@ -121,7 +122,7 @@ export const VisualizerView: React.FC<{
     if (engine === 'milkdrop') {
       let cancelled = false;
       let frame = 0;
-      void Promise.all([import('butterchurn'), loadMilkdropPresets()]).then(([module, list]) => {
+      void Promise.all([loadButterchurn(), loadMilkdropPresets()]).then(([butterchurn, list]) => {
         if (cancelled || !canvas.current || !box.current) return;
         const width = box.current.clientWidth || 640;
         const height = box.current.clientHeight || 360;
@@ -129,7 +130,7 @@ export const VisualizerView: React.FC<{
         const ratio = window.devicePixelRatio || 1;
         canvas.current.width = Math.round(width * ratio);
         canvas.current.height = Math.round(height * ratio);
-        const drawer = module.default.createVisualizer(context, canvas.current, { width, height, pixelRatio: ratio, textureRatio: 1 });
+        const drawer = butterchurn.createVisualizer(context, canvas.current, { width, height, pixelRatio: ratio, textureRatio: 1 });
         drawer.connectAudio(source);
         milkdrop.current = drawer;
         blended.current = false;
