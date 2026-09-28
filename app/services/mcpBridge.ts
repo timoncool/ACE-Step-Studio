@@ -217,6 +217,10 @@ function freezeWebGl(): Promise<HTMLImageElement[]> {
 
 const builtIn: Record<string, Handler> = {
   async screenshot(args) {
+    // a window that is minimised or covered draws no frames, and the copy waits for one
+    if (document.visibilityState === 'hidden') {
+      throw new Error("The studio's window is hidden - minimised or covered by other windows - so it draws nothing to copy. Ask the user to bring it to the front, or use ui_read_page, which works either way.");
+    }
     const scale = Math.min(1, Number(args.max_width ?? 1600) / window.innerWidth);
     const frozen = await freezeWebGl();
     let data: string;
@@ -286,12 +290,16 @@ const builtIn: Record<string, Handler> = {
 
 // ---------------------------------------------------------------- the connection
 
-/// The screens that read again when an agent changes something: the library,
-/// the running jobs, the LoRA lists and the settings.
-const AGENT_CHANGES = ['studio:library-changed', 'studio:jobs-changed', 'studio:adapters-changed', 'studio:settings-changed'];
+/// The events the screens read again on, by what the service says changed: a
+/// song written or removed by anyone, the settings saved from any window, or
+/// an agent's call, which can touch anything.
+const LIBRARY = ['studio:library-changed'];
+const SETTINGS = ['studio:settings-changed', 'studio:models-changed', 'studio:adapters-changed'];
+const EVERYTHING = [...LIBRARY, ...SETTINGS, 'studio:jobs-changed'];
 
-function agentChanged(): void {
-  for (const name of AGENT_CHANGES) window.dispatchEvent(new CustomEvent(name));
+function changed(what: string): void {
+  const names = what === 'library' ? LIBRARY : what === 'settings' ? SETTINGS : EVERYTHING;
+  for (const name of names) window.dispatchEvent(new CustomEvent(name));
 }
 
 let started = false;
@@ -312,13 +320,13 @@ export function startBridge(): void {
         return;
       }
       if (data.changed) {
-        agentChanged();
+        changed(data.changed);
         return;
       }
       if (data.id === undefined) {
         ours = data.window ?? null;
         // what an agent changed while the stream was down is read now
-        if (reconnecting) agentChanged();
+        if (reconnecting) changed('everything');
         return;
       }
       if (data.window !== ours) return;

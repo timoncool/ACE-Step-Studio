@@ -863,6 +863,11 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   // again with new seeds whenever the queue runs low, until switched off. A
   // snapshot, so editing the form meanwhile does not change the next songs.
   const [forever, setForever] = useState(false);
+  useEffect(() => {
+    const stop = () => setForever(false);
+    window.addEventListener('studio:cancel-all', stop);
+    return () => window.removeEventListener('studio:cancel-all', stop);
+  }, []);
   const foreverRequest = useRef<(AceCreateRequest & { _tempId?: string }) | null>(null);
   const generate = (request: AceCreateRequest & { _tempId?: string }) => {
     if (chosenPlaylist) request.playlist_id = chosenPlaylist;

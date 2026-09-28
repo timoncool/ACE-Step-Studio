@@ -20,6 +20,8 @@ export const DevicePicker: React.FC<{
   cudaAvailable?: boolean;
 }> = ({ value, onChange, cudaAvailable = true }) => {
   const { t } = useI18n();
+  // the card chosen without its runtime runs on the processor, the way auto does
+  const shown = value === 'cuda' && !cudaAvailable ? 'auto' : value;
   return (
     <div className="flex gap-1.5">
       {DEVICES.map(device => (
@@ -29,7 +31,7 @@ export const DevicePicker: React.FC<{
           onClick={() => onChange(device)}
           disabled={device === 'cuda' && !cudaAvailable}
           className={`flex-1 cursor-pointer rounded-lg border px-3 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-            value === device
+            shown === device
               ? 'border-pink-400 bg-pink-500/10 text-zinc-900 dark:text-white'
               : 'border-zinc-200 text-zinc-500 hover:border-pink-300 hover:bg-pink-500/5 hover:text-zinc-900 dark:border-white/10 dark:hover:border-pink-500/40 dark:hover:text-white'
           }`}

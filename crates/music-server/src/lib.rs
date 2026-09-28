@@ -4074,6 +4074,7 @@ async fn persist_studio_settings(state: &AppState) -> anyhow::Result<()> {
     let temporary = state.settings_path.with_extension("json.part");
     fs::write(&temporary, serde_json::to_vec_pretty(&settings)?)?;
     fs::rename(temporary, &state.settings_path)?;
+    mcp::announce("settings");
     Ok(())
 }
 

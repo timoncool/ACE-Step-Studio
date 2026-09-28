@@ -40,7 +40,9 @@ pub struct SeparationConfig {
 impl Default for SeparationConfig {
     fn default() -> Self {
         Self {
-            runtime: crate::lyrics_sync::OnnxFlavour::default(),
+            // the card when its runtime is installed, the processor otherwise:
+            // what the panel shows before anything is chosen
+            runtime: crate::lyrics_sync::OnnxFlavour::Auto,
             stems: STEMS.iter().map(|stem| (*stem).to_string()).collect(),
             overlap: OVERLAP,
         }

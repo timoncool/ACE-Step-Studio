@@ -5,6 +5,7 @@ import { useI18n } from '../context/I18nContext';
 import { ArrowLeft, Play, MoreHorizontal, Clock, Calendar, Shuffle, Trash2, Mic2, Music } from 'lucide-react';
 import { deleteNativePlaylist, getNativePlaylist, loadNativeLibrarySongs, parseDuration, updateNativePlaylist } from '../services/nativeLibrary';
 import { AlbumCover } from './AlbumCover';
+import { TRACK_ARTIST } from '../services/studio';
 
 interface PlaylistDetailProps {
     playlistId: string;
@@ -229,7 +230,7 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
                                     <div className="flex flex-col truncate min-w-0">
                                         <span className="font-medium text-white truncate">{song.title}</span>
                                         <span className="text-xs text-zinc-500 group-hover:text-zinc-400 truncate">
-                                            {song.creator || t('unknown')} <span className="md:hidden">• {song.duration || '0:00'}</span>
+                                            {song.creator || TRACK_ARTIST} <span className="md:hidden">• {song.duration || '0:00'}</span>
                                         </span>
                                     </div>
                                 </div>
@@ -239,7 +240,7 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
                                     e.stopPropagation();
                                     song.creator && onNavigateToProfile?.(song.creator);
                                 }}>
-                                    {song.creator || t('unknown')}
+                                    {song.creator || TRACK_ARTIST}
                                 </span>
 
                                 {/* Date Added - hidden on mobile */}
