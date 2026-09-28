@@ -2,6 +2,65 @@
 
 What changed, newest first. Dates are release dates.
 
+## 2026-09-29 — 3.1.0
+
+### Fixed
+
+- **A LoRA song was 29 seconds long.** A sound LoRA turns the planner off, and the engine then
+  fell back to its 30-second default. Such a song now gets its length, tempo, key and metre from
+  the planner's quick format pass, and keeps the lyrics and style as written. (#23)
+- **Two LoRA on a K-quant model took the engine down.** The merge now decodes a K-quant base on
+  the processor where the card has no kernel for it, and spreads the decode and requantisation
+  over every core: two LoRA on XL Q4_K_M merge in about 30 s instead of crashing. (#23)
+- **A long song no longer takes the engine down on a small card**: the VAE decodes in tiles when
+  one graph would not fit the card's free memory.
+- **Preparation without an assistant** no longer fails every song: it says an assistant lays out
+  the lyrics, with "Set up the assistant" and "Take as they are".
+- **The writing wand** explains why it opens the assistant settings: music models do not write
+  lyrics, and the built-in assistant is one button away.
+- **A song lost to an engine restart** says why - out of video memory, a CUDA error - instead of
+  a bare connection error.
+- **The assistant on GTX 900 and 10-series cards and older drivers**: llama.cpp's CUDA 12 build
+  where CUDA 13 does not run.
+- **WebView2 that will not install** stops the installer with a plain message and Microsoft's
+  standalone installer link.
+- **A slow training run says why**: it shows what it computes on, and warns when that is the
+  processor or when the card's memory is full.
+- The training card could fail while a run was going; playlist durations showed NaN; a suggested
+  cloud model never filled in; a song title and creator answered clicks with an error.
+- An assistant answer no longer carries the model's reasoning into a style or lyrics.
+- Engine calls ride out a dropped local connection instead of failing the song.
+- MOSS-Music describes the whole track, not its intro.
+
+### Added
+
+- **LoRA for ComfyUI.** A trained LoRA or LoKr is saved as one file for ComfyUI's native
+  ACE-Step 1.5, loaded with the stock LoRA loader. On the LoRA page and as `lora_export_comfyui`
+  for agents.
+- **The studio from another computer** (Settings - Appearance - Access from the network, off by
+  default). The service listens on the network and hands a browser the studio itself; the access
+  key is shown in the settings and asked once. A tunnel or proxy on the same computer needs the
+  key too.
+- **The card to compute on.** With two or more NVIDIA cards, Settings - Engine picks the one the
+  engine, the trainer and the assistant run on.
+- **Stop after this track**, a fourth position of the repeat button.
+- **Player buttons in the sidebar** can be hidden: Winamp, equalizer, visualiser.
+- **Without stopping and bigger queues.** The Create form takes more than ten songs at once, and
+  "Without stopping" keeps making songs from the form as it was when turned on. New songs can go
+  straight into a playlist.
+- **Stems of any library track**, imported ones included, from the song's panel.
+- **A key for your own assistant server** (Settings - Assistant).
+- **A switch for the stock photo** of a track without a cover (Settings - Cover art), on by
+  default as before; off, the track shows its drawn pattern and nothing is fetched.
+- AIFF and Apple Lossless (ALAC) files are read wherever audio is taken.
+
+### Updated
+
+- The acestep.cpp engine with upstream's ggml, llama.cpp b11236, the HOT-Step trainer at 3e7a0778.
+- Tauri 2.12, React 19.3, Vite 8, Tailwind 4, TypeScript 7, vitest 5, lucide 1; Rust crates on
+  their current majors (reqwest 0.13, symphonia 0.6, rusqlite 0.40, sysinfo 0.39, tower-http 0.7,
+  zip 8, ort 2.0.0-rc.13).
+
 ## 2026-09-26 — 3.0.0
 
 ### Added
