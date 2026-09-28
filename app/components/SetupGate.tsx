@@ -339,7 +339,7 @@ export const OptionalGroup: React.FC<{
                       value={apiKey}
                       onChange={(event) => setApiKey(event.target.value)}
                       placeholder={keyStored ? '••••••••' : 'sk-or-...'}
-                      className="min-w-0 flex-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-2 text-xs text-zinc-900 outline-none focus:border-pink-400 dark:border-white/10 dark:bg-black/20 dark:text-white"
+                      className="min-w-0 flex-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-2 text-xs text-zinc-900 outline-hidden focus:border-pink-400 dark:border-white/10 dark:bg-black/20 dark:text-white"
                     />
                     <button
                       type="button"
@@ -420,7 +420,7 @@ export const OptionalGroup: React.FC<{
                             }).catch(() => undefined);
                           }
                         }}
-                        className="shrink-0 rounded-md border border-zinc-200 bg-white px-2 py-1 text-[11px] tabular-nums text-zinc-800 outline-none focus:border-pink-400 dark:border-white/10 dark:bg-black/20 dark:text-zinc-100"
+                        className="shrink-0 rounded-md border border-zinc-200 bg-white px-2 py-1 text-[11px] tabular-nums text-zinc-800 outline-hidden focus:border-pink-400 dark:border-white/10 dark:bg-black/20 dark:text-zinc-100"
                       >
                         {models.map((asset) => (
                           <option key={asset.id} value={asset.id}>
@@ -499,7 +499,7 @@ export const OptionalGroup: React.FC<{
                   </div>
                   {busy && (
                     <div className="mt-2 h-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-black/30">
-                      <div className="h-full bg-gradient-to-r from-orange-500 to-pink-500 transition-[width]" style={{ width: `${percent}%` }} />
+                      <div className="h-full bg-linear-to-r from-orange-500 to-pink-500 transition-[width]" style={{ width: `${percent}%` }} />
                     </div>
                   )}
                 </div>
@@ -858,7 +858,7 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
                       value={selectedId}
                       onChange={(event) => setChoice((current) => ({ ...current, [group.kind]: event.target.value }))}
                       disabled={active?.status === 'downloading'}
-                      className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 focus:border-pink-500 focus:outline-none disabled:opacity-50 dark:border-white/10 dark:bg-black/20 dark:text-white"
+                      className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 focus:border-pink-500 focus:outline-hidden disabled:opacity-50 dark:border-white/10 dark:bg-black/20 dark:text-white"
                     >
                       <option value="">{t('chooseComponent')}</option>
                       {group.components.map((component) => (
@@ -935,7 +935,7 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
               <span className="text-zinc-500">{progress.toFixed(1)}%</span>
             </div>
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-black/30">
-              <div className="h-full bg-gradient-to-r from-pink-500 to-purple-500 transition-[width]" style={{ width: `${progress}%` }} />
+              <div className="h-full bg-linear-to-r from-pink-500 to-purple-500 transition-[width]" style={{ width: `${progress}%` }} />
             </div>
             <div className="mt-2 text-xs text-zinc-500">{bytes(active.downloaded_bytes)} / {bytes(active.total_bytes)}</div>
           </div>
@@ -951,7 +951,7 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
               type="button"
               onClick={() => void download()}
               disabled={starting || !chosenIds || missing.length === 0}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-pink-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-xl bg-linear-to-r from-orange-500 to-pink-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {starting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
               {missing.length === 0 ? t('everythingInstalled') : `${t('downloadSelectedProfile')} · ${bytes(selectedComponentBytes(catalog?.components || [], missing))}`}

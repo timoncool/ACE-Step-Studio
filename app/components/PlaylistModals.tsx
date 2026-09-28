@@ -27,7 +27,7 @@ export const CreatePlaylistModal: React.FC<CreatePlaylistModalProps> = ({ isOpen
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-xs p-4">
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-xl w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-zinc-900 dark:text-white">{t('createPlaylist')}</h2>
@@ -42,7 +42,7 @@ export const CreatePlaylistModal: React.FC<CreatePlaylistModalProps> = ({ isOpen
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-zinc-50 dark:bg-black/50 border border-zinc-200 dark:border-white/10 rounded-lg p-3 text-zinc-900 dark:text-white focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 placeholder-zinc-400 dark:placeholder-zinc-600"
+              className="w-full bg-zinc-50 dark:bg-black/50 border border-zinc-200 dark:border-white/10 rounded-lg p-3 text-zinc-900 dark:text-white focus:outline-hidden focus:border-pink-500 focus:ring-1 focus:ring-pink-500 placeholder-zinc-400 dark:placeholder-zinc-600"
               placeholder={t('playlistNamePlaceholder')}
               autoFocus
             />
@@ -52,7 +52,7 @@ export const CreatePlaylistModal: React.FC<CreatePlaylistModalProps> = ({ isOpen
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full bg-zinc-50 dark:bg-black/50 border border-zinc-200 dark:border-white/10 rounded-lg p-3 text-zinc-900 dark:text-white focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 resize-none h-24 placeholder-zinc-400 dark:placeholder-zinc-600"
+              className="w-full bg-zinc-50 dark:bg-black/50 border border-zinc-200 dark:border-white/10 rounded-lg p-3 text-zinc-900 dark:text-white focus:outline-hidden focus:border-pink-500 focus:ring-1 focus:ring-pink-500 resize-none h-24 placeholder-zinc-400 dark:placeholder-zinc-600"
               placeholder={t('descriptionPlaceholder')}
             />
           </div>
@@ -91,7 +91,7 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({ isOpen, 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-xs p-4">
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-xl w-full max-w-sm p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-bold text-zinc-900 dark:text-white">{t('addToPlaylist')}</h2>
@@ -105,7 +105,7 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({ isOpen, 
           onClick={onCreateNew}
           className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors group mb-3 border border-dashed border-zinc-300 dark:border-white/20 hover:border-zinc-400 dark:hover:border-white/40"
         >
-          <div className="w-10 h-10 bg-zinc-100 dark:bg-zinc-800/50 rounded flex items-center justify-center text-zinc-600 dark:text-white/70 group-hover:text-zinc-900 dark:group-hover:text-white">
+          <div className="w-10 h-10 bg-zinc-100 dark:bg-zinc-800/50 rounded-sm flex items-center justify-center text-zinc-600 dark:text-white/70 group-hover:text-zinc-900 dark:group-hover:text-white">
             <Plus size={20} />
           </div>
           <div className="text-left">
@@ -130,7 +130,7 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({ isOpen, 
                 }}
                 className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors group"
               >
-                <div className="w-10 h-10 bg-zinc-200 dark:bg-zinc-800 rounded flex items-center justify-center text-zinc-500 group-hover:text-zinc-900 dark:group-hover:text-white flex-shrink-0 overflow-hidden">
+                <div className="w-10 h-10 bg-zinc-200 dark:bg-zinc-800 rounded-sm flex items-center justify-center text-zinc-500 group-hover:text-zinc-900 dark:group-hover:text-white shrink-0 overflow-hidden">
                   {playlist.coverUrl ? (
                     <img src={playlist.coverUrl} className="w-full h-full object-cover" alt="" />
                   ) : (

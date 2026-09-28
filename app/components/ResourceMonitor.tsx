@@ -166,8 +166,8 @@ export const ResourceMonitor: React.FC<{ isOpen?: boolean }> = ({ isOpen = true 
 
   if (floating) {
     return createPortal(
-      <div className="fixed z-[70] w-[252px] select-none" style={{ left: position.x, top: position.y }}>
-        <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white/95 shadow-2xl backdrop-blur dark:border-white/10 dark:bg-zinc-900/95">
+      <div className="fixed z-70 w-[252px] select-none" style={{ left: position.x, top: position.y }}>
+        <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white/95 shadow-2xl backdrop-blur-sm dark:border-white/10 dark:bg-zinc-900/95">
           <div
             onPointerDown={onDragStart}
             onPointerMove={onDragMove}

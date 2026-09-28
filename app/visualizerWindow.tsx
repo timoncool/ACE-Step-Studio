@@ -95,11 +95,11 @@ const Window: React.FC = () => {
     <div className="relative h-full w-full">
       <VisualizerView context={feed.context} source={feed.source} onFullscreen={fullscreen} onEscape={escape} />
       <div className={`absolute left-1/2 top-3 z-20 w-[min(760px,calc(100%-24px))] -translate-x-1/2 transition-opacity ${bar ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
-        <div className="flex items-center gap-2 rounded-lg bg-black/70 px-2 py-1 backdrop-blur">
+        <div className="flex items-center gap-2 rounded-lg bg-black/70 px-2 py-1 backdrop-blur-sm">
           <EngineTabs />
           <span className="min-w-0 flex-1 truncate text-center text-[11px] text-zinc-200" title={name}>{name}</span>
           <VisualizerControls onFullscreen={fullscreen} tone="dark" />
-          <button type="button" onClick={escape} title={t('close')} className="rounded p-1 text-zinc-300 hover:bg-white/10 hover:text-white">
+          <button type="button" onClick={escape} title={t('close')} className="rounded-sm p-1 text-zinc-300 hover:bg-white/10 hover:text-white">
             <X size={15} />
           </button>
         </div>

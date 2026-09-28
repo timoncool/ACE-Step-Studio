@@ -40,7 +40,7 @@ interface CoverTemplate {
 }
 
 const CONTROL =
-  'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-pink-500 dark:border-white/10 dark:bg-black/20 dark:text-white';
+  'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-hidden focus:border-pink-500 dark:border-white/10 dark:bg-black/20 dark:text-white';
 
 const defaultPrompt = (song: Song) =>
   `Album cover artwork for a track titled "${song.title}". Style: ${song.style || 'contemporary'}. No text, no lettering, square composition.`;
@@ -194,7 +194,7 @@ export const CoverRegenModal: React.FC<CoverRegenModalProps> = ({ song, onClose,
   }, [busy, onClose, onCoverSaved, preview, song.id]);
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-70 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-zinc-900" onClick={event => event.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 dark:border-white/10">
           <h3 className="flex items-center gap-2 text-base font-bold text-zinc-900 dark:text-white">
@@ -353,7 +353,7 @@ export const CoverRegenModal: React.FC<CoverRegenModalProps> = ({ song, onClose,
               type="button"
               onClick={() => void generate()}
               disabled={!canGenerate || busy !== null || !prompt.trim()}
-              className="mt-2 inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-pink-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-2 inline-flex items-center gap-2 rounded-lg bg-linear-to-r from-orange-500 to-pink-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy === 'generate' ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} {t('generate')}
             </button>

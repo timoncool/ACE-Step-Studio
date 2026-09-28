@@ -39,7 +39,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
     return (
         <div
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
+            className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
             onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
         >
             <div
@@ -48,7 +48,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             >
                 <div className="flex items-start gap-3 mb-4">
                     {danger && (
-                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
+                        <div className="shrink-0 w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
                             <AlertTriangle size={20} className="text-red-500" />
                         </div>
                     )}

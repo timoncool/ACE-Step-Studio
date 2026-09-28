@@ -184,7 +184,7 @@ export const MidiTool: React.FC<{ songId: string; songTitle: string; card: strin
           type="button"
           onClick={transcribe}
           disabled={!songId || running || busy}
-          className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-pink-600 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg bg-linear-to-r from-orange-500 to-pink-600 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           {running ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
           {songMidi ? t('midiAgain') : t('midiStart')}
@@ -217,7 +217,7 @@ export const MidiTool: React.FC<{ songId: string; songTitle: string; card: strin
             <span className="tabular-nums text-zinc-500">{percent}%</span>
           </div>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-black/30">
-            <div className="h-full bg-gradient-to-r from-orange-500 to-pink-500 transition-[width]" style={{ width: `${percent}%` }} />
+            <div className="h-full bg-linear-to-r from-orange-500 to-pink-500 transition-[width]" style={{ width: `${percent}%` }} />
           </div>
         </div>
       )}
@@ -227,7 +227,7 @@ export const MidiTool: React.FC<{ songId: string; songTitle: string; card: strin
       )}
       {!running && songMidi && (
         <>
-          <p className="mt-3 select-text text-[11px] text-zinc-500 [overflow-wrap:anywhere]">
+          <p className="mt-3 select-text text-[11px] text-zinc-500 wrap-anywhere">
             {songMidi.size ? `${tt(`midiSize_${songMidi.size}`)} · ` : ''}{songMidi.instruments.length} {t('midiInstruments')} · {songMidi.file}
           </p>
           <MidiPlayer key={`done-${songId}-${songMidi.notes.length}`} notes={songMidi.notes} sourceAudioUrl={audioUrl} live={false} />
@@ -235,7 +235,7 @@ export const MidiTool: React.FC<{ songId: string; songTitle: string; card: strin
       )}
 
       {(run?.error || error) && (
-        <p role="alert" className="mt-3 select-text rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-700 [overflow-wrap:anywhere] dark:text-rose-300">{run?.error || error}</p>
+        <p role="alert" className="mt-3 select-text rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-700 wrap-anywhere dark:text-rose-300">{run?.error || error}</p>
       )}
       <p className="mt-3 text-[11px] leading-4 text-zinc-400">{t('midiLicense')}</p>
     </section>

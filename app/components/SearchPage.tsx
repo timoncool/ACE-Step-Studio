@@ -79,7 +79,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({
             value={query}
             onChange={event => setQuery(event.target.value)}
             placeholder={t('searchPlaceholder') || 'Search your library…'}
-            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-3 pl-11 pr-10 text-sm text-zinc-900 outline-none focus:border-pink-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
+            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-3 pl-11 pr-10 text-sm text-zinc-900 outline-hidden focus:border-pink-500 dark:border-white/10 dark:bg-black/20 dark:text-white"
           />
           {query && (
             <button type="button" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-pink-500" title={t('clear') || 'Clear'}>
@@ -112,7 +112,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({
                       onClick={() => onNavigateToPlaylist?.(playlist.id)}
                       className="flex items-center gap-3 rounded-xl border border-zinc-200 p-3 text-left transition-colors hover:border-pink-400 dark:border-white/10 dark:hover:border-pink-500/60"
                     >
-                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-pink-500 to-purple-600 text-white">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-linear-to-br from-pink-500 to-purple-600 text-white">
                         <ListMusic size={18} />
                       </span>
                       <span className="min-w-0">

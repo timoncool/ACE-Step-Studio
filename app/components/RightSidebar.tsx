@@ -78,7 +78,7 @@ const SongVersions: React.FC<{ song: Song; onChanged: (song: Song) => void }> = 
                         {busy === row.id ? <Loader2 size={12} className="animate-spin text-pink-500" /> : (
                             <span className={`mt-0.5 h-3 w-3 shrink-0 rounded-full border ${active === row.id ? 'border-pink-500 bg-pink-500' : 'border-zinc-400'}`} />
                         )}
-                        <span className="line-clamp-2 break-words" title={row.label}>{row.label}</span>
+                        <span className="line-clamp-2 wrap-break-word" title={row.label}>{row.label}</span>
                     </button>
                     {row.id !== 'original' && (
                         <button type="button" onClick={() => void remove(row.id)} disabled={busy !== null} className="text-zinc-400 hover:text-rose-500" title={t('versionDelete')}>
@@ -241,7 +241,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
         <div className="w-full h-full bg-zinc-50 dark:bg-suno-panel flex flex-col border-l border-zinc-200 dark:border-white/5 relative transition-colors duration-300">
 
             {/* Header */}
-            <div className="h-14 flex items-center justify-between px-4 border-b border-zinc-200 dark:border-white/5 flex-shrink-0 bg-zinc-50/50 dark:bg-suno-panel/50 backdrop-blur-md z-10">
+            <div className="h-14 flex items-center justify-between px-4 border-b border-zinc-200 dark:border-white/5 shrink-0 bg-zinc-50/50 dark:bg-suno-panel/50 backdrop-blur-md z-10">
                 <span className="font-semibold text-sm text-zinc-900 dark:text-white">{t('songDetails')}</span>
                 <button
                     onClick={onClose}
@@ -265,7 +265,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                         {!song.coverUrl && <AlbumCover seed={song.id || song.title} size="full" className="w-full h-full" />}
 
                         {/* Overlay Gradient */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60"></div>
+                        <div className="absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-transparent opacity-60"></div>
 
                         {/* Play Button Overlay */}
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
@@ -289,7 +289,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                                 <Play size={16} fill="currentColor" />
                                 <span className="text-xs font-bold font-mono">{song.viewCount || 0}</span>
                             </div>
-                            <span className="text-[10px] font-bold text-black bg-white/90 px-1.5 py-0.5 rounded backdrop-blur-sm">
+                            <span className="text-[10px] font-bold text-black bg-white/90 px-1.5 py-0.5 rounded-sm backdrop-blur-xs">
                                 {song.duration}
                             </span>
                         </div>
@@ -320,7 +320,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                                                     cancelTitleEdit();
                                                 }
                                             }}
-                                            className="w-full text-xl font-bold text-zinc-900 dark:text-white bg-white dark:bg-black/30 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-500/40"
+                                            className="w-full text-xl font-bold text-zinc-900 dark:text-white bg-white dark:bg-black/30 border border-zinc-200 dark:border-white/10 rounded-lg px-3 py-2 focus:outline-hidden focus:ring-2 focus:ring-pink-500/40"
                                             maxLength={120}
                                             autoFocus
                                         />
@@ -377,7 +377,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                         </div>
 
                         <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white shadow-sm ring-2 ring-white dark:ring-black">
+                            <div className="w-8 h-8 rounded-full bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white shadow-xs ring-2 ring-white dark:ring-black">
                                 AS
                             </div>
                             <div className="flex flex-col">
@@ -390,7 +390,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                     </div>
 
                     {/* Main Actions */}
-                    <div className="flex items-center justify-between px-3 py-2.5 bg-zinc-200/80 dark:bg-black/40 backdrop-blur-sm rounded-2xl border border-zinc-300/50 dark:border-white/5">
+                    <div className="flex items-center justify-between px-3 py-2.5 bg-zinc-200/80 dark:bg-black/40 backdrop-blur-xs rounded-2xl border border-zinc-300/50 dark:border-white/5">
                         {/* Cover regen — only meaningful for owner; backend would 403 anyway */}
                         {isOwner && (
                             <button
@@ -591,19 +591,19 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                         >
                             {Array.isArray(song.tags) && song.tags.length > 0 ? (
                                 song.tags.map(tag => (
-                                    <span key={tag} className="px-2 py-0.5 bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 border border-zinc-200 dark:border-white/10 rounded text-[11px] font-medium text-zinc-600 dark:text-zinc-300 transition-colors">
+                                    <span key={tag} className="px-2 py-0.5 bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 border border-zinc-200 dark:border-white/10 rounded-sm text-[11px] font-medium text-zinc-600 dark:text-zinc-300 transition-colors">
                                         {tag}
                                     </span>
                                 ))
                             ) : (
                                 (song.style || '').split(',').filter(Boolean).map((tag, idx) => (
-                                    <span key={idx} className="px-2 py-0.5 bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 border border-zinc-200 dark:border-white/10 rounded text-[11px] font-medium text-zinc-600 dark:text-zinc-300 transition-colors">
+                                    <span key={idx} className="px-2 py-0.5 bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 border border-zinc-200 dark:border-white/10 rounded-sm text-[11px] font-medium text-zinc-600 dark:text-zinc-300 transition-colors">
                                         {tag.trim()}
                                     </span>
                                 ))
                             )}
                             {!tagsExpanded && (
-                                <span className="absolute right-0 top-0 px-2 py-0.5 bg-zinc-200 dark:bg-zinc-700 rounded text-[11px] font-medium text-zinc-600 dark:text-zinc-300 pointer-events-none">
+                                <span className="absolute right-0 top-0 px-2 py-0.5 bg-zinc-200 dark:bg-zinc-700 rounded-sm text-[11px] font-medium text-zinc-600 dark:text-zinc-300 pointer-events-none">
                                     +{t('more')}
                                 </span>
                             )}
@@ -661,22 +661,22 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                             <details className="group">
                                 <summary className="flex items-center justify-between cursor-pointer px-3 py-2 rounded-xl bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 transition-colors">
                                     <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
-                                        <span className="text-[11px] px-2 py-0.5 rounded bg-zinc-200 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 font-medium">{TRACK_ARTIST}</span>
+                                        <span className="text-[11px] px-2 py-0.5 rounded-sm bg-zinc-200 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 font-medium">{TRACK_ARTIST}</span>
                                         {p.inference_steps && (
-                                            <span className="text-[11px] px-2 py-0.5 rounded bg-zinc-200 dark:bg-white/10 text-zinc-600 dark:text-zinc-400">{p.inference_steps}st</span>
+                                            <span className="text-[11px] px-2 py-0.5 rounded-sm bg-zinc-200 dark:bg-white/10 text-zinc-600 dark:text-zinc-400">{p.inference_steps}st</span>
                                         )}
                                         {uses.length > 0 && (
-                                            <span className="text-[11px] px-2 py-0.5 rounded bg-pink-500/10 text-pink-600 dark:text-pink-300 font-medium">LoRA ×{uses.length}</span>
+                                            <span className="text-[11px] px-2 py-0.5 rounded-sm bg-pink-500/10 text-pink-600 dark:text-pink-300 font-medium">LoRA ×{uses.length}</span>
                                         )}
                                     </div>
-                                    <ChevronDown size={14} className="text-zinc-400 transition-transform group-open:rotate-180 flex-shrink-0 ml-2" />
+                                    <ChevronDown size={14} className="text-zinc-400 transition-transform group-open:rotate-180 shrink-0 ml-2" />
                                 </summary>
                                 <div className="mt-2 space-y-1">
                                     <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[11px] px-1">
                                         {visibleRows.map(([label, value]) => (
                                             <React.Fragment key={label}>
                                                 <span className="text-zinc-500 dark:text-zinc-500 text-right whitespace-nowrap">{label}</span>
-                                                <span className="text-zinc-800 dark:text-zinc-200 font-mono break-words min-w-0">{String(value)}</span>
+                                                <span className="text-zinc-800 dark:text-zinc-200 font-mono wrap-break-word min-w-0">{String(value)}</span>
                                             </React.Fragment>
                                         ))}
                                     </div>

@@ -30,7 +30,7 @@ import { onSidebarExtras, setSidebarExtras, sidebarExtras, type SidebarExtras } 
 type SectionId = 'account' | 'models' | 'engine' | 'cloud' | 'agent' | 'covers' | 'interface' | 'about';
 
 const INPUT =
-  'w-full rounded-lg border-2 border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-900 outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white';
+  'w-full rounded-lg border-2 border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-900 outline-hidden focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -86,7 +86,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
   const active = sections.find((entry) => entry.id === section) ?? sections[0];
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div
         className="flex h-[85vh] w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-zinc-900"
         onClick={(event) => event.stopPropagation()}
@@ -101,7 +101,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
                 onClick={() => setSection(entry.id)}
                 className={`flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${
                   section === entry.id
-                    ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-white'
+                    ? 'bg-white text-zinc-900 shadow-xs dark:bg-zinc-800 dark:text-white'
                     : 'text-zinc-600 hover:bg-zinc-200/60 dark:text-zinc-400 dark:hover:bg-white/5'
                 }`}
               >

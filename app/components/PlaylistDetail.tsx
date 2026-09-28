@@ -105,15 +105,15 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
     const bgGradient = gradients[playlist.name.length % gradients.length];
 
     return (
-        <div className={`w-full h-full flex flex-col bg-gradient-to-b ${bgGradient} overflow-hidden`}>
+        <div className={`w-full h-full flex flex-col bg-linear-to-b ${bgGradient} overflow-hidden`}>
             {/* Header */}
-            <div className="flex-shrink-0 p-4 md:p-8 pt-12 md:pt-8 flex flex-col md:flex-row gap-4 md:gap-8 items-center md:items-end bg-black/20 backdrop-blur-lg border-b border-white/10">
+            <div className="shrink-0 p-4 md:p-8 pt-12 md:pt-8 flex flex-col md:flex-row gap-4 md:gap-8 items-center md:items-end bg-black/20 backdrop-blur-lg border-b border-white/10">
                 {/* Cover */}
-                <div className="w-32 h-32 md:w-52 md:h-52 shadow-2xl rounded-lg bg-zinc-800 flex items-center justify-center overflow-hidden flex-shrink-0 group relative">
+                <div className="w-32 h-32 md:w-52 md:h-52 shadow-2xl rounded-lg bg-zinc-800 flex items-center justify-center overflow-hidden shrink-0 group relative">
                     {playlist.cover_url ? (
                         <img src={playlist.cover_url} alt={playlist.name} className="w-full h-full object-cover" />
                     ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-900 flex items-center justify-center">
+                        <div className="w-full h-full bg-linear-to-br from-zinc-700 to-zinc-900 flex items-center justify-center">
                             <Music size={40} className="text-white/20 md:hidden" />
                             <Music size={64} className="text-white/20 hidden md:block" />
                             <span className="text-4xl md:text-6xl font-bold text-white/10">{playlist.name[0].toUpperCase()}</span>
@@ -140,7 +140,7 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
                                 {playlist.creator_avatar ? (
                                     <img src={playlist.creator_avatar} alt={playlist.creator} className="w-5 h-5 md:w-6 md:h-6 rounded-full object-cover" />
                                 ) : (
-                                    <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-gradient-to-r from-green-400 to-blue-500"></div>
+                                    <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-linear-to-r from-green-400 to-blue-500"></div>
                                 )}
                                 <span>{playlist.creator}</span>
                             </div>
@@ -211,7 +211,7 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
 
                                 {/* Cover + Title */}
                                 <div className="flex items-center gap-3 overflow-hidden flex-1 md:flex-none">
-                                    <div className="w-12 h-12 md:w-10 md:h-10 rounded bg-zinc-800 flex-shrink-0 overflow-hidden relative group/img">
+                                    <div className="w-12 h-12 md:w-10 md:h-10 rounded-sm bg-zinc-800 shrink-0 overflow-hidden relative group/img">
                                         <img src={song.coverUrl} alt="" className="w-full h-full object-cover" />
                                         <button
                                             onClick={(e) => {

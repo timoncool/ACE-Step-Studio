@@ -245,7 +245,7 @@ export const SongList: React.FC<SongListProps> = ({
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder={t('searchYourSongs')}
-                                className="w-full bg-zinc-100 dark:bg-[#121214] border border-zinc-200 dark:border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-zinc-400 dark:focus:border-white/20 placeholder-zinc-500 dark:placeholder-zinc-600 transition-colors"
+                                className="w-full bg-zinc-100 dark:bg-suno-panel border border-zinc-200 dark:border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-sm text-zinc-900 dark:text-white focus:outline-hidden focus:border-zinc-400 dark:focus:border-white/20 placeholder-zinc-500 dark:placeholder-zinc-600 transition-colors"
                             />
                             <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-3 group-focus-within:text-black dark:group-focus-within:text-white transition-colors" />
                         </div>
@@ -257,7 +257,7 @@ export const SongList: React.FC<SongListProps> = ({
                         border text-xs font-bold px-4 py-2.5 rounded-lg flex items-center gap-2 transition-all select-none
                         ${isFilterOpen || activeFilters.size > 0
                                         ? 'bg-zinc-900 dark:bg-white text-white dark:text-black border-transparent'
-                                        : 'bg-zinc-100 dark:bg-[#121214] hover:bg-zinc-200 dark:hover:bg-white/5 border-zinc-200 dark:border-white/10 text-zinc-700 dark:text-white'
+                                        : 'bg-zinc-100 dark:bg-suno-panel hover:bg-zinc-200 dark:hover:bg-white/5 border-zinc-200 dark:border-white/10 text-zinc-700 dark:text-white'
                                     }
                     `}
                             >
@@ -267,7 +267,7 @@ export const SongList: React.FC<SongListProps> = ({
 
                             {/* Filter Dropdown */}
                             {isFilterOpen && (
-                                <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-[#18181b] border border-zinc-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden py-1 z-50 animate-in fade-in zoom-in-95 duration-100 origin-top-right">
+                                <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-suno-card border border-zinc-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden py-1 z-50 animate-in fade-in zoom-in-95 duration-100 origin-top-right">
                                     <div className="px-3 py-2 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
                                         {t('refineBy')}
                                     </div>
@@ -305,7 +305,7 @@ export const SongList: React.FC<SongListProps> = ({
                             }}
                             className={`border text-xs font-bold px-4 py-2.5 rounded-lg flex items-center gap-2 transition-all select-none ${isSelecting
                                     ? 'bg-zinc-900 dark:bg-white text-white dark:text-black border-transparent'
-                                    : 'bg-zinc-100 dark:bg-[#121214] hover:bg-zinc-200 dark:hover:bg-white/5 border-zinc-200 dark:border-white/10 text-zinc-700 dark:text-white'
+                                    : 'bg-zinc-100 dark:bg-suno-panel hover:bg-zinc-200 dark:hover:bg-white/5 border-zinc-200 dark:border-white/10 text-zinc-700 dark:text-white'
                                 }`}
                         >
                             {t('select')}
@@ -375,7 +375,7 @@ export const SongList: React.FC<SongListProps> = ({
                 {/* List */}
                 <div className="space-y-2"> {/* Reduced vertical spacing */}
                     {listItems.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-64 text-zinc-500 space-y-4 border border-dashed border-zinc-200 dark:border-white/5 rounded-2xl bg-zinc-50 dark:bg-white/[0.02]">
+                        <div className="flex flex-col items-center justify-center h-64 text-zinc-500 space-y-4 border border-dashed border-zinc-200 dark:border-white/5 rounded-2xl bg-zinc-50 dark:bg-white/2">
                             <div className="w-16 h-16 rounded-full bg-zinc-100 dark:bg-white/5 flex items-center justify-center">
                                 <Filter size={32} />
                             </div>
@@ -581,7 +581,7 @@ const SongItem: React.FC<SongItemProps> = ({
                     }
                 }, 0);
             }}
-            className={`group flex min-w-0 items-center gap-2 rounded-lg border p-2 transition-all hover:bg-zinc-100 dark:hover:bg-[#18181b] sm:gap-4 ${isSelected ? 'bg-zinc-100 dark:bg-[#18181b] border-zinc-200 dark:border-white/10' : 'border-transparent bg-transparent'} ${song.audioUrl && !song.isGenerating ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            className={`group flex min-w-0 items-center gap-2 rounded-lg border p-2 transition-all hover:bg-zinc-100 dark:hover:bg-suno-card sm:gap-4 ${isSelected ? 'bg-zinc-100 dark:bg-suno-card border-zinc-200 dark:border-white/10' : 'border-transparent bg-transparent'} ${song.audioUrl && !song.isGenerating ? 'cursor-grab active:cursor-grabbing' : ''}`}
         >
             {isSelectionMode && (
                 <button
@@ -602,15 +602,15 @@ const SongItem: React.FC<SongItemProps> = ({
             )}
 
             {/* Cover Art - Reduced size */}
-            <div className="relative w-16 h-16 flex-shrink-0 rounded-md bg-zinc-200 dark:bg-zinc-800 overflow-hidden shadow-sm group/image">
+            <div className="relative w-16 h-16 shrink-0 rounded-md bg-zinc-200 dark:bg-zinc-800 overflow-hidden shadow-xs group/image">
                 {/* Use gradient fallback if no coverUrl or image fails to load */}
                 {(!song.coverUrl || imageError) ? (
-                    <AlbumCover seed={song.id || song.title} size="full" className={`w-full h-full ${song.isGenerating ? 'opacity-20 blur-sm' : 'opacity-100'}`} />
+                    <AlbumCover seed={song.id || song.title} size="full" className={`w-full h-full ${song.isGenerating ? 'opacity-20 blur-xs' : 'opacity-100'}`} />
                 ) : (
                     <img
                         src={song.coverUrl}
                         alt={song.title}
-                        className={`w-full h-full object-cover transition-opacity ${song.isGenerating ? 'opacity-20 blur-sm' : 'opacity-100'}`}
+                        className={`w-full h-full object-cover transition-opacity ${song.isGenerating ? 'opacity-20 blur-xs' : 'opacity-100'}`}
                         onError={() => setImageError(true)}
                     />
                 )}
@@ -667,7 +667,7 @@ const SongItem: React.FC<SongItemProps> = ({
                                 onBlur={handleSaveTitle}
                                 onKeyDown={handleTitleKeyDown}
                                 onClick={(e) => e.stopPropagation()}
-                                className="font-bold text-lg bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded border border-pink-500 focus:outline-none text-zinc-900 dark:text-white min-w-0 flex-1"
+                                className="font-bold text-lg bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-sm border border-pink-500 focus:outline-hidden text-zinc-900 dark:text-white min-w-0 flex-1"
                             />
                         ) : (
                             <h3
@@ -686,7 +686,7 @@ const SongItem: React.FC<SongItemProps> = ({
                             <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); setIsEditingTitle(true); }}
-                                className="flex-shrink-0 rounded p-1 text-zinc-400 opacity-0 transition-opacity hover:text-black focus-visible:opacity-100 group-hover:opacity-100 dark:hover:text-white"
+                                className="shrink-0 rounded-sm p-1 text-zinc-400 opacity-0 transition-opacity hover:text-black focus-visible:opacity-100 group-hover:opacity-100 dark:hover:text-white"
                                 title={t('renameSong')}
                                 aria-label={t('renameSong')}
                             >
@@ -699,14 +699,14 @@ const SongItem: React.FC<SongItemProps> = ({
                                 disabled={!onOpenOriginal}
                                 onClick={(event) => { event.stopPropagation(); onOpenOriginal?.(); }}
                                 title={onOpenOriginal ? t('openOriginal') : t('originalGone')}
-                                className="inline-flex max-w-full items-center gap-1 truncate rounded-sm border border-zinc-300 px-1.5 py-0.5 text-[10px] text-zinc-600 hover:border-pink-400 hover:text-pink-600 disabled:cursor-default disabled:hover:border-zinc-300 disabled:hover:text-zinc-600 dark:border-white/15 dark:text-zinc-300"
+                                className="inline-flex max-w-full items-center gap-1 truncate rounded-xs border border-zinc-300 px-1.5 py-0.5 text-[10px] text-zinc-600 hover:border-pink-400 hover:text-pink-600 disabled:cursor-default disabled:hover:border-zinc-300 disabled:hover:text-zinc-600 dark:border-white/15 dark:text-zinc-300"
                             >
                                 {t('madeFrom')} «{song.derived.fromTitle}» · {t(`derivedTool_${song.derived.tool}` as TranslationKey)}
                                 {song.derived.tool === 'stems' && typeof song.derived.settings?.stem === 'string' ? `: ${song.derived.settings.stem}` : ''}
                             </button>
                         )}
                         <span
-                          className="inline-flex items-center justify-center text-[9px] font-bold text-white bg-gradient-to-r from-pink-500 to-purple-500 px-1.5 py-0.5 rounded-sm shadow-sm"
+                          className="inline-flex items-center justify-center text-[9px] font-bold text-white bg-linear-to-r from-pink-500 to-purple-500 px-1.5 py-0.5 rounded-xs shadow-xs"
                           title={[
                             `DiT: ${song.ditModel || '?'}`,
                             // Only show LM line when a real local model was used
@@ -728,7 +728,7 @@ const SongItem: React.FC<SongItemProps> = ({
                     </div>
                     <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
                         <span>{song.ditModel === 'imported-audio' ? t('importedAudio') : TRACK_ARTIST}</span>
-                        {song.nativeReplayAvailable && <span title={t('replayAvailable')} className="rounded bg-zinc-200/70 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide dark:bg-white/10">replay</span>}
+                        {song.nativeReplayAvailable && <span title={t('replayAvailable')} className="rounded-sm bg-zinc-200/70 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide dark:bg-white/10">replay</span>}
                     </div>
                     <p className="text-xs text-zinc-500 dark:text-zinc-500 line-clamp-2 pt-1 font-medium max-w-2xl">
                         {captionSummary(song.style)}
@@ -737,7 +737,7 @@ const SongItem: React.FC<SongItemProps> = ({
                         <div className="pt-2">
                             <div className="h-1 rounded-full bg-zinc-200/70 dark:bg-white/10 overflow-hidden">
                                 <div
-                                    className={`h-full bg-gradient-to-r from-pink-500 to-purple-600 transition-all ${song.progress === undefined ? 'opacity-40' : ''}`}
+                                    className={`h-full bg-linear-to-r from-pink-500 to-purple-600 transition-all ${song.progress === undefined ? 'opacity-40' : ''}`}
                                     style={{
                                         width: `${Math.min(
                                             100,

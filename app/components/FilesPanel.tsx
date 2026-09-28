@@ -64,7 +64,7 @@ export const FilesPanel: React.FC = () => {
   }
 
   return (
-    <div className="fixed z-[45] w-[min(90vw,340px)]" style={{ left: panel.pos.x, top: panel.pos.y }}>
+    <div className="fixed z-45 w-[min(90vw,340px)]" style={{ left: panel.pos.x, top: panel.pos.y }}>
       <div className="w-full overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl dark:border-white/10 dark:bg-suno-card">
         <div
           onPointerDown={panel.onDragStart}
@@ -97,7 +97,7 @@ export const FilesPanel: React.FC = () => {
                 {file.state === 'saving' && (
                   <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-white/10">
                     <div
-                      className={`h-full rounded-full bg-gradient-to-r from-orange-500 to-pink-500 ${percent === null ? 'w-1/3 animate-pulse' : 'transition-[width]'}`}
+                      className={`h-full rounded-full bg-linear-to-r from-orange-500 to-pink-500 ${percent === null ? 'w-1/3 animate-pulse' : 'transition-[width]'}`}
                       style={percent === null ? undefined : { width: `${Math.max(2, percent)}%` }}
                     />
                   </div>
@@ -112,7 +112,7 @@ export const FilesPanel: React.FC = () => {
                     <FolderOpen size={13} /> {t('filesShowInFolder')}
                   </button>
                 )}
-                {file.state === 'error' && file.error && <div className="mt-1 break-words text-[11px] text-rose-600 dark:text-rose-300">{file.error}</div>}
+                {file.state === 'error' && file.error && <div className="mt-1 wrap-break-word text-[11px] text-rose-600 dark:text-rose-300">{file.error}</div>}
               </div>
             );
           })}

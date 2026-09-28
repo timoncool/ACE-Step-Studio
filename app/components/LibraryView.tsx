@@ -122,12 +122,12 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                         <div className="text-sm text-zinc-500 dark:text-zinc-400">{t('noSongsYet')}</div>
                     ) : (
                         allSongs.map((song, idx) => (
-                            <div key={song.id} data-mcp-context={`song ${song.id}: ${song.title}`} className="group flex min-w-0 items-center gap-2 rounded p-2 transition-colors hover:bg-zinc-100 dark:hover:bg-white/10 sm:gap-4" onClick={() => onPlaySong(song, allSongs)}>
+                            <div key={song.id} data-mcp-context={`song ${song.id}: ${song.title}`} className="group flex min-w-0 items-center gap-2 rounded-sm p-2 transition-colors hover:bg-zinc-100 dark:hover:bg-white/10 sm:gap-4" onClick={() => onPlaySong(song, allSongs)}>
                                 <span className="text-zinc-400 dark:text-zinc-500 w-6 text-center group-hover:hidden">{idx + 1}</span>
                                 <span className="text-zinc-900 dark:text-white w-6 text-center hidden group-hover:block"><Play size={14} fill="currentColor" /></span>
                                 
                                 {song.coverUrl ? (
-                                    <img src={song.coverUrl} className="w-10 h-10 rounded object-cover shadow-sm" alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                                    <img src={song.coverUrl} className="w-10 h-10 rounded-sm object-cover shadow-xs" alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                                 ) : (
                                     <AlbumCover seed={song.id || song.title} size="sm" className="w-10 h-10" />
                                 )}
@@ -161,8 +161,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
              )}
              {activeTab === 'liked' && (
                  <div>
-                    <div className="group mb-8 flex cursor-pointer flex-col items-start gap-4 rounded-xl border border-zinc-200 bg-gradient-to-b from-indigo-500/10 to-zinc-50 p-4 transition-colors hover:bg-zinc-100 dark:border-white/5 dark:from-indigo-800/50 dark:to-zinc-900/50 dark:hover:bg-white/5 sm:flex-row sm:items-end sm:gap-6 sm:p-6" onClick={() => likedSongs.length > 0 && onPlaySong(likedSongs[0], likedSongs)}>
-                         <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded bg-gradient-to-br from-indigo-500 to-purple-400 shadow-2xl sm:h-40 sm:w-40">
+                    <div className="group mb-8 flex cursor-pointer flex-col items-start gap-4 rounded-xl border border-zinc-200 bg-linear-to-b from-indigo-500/10 to-zinc-50 p-4 transition-colors hover:bg-zinc-100 dark:border-white/5 dark:from-indigo-800/50 dark:to-zinc-900/50 dark:hover:bg-white/5 sm:flex-row sm:items-end sm:gap-6 sm:p-6" onClick={() => likedSongs.length > 0 && onPlaySong(likedSongs[0], likedSongs)}>
+                         <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-sm bg-linear-to-br from-indigo-500 to-purple-400 shadow-2xl sm:h-40 sm:w-40">
                             <Heart fill="white" size={64} className="text-white" />
                          </div>
                          <div className="mb-2">
@@ -181,12 +181,12 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
                     <div className="space-y-1">
                         {likedSongs.map((song, idx) => (
-                            <div key={song.id} data-mcp-context={`song ${song.id}: ${song.title}`} className="group flex min-w-0 items-center gap-2 rounded p-2 transition-colors hover:bg-zinc-100 dark:hover:bg-white/10 sm:gap-4" onClick={() => onPlaySong(song, likedSongs)}>
+                            <div key={song.id} data-mcp-context={`song ${song.id}: ${song.title}`} className="group flex min-w-0 items-center gap-2 rounded-sm p-2 transition-colors hover:bg-zinc-100 dark:hover:bg-white/10 sm:gap-4" onClick={() => onPlaySong(song, likedSongs)}>
                                 <span className="text-zinc-400 dark:text-zinc-500 w-6 text-center group-hover:hidden">{idx + 1}</span>
                                 <span className="text-zinc-900 dark:text-white w-6 text-center hidden group-hover:block"><Play size={14} fill="currentColor" /></span>
                                 
                                 {song.coverUrl ? (
-                                    <img src={song.coverUrl} className="w-10 h-10 rounded object-cover shadow-sm" alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                                    <img src={song.coverUrl} className="w-10 h-10 rounded-sm object-cover shadow-xs" alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                                 ) : (
                                     <AlbumCover seed={song.id || song.title} size="sm" className="w-10 h-10" />
                                 )}
@@ -249,7 +249,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                          type="button"
                          onClick={() => importInput.current?.click()}
                          disabled={importing}
-                         className="mt-4 inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-pink-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                         className="mt-4 inline-flex items-center gap-2 rounded-lg bg-linear-to-r from-orange-500 to-pink-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
                      >
                          {importing ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
                          {t('chooseFiles')}

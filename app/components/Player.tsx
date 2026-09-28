@@ -150,7 +150,7 @@ export const Player: React.FC<PlayerProps> = ({
     if (isMobile) {
         if (isFullscreen) {
             return (
-                <div className="fixed inset-0 z-50 bg-gradient-to-b from-zinc-100 to-zinc-50 dark:from-zinc-900 dark:to-black flex flex-col safe-area-inset-top safe-area-inset-bottom transition-colors duration-300">
+                <div className="fixed inset-0 z-50 bg-linear-to-b from-zinc-100 to-zinc-50 dark:from-zinc-900 dark:to-black flex flex-col safe-area-inset-top safe-area-inset-bottom transition-colors duration-300">
                     {/* Header with close button */}
                     <div className="flex items-center justify-between px-4 py-3">
                         <button
@@ -316,7 +316,7 @@ export const Player: React.FC<PlayerProps> = ({
         }
 
         return (
-            <div className="bg-white dark:bg-black/95 backdrop-blur border-t border-zinc-200 dark:border-white/10 flex flex-col z-50 transition-colors duration-300 safe-area-inset-bottom">
+            <div className="bg-white dark:bg-black/95 backdrop-blur-sm border-t border-zinc-200 dark:border-white/10 flex flex-col z-50 transition-colors duration-300 safe-area-inset-bottom">
                 {/* Progress Bar - taller for touch */}
                 <div
                     ref={progressBarRef}
@@ -336,7 +336,7 @@ export const Player: React.FC<PlayerProps> = ({
                         className="flex items-center gap-3 flex-1 min-w-0"
                         onClick={() => setIsFullscreen(true)}
                     >
-                        <div className="w-11 h-11 rounded bg-zinc-200 dark:bg-zinc-800 overflow-hidden shadow-sm flex-shrink-0 relative">
+                        <div className="w-11 h-11 rounded-sm bg-zinc-200 dark:bg-zinc-800 overflow-hidden shadow-xs shrink-0 relative">
                             {currentSong.coverUrl ? (
                                 <img src={currentSong.coverUrl} className="w-full h-full object-cover" alt="cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                             ) : null}
@@ -356,7 +356,7 @@ export const Player: React.FC<PlayerProps> = ({
                     </div>
 
                     {/* Mobile Controls - compact */}
-                    <div className="flex items-center gap-1 flex-shrink-0">
+                    <div className="flex items-center gap-1 shrink-0">
                         <button
                             onClick={onToggleLike}
                             className={`p-2 tap-highlight-none ${isLiked ? 'text-pink-600 dark:text-pink-500' : 'text-zinc-400'}`}
@@ -391,7 +391,7 @@ export const Player: React.FC<PlayerProps> = ({
     if (isFullscreen) {
         return (
             <div
-                className="fixed inset-0 z-50 bg-gradient-to-b from-zinc-100 to-zinc-50 dark:from-zinc-900 dark:to-black flex flex-col transition-colors duration-300"
+                className="fixed inset-0 z-50 bg-linear-to-b from-zinc-100 to-zinc-50 dark:from-zinc-900 dark:to-black flex flex-col transition-colors duration-300"
                 onClick={() => setIsFullscreen(false)}
             >
                 {/* Header with close button */}
@@ -410,7 +410,7 @@ export const Player: React.FC<PlayerProps> = ({
                 <div className="flex-1 flex items-center justify-center px-8 py-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
                     <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-16 max-w-5xl w-full">
                         {/* Album Art */}
-                        <div className="w-full max-w-[320px] lg:max-w-[400px] aspect-square rounded-lg overflow-hidden shadow-2xl flex-shrink-0">
+                        <div className="w-full max-w-[320px] lg:max-w-[400px] aspect-square rounded-lg overflow-hidden shadow-2xl shrink-0">
                             {currentSong.coverUrl ? (
                                 <img
                                     src={currentSong.coverUrl}
@@ -498,7 +498,7 @@ export const Player: React.FC<PlayerProps> = ({
                             {/* Playback Speed Dropdown */}
                             <div className="relative group hidden lg:block" ref={speedMenuRef}>
                                 <button
-                                    className="px-2 py-1 text-[11px] font-mono font-bold hover:bg-zinc-200 dark:hover:bg-white/10 rounded transition-colors min-w-[42px] text-center"
+                                    className="px-2 py-1 text-[11px] font-mono font-bold hover:bg-zinc-200 dark:hover:bg-white/10 rounded-sm transition-colors min-w-[42px] text-center"
                                     onClick={() => setShowSpeedMenu(!showSpeedMenu)}
                                 >
                                     {playbackRate}x
@@ -546,7 +546,7 @@ export const Player: React.FC<PlayerProps> = ({
                                         style={{ width: `${volume * 100}%` }}
                                     />
                                     <div
-                                        className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-zinc-700 dark:bg-white/70 rounded-full shadow pointer-events-none"
+                                        className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-zinc-700 dark:bg-white/70 rounded-full shadow-sm pointer-events-none"
                                         style={{
                                             left: `clamp(0px, calc(${volume * 100}% - 7px), calc(100% - 14px))`
                                         }}
@@ -595,7 +595,7 @@ export const Player: React.FC<PlayerProps> = ({
     }
 
     return (
-        <div className="h-20 lg:h-24 bg-white dark:bg-black/95 backdrop-blur border-t border-zinc-200 dark:border-white/10 flex flex-col z-50 transition-colors duration-300 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] dark:shadow-none">
+        <div className="h-20 lg:h-24 bg-white dark:bg-black/95 backdrop-blur-sm border-t border-zinc-200 dark:border-white/10 flex flex-col z-50 transition-colors duration-300 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] dark:shadow-none">
 
             {/* Progress Bar */}
             <div
@@ -617,7 +617,7 @@ export const Player: React.FC<PlayerProps> = ({
 
                 {/* Song Info */}
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 max-w-[30%] lg:max-w-[33%]">
-                    <div className="w-10 h-10 lg:w-12 lg:h-12 rounded bg-zinc-200 dark:bg-zinc-800 overflow-hidden shadow-sm flex-shrink-0">
+                    <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-sm bg-zinc-200 dark:bg-zinc-800 overflow-hidden shadow-xs shrink-0">
                         {currentSong.coverUrl ? (
                             <img src={currentSong.coverUrl} className="w-full h-full object-cover" alt="cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                         ) : null}
@@ -633,14 +633,14 @@ export const Player: React.FC<PlayerProps> = ({
                     </div>
                     <button
                         onClick={onToggleLike}
-                        className={`ml-1 sm:ml-2 transition-colors flex-shrink-0 hidden sm:block ${isLiked ? 'text-pink-600 dark:text-pink-500' : 'text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}
+                        className={`ml-1 sm:ml-2 transition-colors shrink-0 hidden sm:block ${isLiked ? 'text-pink-600 dark:text-pink-500' : 'text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}
                     >
                         <Heart size={18} fill={isLiked ? "currentColor" : "none"} />
                     </button>
                 </div>
 
                 {/* Controls */}
-                <div className="flex flex-col items-center justify-center flex-shrink-0">
+                <div className="flex flex-col items-center justify-center shrink-0">
                     <div className="flex items-center gap-2 sm:gap-4 lg:gap-6">
                         <button
                             onClick={onToggleShuffle}
@@ -686,7 +686,7 @@ export const Player: React.FC<PlayerProps> = ({
                     {/* Playback Speed */}
                     <div className="relative group hidden lg:block" ref={speedMenuRef}>
                         <button
-                            className="px-2 py-1 text-[11px] font-mono font-bold hover:bg-zinc-200 dark:hover:bg-white/10 rounded transition-colors min-w-[42px] text-center"
+                            className="px-2 py-1 text-[11px] font-mono font-bold hover:bg-zinc-200 dark:hover:bg-white/10 rounded-sm transition-colors min-w-[42px] text-center"
                             onClick={() => setShowSpeedMenu(!showSpeedMenu)}
                         >
                             {playbackRate}x

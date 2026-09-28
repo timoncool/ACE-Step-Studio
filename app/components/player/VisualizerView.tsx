@@ -225,7 +225,7 @@ export const VisualizerView: React.FC<{
       tabIndex={0}
       onKeyDown={onKey}
       onDoubleClick={onFullscreen}
-      className="relative h-full w-full overflow-hidden bg-black outline-none"
+      className="relative h-full w-full overflow-hidden bg-black outline-hidden"
     >
       {engine === 'milkdrop' && <canvas ref={canvas} data-webgl className="absolute inset-0 h-full w-full" />}
       {showName && flash && (

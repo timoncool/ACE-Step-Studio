@@ -72,7 +72,7 @@ export const EngineTabs: React.FC = () => {
           type="button"
           onPointerDown={(event) => event.stopPropagation()}
           onClick={() => setVisualizer({ engine: id })}
-          className={`rounded px-2 py-0.5 text-[10px] font-semibold ${engine === id ? 'bg-pink-500 text-white' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'}`}
+          className={`rounded-sm px-2 py-0.5 text-[10px] font-semibold ${engine === id ? 'bg-pink-500 text-white' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'}`}
         >
           {id === 'milkdrop' ? 'MilkDrop' : t('vizSpectrum')}
         </button>
@@ -89,8 +89,8 @@ export const VisualizerControls: React.FC<{ onFullscreen: () => void; tone?: 'pa
   const { t } = useI18n();
   const [view, setView] = useState<VisualizerState>(visualizer);
   useEffect(() => onVisualizer(setView), []);
-  const button = tone === 'dark' ? 'rounded p-1 text-zinc-300 hover:bg-white/10 hover:text-white' : 'text-zinc-400 hover:text-zinc-900 dark:hover:text-white';
-  const on = tone === 'dark' ? 'rounded p-1 bg-pink-500 text-white' : 'text-pink-600 dark:text-pink-500';
+  const button = tone === 'dark' ? 'rounded-sm p-1 text-zinc-300 hover:bg-white/10 hover:text-white' : 'text-zinc-400 hover:text-zinc-900 dark:hover:text-white';
+  const on = tone === 'dark' ? 'rounded-sm p-1 bg-pink-500 text-white' : 'text-pink-600 dark:text-pink-500';
   const milkdrop = view.engine === 'milkdrop';
   const stop = (event: React.PointerEvent) => event.stopPropagation();
   return (
@@ -192,7 +192,7 @@ export const VisualizerPanel: React.FC = () => {
   const button = 'text-zinc-400 hover:text-zinc-900 dark:hover:text-white';
 
   return (
-    <div className="fixed z-[45]" style={{ left: panel.pos.x, top: panel.pos.y, width: size.width }}>
+    <div className="fixed z-45" style={{ left: panel.pos.x, top: panel.pos.y, width: size.width }}>
       <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl dark:border-white/10 dark:bg-suno-card">
         <div
           onPointerDown={panel.onDragStart}

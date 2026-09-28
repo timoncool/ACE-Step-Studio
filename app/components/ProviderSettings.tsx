@@ -56,7 +56,7 @@ interface OpenRouterSettings {
 }
 
 const CONTROL =
-  'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-pink-500 disabled:opacity-50 dark:border-white/10 dark:bg-black/20 dark:text-white';
+  'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-hidden focus:border-pink-500 disabled:opacity-50 dark:border-white/10 dark:bg-black/20 dark:text-white';
 
 export const ProviderSettings: React.FC = () => {
   const { t } = useI18n();
@@ -235,7 +235,7 @@ export const ProviderSettings: React.FC = () => {
               type="button"
               disabled={!apiKey.trim() || busy === 'key'}
               onClick={() => void saveKey(apiKey)}
-              className="rounded-lg bg-gradient-to-r from-orange-500 to-pink-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+              className="rounded-lg bg-linear-to-r from-orange-500 to-pink-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
             >
               {busy === 'key' ? <Loader2 size={14} className="animate-spin" /> : t('saveKey')}
             </button>

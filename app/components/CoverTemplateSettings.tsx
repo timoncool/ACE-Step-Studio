@@ -21,7 +21,7 @@ interface CoverTemplate {
 }
 
 const CONTROL =
-  'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-pink-500 dark:border-white/10 dark:bg-black/20 dark:text-white';
+  'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-hidden focus:border-pink-500 dark:border-white/10 dark:bg-black/20 dark:text-white';
 
 const PLACEHOLDERS = ['title', 'style', 'lyrics', 'excerpt', 'duration'];
 

@@ -28,7 +28,7 @@ interface Probe {
 }
 
 const CONTROL =
-  'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-pink-500 disabled:opacity-50 dark:border-white/10 dark:bg-black/20 dark:text-white';
+  'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-hidden focus:border-pink-500 disabled:opacity-50 dark:border-white/10 dark:bg-black/20 dark:text-white';
 
 const KINDS: { id: Kind; label: string }[] = [
   { id: 'http', label: 'HTTP' },
@@ -114,7 +114,7 @@ export const ProxySettings: React.FC = () => {
       <span className="min-w-0">
         <span className="font-semibold text-zinc-800 dark:text-zinc-100">{name}</span>{' '}
         <span className={ok ? 'text-emerald-600 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-300'}>{ok ? t('proxyReachable') : t('proxyUnreachable')}</span>
-        {!ok && detail && <span className="block break-words text-[11px] text-zinc-500">{detail}</span>}
+        {!ok && detail && <span className="block wrap-break-word text-[11px] text-zinc-500">{detail}</span>}
       </span>
     </div>
   );
@@ -195,7 +195,7 @@ export const ProxySettings: React.FC = () => {
           type="button"
           onClick={() => void save()}
           disabled={busy !== null}
-          className="rounded-lg bg-gradient-to-r from-orange-500 to-pink-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+          className="rounded-lg bg-linear-to-r from-orange-500 to-pink-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
         >
           {busy === 'save' ? <Loader2 size={14} className="animate-spin" /> : t('proxySave')}
         </button>

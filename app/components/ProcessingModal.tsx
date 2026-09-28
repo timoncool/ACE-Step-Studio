@@ -51,7 +51,7 @@ interface LibraryEntry {
 
 const CARD = 'rounded-xl border border-zinc-200 p-3 dark:border-white/10';
 const CONTROL =
-  'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-pink-500 dark:border-white/10 dark:bg-black/20 dark:text-white';
+  'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-hidden focus:border-pink-500 dark:border-white/10 dark:bg-black/20 dark:text-white';
 
 const Toggle: React.FC<{ checked: boolean; onChange: (value: boolean) => void; label: string; hint: string }> = ({ checked, onChange, label, hint }) => (
   <div className="flex items-start justify-between gap-3">
@@ -67,7 +67,7 @@ const Toggle: React.FC<{ checked: boolean; onChange: (value: boolean) => void; l
       onClick={() => onChange(!checked)}
       className={`relative mt-0.5 h-5 w-10 shrink-0 rounded-full transition-colors ${checked ? 'bg-pink-500' : 'bg-zinc-300 dark:bg-zinc-600'}`}
     >
-      <span className={`absolute top-[2px] h-4 w-4 rounded-full bg-white shadow-sm transition-all ${checked ? 'left-[22px]' : 'left-[2px]'}`} />
+      <span className={`absolute top-[2px] h-4 w-4 rounded-full bg-white shadow-xs transition-all ${checked ? 'left-[22px]' : 'left-[2px]'}`} />
     </button>
   </div>
 );
@@ -301,7 +301,7 @@ export const ProcessingModal: React.FC<ProcessingModalProps> = ({ song, onClose,
   const previewUrl = useMemo(() => (preview ? apiUrl(`/v1/processing/preview?t=${Date.now()}`) : ''), [preview]);
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-70 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-zinc-900" onClick={event => event.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 dark:border-white/10">
           <h3 className="flex items-center gap-2 text-base font-bold text-zinc-900 dark:text-white">
@@ -406,7 +406,7 @@ export const ProcessingModal: React.FC<ProcessingModalProps> = ({ song, onClose,
                           role="tab"
                           aria-selected={referenceMode === mode}
                           onClick={() => setReferenceMode(mode)}
-                          className={`flex-1 rounded-md py-1 text-xs font-semibold transition-all ${referenceMode === mode ? 'bg-white text-black shadow-sm dark:bg-zinc-800 dark:text-white' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'}`}
+                          className={`flex-1 rounded-md py-1 text-xs font-semibold transition-all ${referenceMode === mode ? 'bg-white text-black shadow-xs dark:bg-zinc-800 dark:text-white' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'}`}
                         >
                           {mode === 'library' ? t('processReferenceLibrary') : t('processReferenceFile')}
                         </button>
@@ -478,7 +478,7 @@ export const ProcessingModal: React.FC<ProcessingModalProps> = ({ song, onClose,
               <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200">
                 {t('processDiscard')}
               </button>
-              <button type="button" onClick={() => void keep()} disabled={keeping} className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-pink-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
+              <button type="button" onClick={() => void keep()} disabled={keeping} className="inline-flex items-center gap-2 rounded-lg bg-linear-to-r from-orange-500 to-pink-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
                 {keeping ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} {t('processKeep')}
               </button>
             </>
@@ -488,7 +488,7 @@ export const ProcessingModal: React.FC<ProcessingModalProps> = ({ song, onClose,
               <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200">
                 {t('cancel')}
               </button>
-              <button type="button" onClick={() => void start()} disabled={!ready || running} className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-pink-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
+              <button type="button" onClick={() => void start()} disabled={!ready || running} className="inline-flex items-center gap-2 rounded-lg bg-linear-to-r from-orange-500 to-pink-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
                 {running ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />} {t('processStart')}
               </button>
             </>
@@ -552,7 +552,7 @@ const Compare: React.FC<{ original: string; processed: string }> = ({ original, 
       <audio ref={before} src={original} preload="auto" muted onEnded={() => setPlaying(false)} />
       <audio ref={after} src={processed} preload="auto" onLoadedMetadata={event => setDuration(event.currentTarget.duration)} onEnded={() => setPlaying(false)} />
       <div className="flex items-center gap-3">
-        <button type="button" onClick={() => void toggle()} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-pink-600 text-white" aria-label={playing ? 'pause' : 'play'}>
+        <button type="button" onClick={() => void toggle()} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-linear-to-r from-orange-500 to-pink-600 text-white" aria-label={playing ? 'pause' : 'play'}>
           {playing ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
         </button>
         <div role="tablist" className="flex flex-1 rounded-lg bg-zinc-100 p-1 dark:bg-white/5">
@@ -563,7 +563,7 @@ const Compare: React.FC<{ original: string; processed: string }> = ({ original, 
               role="tab"
               aria-selected={side === value}
               onClick={() => setSide(value)}
-              className={`flex-1 rounded-md py-1.5 text-xs font-semibold transition-all ${side === value ? 'bg-white text-black shadow-sm dark:bg-zinc-800 dark:text-white' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'}`}
+              className={`flex-1 rounded-md py-1.5 text-xs font-semibold transition-all ${side === value ? 'bg-white text-black shadow-xs dark:bg-zinc-800 dark:text-white' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'}`}
             >
               {value === 'before' ? t('processBefore') : t('processAfter')}
             </button>

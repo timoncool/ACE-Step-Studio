@@ -293,7 +293,7 @@ export const AlbumCover: React.FC<AlbumCoverProps> = ({ seed, size = 'md', class
 
   return (
     <div
-      className={`${sizeClasses[size]} rounded-md shadow-lg flex-shrink-0 overflow-hidden relative ${className}`}
+      className={`${sizeClasses[size]} rounded-md shadow-lg shrink-0 overflow-hidden relative ${className}`}
       style={coverStyle}
     >
       {coverUrl && !imageFailed && (

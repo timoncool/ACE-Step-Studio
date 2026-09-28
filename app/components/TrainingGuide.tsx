@@ -103,7 +103,7 @@ const Section: React.FC<{
         {section.examples?.map((example, at) => (
           <div key={at} className="rounded-md bg-zinc-100 px-2.5 py-1.5 dark:bg-black/30">
             {example.label && <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">{example.label}</div>}
-            <pre className="whitespace-pre-wrap break-words font-mono text-[12px] leading-5 text-zinc-700 dark:text-zinc-200">{example.body}</pre>
+            <pre className="whitespace-pre-wrap wrap-break-word font-mono text-[12px] leading-5 text-zinc-700 dark:text-zinc-200">{example.body}</pre>
           </div>
         ))}
       </div>
@@ -175,7 +175,7 @@ export const TrainingGuide: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
   return createPortal(
     <div
-      className="fixed z-[70] flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white/95 shadow-2xl backdrop-blur dark:border-white/10 dark:bg-zinc-900/95"
+      className="fixed z-70 flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white/95 shadow-2xl backdrop-blur-sm dark:border-white/10 dark:bg-zinc-900/95"
       style={{ left: geometry.x, top: geometry.y, width: geometry.width, height: geometry.height }}
       role="dialog"
       aria-label={guide.title}

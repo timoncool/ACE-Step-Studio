@@ -296,7 +296,7 @@ export const MidiPlayer: React.FC<Props> = ({ notes, sourceAudioUrl, live, chunk
                     : 'border-transparent text-zinc-600 dark:text-zinc-400'
                 } ${audible ? '' : 'opacity-45'}`}
               >
-                <span className="w-2.5 h-2.5 rounded-sm inline-block flex-shrink-0" style={{ backgroundColor: familyColor(f) }} />
+                <span className="w-2.5 h-2.5 rounded-xs inline-block shrink-0" style={{ backgroundColor: familyColor(f) }} />
                 <span className={isMuted && soloed.size === 0 ? 'line-through' : ''}>{f.replace(/_/g, ' ')}</span>
                 <button
                   onClick={() => toggleMute(f)}

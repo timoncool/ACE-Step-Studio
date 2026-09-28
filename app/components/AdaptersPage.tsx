@@ -35,13 +35,13 @@ import {
  * are fetched, named and given the strength they start at.
  */
 
-const CARD = 'rounded-2xl border border-zinc-200 bg-zinc-50 p-4 dark:border-white/10 dark:bg-white/[0.03]';
+const CARD = 'rounded-2xl border border-zinc-200 bg-zinc-50 p-4 dark:border-white/10 dark:bg-white/3';
 const CONTROL =
-  'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-pink-500 disabled:opacity-50 dark:border-white/10 dark:bg-black/30 dark:text-white';
+  'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-hidden focus:border-pink-500 disabled:opacity-50 dark:border-white/10 dark:bg-black/30 dark:text-white';
 const OUTLINE =
   'inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:border-pink-400 hover:text-pink-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-zinc-200';
 const PRIMARY =
-  'inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-pink-600 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50';
+  'inline-flex items-center justify-center gap-2 rounded-lg bg-linear-to-r from-orange-500 to-pink-600 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50';
 const KIND_ORDER = ['trained', 'quality', 'style', 'artist', 'composition', 'sound', 'slider', 'other'];
 
 type Tab = 'installed' | 'catalog' | 'hub' | 'training';
@@ -440,7 +440,7 @@ const HubPanel: React.FC<{ current?: DitFamily | null; downloading: boolean; onS
         })}
       </div>
       {!downloading && chosen.length > 0 && (
-        <div className="sticky bottom-0 -mx-1 bg-white/90 px-1 py-3 backdrop-blur dark:bg-suno/90">
+        <div className="sticky bottom-0 -mx-1 bg-white/90 px-1 py-3 backdrop-blur-sm dark:bg-suno/90">
           <button type="button" onClick={() => void download()} disabled={starting} className={PRIMARY}>
             {starting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
             {t('adaptersDownloadSelected')} · {chosen.length} · {megabytes(chosen.reduce((sum, file) => sum + file.bytes, 0))}
@@ -580,7 +580,7 @@ export function AdaptersPage(): React.ReactElement {
               role="tab"
               aria-selected={tab === value}
               onClick={() => setTab(value)}
-              className={`flex-1 rounded-md py-1.5 text-xs font-semibold transition-all ${tab === value ? 'bg-white text-black shadow-sm dark:bg-zinc-800 dark:text-white' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'}`}
+              className={`flex-1 rounded-md py-1.5 text-xs font-semibold transition-all ${tab === value ? 'bg-white text-black shadow-xs dark:bg-zinc-800 dark:text-white' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'}`}
             >
               {value === 'installed' ? `${t('adaptersInstalledTab')} · ${state?.installed.length ?? 0}` : value === 'catalog' ? t('adaptersCatalogTab') : value === 'hub' ? t('adaptersHubTab') : t('trainingNav')}
             </button>
@@ -595,7 +595,7 @@ export function AdaptersPage(): React.ReactElement {
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-white/10">
               <div
-                className="h-full bg-gradient-to-r from-orange-500 to-pink-600"
+                className="h-full bg-linear-to-r from-orange-500 to-pink-600"
                 style={{ width: `${Math.min(100, (100 * download.downloaded_bytes) / Math.max(1, download.total_bytes))}%` }}
               />
             </div>
@@ -676,7 +676,7 @@ export function AdaptersPage(): React.ReactElement {
                       role="radio"
                       aria-checked={family === value}
                       onClick={() => setFamily(value)}
-                      className={`rounded-md px-3 py-1 text-xs font-semibold ${family === value ? 'bg-white text-black shadow-sm dark:bg-zinc-800 dark:text-white' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'}`}
+                      className={`rounded-md px-3 py-1 text-xs font-semibold ${family === value ? 'bg-white text-black shadow-xs dark:bg-zinc-800 dark:text-white' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'}`}
                     >
                       {value === 'all' ? t('adaptersFamilyAll') : value === current ? t('adaptersFamilyFits').replace('{model}', familyLabel(value)) : familyLabel(value)}
                     </button>
@@ -699,7 +699,7 @@ export function AdaptersPage(): React.ReactElement {
               ))}
             </div>
             {!downloading && (
-              <div className="sticky bottom-0 -mx-1 flex flex-wrap items-center gap-2 bg-white/90 px-1 py-3 backdrop-blur dark:bg-suno/90">
+              <div className="sticky bottom-0 -mx-1 flex flex-wrap items-center gap-2 bg-white/90 px-1 py-3 backdrop-blur-sm dark:bg-suno/90">
                 <button type="button" role="checkbox" aria-checked={allChosen} onClick={toggleAll} disabled={missing.length === 0} className={`${OUTLINE} ${allChosen ? 'border-pink-400 text-pink-600 dark:border-pink-500/60 dark:text-pink-300' : ''}`}>
                   {allChosen ? <CheckSquare size={13} /> : <Square size={13} />}
                   {t('adaptersSelectAll')}{missing.length > 0 ? ` · ${missing.length}` : ''}

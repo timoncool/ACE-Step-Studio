@@ -130,7 +130,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, song })
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-9999 flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-xs p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-xl w-full max-w-sm p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
@@ -145,7 +145,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, song })
           <img
             src={song.coverUrl}
             alt={song.title}
-            className="w-12 h-12 rounded object-cover"
+            className="w-12 h-12 rounded-sm object-cover"
           />
           <div className="overflow-hidden">
             <div className="font-medium text-zinc-900 dark:text-white truncate">{song.title}</div>

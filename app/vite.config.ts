@@ -2,10 +2,11 @@ import fs from 'fs';
 import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
-const studio = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../studio.json'), 'utf-8'));
+const studio = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, '../studio.json'), 'utf-8'));
 const service = `http://127.0.0.1:${studio.port}`;
-const appVersion = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8')).version;
+const appVersion = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, 'package.json'), 'utf-8')).version;
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
@@ -39,8 +40,8 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         // the visualiser's own window is a second page
         input: {
-          main: path.resolve(__dirname, 'index.html'),
-          visualizer: path.resolve(__dirname, 'visualizer.html'),
+          main: path.resolve(import.meta.dirname, 'index.html'),
+          visualizer: path.resolve(import.meta.dirname, 'visualizer.html'),
         },
       },
     },
@@ -53,6 +54,7 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
+      tailwindcss(),
       {
         name: 'studio-identity',
         transformIndexHtml: (html: string) => html.replaceAll('%STUDIO_NAME%', studio.name).replaceAll('%STUDIO_ARTIST%', studio.artist),
@@ -60,7 +62,7 @@ export default defineConfig(({ mode }) => {
     ],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(import.meta.dirname, '.'),
       }
     }
   };

@@ -165,7 +165,7 @@ const ChangelogTab: React.FC = () => {
             <ul className="space-y-2.5">
               {day.items.map((item) => (
                 <li key={item.hash} className="flex gap-2.5">
-                  <code className="mt-0.5 shrink-0 rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[10px] text-zinc-500 dark:bg-white/5 dark:text-zinc-400">
+                  <code className="mt-0.5 shrink-0 rounded-sm bg-zinc-100 px-1.5 py-0.5 font-mono text-[10px] text-zinc-500 dark:bg-white/5 dark:text-zinc-400">
                     {item.hash}
                   </code>
                   <div className="min-w-0">
@@ -240,7 +240,7 @@ export const NewsPage: React.FC = () => {
       className={`
         group rounded-2xl border transition-all duration-200
         ${isDismissed
-          ? 'bg-zinc-100 dark:bg-white/[0.02] border-zinc-200 dark:border-white/5 opacity-50'
+          ? 'bg-zinc-100 dark:bg-white/2 border-zinc-200 dark:border-white/5 opacity-50'
           : 'bg-white dark:bg-suno-card border-zinc-200 dark:border-white/5 hover:border-zinc-300 dark:hover:border-white/10'
         }
       `}
@@ -256,7 +256,7 @@ export const NewsPage: React.FC = () => {
           {!isDismissed ? (
             <button
               onClick={() => dismissNewsItem(item.id)}
-              className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 transition-all flex-shrink-0"
+              className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 transition-all shrink-0"
               title={t('dismiss')}
             >
               <X size={16} />
@@ -264,7 +264,7 @@ export const NewsPage: React.FC = () => {
           ) : (
             <button
               onClick={() => restoreNewsItem(item.id)}
-              className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:underline transition-colors flex-shrink-0"
+              className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:underline transition-colors shrink-0"
             >
               {t('restore')}
             </button>
@@ -311,7 +311,7 @@ export const NewsPage: React.FC = () => {
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center flex-shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
             <Newspaper size={20} className="text-amber-600 dark:text-amber-400" />
           </div>
           <div>
@@ -353,12 +353,12 @@ export const NewsPage: React.FC = () => {
           rel="noopener noreferrer"
           className="flex items-center gap-3 mb-6 px-5 py-4 rounded-2xl border border-zinc-200 dark:border-white/5 bg-white dark:bg-suno-card hover:border-zinc-300 dark:hover:border-white/10 transition-all group"
         >
-          <SiGithub size={20} className="text-zinc-500 dark:text-zinc-400 flex-shrink-0" />
+          <SiGithub size={20} className="text-zinc-500 dark:text-zinc-400 shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{STUDIO.repo}</p>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">{t('starRepo')}</p>
           </div>
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 text-sm font-medium group-hover:bg-amber-500/15 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors flex-shrink-0">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 text-sm font-medium group-hover:bg-amber-500/15 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors shrink-0">
             <Star size={14} />
             Star
           </div>

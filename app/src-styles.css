@@ -1,6 +1,56 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-suno: #09090b;
+  --color-suno-sidebar: #000000;
+  --color-suno-panel: #121214;
+  --color-suno-card: #18181b;
+  --color-suno-hover: #27272a;
+  --color-suno-border: #27272a;
+
+  --font-sans: Inter, system-ui, Segoe UI, sans-serif;
+
+  --animate-gradient-x: gradient-x 15s ease infinite;
+
+  @keyframes gradient-x {
+    0%,
+    100% {
+      background-size: 200% 200%;
+      background-position: left center;
+    }
+    50% {
+      background-size: 200% 200%;
+      background-position: right center;
+    }
+  }
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+@layer base {
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-gray-400);
+  }
+}
 
 /* Tailwind 3 resets buttons to the default arrow cursor, which is why nothing
    in this interface felt clickable: the hover colours were there, the pointer

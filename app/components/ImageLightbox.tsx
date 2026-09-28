@@ -30,7 +30,7 @@ export const ImageLightbox: React.FC<{ src: string; alt?: string; onClose: () =>
 
   return (
     <div
-      className="fixed inset-0 z-[90] flex flex-col bg-black/90 backdrop-blur-sm"
+      className="fixed inset-0 z-90 flex flex-col bg-black/90 backdrop-blur-xs"
       onWheel={(event) => {
         event.preventDefault();
         setScale(value => Math.min(8, Math.max(0.2, value * (event.deltaY < 0 ? 1.12 : 1 / 1.12))));

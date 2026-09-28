@@ -35,7 +35,7 @@ const DEFAULTS: EngineOptions = {
 };
 
 const CONTROL =
-  'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-pink-500 dark:border-white/10 dark:bg-black/20 dark:text-white';
+  'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-hidden focus:border-pink-500 dark:border-white/10 dark:bg-black/20 dark:text-white';
 
 const Toggle: React.FC<{ label: string; hint: string; checked: boolean; onChange: (value: boolean) => void }> = ({ label, hint, checked, onChange }) => (
   <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-zinc-200 p-3 dark:border-white/10">
@@ -146,7 +146,7 @@ export const EngineSettings: React.FC = () => {
               role="radio"
               aria-checked={options.backend === value}
               onClick={() => setOptions(current => ({ ...current, backend: value }))}
-              className={`rounded-md px-2 py-1.5 text-xs font-semibold transition-all ${options.backend === value ? 'bg-white text-black shadow-sm dark:bg-zinc-700 dark:text-white' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'}`}
+              className={`rounded-md px-2 py-1.5 text-xs font-semibold transition-all ${options.backend === value ? 'bg-white text-black shadow-xs dark:bg-zinc-700 dark:text-white' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'}`}
             >
               {t(`computeBackend_${value}`)}
             </button>
@@ -231,7 +231,7 @@ export const EngineSettings: React.FC = () => {
           type="button"
           onClick={() => void save()}
           disabled={!dirty || busy}
-          className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-pink-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg bg-linear-to-r from-orange-500 to-pink-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
         >
           {busy ? <Loader2 size={14} className="animate-spin" /> : null} {t('saveAndRestartEngine')}
         </button>
@@ -255,7 +255,7 @@ export const EngineSettings: React.FC = () => {
         </button>
         {logsOpen && (
           <div className="max-h-64 overflow-y-auto border-t border-zinc-200 bg-zinc-50 p-3 font-mono text-[11px] leading-4 text-zinc-600 dark:border-white/10 dark:bg-black/30 dark:text-zinc-400">
-            {logs.length === 0 ? <span className="text-zinc-400">—</span> : logs.map((line, index) => <div key={index} className="break-words">{line}</div>)}
+            {logs.length === 0 ? <span className="text-zinc-400">—</span> : logs.map((line, index) => <div key={index} className="wrap-break-word">{line}</div>)}
           </div>
         )}
       </div>

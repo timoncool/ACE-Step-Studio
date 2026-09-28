@@ -112,7 +112,7 @@ export const EngineStarting: React.FC<{ onReady?: () => void }> = ({ onReady }) 
 
         <div className="mt-5 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-black/30">
           <div
-            className={`h-full rounded-full bg-gradient-to-r from-orange-500 to-pink-500 ${runtime ? 'transition-[width]' : 'w-1/3 animate-pulse'}`}
+            className={`h-full rounded-full bg-linear-to-r from-orange-500 to-pink-500 ${runtime ? 'transition-[width]' : 'w-1/3 animate-pulse'}`}
             style={runtime ? { width: `${Math.max(2, percent)}%` } : undefined}
           />
         </div>
@@ -147,7 +147,7 @@ export const EngineStarting: React.FC<{ onReady?: () => void }> = ({ onReady }) 
         </button>
         {open && (
           <div className="mt-2 max-h-56 overflow-y-auto rounded-lg bg-zinc-50 p-2 font-mono text-[11px] leading-4 text-zinc-600 dark:bg-black/30 dark:text-zinc-400">
-            {lines.length === 0 ? <span className="text-zinc-400">—</span> : lines.map((line, index) => <div key={index} className="break-words">{line}</div>)}
+            {lines.length === 0 ? <span className="text-zinc-400">—</span> : lines.map((line, index) => <div key={index} className="wrap-break-word">{line}</div>)}
           </div>
         )}
       </div>

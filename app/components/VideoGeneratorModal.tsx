@@ -2329,7 +2329,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
   if (!isOpen || !song) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-md p-0 md:p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/90 backdrop-blur-md p-0 md:p-4 animate-in fade-in duration-200">
 
       <div className={`bg-suno-card w-full h-full md:max-w-7xl md:h-[90vh] md:rounded-2xl border-0 md:border border-white/10 overflow-hidden shadow-2xl relative ${isMobile ? 'flex flex-col' : 'flex'}`}>
 
@@ -2340,9 +2340,9 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
 
         {/* Mobile: Preview at top */}
         {isMobile && (
-          <div className="relative bg-black flex-shrink-0">
+          <div className="relative bg-black shrink-0">
             {/* Header */}
-            <div className="absolute top-0 left-0 right-0 z-10 p-3 bg-gradient-to-b from-black/80 to-transparent">
+            <div className="absolute top-0 left-0 right-0 z-10 p-3 bg-linear-to-b from-black/80 to-transparent">
               <h2 className="text-base font-bold text-white flex items-center gap-2">
                 <Video className="text-pink-500" size={18} />
                 {t('videoStudio')}
@@ -2356,7 +2356,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
             </div>
 
             {/* Canvas Preview */}
-            <div className={`relative w-full ${config.aspectRatio === '1:1' ? 'aspect-square' : config.aspectRatio === '9:16' ? 'aspect-[9/16] max-h-[60vh]' : 'aspect-video'}`}>
+            <div className={`relative w-full ${config.aspectRatio === '1:1' ? 'aspect-square' : config.aspectRatio === '9:16' ? 'aspect-9/16 max-h-[60vh]' : 'aspect-video'}`}>
               <canvas
                 ref={canvasRef}
                 width={RESOLUTIONS[config.aspectRatio].width}
@@ -2371,7 +2371,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
             </div>
 
             {/* Playback Controls */}
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-3">
+            <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/90 to-transparent p-3">
               {/* Timeline */}
               <div className="flex items-center gap-2 mb-2 px-2">
                 <span className="text-[10px] text-zinc-400 font-mono w-10 text-right">
@@ -2498,19 +2498,19 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                 <div className="grid grid-cols-3 gap-2">
                                      <button
                                         onClick={() => { setBackgroundType('random'); setBackgroundSeed(Date.now()); }}
-                                        className={`py-2 rounded text-xs font-bold flex items-center justify-center gap-1 ${backgroundType === 'random' ? 'bg-pink-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}
+                                        className={`py-2 rounded-sm text-xs font-bold flex items-center justify-center gap-1 ${backgroundType === 'random' ? 'bg-pink-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}
                                      >
                                          <Wand2 size={12}/> {t('bgRandom')}
                                      </button>
                                      <button
                                         onClick={() => setBackgroundType('custom')}
-                                        className={`py-2 rounded text-xs font-bold flex items-center justify-center gap-1 ${backgroundType === 'custom' ? 'bg-pink-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}
+                                        className={`py-2 rounded-sm text-xs font-bold flex items-center justify-center gap-1 ${backgroundType === 'custom' ? 'bg-pink-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}
                                      >
                                          <ImageIcon size={12}/> {t('bgImage')}
                                      </button>
                                      <button
                                         onClick={() => setBackgroundType('video')}
-                                        className={`py-2 rounded text-xs font-bold flex items-center justify-center gap-1 ${backgroundType === 'video' ? 'bg-pink-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}
+                                        className={`py-2 rounded-sm text-xs font-bold flex items-center justify-center gap-1 ${backgroundType === 'video' ? 'bg-pink-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}
                                      >
                                          <Video size={12}/> {t('bgVideo')}
                                      </button>
@@ -2522,19 +2522,19 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                         <div className="grid grid-cols-2 gap-2">
                                             <button
                                                 onClick={() => fileInputRef.current?.click()}
-                                                className="py-2 px-3 bg-zinc-700 hover:bg-zinc-600 rounded text-xs text-white flex items-center justify-center gap-1"
+                                                className="py-2 px-3 bg-zinc-700 hover:bg-zinc-600 rounded-sm text-xs text-white flex items-center justify-center gap-1"
                                             >
                                                 <Upload size={12}/> {t('upload')}
                                             </button>
                                             <button
                                                 onClick={() => openPexelsBrowser('background', 'photos')}
-                                                className="py-2 px-3 bg-emerald-600 hover:bg-emerald-700 rounded text-xs text-white flex items-center justify-center gap-1"
+                                                className="py-2 px-3 bg-emerald-600 hover:bg-emerald-700 rounded-sm text-xs text-white flex items-center justify-center gap-1"
                                             >
                                                 <Search size={12}/> Pexels
                                             </button>
                                         </div>
                                         {customImage && (
-                                            <div className="relative rounded overflow-hidden h-20">
+                                            <div className="relative rounded-sm overflow-hidden h-20">
                                                 <img src={customImage} alt="Background" className="w-full h-full object-cover" />
                                             </div>
                                         )}
@@ -2547,13 +2547,13 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                         <div className="grid grid-cols-2 gap-2">
                                             <button
                                                 onClick={() => videoFileInputRef.current?.click()}
-                                                className="py-2 px-3 bg-zinc-700 hover:bg-zinc-600 rounded text-xs text-white flex items-center justify-center gap-1"
+                                                className="py-2 px-3 bg-zinc-700 hover:bg-zinc-600 rounded-sm text-xs text-white flex items-center justify-center gap-1"
                                             >
                                                 <Upload size={12}/> {t('upload')}
                                             </button>
                                             <button
                                                 onClick={() => openPexelsBrowser('background', 'videos')}
-                                                className="py-2 px-3 bg-emerald-600 hover:bg-emerald-700 rounded text-xs text-white flex items-center justify-center gap-1"
+                                                className="py-2 px-3 bg-emerald-600 hover:bg-emerald-700 rounded-sm text-xs text-white flex items-center justify-center gap-1"
                                             >
                                                 <Search size={12}/> Pexels
                                             </button>
@@ -2563,7 +2563,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                             placeholder={t('orPasteVideoUrl')}
                                             value={videoUrl}
                                             onChange={(e) => setVideoUrl(e.target.value)}
-                                            className="w-full bg-zinc-800 rounded px-3 py-2 text-xs text-white border border-white/10 placeholder-zinc-500"
+                                            className="w-full bg-zinc-800 rounded-sm px-3 py-2 text-xs text-white border border-white/10 placeholder-zinc-500"
                                         />
                                         {videoUrl && bgVideoState === 'loading' && (
                                             <p className="text-[10px] text-zinc-400">{t('videoLoading')}</p>
@@ -2648,15 +2648,15 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                              <div className="grid grid-cols-2 gap-4">
                                  <div>
                                      <span className="text-[10px] text-zinc-400 mb-1 block">{t('primary')}</span>
-                                     <div className="flex items-center gap-2 bg-black/20 p-2 rounded border border-white/5">
-                                         <input type="color" value={config.primaryColor} onChange={(e) => setConfig({...config, primaryColor: e.target.value})} className="w-6 h-6 rounded cursor-pointer border-none bg-transparent" />
+                                     <div className="flex items-center gap-2 bg-black/20 p-2 rounded-sm border border-white/5">
+                                         <input type="color" value={config.primaryColor} onChange={(e) => setConfig({...config, primaryColor: e.target.value})} className="w-6 h-6 rounded-sm cursor-pointer border-none bg-transparent" />
                                          <span className="text-xs text-zinc-300 font-mono">{config.primaryColor}</span>
                                      </div>
                                  </div>
                                  <div>
                                      <span className="text-[10px] text-zinc-400 mb-1 block">{t('secondary')}</span>
-                                      <div className="flex items-center gap-2 bg-black/20 p-2 rounded border border-white/5">
-                                         <input type="color" value={config.secondaryColor} onChange={(e) => setConfig({...config, secondaryColor: e.target.value})} className="w-6 h-6 rounded cursor-pointer border-none bg-transparent" />
+                                      <div className="flex items-center gap-2 bg-black/20 p-2 rounded-sm border border-white/5">
+                                         <input type="color" value={config.secondaryColor} onChange={(e) => setConfig({...config, secondaryColor: e.target.value})} className="w-6 h-6 rounded-sm cursor-pointer border-none bg-transparent" />
                                          <span className="text-xs text-zinc-300 font-mono">{config.secondaryColor}</span>
                                      </div>
                                  </div>
@@ -2697,7 +2697,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                             <div className="bg-black/20 p-3 rounded-lg border border-white/5 space-y-3">
                                 <div className="flex items-center gap-3">
                                     {/* Preview */}
-                                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-zinc-800 flex-shrink-0">
+                                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-zinc-800 shrink-0">
                                         <img
                                             src={customAlbumArt || song?.coverUrl || ''}
                                             alt="Center"
@@ -2708,13 +2708,13 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                         <div className="grid grid-cols-2 gap-2">
                                             <button
                                                 onClick={() => albumArtInputRef.current?.click()}
-                                                className="py-1.5 px-2 bg-zinc-700 hover:bg-zinc-600 rounded text-[10px] text-white flex items-center justify-center gap-1"
+                                                className="py-1.5 px-2 bg-zinc-700 hover:bg-zinc-600 rounded-sm text-[10px] text-white flex items-center justify-center gap-1"
                                             >
                                                 <Upload size={10}/> {t('upload')}
                                             </button>
                                             <button
                                                 onClick={() => openPexelsBrowser('albumArt')}
-                                                className="py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 rounded text-[10px] text-white flex items-center justify-center gap-1"
+                                                className="py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 rounded-sm text-[10px] text-white flex items-center justify-center gap-1"
                                             >
                                                 <Search size={10}/> Pexels
                                             </button>
@@ -2753,7 +2753,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                         onClick={() => setLyricsEnabled(!lyricsEnabled)}
                                         className={`w-10 h-5 rounded-full transition-colors ${lyricsEnabled ? 'bg-pink-500' : 'bg-zinc-600'}`}
                                     >
-                                        <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${lyricsEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                                        <div className={`w-4 h-4 rounded-full bg-white shadow-xs transition-transform ${lyricsEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
                                     </button>
                                 </div>
 
@@ -2773,7 +2773,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                                     <button
                                                         key={s.id}
                                                         onClick={() => setLyricsStyle(s.id)}
-                                                        className={`px-2 py-1 rounded text-[10px] font-medium ${lyricsStyle === s.id ? 'bg-pink-600 text-white' : 'bg-white/5 text-zinc-400'}`}
+                                                        className={`px-2 py-1 rounded-sm text-[10px] font-medium ${lyricsStyle === s.id ? 'bg-pink-600 text-white' : 'bg-white/5 text-zinc-400'}`}
                                                     >
                                                         {s.label}
                                                     </button>
@@ -2791,7 +2791,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                                     <button
                                                         key={n}
                                                         onClick={() => setLyricsLines(n)}
-                                                        className={`px-2 py-1 rounded text-[10px] font-medium ${lyricsLines === n ? 'bg-pink-600 text-white' : 'bg-white/5 text-zinc-400'}`}
+                                                        className={`px-2 py-1 rounded-sm text-[10px] font-medium ${lyricsLines === n ? 'bg-pink-600 text-white' : 'bg-white/5 text-zinc-400'}`}
                                                     >
                                                         {n}
                                                     </button>
@@ -2811,9 +2811,9 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                         {/* Colors — all in one row */}
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <span className="text-[10px] text-zinc-500">{t('color')}</span>
-                                            <input type="color" value={lyricsColor} onChange={e => setLyricsColor(e.target.value)} className="w-5 h-5 rounded cursor-pointer border-none bg-transparent" />
-                                            <input type="color" value={lyricsHighlightColor} onChange={e => setLyricsHighlightColor(e.target.value)} className="w-5 h-5 rounded cursor-pointer border-none bg-transparent" />
-                                            <input type="color" value={lyricsBgColor} onChange={e => setLyricsBgColor(e.target.value)} className="w-5 h-5 rounded cursor-pointer border-none bg-transparent" />
+                                            <input type="color" value={lyricsColor} onChange={e => setLyricsColor(e.target.value)} className="w-5 h-5 rounded-sm cursor-pointer border-none bg-transparent" />
+                                            <input type="color" value={lyricsHighlightColor} onChange={e => setLyricsHighlightColor(e.target.value)} className="w-5 h-5 rounded-sm cursor-pointer border-none bg-transparent" />
+                                            <input type="color" value={lyricsBgColor} onChange={e => setLyricsBgColor(e.target.value)} className="w-5 h-5 rounded-sm cursor-pointer border-none bg-transparent" />
                                             <span className="text-[10px] text-zinc-500">{t('opacity') || 'Opacity'}</span>
                                             <input type="range" min={0} max={100} value={lyricsBgOpacity} onChange={e => setLyricsBgOpacity(Number(e.target.value))} className="flex-1 accent-pink-500 h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer min-w-[60px]" />
                                             <span className="text-[10px] text-zinc-400">{lyricsBgOpacity}%</span>
@@ -2857,14 +2857,14 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                         type="text" 
                                         value={layer.text} 
                                         onChange={(e) => updateTextLayer(layer.id, { text: e.target.value })}
-                                        className="w-full bg-zinc-800 rounded px-2 py-1 text-xs text-white border border-white/5"
+                                        className="w-full bg-zinc-800 rounded-sm px-2 py-1 text-xs text-white border border-white/5"
                                         placeholder={t('textContent')}
                                     />
                                     <div className="flex items-center gap-2">
                                         <span className="text-[10px] text-zinc-500">{t('size')}</span>
                                         <input type="range" min="12" max="120" value={layer.size} onChange={(e) => updateTextLayer(layer.id, { size: parseInt(e.target.value) })} className="flex-1 accent-pink-500 h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer" />
                                         <span className="text-[10px] text-zinc-400 w-8 text-right">{layer.size}px</span>
-                                        <input type="color" value={layer.color} onChange={(e) => updateTextLayer(layer.id, { color: e.target.value })} className="w-5 h-5 rounded cursor-pointer border-none bg-transparent" />
+                                        <input type="color" value={layer.color} onChange={(e) => updateTextLayer(layer.id, { color: e.target.value })} className="w-5 h-5 rounded-sm cursor-pointer border-none bg-transparent" />
                                     </div>
                                 </div>
                             ))}
@@ -2996,12 +2996,12 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                />
 
                {/* Hints */}
-               <div className="text-center py-1 text-[10px] text-zinc-500 flex-shrink-0">
+               <div className="text-center py-1 text-[10px] text-zinc-500 shrink-0">
                  🖱 {t('dragToMove')}  ⚙ {t('scrollToResize')}
                </div>
 
                {/* Playback Controls */}
-               <div className="flex-shrink-0 p-3">
+               <div className="shrink-0 p-3">
                  {/* Timeline */}
                  <div className="flex items-center gap-3 mb-3 px-2">
                    <span className="text-[11px] text-zinc-400 font-mono w-12 text-right">
@@ -3050,7 +3050,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
 
       {/* Pexels Browser Modal */}
       {showPexelsBrowser && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-70 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4">
           <div className="bg-zinc-900 w-full max-w-4xl max-h-[80vh] rounded-2xl border border-white/10 flex flex-col overflow-hidden">
             {/* Header */}
             <div className="p-4 border-b border-white/10 flex items-center justify-between">
@@ -3197,7 +3197,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <span className="text-white text-xs font-bold bg-emerald-600 px-3 py-1 rounded-full">{t('select')}</span>
                       </div>
-                      <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
+                      <div className="absolute bottom-0 left-0 right-0 p-2 bg-linear-to-t from-black/80 to-transparent">
                         <p className="text-[10px] text-zinc-300 truncate">by {photo.photographer}</p>
                       </div>
                     </button>
@@ -3212,13 +3212,13 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                       className="relative group rounded-lg overflow-hidden aspect-video bg-zinc-800"
                     >
                       <img src={video.image} alt="" className="w-full h-full object-cover" />
-                      <div className="absolute top-2 right-2 bg-black/60 px-2 py-0.5 rounded text-[10px] text-white font-bold">
+                      <div className="absolute top-2 right-2 bg-black/60 px-2 py-0.5 rounded-sm text-[10px] text-white font-bold">
                         <Video size={10} className="inline mr-1" />{t('videoBadge')}
                       </div>
                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <span className="text-white text-xs font-bold bg-emerald-600 px-3 py-1 rounded-full">{t('select')}</span>
                       </div>
-                      <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
+                      <div className="absolute bottom-0 left-0 right-0 p-2 bg-linear-to-t from-black/80 to-transparent">
                         <p className="text-[10px] text-zinc-300 truncate">by {video.user.name}</p>
                       </div>
                     </button>

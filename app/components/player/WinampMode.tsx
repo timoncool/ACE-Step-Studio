@@ -596,15 +596,15 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="fixed inset-0 z-[300] overflow-hidden bg-black">
+    <div className="fixed inset-0 z-300 overflow-hidden bg-black">
       <div ref={host} className="absolute inset-0" />
       {hint && !problem && (
-        <button type="button" data-winamp-shape onClick={() => setHint(false)} className="absolute bottom-3 left-1/2 z-[2000] w-max max-w-md -translate-x-1/2 rounded bg-black/85 px-3 py-2 text-left text-[11px] leading-snug text-white">
+        <button type="button" data-winamp-shape onClick={() => setHint(false)} className="absolute bottom-3 left-1/2 z-2000 w-max max-w-md -translate-x-1/2 rounded-sm bg-black/85 px-3 py-2 text-left text-[11px] leading-snug text-white">
           {t('winampHowToLeave')}
         </button>
       )}
       {problem && (
-        <div data-winamp-shape className="absolute bottom-3 left-1/2 z-[2000] w-max max-w-lg -translate-x-1/2 rounded-md bg-rose-900/90 px-3 py-2 text-xs text-white">
+        <div data-winamp-shape className="absolute bottom-3 left-1/2 z-2000 w-max max-w-lg -translate-x-1/2 rounded-md bg-rose-900/90 px-3 py-2 text-xs text-white">
           {problem}
           <button type="button" onClick={() => onExit({ songId: null, seconds: 0, playing: false, volume })} className="ml-3 underline">
             {t('winampLeave')}

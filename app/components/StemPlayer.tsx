@@ -72,7 +72,7 @@ export const StemPlayer: React.FC<{ src: string; label: string }> = ({ src, labe
       <button
         type="button"
         onClick={toggle}
-        className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-r from-orange-500 to-pink-600 text-white"
+        className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-linear-to-r from-orange-500 to-pink-600 text-white"
         aria-label={label}
       >
         {playing ? <Pause size={14} /> : <Play size={14} className="ml-0.5" />}

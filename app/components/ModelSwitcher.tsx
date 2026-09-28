@@ -211,7 +211,7 @@ export const ModelSwitcher: React.FC<{ status: SwitcherStatus | null; onChanged:
             </span>
           </div>
           <div className="mt-1 h-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-black/30">
-            <div className="h-full bg-gradient-to-r from-orange-500 to-pink-600" style={{ width: `${downloading.total_bytes ? Math.min(100, (downloading.downloaded_bytes / downloading.total_bytes) * 100) : 0}%` }} />
+            <div className="h-full bg-linear-to-r from-orange-500 to-pink-600" style={{ width: `${downloading.total_bytes ? Math.min(100, (downloading.downloaded_bytes / downloading.total_bytes) * 100) : 0}%` }} />
           </div>
         </div>
       )}
