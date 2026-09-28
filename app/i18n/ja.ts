@@ -1158,6 +1158,8 @@ export const ja = {
     coverArt: 'カバーアート',
     coverAuto: '新しい曲ごとにジャケットを描く',
     coverAutoHint: '曲が仕上がると既定のテンプレートが埋められ、プロバイダーページで選んだ画像モデルへ送られます。料金はそのモデル次第。オフにすると手動になります。',
+    coverStockPhoto: 'カバーのない曲にランダムな写真',
+    coverStockPhotoHint: '自分のカバーがない曲には picsum.photos の写真を表示します（毎回同じ写真）。オフにすると曲から描いた模様を表示し、何もダウンロードしません。',
     coverOpenLarge: '大きく開く',
     stemsTitle: 'ステムに分ける',
     separationInstallGpu: 'グラフィックカードを設定',

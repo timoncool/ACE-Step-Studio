@@ -1158,6 +1158,8 @@ export const ko = {
     coverArt: '커버 아트',
     coverAuto: '새 트랙마다 커버 그리기',
     coverAutoHint: '트랙이 완성되면 기본 템플릿이 채워져 공급자 페이지에서 고른 이미지 모델로 전송됩니다. 비용은 해당 모델 기준이며, 끄면 수동으로 만듭니다.',
+    coverStockPhoto: '커버 없는 트랙에 무작위 사진',
+    coverStockPhotoHint: '자체 커버가 없는 트랙에 picsum.photos의 사진을 보여 줍니다(매번 같은 사진). 끄면 트랙으로 그린 무늬를 보여 주고 아무것도 내려받지 않습니다.',
     coverOpenLarge: '크게 열기',
     stemsTitle: '스템으로 분리',
     separationInstallGpu: '그래픽 카드 설정',

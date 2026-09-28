@@ -51,3 +51,36 @@ export function onSidebarExtras(listener: (extras: SidebarExtras) => void): () =
   extrasListeners.add(listener);
   return () => extrasListeners.delete(listener);
 }
+
+const STOCK_COVERS_KEY = 'studio.stockCovers';
+const stockCoverListeners = new Set<(on: boolean) => void>();
+
+/** Whether a track without a cover of its own shows a stock photo (on by
+ *  default) or the pattern drawn from its id. */
+export function stockCovers(): boolean {
+  try {
+    return window.localStorage.getItem(STOCK_COVERS_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+}
+
+export function setStockCovers(on: boolean): void {
+  try {
+    window.localStorage.setItem(STOCK_COVERS_KEY, on ? 'on' : 'off');
+  } catch {
+    // a browser that keeps nothing still shows the change until a reload
+  }
+  stockCoverListeners.forEach((listener) => listener(on));
+}
+
+export function onStockCovers(listener: (on: boolean) => void): () => void {
+  stockCoverListeners.add(listener);
+  return () => stockCoverListeners.delete(listener);
+}
+
+/** The photo a track without a cover shows while stock covers are on:
+ *  picsum.photos, seeded by the track so it stays the same. */
+export function stockCoverUrl(seed: string): string {
+  return `https://picsum.photos/seed/${encodeURIComponent(seed)}/400/400`;
+}

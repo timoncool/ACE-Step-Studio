@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { onStockCovers, stockCoverUrl, stockCovers } from '../services/playerPanels';
 
 interface AlbumCoverProps {
   seed: string;
@@ -275,7 +276,10 @@ const generatePattern = (rng: SeededRandom, palette: typeof palettes[0]): React.
 
 export const AlbumCover: React.FC<AlbumCoverProps> = ({ seed, size = 'md', className = '', children, coverUrl }) => {
   const [imageFailed, setImageFailed] = React.useState(false);
-  React.useEffect(() => { setImageFailed(false); }, [coverUrl]);
+  const [stock, setStock] = useState(stockCovers);
+  useEffect(() => onStockCovers(setStock), []);
+  const source = coverUrl || (stock ? stockCoverUrl(seed) : '');
+  React.useEffect(() => { setImageFailed(false); }, [source]);
   const coverStyle = useMemo(() => {
     const rng = new SeededRandom(seed);
     const palette = rng.pick(palettes);
@@ -296,9 +300,9 @@ export const AlbumCover: React.FC<AlbumCoverProps> = ({ seed, size = 'md', class
       className={`${sizeClasses[size]} rounded-md shadow-lg shrink-0 overflow-hidden relative ${className}`}
       style={coverStyle}
     >
-      {coverUrl && !imageFailed && (
+      {source && !imageFailed && (
         <img
-          src={coverUrl}
+          src={source}
           alt=""
           loading="lazy"
           onError={() => setImageFailed(true)}

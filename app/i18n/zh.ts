@@ -1158,6 +1158,8 @@ export const zh = {
     coverArt: '封面',
     coverAuto: '为每首新曲目自动生成封面',
     coverAutoHint: '曲目一完成，就用默认模板生成提示词，发送给在提供方页面选定的图像模型。费用等同于该模型；关闭后改为手动生成。',
+    coverStockPhoto: '为没有封面的曲目显示随机照片',
+    coverStockPhotoHint: '没有自己封面的曲目会显示来自 picsum.photos 的照片，每次都是同一张。关闭后显示根据曲目绘制的图案，不会下载任何内容。',
     coverOpenLarge: '放大查看',
     stemsTitle: '分离为分轨',
     separationInstallGpu: '配置显卡',

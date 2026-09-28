@@ -1163,6 +1163,8 @@ export const en = {
     coverArt: 'Cover art',
     coverAuto: 'Draw a cover for every new track',
     coverAutoHint: 'As soon as a track is finished, the default template is filled in and sent to the image model chosen on the provider page. Costs whatever that model costs; turn it off to draw covers by hand.',
+    coverStockPhoto: 'Random photo for tracks without a cover',
+    coverStockPhotoHint: 'A track with no cover of its own shows a photo from picsum.photos, the same one each time. Turned off, it shows a pattern drawn from the track and nothing is fetched.',
     coverOpenLarge: 'Open large',
     stemsTitle: 'Split into stems',
     separationInstallGpu: 'Set up the graphics card',

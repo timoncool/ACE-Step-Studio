@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, Plus, Trash2 } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
+import { onStockCovers, setStockCovers, stockCovers } from '../services/playerPanels';
 
 /**
  * The cover looks, and which one a new cover starts from.
@@ -32,6 +33,8 @@ export const CoverTemplateSettings: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   // Draw a cover as soon as a track is finished, the way karaoke times itself.
   const [auto, setAuto] = useState(true);
+  const [stock, setStock] = useState(stockCovers);
+  useEffect(() => onStockCovers(setStock), []);
   const [preview, setPreview] = useState('');
 
   useEffect(() => {
@@ -102,6 +105,19 @@ export const CoverTemplateSettings: React.FC = () => {
         <span className="min-w-0">
           <span className="block text-sm font-medium text-zinc-900 dark:text-white">{t('coverAuto')}</span>
           <span className="mt-0.5 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('coverAutoHint')}</span>
+        </span>
+      </label>
+
+      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-zinc-200 p-3 dark:border-white/10">
+        <input
+          type="checkbox"
+          checked={stock}
+          onChange={event => setStockCovers(event.target.checked)}
+          className="mt-0.5 h-4 w-4 accent-pink-500"
+        />
+        <span className="min-w-0">
+          <span className="block text-sm font-medium text-zinc-900 dark:text-white">{t('coverStockPhoto')}</span>
+          <span className="mt-0.5 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('coverStockPhotoHint')}</span>
         </span>
       </label>
 
