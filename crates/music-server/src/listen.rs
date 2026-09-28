@@ -40,6 +40,7 @@ Caption rules:
     - production style and sonic character
 - NEVER state BPM, key, or time signature in the caption text. They have dedicated fields below, and repeating them in the caption does not match how this model was trained.
 - The genre you name in the caption MUST agree with the `genre:` field. Contradicting yourself between the two is worse than naming neither.
+- Describe the WHOLE track, weighted by how much of it each part occupies. Intros, outros, interludes and breakdowns are often unrepresentative: a quiet piano or percussion intro before a heavy song does not make the song ambient or classical. Base the genre and caption on the style that dominates most of the running time; mention a contrasting intro or outro only as a secondary detail.
 - Name things concretely: `808 bass`, `brushed snare`, `detuned saw lead`, `palm-muted guitar`, `upright piano` — not `interesting textures` or `lush soundscapes`.
 - No vague imagery or stacked adjectives ('neon skies, electric hearts'), no marketing copy, and no listener-reaction language ('keeps you moving', 'emotionally resonant').
 - Avoid generic openings like 'This track is' when more specific wording can be used immediately.

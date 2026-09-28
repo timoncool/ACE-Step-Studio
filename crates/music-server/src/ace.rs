@@ -288,16 +288,45 @@ impl AceClient {
     }
 
     /// Starts a language-model job over one or several requests.
+    /// Sends a request to the engine on loopback, again when the connection
+    /// drops under it: a refused connection on any method, since nothing was
+    /// sent, and a reset mid-request only for a read. Three tries, a short
+    /// pause between. A blip that polling rode out made a submission fail.
+    async fn send(&self, request: reqwest::RequestBuilder, read: bool) -> Result<reqwest::Response> {
+        let dropped = |error: &reqwest::Error| {
+            let mut source: Option<&(dyn std::error::Error + 'static)> = Some(error);
+            while let Some(cause) = source {
+                if let Some(io) = cause.downcast_ref::<std::io::Error>() {
+                    return matches!(io.kind(), std::io::ErrorKind::ConnectionReset | std::io::ErrorKind::ConnectionAborted | std::io::ErrorKind::BrokenPipe);
+                }
+                source = cause.source();
+            }
+            false
+        };
+        let mut attempt = 0u64;
+        loop {
+            let Some(copy) = request.try_clone() else { return Ok(request.send().await?) };
+            match copy.send().await {
+                Ok(response) => return Ok(response),
+                Err(error) if attempt < 2 && (error.is_connect() || (read && dropped(&error))) => {
+                    attempt += 1;
+                    tokio::time::sleep(std::time::Duration::from_millis(300 * attempt)).await;
+                }
+                Err(error) => return Err(error.into()),
+            }
+        }
+    }
+
     pub async fn submit_lm(&self, requests: &[Value]) -> Result<String> {
         let body: Value = if requests.len() == 1 { requests[0].clone() } else { Value::Array(requests.to_vec()) };
-        job_id(self.http.post(self.url("/lm")).json(&body).send().await?).await
+        job_id(self.send(self.http.post(self.url("/lm")).json(&body), false).await?).await
     }
 
     /// Starts a synthesis job; the sources, when any, go as multipart parts.
     pub async fn submit_synth(&self, requests: &[Value], sources: Sources) -> Result<String> {
         let body = Value::Array(requests.to_vec());
         if sources.is_empty() {
-            return job_id(self.http.post(self.url("/synth")).json(&body).send().await?).await;
+            return job_id(self.send(self.http.post(self.url("/synth")).json(&body), false).await?).await;
         }
         let mut form = reqwest::multipart::Form::new()
             .part("request", reqwest::multipart::Part::text(body.to_string()).file_name("request.json"));
@@ -325,12 +354,12 @@ impl AceClient {
     }
 
     pub async fn status(&self, job: &str) -> Result<String> {
-        let answer: Value = json_of(self.http.get(self.url("/job")).query(&[("id", job)]).send().await?).await?;
+        let answer: Value = json_of(self.send(self.http.get(self.url("/job")).query(&[("id", job)]), true).await?).await?;
         answer.get("status").and_then(Value::as_str).map(str::to_owned).context("the engine's job answer has no status")
     }
 
     pub async fn cancel(&self, job: &str) -> Result<()> {
-        let response = self.http.post(self.url("/job")).query(&[("id", job), ("cancel", "1")]).send().await?;
+        let response = self.send(self.http.post(self.url("/job")).query(&[("id", job), ("cancel", "1")]), false).await?;
         if !response.status().is_success() {
             bail!("the engine refused to cancel job {job}: {}", response.status());
         }
@@ -351,7 +380,7 @@ impl AceClient {
     }
 
     pub async fn result(&self, job: &str) -> Result<(String, Vec<u8>)> {
-        let response = self.http.get(self.url("/job")).query(&[("id", job), ("result", "1")]).send().await?;
+        let response = self.send(self.http.get(self.url("/job")).query(&[("id", job), ("result", "1")]), true).await?;
         let status = response.status();
         if !status.is_success() {
             bail!("the engine returned {status}: {}", response.text().await.unwrap_or_default());
