@@ -21,7 +21,6 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, bail, Context, Result};
-use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
@@ -60,7 +59,7 @@ pub struct Asset {
 }
 
 /// llama.cpp is pinned to one build so a working setup keeps working.
-const LLAMA_BUILD: &str = "b11146";
+const LLAMA_BUILD: &str = "b11236";
 
 pub const ASSETS: &[Asset] = &[
     Asset {
@@ -127,9 +126,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-cuda",
         label: "llama.cpp runtime (CUDA 13.4)",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11146/llama-b11146-bin-win-cuda-13.4-x64.zip",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-win-cuda-13.4-x64.zip",
         relative_path: "runtime/llama-cuda.zip",
-        bytes: 149_758_833,
+        bytes: 153_540_960,
         unzip_into: Some("cuda"),
         marker: "llama-server",
         vram_gb: None,
@@ -139,7 +138,7 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-cuda-runtime",
         label: "CUDA runtime for llama.cpp",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11146/cudart-llama-bin-win-cuda-13.4-x64.zip",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/cudart-llama-bin-win-cuda-13.4-x64.zip",
         relative_path: "runtime/cudart.zip",
         bytes: 423_535_356,
         unzip_into: Some("cuda"),
@@ -147,19 +146,51 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "The CUDA libraries llama.cpp links against.",
     },
+    // CUDA 13 runs Turing (GTX 16, RTX 20) and newer on driver 580 or later;
+    // an older card or driver takes llama.cpp's CUDA 12.4 build instead
+    Asset {
+        id: "llama-cuda12",
+        label: "llama.cpp runtime (CUDA 12.4)",
+        kind: AssetKind::Runtime,
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-win-cuda-12.4-x64.zip",
+        relative_path: "runtime/llama-cuda12.zip",
+        bytes: 264_523_826,
+        unzip_into: Some("cuda12"),
+        marker: "llama-server",
+        vram_gb: None,
+        note: "For cards and drivers CUDA 13 does not run: GTX 900 and 10, Tesla V100, drivers before 580. Needs the CUDA runtime companion below.",
+    },
+    Asset {
+        id: "llama-cuda12-runtime",
+        label: "CUDA 12 runtime for llama.cpp",
+        kind: AssetKind::Runtime,
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/cudart-llama-bin-win-cuda-12.4-x64.zip",
+        relative_path: "runtime/cudart12.zip",
+        bytes: 391_443_627,
+        unzip_into: Some("cuda12"),
+        marker: "cudart64",
+        vram_gb: None,
+        note: "The CUDA 12 libraries llama.cpp links against.",
+    },
     Asset {
         id: "llama-cpu",
         label: "llama.cpp runtime (CPU)",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11146/llama-b11146-bin-win-cpu-x64.zip",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-win-cpu-x64.zip",
         relative_path: "runtime/llama-cpu.zip",
-        bytes: 18_560_055,
+        bytes: 19_160_483,
         unzip_into: Some("cpu"),
         marker: "llama-server",
         vram_gb: None,
         note: "For machines without an NVIDIA card. Slow, but it works.",
     },
 ];
+
+/// The llama.cpp build this machine's card runs: CUDA 13 on Turing and newer
+/// with driver 580 or later, CUDA 12 on anything older the engine still runs.
+pub fn cuda_flavour() -> &'static str {
+    if crate::cuda_build::current() == Some(crate::cuda_build::CudaBuild::Cuda12) { "cuda12" } else { "cuda" }
+}
 
 pub fn asset(id: &str) -> Option<&'static Asset> {
     ASSETS.iter().find(|asset| asset.id == id)
@@ -280,10 +311,11 @@ impl AssistantRuntime {
     pub fn server_binary_for(&self, device: Option<&str>) -> Option<PathBuf> {
         let runtime = self.root.join("runtime");
         let name = if cfg!(windows) { "llama-server.exe" } else { "llama-server" };
+        let card = cuda_flavour();
         let order: &[&str] = match device {
-            Some("cuda") => &["cuda"],
+            Some("cuda") => &[card],
             Some("cpu") => &["cpu"],
-            _ => &["cuda", "cpu"],
+            _ => &[card, "cpu"],
         };
         for flavour in order {
             let candidate = runtime.join(flavour).join(name);

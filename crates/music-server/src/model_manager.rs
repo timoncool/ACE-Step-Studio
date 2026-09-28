@@ -8,10 +8,9 @@ use std::{
 };
 
 use anyhow::{bail, Context, Result};
-use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tokio::{io::AsyncWriteExt, sync::RwLock};
+use tokio::sync::RwLock;
 
 pub const ENGINE_ID: &str = "acestep-cpp";
 /// Every file is pinned to a repository commit and verified by its SHA-256.
