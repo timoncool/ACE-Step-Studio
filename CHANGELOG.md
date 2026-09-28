@@ -6,6 +6,13 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- **The library keeps up**: stems, processed versions, a song an agent made and a song
+  deleted in another window show up at once, without reopening the page.
+- **Cancel all stops everything**: the song still on its way to the engine too, and "Without
+  stopping" switches off instead of starting the next one.
+- Stem separation starts on Auto: the card when its runtime is installed, the processor
+  otherwise, instead of showing the card chosen and quietly running on the processor.
+- A playlist names each song's artist as the player does.
 - **A LoRA song was 29 seconds long.** A sound LoRA turns the planner off, and the engine then
   fell back to its 30-second default. Such a song now gets its length, tempo, key and metre from
   the planner's quick format pass, and keeps the lyrics and style as written. (#23)
