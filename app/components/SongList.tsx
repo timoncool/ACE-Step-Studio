@@ -679,7 +679,7 @@ const SongItem: React.FC<SongItemProps> = ({
                                     }
                                 }}
                             >
-                                {song.title || (song.isGenerating ? (song.queuePosition ? t('queued') || "Queued..." : (t(song.stage) || song.stage || t('creating') || "Creating...")) : t('untitled') || "Untitled")}
+                                {song.title || (song.isGenerating ? (song.queuePosition ? t('queued') || "Queued..." : (t(song.stage as TranslationKey) || song.stage || t('creating') || "Creating...")) : t('untitled') || "Untitled")}
                             </h3>
                         )}
                         {isOwner && !song.isGenerating && !isEditingTitle && (
@@ -832,7 +832,7 @@ const SongItem: React.FC<SongItemProps> = ({
                 {song.isGenerating ? (
                     <div className="flex flex-col items-end gap-0.5">
                         <span className={song.queuePosition ? 'text-amber-500' : 'text-pink-500'}>
-                            {song.queuePosition ? `#${song.queuePosition}` : (t(song.stage) || song.stage || t('creating') || 'Creating...')}
+                            {song.queuePosition ? `#${song.queuePosition}` : (t(song.stage as TranslationKey) || song.stage || t('creating') || 'Creating...')}
                         </span>
                         {onCancelJob && (
                             <button
@@ -865,7 +865,7 @@ const NO_SONG_ACTIONS = {};
 const UploadItem: React.FC<{
     track: { id: string; filename: string; audio_url: string; duration?: number | null };
     onPlay: (audioUrl: string, title: string) => void;
-}> = ({ track, onPlay, onUseAsReference, onCoverSong }) => {
+}> = ({ track, onPlay }) => {
     const title = track.filename.replace(/\.[^/.]+$/, '');
     const duration = track.duration
         ? `${Math.floor(track.duration / 60)}:${String(Math.floor(track.duration % 60)).padStart(2, '0')}`

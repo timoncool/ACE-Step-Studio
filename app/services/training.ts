@@ -225,7 +225,7 @@ export interface PickedFile {
   folder: string;
 }
 
-const AUDIO = /\.(wav|mp3|flac|ogg|m4a)$/i;
+const AUDIO = /\.(wav|mp3|flac|ogg|m4a|aiff|aif)$/i;
 const SIDECAR = /\.(txt|lrc|cue)$/i;
 
 /** Only what a dataset can use: audio, lyrics beside it, and cue sheets that cut albums. */

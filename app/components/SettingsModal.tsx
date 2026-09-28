@@ -1,6 +1,7 @@
 import { StudioFamily } from './StudioFamily';
 import React, { useEffect, useRef, useState } from 'react';
-import { Boxes, Cloud, Cpu, Github, Image as ImageIcon, Info, Monitor, Plug, User as UserIcon, X } from 'lucide-react';
+import { Boxes, Cloud, Cpu, Image as ImageIcon, Info, Monitor, Plug, User as UserIcon, X } from 'lucide-react';
+import { SiGithub } from '@icons-pack/react-simple-icons';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
 import type { Language } from '../i18n/translations';
@@ -228,7 +229,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
                     <a href="https://t.me/nerual_dreming" target="_blank" rel="noopener noreferrer" className="rounded-lg bg-[#2AABEE] px-3 py-1.5 text-xs font-medium text-white">Telegram · @nerual_dreming</a>
                     <a href="https://t.me/neuroport" target="_blank" rel="noopener noreferrer" className="rounded-lg bg-[#2AABEE]/80 px-3 py-1.5 text-xs font-medium text-white">Telegram · @neuroport</a>
                     <a href="https://github.com/timoncool" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-medium text-white dark:bg-zinc-700">
-                      <Github size={14} />timoncool
+                      <SiGithub size={14} />timoncool
                     </a>
                     <a href="https://neuro-cartel.com" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">neuro-cartel.com</a>
                     <a href="https://artgeneration.me" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">ArtGeneration.me</a>
@@ -256,7 +257,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
                   <p className="font-medium text-zinc-900 dark:text-white">{t('thisStudio')}</p>
                   <div className="flex flex-wrap gap-2">
                     <a href={STUDIO_REPO_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-medium text-white dark:bg-zinc-700">
-                      <Github size={14} />{STUDIO.name}
+                      <SiGithub size={14} />{STUDIO.name}
                     </a>
                     <a href={`${STUDIO_REPO_URL}/issues`} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">{t('reportIssues')}</a>
                   </div>

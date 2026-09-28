@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Newspaper, X, Star, Github, FileText } from 'lucide-react';
+import { Newspaper, X, Star, FileText } from 'lucide-react';
+import { SiGithub } from '@icons-pack/react-simple-icons';
 import { useI18n } from '../context/I18nContext';
 import newsData from '../data/news.json';
 import changelogData from '../data/changelog.json';
@@ -54,7 +55,7 @@ function withLinks(text: string, key: string): React.ReactNode[] {
 
 /** News text with **bold** words and links. */
 function inline(text: string, key: string): React.ReactNode[] {
-  return text.split(/(\*\*[^*]+\*\*)/).flatMap((piece, index) =>
+  return text.split(/(\*\*[^*]+\*\*)/).flatMap<React.ReactNode>((piece, index) =>
     piece.length > 4 && piece.startsWith('**') && piece.endsWith('**')
       ? [<strong key={`${key}-b${index}`} className="font-semibold text-zinc-800 dark:text-zinc-200">{piece.slice(2, -2)}</strong>]
       : withLinks(piece, `${key}-${index}`),
@@ -352,7 +353,7 @@ export const NewsPage: React.FC = () => {
           rel="noopener noreferrer"
           className="flex items-center gap-3 mb-6 px-5 py-4 rounded-2xl border border-zinc-200 dark:border-white/5 bg-white dark:bg-suno-card hover:border-zinc-300 dark:hover:border-white/10 transition-all group"
         >
-          <Github size={20} className="text-zinc-500 dark:text-zinc-400 flex-shrink-0" />
+          <SiGithub size={20} className="text-zinc-500 dark:text-zinc-400 flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{STUDIO.repo}</p>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">{t('starRepo')}</p>

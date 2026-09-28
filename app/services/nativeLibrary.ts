@@ -208,7 +208,7 @@ export async function deleteNativeSong(id: string): Promise<void> {
   if (!response.ok) throw new Error(`Native song deletion failed (${response.status})`);
 }
 
-function parseDuration(value: string): number | undefined {
+export function parseDuration(value: string): number | undefined {
   const match = /^(\d+):(\d{2})$/.exec(value);
   return match ? Number(match[1]) * 60 + Number(match[2]) : undefined;
 }

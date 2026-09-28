@@ -3,14 +3,14 @@ import { Song, Playlist } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
 import { ArrowLeft, Play, MoreHorizontal, Clock, Calendar, Shuffle, Trash2, Mic2, Music } from 'lucide-react';
-import { deleteNativePlaylist, getNativePlaylist, loadNativeLibrarySongs, updateNativePlaylist } from '../services/nativeLibrary';
+import { deleteNativePlaylist, getNativePlaylist, loadNativeLibrarySongs, parseDuration, updateNativePlaylist } from '../services/nativeLibrary';
 
 interface PlaylistDetailProps {
     playlistId: string;
     onBack: () => void;
     onPlaySong: (song: Song, list?: Song[]) => void;
     onSelect: (song: Song) => void;
-    onNavigateToProfile: (username: string) => void;
+    onNavigateToProfile?: (username: string) => void;
 }
 
 export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBack, onPlaySong, onSelect, onNavigateToProfile }) => {
@@ -135,7 +135,7 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
                         {playlist.creator && (
                             <div
                                 className="flex items-center gap-2 cursor-pointer hover:underline"
-                                onClick={() => onNavigateToProfile(playlist.creator!)}
+                                onClick={() => onNavigateToProfile?.(playlist.creator!)}
                             >
                                 {playlist.creator_avatar ? (
                                     <img src={playlist.creator_avatar} alt={playlist.creator} className="w-5 h-5 md:w-6 md:h-6 rounded-full object-cover" />
@@ -149,9 +149,10 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
                         <span>{songCount(songs.length)}</span>
                         <span className="w-1 h-1 rounded-full bg-white/50 hidden md:block"></span>
                         <span className="text-zinc-400 hidden md:block">
-                            {songs.reduce((acc, s) => acc + (s.duration ? (typeof s.duration === 'string' ? 0 : s.duration) : 0), 0) > 0
-                                ? Math.floor(songs.reduce((acc, s) => acc + (s.duration as number || 0), 0) / 60) + " " + t('min')
-                                : ""}
+                            {(() => {
+                                const seconds = songs.reduce((acc, s) => acc + (parseDuration(s.duration) ?? 0), 0);
+                                return seconds > 0 ? `${Math.floor(seconds / 60)} ${t('min')}` : '';
+                            })()}
                         </span>
                     </div>
                 </div>
@@ -191,7 +192,7 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
                         <span>#</span>
                         <span>{t('title')}</span>
                         <span>{t('artist')}</span>
-                        <span>{t('dateAdded')}</span>
+                        <span>{t('created')}</span>
                         <span className="text-right"><Clock size={16} className="inline" /></span>
                     </div>
 
@@ -225,7 +226,7 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
                                     <div className="flex flex-col truncate min-w-0">
                                         <span className="font-medium text-white truncate">{song.title}</span>
                                         <span className="text-xs text-zinc-500 group-hover:text-zinc-400 truncate">
-                                            {song.creator || t('unknown')} <span className="md:hidden">• {song.duration ? `${Math.floor(song.duration / 60)}:${String(Math.floor(song.duration % 60)).padStart(2, '0')}` : '0:00'}</span>
+                                            {song.creator || t('unknown')} <span className="md:hidden">• {song.duration || '0:00'}</span>
                                         </span>
                                     </div>
                                 </div>
@@ -233,20 +234,20 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
                                 {/* Artist - hidden on mobile */}
                                 <span className="hidden md:block hover:underline cursor-pointer truncate" onClick={(e) => {
                                     e.stopPropagation();
-                                    song.creator && onNavigateToProfile(song.creator);
+                                    song.creator && onNavigateToProfile?.(song.creator);
                                 }}>
                                     {song.creator || t('unknown')}
                                 </span>
 
                                 {/* Date Added - hidden on mobile */}
                                 <span className="hidden md:block">
-                                    {song.addedAt ? new Date(song.addedAt).toLocaleDateString() : t('justNow')}
+                                    {new Date(song.createdAt).toLocaleDateString()}
                                 </span>
 
                                 {/* Duration + Actions */}
                                 <div className="hidden md:flex items-center justify-end gap-4">
                                     <span className="font-mono text-xs">
-                                        {song.duration ? `${Math.floor(song.duration / 60)}:${String(Math.floor(song.duration % 60)).padStart(2, '0')}` : '0:00'}
+                                        {song.duration || '0:00'}
                                     </span>
                                     {isOwner && (
                                         <button

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check, Cloud, Cpu, Eye, EyeOff, Loader2, RefreshCw } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
+import type { TranslationKey } from '../i18n/translations';
 import { ProxySettings } from './ProxySettings';
 
 /**
@@ -19,7 +20,7 @@ import { ProxySettings } from './ProxySettings';
 
 type CapabilityId = 'music_generation' | 'speech_to_text' | 'prompt_enhancement' | 'cover_art';
 
-const CAPABILITY_KEY: Record<CapabilityId, string> = {
+const CAPABILITY_KEY: Record<CapabilityId, TranslationKey> = {
   music_generation: 'capabilityMusic',
   speech_to_text: 'capabilitySpeech',
   prompt_enhancement: 'capabilityAssistant',
@@ -125,7 +126,7 @@ export const ProviderSettings: React.FC = () => {
   useEffect(() => {
     if (selections.length === 0 || Object.keys(suggested).length === 0) return;
     const filled = selections.map(selection =>
-      selection.execution_mode === 'open_router' && !selection.cloud_model && suggested[selection.capability]
+      selection.mode === 'open_router' && !selection.cloud_model && suggested[selection.capability]
         ? { ...selection, cloud_model: suggested[selection.capability] as string }
         : selection,
     );

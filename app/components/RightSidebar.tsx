@@ -140,7 +140,7 @@ const KaraokeAction: React.FC<{ song: Song; onDone?: (lrc: string) => void }> = 
     );
 };
 
-export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpenCoverRegen, onReuse, onSongUpdate, onNavigateToProfile, onNavigateToSong, isLiked, onToggleLike, onPlay, isPlaying, currentSong }) => {
+export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpenCoverRegen, onReuse, onSongUpdate, onNavigateToProfile, isLiked, onToggleLike, onPlay, isPlaying, currentSong }) => {
     const { user } = useAuth();
     const { t, language } = useI18n();
     const adapterLibrary = useAdapterLibrary();
@@ -301,8 +301,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                             <div className="flex items-center gap-2 flex-1">
                                 {!isEditingTitle ? (
                                     <h2
-                                        onClick={() => onNavigateToSong?.(song.id)}
-                                        className="text-2xl font-bold text-zinc-900 dark:text-white leading-tight tracking-tight cursor-pointer hover:underline"
+                                        className="text-2xl font-bold text-zinc-900 dark:text-white leading-tight tracking-tight"
                                     >
                                         {song.title}
                                     </h2>

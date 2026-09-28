@@ -411,7 +411,7 @@ const DropZone: React.FC<{ onPicked: (files: PickedFile[]) => void; disabled?: b
         <button type="button" onClick={() => fileInput.current?.click()} className={OUTLINE}><Music size={13} />{t('trainingDropFiles')}</button>
       </div>
       <input ref={folderInput} type="file" multiple className="hidden" onChange={event => { take(pickedFromInput(event.target.files)); event.target.value = ''; }} />
-      <input ref={fileInput} type="file" multiple accept="audio/*,.wav,.mp3,.flac,.ogg,.m4a,.txt,.lrc,.cue" className="hidden" onChange={event => { take(pickedFromInput(event.target.files)); event.target.value = ''; }} />
+      <input ref={fileInput} type="file" multiple accept="audio/*,.wav,.mp3,.flac,.ogg,.m4a,.aiff,.aif,.txt,.lrc,.cue" className="hidden" onChange={event => { take(pickedFromInput(event.target.files)); event.target.value = ''; }} />
     </div>
   );
 };
@@ -957,8 +957,8 @@ const RunCard: React.FC<{ run: TrainingRun; epochs: boolean; onChanged: () => vo
   const cap = Number(last?.total) || Number(run.recipe.steps) || 1;
   // an engine that stops on drift reports it per step; the stop is on the mean of the last 20
   const target = Number(run.recipe.target_kl ?? 0);
-  const window = run.steps.slice(-20).map(step => step.ar_kl).filter((kl): kl is number => typeof kl === 'number');
-  const kl = window.length ? window.reduce((a, b) => a + b, 0) / window.length : null;
+  const lastKl = run.steps.slice(-20).map(step => step.ar_kl).filter((kl): kl is number => typeof kl === 'number');
+  const kl = lastKl.length ? lastKl.reduce((a, b) => a + b, 0) / lastKl.length : null;
   const recent = run.steps.slice(-10).map(step => step.step_ms).filter((ms): ms is number => typeof ms === 'number');
   const perStep = recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length / 1000 : 0;
   const left = last && perStep && target <= 0 ? (cap - last.step) * perStep : 0;

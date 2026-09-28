@@ -1005,7 +1005,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       )}
       <label className={`${ICON} cursor-pointer`} title={tt('aceUpload')}>
         {uploading === target ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-        <input type="file" accept="audio/*,.mp3,.wav,.flac,.ogg,.m4a" className="hidden" onChange={event => { const file = event.target.files?.[0]; if (file) void upload(target, file); event.target.value = ''; }} />
+        <input type="file" accept="audio/*,.mp3,.wav,.flac,.ogg,.m4a,.aiff,.aif" className="hidden" onChange={event => { const file = event.target.files?.[0]; if (file) void upload(target, file); event.target.value = ''; }} />
       </label>
     </div>
   );
