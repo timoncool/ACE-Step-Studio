@@ -619,10 +619,19 @@ fn verified_file(path: &Path, component: &Component) -> Result<bool> {
     if fs::metadata(path).map(|metadata| metadata.len()).unwrap_or(0) == 0 {
         return Ok(false);
     }
+    use std::io::Read;
     let mut file = fs::File::open(path)?;
     let mut digest = Sha256::new();
-    std::io::copy(&mut file, &mut digest)?;
-    Ok(format!("{:x}", digest.finalize()) == component.sha256)
+    let mut chunk = vec![0u8; 1 << 20];
+    loop {
+        let read = file.read(&mut chunk)?;
+        if read == 0 {
+            break;
+        }
+        digest.update(&chunk[..read]);
+    }
+    let hex: String = digest.finalize().iter().map(|byte| format!("{byte:02x}")).collect();
+    Ok(hex == component.sha256)
 }
 
 fn validate_model_root(root: &Path) -> Result<()> {

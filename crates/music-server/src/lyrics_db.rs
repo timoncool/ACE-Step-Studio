@@ -525,7 +525,7 @@ mod tests {
                 let path = entry.path();
                 if path.is_dir() {
                     stack.push(path);
-                } else if path.extension().and_then(|value| value.to_str()).is_some_and(|ext| ["flac", "mp3", "m4a", "ogg", "wav"].contains(&ext.to_lowercase().as_str())) {
+                } else if path.extension().and_then(|value| value.to_str()).is_some_and(|ext| ["flac", "mp3", "m4a", "ogg", "wav", "aiff", "aif"].contains(&ext.to_lowercase().as_str())) {
                     files.push(path);
                 }
             }

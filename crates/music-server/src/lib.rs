@@ -1844,7 +1844,7 @@ async fn upload_processing_reference(
             .extension()
             .and_then(|value| value.to_str())
             .map(str::to_ascii_lowercase)
-            .filter(|value| matches!(value.as_str(), "mp3" | "wav" | "flac" | "ogg" | "m4a"))
+            .filter(|value| matches!(value.as_str(), "mp3" | "wav" | "flac" | "ogg" | "m4a" | "aiff" | "aif"))
             .ok_or_else(|| api_error(StatusCode::BAD_REQUEST, "the reference must be MP3, WAV, FLAC, OGG or M4A".into()))?;
         let bytes = field.bytes().await.map_err(|e| api_error(StatusCode::BAD_REQUEST, format!("read the upload: {e}")))?;
         let folder = processing::workspace(state.library.media_dir());
@@ -2204,7 +2204,7 @@ async fn upload_training_files(State(state): State<AppState>, Path(id): Path<Str
             let bytes = field.bytes().await.map_err(|e| api_error(StatusCode::BAD_REQUEST, format!("read {name}: {e}")))?;
             let (file, tracks) = training::cue_sheet(&bytes);
             cues.push((stem, file, tracks));
-        } else if [".wav", ".mp3", ".flac", ".ogg", ".m4a"].iter().any(|extension| lower.ends_with(extension)) {
+        } else if [".wav", ".mp3", ".flac", ".ogg", ".m4a", ".aiff", ".aif"].iter().any(|extension| lower.ends_with(extension)) {
             let path = folder.0.join(format!("{}-{name}", audio.len()));
             save_upload(field, &path).await?;
             audio.push((path, stem, name, relative));

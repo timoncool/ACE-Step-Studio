@@ -672,7 +672,7 @@ fn folder_files(folder: &Path, keep: fn(&Path) -> bool, what: &str) -> Result<Ve
 /// Audio, lyrics and cue files: what a dropped folder of songs brings.
 fn song_file(path: &Path) -> bool {
     let extension = path.extension().and_then(|value| value.to_str()).unwrap_or_default().to_lowercase();
-    ["wav", "mp3", "flac", "ogg", "m4a", "txt", "lrc", "cue"].contains(&extension.as_str())
+    ["wav", "mp3", "flac", "ogg", "m4a", "aiff", "aif", "txt", "lrc", "cue"].contains(&extension.as_str())
 }
 
 /// A dataset folder of the studio family: its dataset.json and WAV files.

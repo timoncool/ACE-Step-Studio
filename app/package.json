@@ -18,7 +18,6 @@
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
     "@icons-pack/react-simple-icons": "^13.15.1",
-    "@openrouter/sdk": "^0.12.26",
     "@tauri-apps/api": "^2.9.1",
     "audiomotion-analyzer": "^4.5.4",
     "butterchurn": "^2.6.7",

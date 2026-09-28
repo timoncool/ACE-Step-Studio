@@ -17,7 +17,7 @@ anyhow.workspace = true
 # "today" and dates the agent names, in this computer's time zone.
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 # The folder picker for "use models I already have", the same crate Dub Studio uses.
-rfd = "0.15"
+rfd = "0.17"
 base64.workspace = true
 axum.workspace = true
 fs2.workspace = true

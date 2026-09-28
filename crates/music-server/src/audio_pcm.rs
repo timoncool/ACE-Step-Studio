@@ -9,12 +9,12 @@ use std::io::{BufWriter, Write};
 use std::path::Path;
 
 use anyhow::{bail, Context, Result};
-use symphonia::core::audio::SampleBuffer;
-use symphonia::core::codecs::DecoderOptions;
-use symphonia::core::formats::FormatOptions;
+use symphonia::core::codecs::audio::AudioDecoderOptions;
+use symphonia::core::codecs::CodecParameters;
+use symphonia::core::formats::probe::Hint;
+use symphonia::core::formats::{FormatOptions, FormatReader, TrackType};
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
-use symphonia::core::probe::Hint;
 
 const TARGET_RATE: u32 = 16_000;
 
@@ -173,53 +173,59 @@ pub struct FileTags {
 }
 
 pub fn tags(path: &Path) -> FileTags {
-    use symphonia::core::meta::StandardTagKey;
-    let Ok(file) = File::open(path) else { return FileTags::default() };
-    let mut hint = Hint::new();
-    if let Some(extension) = path.extension().and_then(|value| value.to_str()) {
-        hint.with_extension(extension);
-    }
-    let Ok(mut probed) = symphonia::default::get_probe().format(&hint, MediaSourceStream::new(Box::new(file), Default::default()), &FormatOptions::default(), &MetadataOptions::default()) else {
-        return FileTags::default();
-    };
+    use symphonia::core::meta::StandardTag;
+    let Ok(mut format) = open_format(path) else { return FileTags::default() };
     let mut found = FileTags::default();
-    let mut read = |revision: &symphonia::core::meta::MetadataRevision| {
-        for tag in revision.tags() {
-            let value = tag.value.to_string().trim().to_string();
-            match tag.std_key {
-                Some(StandardTagKey::TrackTitle) if found.title.is_empty() => found.title = value,
-                Some(StandardTagKey::Artist) if found.artist.is_empty() => found.artist = value,
-                Some(StandardTagKey::AlbumArtist) if found.artist.is_empty() => found.artist = value,
-                Some(StandardTagKey::Lyrics) if found.lyrics.is_empty() => found.lyrics = value,
-                Some(StandardTagKey::Genre) if found.genre.is_empty() => found.genre = value,
-                Some(StandardTagKey::Bpm) if found.bpm.is_empty() => found.bpm = value,
-                None if found.key.is_empty() && matches!(tag.key.to_ascii_uppercase().as_str(), "TKEY" | "INITIALKEY" | "KEY") => found.key = value,
-                _ => {}
+    // Tags read ahead of the container (an ID3 block before MP3 frames) are
+    // queued on the reader with the container's own; every revision is read.
+    let mut metadata = format.metadata();
+    loop {
+        if let Some(revision) = metadata.current() {
+            for tag in &revision.media.tags {
+                let trimmed = |value: &str| value.trim().to_string();
+                match &tag.std {
+                    Some(StandardTag::TrackTitle(value)) if found.title.is_empty() => found.title = trimmed(value),
+                    Some(StandardTag::Artist(value)) if found.artist.is_empty() => found.artist = trimmed(value),
+                    Some(StandardTag::AlbumArtist(value)) if found.artist.is_empty() => found.artist = trimmed(value),
+                    Some(StandardTag::Lyrics(value)) if found.lyrics.is_empty() => found.lyrics = trimmed(value),
+                    Some(StandardTag::Genre(value)) if found.genre.is_empty() => found.genre = trimmed(value),
+                    Some(StandardTag::Bpm(value)) if found.bpm.is_empty() => found.bpm = value.to_string(),
+                    Some(StandardTag::InitialKey(value)) if found.key.is_empty() => found.key = trimmed(value),
+                    None if found.key.is_empty() && matches!(tag.raw.key.to_ascii_uppercase().as_str(), "TKEY" | "INITIALKEY" | "KEY") => found.key = trimmed(&tag.raw.value.to_string()),
+                    _ => {}
+                }
             }
         }
-    };
-    if let Some(revision) = probed.format.metadata().current() {
-        read(revision);
-    }
-    if let Some(revision) = probed.metadata.get().as_ref().and_then(|metadata| metadata.current().cloned()) {
-        read(&revision);
+        if metadata.is_latest() {
+            break;
+        }
+        metadata.pop();
     }
     found
+}
+
+fn open_format(path: &Path) -> Result<Box<dyn FormatReader>> {
+    let file = File::open(path).with_context(|| format!("open {}", path.display()))?;
+    probe(Box::new(file), path.extension().and_then(|value| value.to_str()))
+}
+
+fn probe(source: Box<dyn symphonia::core::io::MediaSource>, extension: Option<&str>) -> Result<Box<dyn FormatReader>> {
+    let mut hint = Hint::new();
+    if let Some(extension) = extension {
+        hint.with_extension(extension);
+    }
+    symphonia::default::get_probe()
+        .probe(&hint, MediaSourceStream::new(source, Default::default()), FormatOptions::default(), MetadataOptions::default())
+        .context("recognise the audio format")
 }
 
 /// A file's length from its header, without decoding it.
 #[cfg(test)]
 pub fn duration_seconds(path: &Path) -> Option<f64> {
-    let file = File::open(path).ok()?;
-    let mut hint = Hint::new();
-    if let Some(extension) = path.extension().and_then(|value| value.to_str()) {
-        hint.with_extension(extension);
-    }
-    let probed = symphonia::default::get_probe().format(&hint, MediaSourceStream::new(Box::new(file), Default::default()), &FormatOptions::default(), &MetadataOptions::default()).ok()?;
-    let track = probed.format.default_track()?;
-    let frames = track.codec_params.n_frames? as f64;
-    let rate = track.codec_params.sample_rate? as f64;
-    Some(frames / rate)
+    let format = open_format(path).ok()?;
+    let track = format.default_track(TrackType::Audio)?;
+    let Some(CodecParameters::Audio(params)) = &track.codec_params else { return None };
+    Some(track.num_frames? as f64 / params.sample_rate? as f64)
 }
 
 fn decode_channels(path: &Path) -> Result<(Vec<Vec<f32>>, u32)> {
@@ -241,42 +247,28 @@ pub fn decode_stereo_bytes(bytes: Vec<u8>, extension: &str) -> Result<audio_post
 }
 
 fn decode_source(source: Box<dyn symphonia::core::io::MediaSource>, extension: Option<&str>) -> Result<(Vec<Vec<f32>>, u32)> {
-    let stream = MediaSourceStream::new(source, Default::default());
-
-    let mut hint = Hint::new();
-    if let Some(extension) = extension {
-        hint.with_extension(extension);
-    }
-
-    let probed = symphonia::default::get_probe()
-        .format(&hint, stream, &FormatOptions::default(), &MetadataOptions::default())
-        .context("recognise the audio format")?;
-    let mut format = probed.format;
-    let track = format
-        .tracks()
-        .iter()
-        .find(|track| track.codec_params.codec != symphonia::core::codecs::CODEC_TYPE_NULL)
-        .context("the file carries no decodable audio track")?;
+    let mut format = probe(source, extension)?;
+    let track = format.default_track(TrackType::Audio).context("the file carries no decodable audio track")?;
     let track_id = track.id;
+    let Some(CodecParameters::Audio(params)) = &track.codec_params else {
+        bail!("the file carries no decodable audio track");
+    };
+    let mut rate = params.sample_rate.unwrap_or(44_100);
     let mut decoder = symphonia::default::get_codecs()
-        .make(&track.codec_params, &DecoderOptions::default())
+        .make_audio_decoder(params, &AudioDecoderOptions::default())
         .context("no decoder for this audio")?;
 
     let mut planes: Vec<Vec<f32>> = Vec::new();
-    let mut rate = track.codec_params.sample_rate.unwrap_or(44_100);
-    let mut buffer: Option<SampleBuffer<f32>> = None;
-
+    let mut packet_planes: Vec<Vec<f32>> = Vec::new();
     loop {
         let packet = match format.next_packet() {
-            Ok(packet) => packet,
-            Err(symphonia::core::errors::Error::IoError(error))
-                if error.kind() == std::io::ErrorKind::UnexpectedEof =>
-            {
-                break
-            }
+            Ok(Some(packet)) => packet,
+            Ok(None) => break,
+            // a file cut short still gives what it has
+            Err(symphonia::core::errors::Error::IoError(error)) if error.kind() == std::io::ErrorKind::UnexpectedEof => break,
             Err(error) => return Err(error).context("read audio packet"),
         };
-        if packet.track_id() != track_id {
+        if packet.track_id != track_id {
             continue;
         }
         let decoded = match decoder.decode(&packet) {
@@ -284,18 +276,13 @@ fn decode_source(source: Box<dyn symphonia::core::io::MediaSource>, extension: O
             Err(symphonia::core::errors::Error::DecodeError(_)) => continue,
             Err(error) => return Err(error).context("decode audio packet"),
         };
-        let spec = *decoded.spec();
-        rate = spec.rate;
-        let channels = spec.channels.count().max(1);
-        if planes.len() < channels {
-            planes.resize(channels, Vec::new());
+        rate = decoded.spec().rate();
+        decoded.copy_to_vecs_planar(&mut packet_planes);
+        if planes.len() < packet_planes.len() {
+            planes.resize(packet_planes.len(), Vec::new());
         }
-        let target = buffer.get_or_insert_with(|| SampleBuffer::new(decoded.capacity() as u64, spec));
-        target.copy_interleaved_ref(decoded);
-        for frame in target.samples().chunks(channels) {
-            for (channel, sample) in frame.iter().enumerate() {
-                planes[channel].push(*sample);
-            }
+        for (plane, samples) in planes.iter_mut().zip(&packet_planes) {
+            plane.extend_from_slice(samples);
         }
     }
 
@@ -304,61 +291,10 @@ fn decode_source(source: Box<dyn symphonia::core::io::MediaSource>, extension: O
 
 /// Every channel averaged into one, at the file's own sample rate.
 fn decode_mono(path: &Path) -> Result<(Vec<f32>, u32)> {
-    let file = File::open(path).with_context(|| format!("open {}", path.display()))?;
-    let stream = MediaSourceStream::new(Box::new(file), Default::default());
-
-    let mut hint = Hint::new();
-    if let Some(extension) = path.extension().and_then(|value| value.to_str()) {
-        hint.with_extension(extension);
-    }
-
-    let probed = symphonia::default::get_probe()
-        .format(&hint, stream, &FormatOptions::default(), &MetadataOptions::default())
-        .with_context(|| format!("recognise the format of {}", path.display()))?;
-    let mut format = probed.format;
-    let track = format
-        .tracks()
-        .iter()
-        .find(|track| track.codec_params.codec != symphonia::core::codecs::CODEC_TYPE_NULL)
-        .context("the file carries no decodable audio track")?;
-    let track_id = track.id;
-    let mut decoder = symphonia::default::get_codecs()
-        .make(&track.codec_params, &DecoderOptions::default())
-        .context("no decoder for this audio")?;
-
-    let mut mono = Vec::new();
-    let mut rate = track.codec_params.sample_rate.unwrap_or(44_100);
-    let mut buffer: Option<SampleBuffer<f32>> = None;
-
-    loop {
-        let packet = match format.next_packet() {
-            Ok(packet) => packet,
-            // The end of the stream arrives as an error from this API.
-            Err(symphonia::core::errors::Error::IoError(error))
-                if error.kind() == std::io::ErrorKind::UnexpectedEof =>
-            {
-                break
-            }
-            Err(error) => return Err(error).context("read audio packet"),
-        };
-        if packet.track_id() != track_id {
-            continue;
-        }
-        let decoded = match decoder.decode(&packet) {
-            Ok(decoded) => decoded,
-            Err(symphonia::core::errors::Error::DecodeError(_)) => continue,
-            Err(error) => return Err(error).context("decode audio packet"),
-        };
-        let spec = *decoded.spec();
-        rate = spec.rate;
-        let channels = spec.channels.count().max(1);
-        let target = buffer.get_or_insert_with(|| SampleBuffer::new(decoded.capacity() as u64, spec));
-        target.copy_interleaved_ref(decoded);
-        for frame in target.samples().chunks(channels) {
-            mono.push(frame.iter().sum::<f32>() / channels as f32);
-        }
-    }
-
+    let (planes, rate) = decode_channels(path)?;
+    let Some(first) = planes.first() else { return Ok((Vec::new(), rate)) };
+    let count = planes.len() as f32;
+    let mono = (0..first.len()).map(|index| planes.iter().map(|plane| plane.get(index).copied().unwrap_or(0.0)).sum::<f32>() / count).collect();
     Ok((mono, rate))
 }
 

@@ -1678,7 +1678,8 @@ mod tests {
     fn an_mp3_brings_its_lyrics_genre_and_tempo_from_its_tags() {
         let path = std::env::temp_dir().join(format!("studio-tags-{}.mp3", uuid::Uuid::now_v7()));
         let mut frame = vec![0xFF, 0xFB, 0x90, 0x64];
-        frame.resize(418, 0);
+        // 128 kbit/s at 44.1 kHz without padding: 144 * 128000 / 44100 = 417 bytes
+        frame.resize(417, 0);
         std::fs::write(&path, frame.repeat(20)).unwrap();
         crate::tagging::write_mp3_tags(&path, &crate::tagging::TrackTags {
             title: "Дорога домой".into(),
