@@ -6321,6 +6321,20 @@ async fn ace_job(state: &AppState, run: AceRun) -> anyhow::Result<Vec<CompletedS
         lm_request["lm_mode"] = Value::from("generate");
         let lm_job = engine_step(state, &job_id, || state.music_server.submit_lm(std::slice::from_ref(&lm_request))).await?;
         state.music_server.lm_result(&lm_job).await?
+    } else if task == "text2music" && !has_codes && !has_length(&request) {
+        // Without the planner's codes (a sound LoRA) the engine renders 30 s
+        // when no length is given. The planner still reads the song for its
+        // length, tempo and key; its words and caption stay the user's.
+        set_job(state, &job_id, |job| job.message = "The language model is reading the song for its length.".into()).await;
+        let mut lm_request = request.clone();
+        lm_request["lm_mode"] = Value::from("format");
+        let lm_job = engine_step(state, &job_id, || state.music_server.submit_lm(std::slice::from_ref(&lm_request))).await?;
+        let read = state.music_server.lm_result(&lm_job).await?;
+        let filled = with_planned_metadata(&request, read.first().context("the language model returned no plan")?);
+        if !has_length(&filled) {
+            anyhow::bail!("the language model gave the song no length; set the duration in the form");
+        }
+        vec![filled]
     } else {
         vec![request.clone()]
     };
@@ -6348,6 +6362,31 @@ async fn ace_job(state: &AppState, run: AceRun) -> anyhow::Result<Vec<CompletedS
         imported.push(import_take(state, &job, &request, take, source_song_id.as_deref(), reference_song_id.as_deref(), fades).await?);
     }
     Ok(imported)
+}
+
+/// Whether a request names its length.
+fn has_length(request: &Value) -> bool {
+    request.get("duration").and_then(Value::as_f64).is_some_and(|seconds| seconds > 0.0)
+}
+
+/// The request with what the planner read of the song - length, tempo, key,
+/// metre - filled in where the request left them out.
+fn with_planned_metadata(request: &Value, planned: &Value) -> Value {
+    let mut out = request.clone();
+    for key in ["duration", "bpm", "keyscale", "timesignature"] {
+        let missing = match out.get(key) {
+            None | Some(Value::Null) => true,
+            Some(Value::Number(number)) => number.as_f64().is_some_and(|value| value <= 0.0),
+            Some(Value::String(text)) => text.trim().is_empty(),
+            Some(_) => false,
+        };
+        if let Some(value) = planned.get(key).filter(|value| !value.is_null()) {
+            if missing {
+                out[key] = value.clone();
+            }
+        }
+    }
+    out
 }
 
 /// A library track's audio, and the latent it was rendered from when the
@@ -6925,6 +6964,21 @@ fn api_error(status: StatusCode, error: String) -> (StatusCode, Json<ApiError>) 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_planner_fills_only_what_the_request_left_out() {
+        let request = serde_json::json!({ "caption": "c", "lyrics": "mine", "duration": 0, "bpm": 120, "keyscale": "" });
+        let planned = serde_json::json!({ "caption": "theirs", "lyrics": "theirs", "duration": 184.0, "bpm": 90, "keyscale": "A minor", "timesignature": "4" });
+        let filled = with_planned_metadata(&request, &planned);
+        assert_eq!(filled["duration"], 184.0);
+        assert_eq!(filled["bpm"], 120);
+        assert_eq!(filled["keyscale"], "A minor");
+        assert_eq!(filled["timesignature"], "4");
+        assert_eq!(filled["lyrics"], "mine");
+        assert_eq!(filled["caption"], "c");
+        assert!(has_length(&filled));
+        assert!(!has_length(&request));
+    }
 
     #[test]
     fn a_song_file_is_found_in_the_media_folder_however_its_path_is_written() {
