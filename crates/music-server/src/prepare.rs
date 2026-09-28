@@ -259,7 +259,9 @@ fn launch(state: &AppState, job: Job) -> anyhow::Result<PrepareStatus> {
         }
         // finished, stopped or failed: nothing to pick up after a restart
         let _ = std::fs::remove_file(background.training.prepare_job_path());
-        let clean = outcome.is_ok() && !cancelled && shared.lock().unwrap_or_else(|p| p.into_inner()).as_ref().is_some_and(|status| status.failures.is_empty());
+        let clean = outcome.is_ok()
+            && !cancelled
+            && shared.lock().unwrap_or_else(|p| p.into_inner()).as_ref().is_some_and(|status| status.failures.is_empty() && !status.notices.contains(&ASSISTANT_MISSING));
         let train = background.prepare_train.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).take();
         if let (true, Writer::Studio, Some(train)) = (clean, job.writer, train) {
             stage(&shared, "training", Vec::new());
@@ -290,6 +292,93 @@ pub async fn set_train_after(State(state): State<AppState>, Json(request): Json<
     *state.prepare_train.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = request.train;
     update(&state.prepare, |status| status.train_after = on);
     Json(serde_json::json!({ "train_after": on }))
+}
+
+/// A library song by ear: MOSS-Music hears it and writes the caption a
+/// dataset song gets, with its tempo, key and metre measured. For a cover of
+/// a recording that came without a caption.
+pub async fn describe_song_style(State(state): State<AppState>, Path(song_id): Path<String>) -> Result<Json<serde_json::Value>, (StatusCode, Json<ApiError>)> {
+    if !state.training.listen_ready() {
+        return Err(api_error(StatusCode::CONFLICT, "auto-describe (MOSS-Music) is not installed; install it on the training page".into()));
+    }
+    if state.training.active_run().await.is_some() || state.prepare.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).as_ref().is_some_and(|job| !job.finished) {
+        return Err(api_error(StatusCode::CONFLICT, "the card is training or preparing songs; describe once it is free".into()));
+    }
+    let song = state.library.get_song(&song_id).map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("{error:#}")))?
+        .ok_or_else(|| api_error(StatusCode::NOT_FOUND, format!("no library song {song_id}")))?;
+    let audio = state.library.media_path_for_song(&song).ok_or_else(|| api_error(StatusCode::BAD_REQUEST, format!("{} has no audio", song.title)))?;
+
+    let hooks = crate::card_hooks(&state).await;
+    (hooks.take)().await;
+    crate::release_assistant_unless_kept(&state).await;
+    let heard = async {
+        if crate::cuda_build::current() == Some(crate::cuda_build::CudaBuild::Cuda13) {
+            state.engine_runtime.install_missing(crate::cuda_build::CudaBuild::Cuda13).await.context("install cuBLAS for the captioner")?;
+        }
+        let (captioner, moss, facts_dir, libraries) = (state.training.captioner(), state.training.moss_dir(), state.training.audio_facts_dir(), crate::engine_bundle_root());
+        tokio::task::spawn_blocking(move || -> anyhow::Result<listen::Heard> {
+            let facts = audio_facts::Measurer::load(&facts_dir, true)?.measure_mono(&audio_facts::decode(&audio)?)?;
+            let cancel = AtomicBool::new(false);
+            let mut caption: Option<anyhow::Result<String>> = None;
+            listen::hear_batch(&captioner, &moss, Some(&libraries), std::slice::from_ref(&audio), &cancel, |_, heard| caption = Some(heard))?;
+            let caption = caption.context("MOSS-Music wrote nothing for the song")??;
+            listen::heard(&caption, &facts)
+        })
+        .await?
+    }
+    .await;
+    (hooks.give_back)().await;
+    let heard = heard.map_err(|error| api_error(StatusCode::BAD_GATEWAY, format!("{error:#}")))?;
+    Ok(Json(serde_json::json!({ "style": heard.caption, "genre": heard.genre, "bpm": heard.bpm, "keyscale": heard.keyscale, "timesignature": heard.timesignature })))
+}
+
+/// The notice of a preparation that found songs to write and no assistant.
+const ASSISTANT_MISSING: &str = "assistant_missing";
+
+#[derive(Debug, Default, Deserialize)]
+pub struct TakeAsIsRequest {
+    #[serde(default)]
+    pub items: Option<Vec<String>>,
+}
+
+/// Songs whose lyrics were found, taken as they are: the lyrics without
+/// their times and section tags. For a studio with no writing assistant; the
+/// caption needs none, MOSS-Music writes it whole.
+pub async fn take_as_is(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Json(request): Json<TakeAsIsRequest>,
+) -> Result<Json<training::Dataset>, (StatusCode, Json<ApiError>)> {
+    use training::LyricsState;
+    let preparing = state.prepare.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).as_ref().is_some_and(|job| !job.finished && job.dataset == id);
+    if preparing {
+        return Err(api_error(StatusCode::CONFLICT, "the songs are being prepared; wait for it or stop it".into()));
+    }
+    let dataset = state.training.dataset(&id).map_err(crate::training_error)?;
+    for item in dataset.items.iter().filter(|item| request.items.as_ref().is_none_or(|ids| ids.contains(&item.id))) {
+        let mut patch = training::ItemPatch::default();
+        let mut changed = false;
+        if item.lyrics_state == LyricsState::Found {
+            patch.lyrics = Some(plain_lyrics(&item.lyrics));
+            patch.instrumental = Some(false);
+            patch.lyrics_state = Some(LyricsState::Done);
+            changed = true;
+        }
+        if changed {
+            state.training.update_item(&id, &item.id, patch).map_err(crate::training_error)?;
+        }
+    }
+    let mut status = state.prepare.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some(status) = status.as_mut().filter(|status| status.dataset == id) {
+        status.notices.retain(|notice| *notice != ASSISTANT_MISSING);
+    }
+    drop(status);
+    Ok(Json(state.training.dataset(&id).map_err(crate::training_error)?))
+}
+
+/// Found lyrics as plain lines: a recognised transcript loses its times.
+fn plain_lyrics(found: &str) -> String {
+    found.lines().map(|line| without_time(line.trim())).filter(|line| !line.is_empty()).collect::<Vec<_>>().join("\n")
 }
 
 pub async fn cancel(State(state): State<AppState>) -> Json<serde_json::Value> {
@@ -374,6 +463,16 @@ async fn run(state: &AppState, job: &Job) -> anyhow::Result<()> {
     settle_pending(&state.training, job, &shared, can_listen, Passed::Listening);
     // an agent lays out what is left found itself
     if job.writer == Writer::Agent {
+        return Ok(());
+    }
+    // without an assistant nothing lays the lyrics out or writes the styles:
+    // the songs stay found and heard, and the page offers to set one up or
+    // to take them as they are, instead of every song failing on its own
+    let unwritten = songs(state, job)?
+        .iter()
+        .any(|item| (job.lyrics && item.lyrics_state == LyricsState::Found) || (job.style && item.style_state == StyleState::Heard));
+    if unwritten && !state.assistant.read().await.available() {
+        update(&shared, |status| status.notices.push(ASSISTANT_MISSING));
         return Ok(());
     }
     let outcome = async {
@@ -874,6 +973,11 @@ pub(crate) async fn lay_out_lyrics(state: &AppState, transcript: &str, target: a
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn found_lyrics_taken_as_they_are_lose_only_their_times() {
+        assert_eq!(plain_lyrics("[0:12] Среди связок\n\n[1:05] [Смех] ха-ха\nбез времени"), "Среди связок\n[Смех] ха-ха\nбез времени");
+    }
 
     #[test]
     fn only_a_time_leaves_the_start_of_a_line() {

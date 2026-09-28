@@ -918,7 +918,7 @@ fn tools() -> &'static [Tool] {
             Tool {
                 name: "player_set",
                 description: "Set the player's volume (0 to 1), shuffle, and repeat (none, all, one).",
-                schema: || object(json!({ "volume": { "type": "number" }, "shuffle": { "type": "boolean" }, "repeat": { "type": "string", "enum": ["none", "all", "one"] } }), &[]),
+                schema: || object(json!({ "volume": { "type": "number" }, "shuffle": { "type": "boolean" }, "repeat": { "type": "string", "enum": ["none", "all", "one", "stop"], "description": "stop: play the current track to its end and stay there" } }), &[]),
                 call: |args| window("player_set", args, 15),
             },
             // ---------------------------------------------------------------- the equalizer, the visualiser, the Winamp mode
@@ -1146,6 +1146,7 @@ fn tools() -> &'static [Tool] {
                     "caption": { "type": "string" },
                     "lyrics": { "type": "string" },
                     "title": { "type": "string" },
+                    "playlist_id": { "type": "string", "description": "a playlist (see playlist_list) the made songs are added to" },
                     "vocal_language": { "type": "string", "description": "en, ru, zh, ja, ko, es, fr, de, it, pt ... or unknown" },
                     "duration": { "type": "number", "description": "seconds, up to 600; left out, the language model decides" },
                     "bpm": { "type": "integer" },
@@ -1936,6 +1937,24 @@ fn tools() -> &'static [Tool] {
                     "writer": { "type": "string", "enum": ["studio", "agent"], "description": "agent: the studio finds, recognises and captions, and leaves the lyric layout to you - songs stay lyrics_state 'found' (lyrics as found, lyrics_source says from where); lay them out with dataset_song_update, following writing_guide topics sections and transcript" }
                 }), &["dataset_id"]),
                 call: |args| post(format!("/v1/training/datasets/{}/prepare", segment(&text(args, "dataset_id")?)), body_without(args, &["dataset_id"])),
+            },
+            Tool {
+                name: "lora_export_comfyui",
+                description: "Write a trained LoRA as one file for ComfyUI's native ACE-Step 1.5 (the DiT's LoKr or LoRA under diffusion_model.decoder, scale folded in; the stock LoRA loader takes it). path: full path ending in .safetensors. strength: folded in, 1 when left out.",
+                schema: || object(json!({ "lora_id": { "type": "string" }, "path": { "type": "string" }, "strength": { "type": "number" } }), &["lora_id", "path"]),
+                call: |args| post(format!("/v1/adapters/{}/comfyui", segment(&text(args, "lora_id")?)), body_without(args, &["lora_id"])),
+            },
+            Tool {
+                name: "library_song_describe_style",
+                description: "Describe a library song by ear, for a cover of a recording that came without a caption: MOSS-Music hears it and writes the caption a dataset song gets, with bpm, keyscale and timesignature measured. Needs auto-describe installed; holds the card for a minute.",
+                schema: || object(json!({ "song_id": { "type": "string" } }), &["song_id"]),
+                call: |args| post(format!("/v1/library/songs/{}/describe-style", segment(&text(args, "song_id")?)), json!({})),
+            },
+            Tool {
+                name: "dataset_take_as_is",
+                description: "Without a writing assistant: keep the found lyrics as they are (no section tags) and the heard style as MOSS-Music described it, and mark those songs ready. items: song ids, all songs when left out.",
+                schema: || object(json!({ "dataset_id": { "type": "string" }, "items": { "type": "array", "items": { "type": "string" } } }), &["dataset_id"]),
+                call: |args| post(format!("/v1/training/datasets/{}/take-as-is", segment(&text(args, "dataset_id")?)), body_without(args, &["dataset_id"])),
             },
             Tool {
                 name: "dataset_prepare_cancel",

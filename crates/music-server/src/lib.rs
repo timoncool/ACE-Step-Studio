@@ -20,6 +20,9 @@ mod engine_runtime;
 mod lyrics_db;
 mod mcp;
 mod lyrics_sync;
+mod comfy_export;
+mod remote;
+pub use remote::{set_asset_source, AssetSource};
 mod credentials;
 mod model_manager;
 mod presets;
@@ -127,6 +130,9 @@ struct AppState {
 struct CreateMusicJobRequest {
     /// Library title only; never sent to the engine.
     title: Option<String>,
+    /// The playlist the made songs are added to.
+    #[serde(default)]
+    playlist_id: Option<String>,
     /// What the cover should show, when the assistant already described it.
     cover_prompt: Option<String>,
     /// Let the language model plan the song (metadata, lyrics, audio codes)
@@ -255,6 +261,9 @@ struct MusicJob {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     songs: Vec<CompletedSong>,
     message: String,
+    /// The playlist the made songs go into, a project the user works in.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    playlist_id: Option<String>,
     /// The engine job running for this song now, for cancel to reach.
     #[serde(skip)]
     engine_job: Option<String>,
@@ -353,6 +362,9 @@ struct PersistedStudioSettings {
     cover_auto: Option<bool>,
     #[serde(default)]
     proxy: Option<net::ProxySettings>,
+    /// Access from other computers, off unless turned on.
+    #[serde(default)]
+    network: Option<remote::NetworkAccess>,
 }
 
 #[derive(Default)]
@@ -382,6 +394,9 @@ struct EngineOptions {
     disable_flash_attention: bool,
     split_cfg_forwards: bool,
     clamp_fp16: bool,
+    /// The NVIDIA card, by its nvidia-smi index, that every CUDA process of
+    /// the studio computes on. None: the first. Taken at the studio's start.
+    gpu: Option<u32>,
 }
 
 impl EngineOptions {
@@ -495,7 +510,7 @@ enum AssistantProvider {
 }
 
 impl AssistantConfig {
-    fn available(&self) -> bool {
+    pub(crate) fn available(&self) -> bool {
         match self.provider {
             AssistantProvider::None => false,
             AssistantProvider::Agent => true,
@@ -560,6 +575,8 @@ pub async fn serve() -> anyhow::Result<()> {
         eprintln!("[ERROR] the saved proxy cannot be used, requests go straight out until it is fixed in Settings: {error:#}");
     }
     net::set(proxy);
+    let bind_to = remote::start(persisted.as_ref().and_then(|settings| settings.network.clone()));
+    let bind_to = remote::start(persisted.as_ref().and_then(|settings| settings.network.clone()));
     let model_manager = ModelManager::from_environment()?;
     let persisted_components = persisted
         .as_ref()
@@ -672,6 +689,7 @@ pub async fn serve() -> anyhow::Result<()> {
         .route("/v1/network/proxy/test", post(test_proxy))
         .route("/v1/assistant/status", get(assistant_status).put(update_assistant_settings))
         .route("/v1/assistant/local-models", get(assistant_local_models))
+        .route("/v1/assistant/local-key", post(set_local_server_key))
         .route("/v1/assistant/write", post(assistant_write))
         .route("/v1/assistant/write/stream", post(assistant_write_stream))
         .route("/v1/assistant/sections", post(assistant_sections))
@@ -744,6 +762,11 @@ pub async fn serve() -> anyhow::Result<()> {
         .route("/v1/library/songs/{id}/midi/file", get(song_midi_file))
         .route("/v1/training/datasets/{id}/items/{item}/files", get(dataset_song_files))
         .route("/v1/training/prepare/cancel", post(prepare::cancel))
+        .route("/v1/training/datasets/{id}/take-as-is", post(prepare::take_as_is))
+        .route("/v1/library/songs/{id}/describe-style", post(prepare::describe_song_style))
+        .route("/v1/system/gpus", get(system_gpus))
+        .route("/v1/network", get(remote::status).put(remote::change))
+        .route("/v1/adapters/{id}/comfyui", get(export_adapter_comfyui).post(save_adapter_comfyui))
         .route("/v1/training/prepare/train-after", post(prepare::set_train_after))
         .route("/v1/training/listen/install", post(install_listen_pack))
         .route("/v1/training/runs", post(start_training))
@@ -799,6 +822,8 @@ pub async fn serve() -> anyhow::Result<()> {
         .route("/mcp/status", get(mcp::status))
         .route("/mcp/window", get(mcp::window_events))
         .route("/mcp/window/result", post(mcp::window_result))
+        .fallback(remote::interface)
+        .layer(axum::middleware::from_fn(remote::guard))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
 
@@ -886,10 +911,10 @@ pub async fn serve() -> anyhow::Result<()> {
         });
     }
 
-    let address = SocketAddr::from(([127, 0, 0, 1], listen_port()));
+    let address = SocketAddr::from((bind_to, listen_port()));
     let listener = tokio::net::TcpListener::bind(address).await?;
     println!("music-server listening on http://{address}");
-    axum::serve(listener, app)
+    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
         .with_graceful_shutdown(shutdown())
         .await?;
     Ok(())
@@ -1950,6 +1975,9 @@ async fn read_training(State(state): State<AppState>) -> Json<Value> {
             }
             if active.as_deref() == Some(run.id.as_str()) || run.status == training::RunStatus::Failed {
                 value["log"] = serde_json::json!(training.log_tail(&run.id, 12));
+            }
+            if active.as_deref() == Some(run.id.as_str()) {
+                value["device"] = serde_json::json!(training.run_device(&run.id));
             }
             value
         })
@@ -3537,6 +3565,30 @@ fn last_run_log() -> String {
     tail[start..].join("\n")
 }
 
+/// The engine log of the run before the current one: after a restart, the
+/// run that ended is where the reason is.
+fn previous_run_log() -> String {
+    let tail = music_engine::server::startup_log_tail(600);
+    let starts: Vec<usize> = tail.iter().enumerate().filter(|(_, line)| line.contains("---- starting")).map(|(index, _)| index).collect();
+    match starts.as_slice() {
+        [.., before, last] => tail[*before..*last].join("\n"),
+        _ => tail.join("\n"),
+    }
+}
+
+/// Why a song was lost with an engine that restarted during it, from the log
+/// of the run that ended.
+fn lost_job_reason(log: &str) -> String {
+    let log = log.to_lowercase();
+    if describes_exhausted_memory(&log) {
+        "The graphics card ran out of memory on this song and the engine restarted, so the song was lost. Choose a smaller model set in the model manager or a shorter song, and close whatever else uses the card; a card below the smallest set cannot make songs.".into()
+    } else if describes_device_failure(&log) {
+        "The graphics card failed during this song (a CUDA or driver error) and the engine restarted, so the song was lost. The engine log is in Settings, Engine.".into()
+    } else {
+        "The engine stopped during this song and restarted, so the song was lost. The engine log is in Settings, Engine.".into()
+    }
+}
+
 /// Whether the engine ended without a word about why. Its own failures -
 /// an assertion, an error, running out of memory - are written before it
 /// goes; a device lost under the driver takes the process with nothing said.
@@ -3967,6 +4019,33 @@ pub fn studio_data_root() -> Option<PathBuf> {
     None
 }
 
+/// Points every CUDA process of the studio - the engine, the trainer, the
+/// assistant, the captioner, and ONNX Runtime inside the service - at the card
+/// chosen in the engine settings, numbered as nvidia-smi numbers them. Called
+/// by the desktop shell and the standalone service before anything starts.
+pub fn apply_saved_gpu() {
+    let Some(index) = load_studio_settings(&studio_settings_path()).and_then(|settings| settings.engine_options.gpu) else { return };
+    // SAFETY: called first thing in the process, before the service and its
+    // runtimes read the environment; on Windows the variables are set through
+    // SetEnvironmentVariableW, which is thread safe.
+    unsafe {
+        env::set_var("CUDA_DEVICE_ORDER", "PCI_BUS_ID");
+        env::set_var("CUDA_VISIBLE_DEVICES", index.to_string());
+    }
+}
+
+/// The NVIDIA cards nvidia-smi lists, and which one the studio runs on.
+async fn system_gpus(State(state): State<AppState>) -> Json<Value> {
+    let cards = tokio::task::spawn_blocking(cuda_build::nvidia_cards).await.unwrap_or_default();
+    let chosen = state.engine_options.read().await.gpu;
+    let running = env::var("CUDA_VISIBLE_DEVICES").ok().and_then(|value| value.trim().parse::<u32>().ok());
+    Json(serde_json::json!({
+        "cards": cards.iter().map(|(index, name, gigabytes)| serde_json::json!({ "index": index, "name": name, "memory_gb": gigabytes })).collect::<Vec<_>>(),
+        "chosen": chosen,
+        "running": running,
+    }))
+}
+
 /// The saved proxy, for the desktop shell to hand the window's browser before
 /// the service is up.
 pub fn saved_proxy() -> net::ProxySettings {
@@ -3990,6 +4069,7 @@ async fn persist_studio_settings(state: &AppState) -> anyhow::Result<()> {
         separation: Some(state.separation_config.read().await.clone()),
         cover_auto: Some(*state.cover_auto.read().await),
         proxy: Some(net::current()),
+        network: Some(remote::current()),
     };
     if let Some(parent) = state.settings_path.parent() { fs::create_dir_all(parent)?; }
     let temporary = state.settings_path.with_extension("json.part");
@@ -4189,6 +4269,7 @@ async fn assistant_status(State(state): State<AppState>) -> Json<Value> {
         "provider": config.provider,
         "local_base_url": config.local_base_url,
         "local_model": config.local_model,
+        "local_api_key_set": credentials::local_server_key().is_some(),
         "openrouter_model": config.openrouter_model,
     }))
 }
@@ -4225,8 +4306,7 @@ async fn assistant_local_models(
         return Err(api_error(StatusCode::BAD_REQUEST, "no server address".into()));
     }
     let url = format!("{base}/models");
-    let response = net::client()
-        .get(&url)
+    let response = local_server_auth(net::client().get(&url), AssistantProvider::Local)
         .timeout(std::time::Duration::from_secs(8))
         .send()
         .await
@@ -4246,6 +4326,27 @@ async fn assistant_local_models(
     Ok(Json(serde_json::json!({ "models": models })))
 }
 
+/// A request to the user's own server with its key, when one is stored. The
+/// studio's own llama-server and the other providers take none of it.
+fn local_server_auth(request: reqwest::RequestBuilder, provider: AssistantProvider) -> reqwest::RequestBuilder {
+    match (provider, credentials::local_server_key()) {
+        (AssistantProvider::Local, Some(key)) => request.bearer_auth(key),
+        _ => request,
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct LocalServerKeyRequest {
+    api_key: Option<String>,
+}
+
+/// Stores or clears the key of the user's own server; the key itself is never
+/// sent back, only whether one is set.
+async fn set_local_server_key(Json(request): Json<LocalServerKeyRequest>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    let set = credentials::store_local_server_key(request.api_key.as_deref()).map_err(|error| api_error(StatusCode::BAD_REQUEST, format!("{error:#}")))?;
+    Ok(Json(serde_json::json!({ "local_api_key_set": set })))
+}
+
 /// Which local server runs `model` and with what context, asked of the
 /// server's own API: LM Studio's `/api/v0/models`, then Ollama's `/api/ps`.
 /// None for any other server, or while the model is not loaded yet.
@@ -4253,7 +4354,7 @@ async fn local_server_context(base: &str, model: &str) -> Option<(assistant::Loc
     let root = base.trim().trim_end_matches('/').trim_end_matches("/v1");
     let client = net::client();
     let read = |path: &'static str| {
-        let request = client.get(format!("{root}{path}")).timeout(std::time::Duration::from_secs(3));
+        let request = local_server_auth(client.get(format!("{root}{path}")), AssistantProvider::Local).timeout(std::time::Duration::from_secs(3));
         async move {
             let response = request.send().await.ok()?;
             if !response.status().is_success() {
@@ -4846,7 +4947,7 @@ async fn assistant_write_stream(
             _ => (
                 config.local_base_url.clone().unwrap_or_default(),
                 config.local_model.clone().unwrap_or_default(),
-                None,
+                credentials::local_server_key(),
             ),
         };
 
@@ -5159,8 +5260,7 @@ async fn assistant_ask(
                     config.local_model.clone().unwrap_or_default(),
                 ),
             };
-            let sent = net::client()
-                .post(format!("{}/chat/completions", base.trim_end_matches('/')))
+            let sent = local_server_auth(net::client().post(format!("{}/chat/completions", base.trim_end_matches('/'))), config.provider)
                 .json(&assistant::fit_to_local_task(
                     assistant::chat_body_constrained(
                         &model,
@@ -6124,6 +6224,7 @@ async fn create_music_job(
         song: None,
         songs: vec![],
         message: "Waiting for the engine.".into(),
+        playlist_id: request.playlist_id.clone(),
         engine_job: None,
         cancel: Arc::new(std::sync::atomic::AtomicBool::new(false)),
     };
@@ -6278,6 +6379,26 @@ async fn run_ace_job(state: AppState, run: AceRun) {
         ace_job(&state, run).await
     };
     let cancelled = job_cancelled(&state, &job_id).await;
+    // The engine died under the song - a refused or dropped connection, or a
+    // restarted engine that no longer knows the job: its own log says why
+    let lost = match &outcome {
+        Err(error) if !cancelled => {
+            let text = format!("{error:#}").to_lowercase();
+            let gone = ["error sending request", "connection", "10054", "10061", "job not found", "404"].iter().any(|marker| text.contains(marker));
+            if gone {
+                let log = if state.music_server.health().await { previous_run_log() } else { last_run_log() };
+                Some(lost_job_reason(&log))
+            } else {
+                None
+            }
+        }
+        _ => None,
+    };
+    let playlist = state.jobs.read().await.get(&job_id).and_then(|job| job.playlist_id.clone());
+    let filed = match (&outcome, &playlist) {
+        (Ok(songs), Some(playlist)) => add_to_playlist(&state.library, playlist, songs.iter().map(|song| song.id.clone())).err(),
+        _ => None,
+    };
     set_job(&state, &job_id, |job| {
         job.engine_job = None;
         match outcome {
@@ -6286,7 +6407,10 @@ async fn run_ace_job(state: AppState, run: AceRun) {
                 job.phase = MusicJobPhase::Completed;
                 job.song = songs.first().cloned();
                 job.songs = songs;
-                job.message = "The tracks are in the library.".into();
+                job.message = match filed {
+                    Some(error) => format!("The tracks are in the library. They could not be added to the playlist: {error:#}"),
+                    None => "The tracks are in the library.".into(),
+                };
             }
             Err(_) if cancelled => {
                 job.status = MusicJobStatus::Cancelled;
@@ -6296,11 +6420,86 @@ async fn run_ace_job(state: AppState, run: AceRun) {
             Err(error) => {
                 job.status = MusicJobStatus::Failed;
                 job.phase = MusicJobPhase::Failed;
-                job.message = format!("{error:#}");
+                job.message = match lost {
+                    Some(reason) => format!("{reason} ({error:#})"),
+                    None => format!("{error:#}"),
+                };
             }
         }
     })
     .await;
+}
+
+#[derive(Debug, Deserialize)]
+struct ComfyExportQuery {
+    /// Strength folded into the file; 1 when left out.
+    strength: Option<f32>,
+}
+
+/// A trained adapter as one LoRA file for ComfyUI's native ACE-Step 1.5,
+/// served for the page to save where the user says.
+async fn export_adapter_comfyui(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    axum::extract::Query(query): axum::extract::Query<ComfyExportQuery>,
+) -> Result<axum::response::Response, (StatusCode, Json<ApiError>)> {
+    if !state.adapters.exists(&id) || id.contains(['/', '\\']) || id.contains("..") {
+        return Err(api_error(StatusCode::NOT_FOUND, format!("no adapter {id}")));
+    }
+    let folder = state.adapters.root().join(&id);
+    let meta: Value = std::fs::read(folder.join("adapter.json")).ok().and_then(|bytes| serde_json::from_slice(&bytes).ok()).unwrap_or(Value::Null);
+    let name = meta.get("name").and_then(Value::as_str).unwrap_or(&id).to_string();
+    let trigger = meta.get("trigger").and_then(Value::as_str).map(str::to_string);
+    let strength = query.strength.unwrap_or(1.0);
+    let exported = tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<u8>> {
+        let work = tempfile::tempdir()?;
+        let out = work.path().join("comfyui.safetensors");
+        comfy_export::export_ace(&folder, strength, &out, &name, trigger.as_deref())?;
+        Ok(std::fs::read(&out)?)
+    })
+    .await
+    .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
+    .map_err(|error| api_error(StatusCode::BAD_REQUEST, format!("{error:#}")))?;
+    Ok(axum::response::Response::builder()
+        .header(header::CONTENT_TYPE, "application/octet-stream")
+        .header(header::CONTENT_LENGTH, exported.len())
+        .body(axum::body::Body::from(exported))
+        .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?)
+}
+
+#[derive(Debug, Deserialize)]
+struct ComfySaveRequest {
+    /// Where the file goes, a full path ending in .safetensors.
+    path: String,
+    strength: Option<f32>,
+}
+
+/// The ComfyUI file written where an agent says, for it has no Save dialog.
+async fn save_adapter_comfyui(State(state): State<AppState>, Path(id): Path<String>, Json(request): Json<ComfySaveRequest>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    let target = PathBuf::from(request.path.trim());
+    if !target.is_absolute() || target.extension().and_then(|extension| extension.to_str()) != Some("safetensors") {
+        return Err(api_error(StatusCode::BAD_REQUEST, "path must be a full path ending in .safetensors".into()));
+    }
+    let response = export_adapter_comfyui(State(state), Path(id), axum::extract::Query(ComfyExportQuery { strength: request.strength })).await?;
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    if let Some(parent) = target.parent() {
+        std::fs::create_dir_all(parent).map_err(|error| api_error(StatusCode::BAD_REQUEST, format!("create {}: {error}", parent.display())))?;
+    }
+    std::fs::write(&target, &bytes).map_err(|error| api_error(StatusCode::BAD_REQUEST, format!("write {}: {error}", target.display())))?;
+    Ok(Json(serde_json::json!({ "path": target.display().to_string(), "bytes": bytes.len() })))
+}
+
+/// Songs appended to a playlist, each once.
+fn add_to_playlist(library: &library::Library, playlist_id: &str, songs: impl Iterator<Item = String>) -> anyhow::Result<()> {
+    let playlist = library.get_playlist(playlist_id)?.with_context(|| format!("no playlist {playlist_id}"))?;
+    let mut song_ids = playlist.song_ids;
+    for song in songs {
+        if !song_ids.contains(&song) {
+            song_ids.push(song);
+        }
+    }
+    library.update_playlist(playlist_id, library::PlaylistInput { name: playlist.name, description: playlist.description, song_ids })?;
+    Ok(())
 }
 
 async fn ace_job(state: &AppState, run: AceRun) -> anyhow::Result<Vec<CompletedSong>> {
@@ -6655,6 +6854,7 @@ async fn replay_music_job(
         song: None,
         songs: vec![],
         message: "Waiting for the engine.".into(),
+        playlist_id: None,
         engine_job: None,
         cancel: Arc::new(std::sync::atomic::AtomicBool::new(false)),
     };
@@ -6717,6 +6917,7 @@ async fn create_openrouter_music_job(state: AppState, request: CreateMusicJobReq
         duration_seconds: request.duration_seconds(), generation_settings: stream_request.request.body.clone(), song: None, songs: vec![],
         engine_job: None, cancel: Default::default(),
         message: "OpenRouter music stream started; the completed audio will be imported into the studio library.".into(),
+        playlist_id: request.playlist_id.clone(),
     };
     state.jobs.write().await.insert(job.id.clone(), job.clone());
     let job_id = job.id.clone();
@@ -6926,6 +7127,7 @@ fn queued_not_configured_job(request: CreateMusicJobRequest, engine_id: String) 
         engine_job: None,
         cancel: Default::default(),
         message: "The selected local music engine is not configured; this job remains queued and no inference has started.".into(),
+        playlist_id: None,
     }
 }
 
@@ -6949,6 +7151,7 @@ fn failed_request_job(request: CreateMusicJobRequest, engine_id: String, error: 
         engine_job: None,
         cancel: Default::default(),
         message: error,
+        playlist_id: None,
     }
 }
 
@@ -6964,6 +7167,13 @@ fn api_error(status: StatusCode, error: String) -> (StatusCode, Json<ApiError>) 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_lost_song_is_told_why_from_the_run_that_ended() {
+        assert!(lost_job_reason("ggml_backend_cuda_buffer_type_alloc_buffer: allocating 2048 MB on device 0: cudaMalloc failed: out of memory").contains("ran out of memory"));
+        assert!(lost_job_reason("CUDA error: an illegal memory access was encountered").contains("CUDA or driver error"));
+        assert!(lost_job_reason("[Server] listening").contains("stopped during this song"));
+    }
 
     #[test]
     fn the_planner_fills_only_what_the_request_left_out() {
@@ -7135,6 +7345,7 @@ mod tests {
             cover_templates: Some(cover_prompt::default_templates()),
             cover_auto: Some(true),
             proxy: None,
+            network: None,
             separation: Some(separation::SeparationConfig::default()),
             cover_template_default: Some("photographic".into()),
         };

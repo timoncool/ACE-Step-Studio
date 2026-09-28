@@ -64,6 +64,39 @@ pub fn store_openrouter_api_key(api_key: Option<&str>) -> Result<Option<Credenti
     }
 }
 
+const LOCAL_SERVER_FILE: &str = "local-server-api-key";
+
+/// The key of the user's own OpenAI-compatible server, when it asks for one.
+pub fn local_server_key() -> Option<String> {
+    let stored = fs::read_to_string(crate::studio_data_root()?.join(LOCAL_SERVER_FILE)).ok()?.trim().to_owned();
+    (!stored.is_empty()).then_some(stored)
+}
+
+/// Stores the own server's key, or clears it with None or an empty value.
+pub fn store_local_server_key(api_key: Option<&str>) -> Result<bool> {
+    let path = crate::studio_data_root().context("no per-user application data directory for credential storage")?.join(LOCAL_SERVER_FILE);
+    match api_key.map(str::trim).filter(|key| !key.is_empty()) {
+        Some(key) => {
+            if key.contains(['\r', '\n']) {
+                bail!("an API key must be a single line");
+            }
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
+            }
+            fs::write(&path, key).with_context(|| format!("write {}", path.display()))?;
+            Ok(true)
+        }
+        None => {
+            match fs::remove_file(&path) {
+                Ok(()) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error).with_context(|| format!("remove {}", path.display())),
+            }
+            Ok(false)
+        }
+    }
+}
+
 fn openrouter_key_path() -> Option<PathBuf> {
     Some(crate::studio_data_root()?.join(OPENROUTER_FILE))
 }

@@ -39,7 +39,10 @@
         "type": "downloadBootstrapper"
       },
       "nsis": {
-        "installerHooks": "installer-hooks.nsi"
+        "installerHooks": "installer-hooks.nsi",
+        "customLanguageFiles": {
+          "English": "installer-english.nsh"
+        }
       }
     },
     "icon": [

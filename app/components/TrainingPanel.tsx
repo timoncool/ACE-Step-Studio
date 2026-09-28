@@ -41,6 +41,7 @@ import {
   revealDataset,
   setTrainAfter,
   startRun,
+  takeAsIs,
   updateDataset,
   updateItem,
   usable,
@@ -594,6 +595,16 @@ const SongsStep: React.FC<{
               <Cpu size={13} />{t('trainingSeparateOnCard')}
             </button>
           )}
+          {notice === 'assistant_missing' && (
+            <>
+              <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('studio:open-settings', { detail: 'models:assistant' }))} className={OUTLINE}>
+                <Wand2 size={13} />{t('trainingSetUpAssistant')}
+              </button>
+              <button type="button" onClick={() => void takeAsIs(dataset.id).then(onChanged).then(onRefresh).catch(problem => onError(errorText(problem)))} disabled={jobBusy} className={OUTLINE}>
+                <Check size={13} />{t('trainingTakeAsIs')}
+              </button>
+            </>
+          )}
           {notice === 'recogniser_missing' && (
             <button type="button" onClick={() => void enableRecogniser().then(() => onPrepare({ lyrics: 'missing', style: 'none' })).catch(problem => onError(errorText(problem)))} disabled={jobBusy} className={OUTLINE}>
               <Mic2 size={13} />{t('trainingEnableRecogniser')}
@@ -712,12 +723,16 @@ const TrainStep: React.FC<{ state: TrainingState; dataset: Dataset; job: Prepare
   const [advanced, setAdvanced] = useState(false);
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [starting, setStarting] = useState(false);
-  const unsung = dataset.items.filter(item => item.lyrics_state !== 'done').length;
-  const unstyled = dataset.items.filter(item => item.style_state !== 'done').length;
+  const unsung = dataset.items.filter(item => item.lyrics_state === 'wanted').length;
+  const unlaid = dataset.items.filter(item => item.lyrics_state === 'found').length;
+  const unstyled = dataset.items.filter(item => item.style_state === 'wanted').length;
+  const unwritten = dataset.items.filter(item => item.style_state === 'heard').length;
+  const lyricsProblem = unsung ? t('trainingNeedLyrics').replace('{count}', String(unsung)) : unlaid ? t('trainingNeedSections').replace('{count}', String(unlaid)) : null;
+  const styleProblem = unstyled ? t('trainingNeedStyle').replace('{count}', String(unstyled)) : unwritten ? t('trainingNeedStyleWritten').replace('{count}', String(unwritten)) : null;
   const total = dataset.items.reduce((sum, item) => sum + item.seconds, 0);
   const preparing = Boolean(job && !job.finished);
   const baseMissing = Boolean(state.base && !state.base.installed);
-  const blocker = !dataset.items.length ? t('trainingNeedSongs') : unsung ? t('trainingNeedLyrics').replace('{count}', String(unsung)) : preparing ? t('trainingWaitPrepare') : state.active ? t('trainingBusy') : baseMissing ? t('trainingBaseMissing') : null;
+  const blocker = !dataset.items.length ? t('trainingNeedSongs') : lyricsProblem ? lyricsProblem : preparing ? t('trainingWaitPrepare') : state.active ? t('trainingBusy') : baseMissing ? t('trainingBaseMissing') : null;
   // the BF16 base downloads through the model manager; its progress is read from there
   const [baseDownload, setBaseDownload] = useState<{ downloaded_bytes: number; total_bytes: number } | null>(null);
   const fetchingBase = baseDownload !== null;
@@ -776,8 +791,8 @@ const TrainStep: React.FC<{ state: TrainingState; dataset: Dataset; job: Prepare
         </div>
         <ul className="mt-4 space-y-1.5">
           {check(dataset.items.length > 0, t('trainingSongsTotal').replace('{songs}', songs(dataset.items.length)).replace('{time}', clock(total)))}
-          {check(unsung === 0, unsung ? t('trainingNeedLyrics').replace('{count}', String(unsung)) : t('trainingCheckLyrics'))}
-          {check(unstyled === 0, unstyled ? t('trainingNeedStyle').replace('{count}', String(unstyled)) : t('trainingCheckStyle'))}
+          {check(!lyricsProblem, lyricsProblem ?? t('trainingCheckLyrics'))}
+          {check(!styleProblem, styleProblem ?? t('trainingCheckStyle'))}
         </ul>
         {state.base !== undefined && (
           <div className="mt-3 text-xs text-zinc-600 dark:text-zinc-300">
@@ -949,6 +964,24 @@ const RunCard: React.FC<{ run: TrainingRun; epochs: boolean; onChanged: () => vo
   const left = last && perStep && target <= 0 ? (cap - last.step) * perStep : 0;
   const percent = last ? Math.min(100, 100 * Math.max(last.step / cap, target > 0 && kl !== null ? kl / target : 0)) : 0;
   const stageIndex = run.stage ? run.stages.indexOf(run.stage) : run.status === 'done' ? run.stages.length : -1;
+  // A card whose own memory is full borrows system memory through the
+  // driver, and a run that took an hour takes a day; the log does not say so.
+  const [cardFull, setCardFull] = useState(false);
+  useEffect(() => {
+    if (!running) return;
+    let alive = true;
+    const look = () => void fetch('/v1/system/resources')
+      .then(response => (response.ok ? response.json() : null))
+      .then((body: { resources?: { gpus?: { vram_used_mb: number; vram_total_mb: number }[] } } | null) => {
+        const gpu = body?.resources?.gpus?.[0];
+        if (alive && gpu && gpu.vram_total_mb > 0) setCardFull(gpu.vram_used_mb / gpu.vram_total_mb >= 0.97);
+      })
+      .catch(() => undefined);
+    look();
+    const timer = window.setInterval(look, 5000);
+    return () => { alive = false; window.clearInterval(timer); };
+  }, [running]);
+  const onCpu = running && run.device === 'CPU';
   const tone = { running: 'text-pink-600 dark:text-pink-300', done: 'text-emerald-600 dark:text-emerald-400', failed: 'text-rose-600 dark:text-rose-300', cancelled: 'text-zinc-500', interrupted: 'text-amber-600 dark:text-amber-300' }[run.status];
   return (
     <section className={CARD}>
@@ -992,6 +1025,9 @@ const RunCard: React.FC<{ run: TrainingRun; epochs: boolean; onChanged: () => vo
           <LossLine steps={run.steps} />
         </>
       )}
+      {running && run.device && !onCpu && <p className="mt-1.5 text-[11px] text-zinc-500">{t('trainingOnDevice').replace('{device}', run.device)}</p>}
+      {onCpu && <p role="alert" className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">{t('trainingOnCpuWarning')}</p>}
+      {running && !onCpu && cardFull && <p role="alert" className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">{t('trainingCardFullWarning')}</p>}
 
       {run.checkpoints.length > 0 && (
         <div className="mt-3">

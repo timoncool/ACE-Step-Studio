@@ -1,3 +1,4 @@
+import { saveFile } from '../services/saveFile';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Check, CheckSquare, ChevronDown, Download, ExternalLink, FolderOpen, Heart, Layers, Loader2, Pencil, Search, Square, Trash2, X } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
@@ -231,6 +232,16 @@ const InstalledCard: React.FC<{
           <button type="button" onClick={() => (editing ? void save() : startEditing())} className={OUTLINE} title={editing ? t('adaptersSave') : t('adaptersRename')}>
             {editing ? <Check size={13} /> : <Pencil size={13} />}
           </button>
+          {adapter.kind === 'trained' && (
+            <button
+              type="button"
+              onClick={() => void saveFile(`${localized(adapter.name, language).replace(/[\\/:*?"<>|·]+/g, ' ').replace(/\s+/g, ' ').trim() || adapter.id} ComfyUI.safetensors`, { url: `/v1/adapters/${encodeURIComponent(adapter.id)}/comfyui` })}
+              className={OUTLINE}
+              title={t('adaptersExportComfyHint')}
+            >
+              <Download size={13} />ComfyUI
+            </button>
+          )}
           <button type="button" onClick={onDelete} className={`${OUTLINE} hover:border-rose-400 hover:text-rose-600`} title={t('adaptersDelete')}><Trash2 size={13} /></button>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { TRACK_ARTIST } from '../services/studio';
 import { Song } from '../types';
-import { Play, Pause, SkipBack, SkipForward, Repeat, Shuffle, Download, Heart, MoreVertical, Volume2, VolumeX, Maximize2, Repeat1, ChevronDown, ChevronUp } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Repeat, Shuffle, Download, Heart, MoreVertical, Volume2, VolumeX, Maximize2, Repeat1, CircleStop, ChevronDown, ChevronUp } from 'lucide-react';
 import { useResponsive } from '../context/ResponsiveContext';
 import { useI18n } from '../context/I18nContext';
 import { SongDropdownMenu } from './SongDropdownMenu';
@@ -27,7 +27,7 @@ interface PlayerProps {
     audioRef: React.RefObject<HTMLAudioElement>;
     isShuffle: boolean;
     onToggleShuffle: () => void;
-    repeatMode: 'none' | 'all' | 'one';
+    repeatMode: 'none' | 'all' | 'one' | 'stop';
     onToggleRepeat: () => void;
     isLiked: boolean;
     onToggleLike: () => void;
@@ -251,9 +251,10 @@ export const Player: React.FC<PlayerProps> = ({
                         </button>
                         <button
                             onClick={onToggleRepeat}
+                            title={t(`repeatMode_${repeatMode}`)}
                             className={`p-2 tap-highlight-none relative ${repeatMode !== 'none' ? 'text-pink-600 dark:text-pink-500' : 'text-zinc-400 dark:text-white/50'}`}
                         >
-                            {repeatMode === 'one' ? <Repeat1 size={22} /> : <Repeat size={22} />}
+                            {repeatMode === 'one' ? <Repeat1 size={22} /> : repeatMode === 'stop' ? <CircleStop size={22} /> : <Repeat size={22} />}
                         </button>
                     </div>
 
@@ -486,9 +487,10 @@ export const Player: React.FC<PlayerProps> = ({
                                 </button>
                                 <button
                                     onClick={onToggleRepeat}
+                            title={t(`repeatMode_${repeatMode}`)}
                                     className={`p-2 transition-colors relative ${repeatMode !== 'none' ? 'text-pink-600 dark:text-pink-500' : 'text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}
                                 >
-                                    {repeatMode === 'one' ? <Repeat1 size={22} /> : <Repeat size={22} />}
+                                    {repeatMode === 'one' ? <Repeat1 size={22} /> : repeatMode === 'stop' ? <CircleStop size={22} /> : <Repeat size={22} />}
                                     {repeatMode !== 'none' && <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-current rounded-full"></div>}
                                 </button>
                             </div>
@@ -666,9 +668,10 @@ export const Player: React.FC<PlayerProps> = ({
                         </button>
                         <button
                             onClick={onToggleRepeat}
+                            title={t(`repeatMode_${repeatMode}`)}
                             className={`transition-colors hidden sm:block ${repeatMode !== 'none' ? 'text-pink-600 dark:text-pink-500' : 'text-zinc-400 hover:text-zinc-900 dark:hover:text-white'} relative`}
                         >
-                            {repeatMode === 'one' ? <Repeat1 size={16} /> : <Repeat size={16} />}
+                            {repeatMode === 'one' ? <Repeat1 size={16} /> : repeatMode === 'stop' ? <CircleStop size={16} /> : <Repeat size={16} />}
                             {repeatMode !== 'none' && <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-current rounded-full"></div>}
                         </button>
                     </div>

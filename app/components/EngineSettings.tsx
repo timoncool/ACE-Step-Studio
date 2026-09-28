@@ -20,6 +20,8 @@ interface EngineOptions {
   disable_flash_attention: boolean;
   split_cfg_forwards: boolean;
   clamp_fp16: boolean;
+  /** The NVIDIA card by nvidia-smi index; null: the first. Taken at the studio's start. */
+  gpu?: number | null;
 }
 
 const DEFAULTS: EngineOptions = {
@@ -29,6 +31,7 @@ const DEFAULTS: EngineOptions = {
   disable_flash_attention: false,
   split_cfg_forwards: false,
   clamp_fp16: false,
+  gpu: null,
 };
 
 const CONTROL =
@@ -47,6 +50,11 @@ const Toggle: React.FC<{ label: string; hint: string; checked: boolean; onChange
 export const EngineSettings: React.FC = () => {
   const { t } = useI18n();
   const [options, setOptions] = useState<EngineOptions>(DEFAULTS);
+  // With two cards or more, which one the studio computes on
+  const [cards, setCards] = useState<{ cards: { index: number; name: string; memory_gb: number }[]; running: number | null } | null>(null);
+  useEffect(() => {
+    void fetch('/v1/system/gpus').then(response => (response.ok ? response.json() : null)).then(setCards).catch(() => undefined);
+  }, []);
   const [saved, setSaved] = useState<EngineOptions>(DEFAULTS);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -146,6 +154,23 @@ export const EngineSettings: React.FC = () => {
         </div>
         <span className="mt-2 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t(`computeBackendHint_${options.backend}`)}</span>
       </div>
+
+      {cards && cards.cards.length > 1 && (
+        <label className="block rounded-xl border border-zinc-200 p-3 dark:border-white/10">
+          <span className="block text-sm font-medium text-zinc-800 dark:text-zinc-100">{t('gpuChoice')}</span>
+          <select
+            value={options.gpu == null ? '' : String(options.gpu)}
+            onChange={event => setOptions(current => ({ ...current, gpu: event.target.value === '' ? null : Number(event.target.value) }))}
+            className={`${CONTROL} mt-2`}
+          >
+            <option value="">{t('gpuChoiceFirst')}</option>
+            {cards.cards.map(card => <option key={card.index} value={card.index}>{`${card.index}: ${card.name} · ${card.memory_gb.toFixed(0)} GB`}</option>)}
+          </select>
+          <span className="mt-2 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+            {(options.gpu ?? null) !== (cards.running ?? null) ? t('gpuChoiceRestart') : t('gpuChoiceHint')}
+          </span>
+        </label>
+      )}
 
       <Toggle
         label={t('keepLoadedLabel')}

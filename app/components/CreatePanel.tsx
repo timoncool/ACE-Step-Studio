@@ -4,6 +4,7 @@ import { AlertTriangle, ChevronDown, CircleAlert, Dices, Ear, FolderOpen, Loader
 import type { AceCreateRequest, Song } from '../types';
 import { useI18n } from '../context/I18nContext';
 import { saveFile } from '../services/saveFile';
+import { loadNativePlaylists } from '../services/nativeLibrary';
 import { useBridgeCommand } from '../services/mcpBridge';
 import { AdapterPicker } from './AdapterPicker';
 import { ModelSwitcher, type SwitcherStatus } from './ModelSwitcher';
@@ -839,6 +840,46 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     return request;
   };
 
+  // The playlist new songs go into, kept between sessions: the project the
+  // user is working on, so a day's takes do not mix with the others.
+  const [playlistId, setPlaylistId] = useState(() => {
+    try { return window.localStorage.getItem('studio.createPlaylist') ?? ''; } catch { return ''; }
+  });
+  const [playlists, setPlaylists] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    const load = () => void loadNativePlaylists().then(list => setPlaylists(list.map(entry => ({ id: entry.id, name: entry.name })))).catch(() => undefined);
+    load();
+    window.addEventListener('focus', load);
+    return () => window.removeEventListener('focus', load);
+  }, []);
+  const choosePlaylist = (id: string) => {
+    setPlaylistId(id);
+    try { window.localStorage.setItem('studio.createPlaylist', id); } catch { /* kept until a reload */ }
+  };
+  // a playlist deleted elsewhere is no longer offered or sent
+  const chosenPlaylist = playlists.some(entry => entry.id === playlistId) ? playlistId : '';
+
+  // Without stopping: the request as it was when the button was pressed goes
+  // again with new seeds whenever the queue runs low, until switched off. A
+  // snapshot, so editing the form meanwhile does not change the next songs.
+  const [forever, setForever] = useState(false);
+  const foreverRequest = useRef<(AceCreateRequest & { _tempId?: string }) | null>(null);
+  const generate = (request: AceCreateRequest & { _tempId?: string }) => {
+    if (chosenPlaylist) request.playlist_id = chosenPlaylist;
+    if (forever) foreverRequest.current = { ...request };
+    onGenerate(request);
+  };
+  useEffect(() => {
+    if (!forever) { foreverRequest.current = null; return; }
+    const snapshot = foreverRequest.current;
+    if (!snapshot || activeJobCount >= 2) return;
+    const next = { ...snapshot };
+    delete next.seed;
+    delete next.lm_seed;
+    onGenerate(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forever, activeJobCount]);
+
   const submit = async () => {
     if (!ready) { setError(t('downloadProfileFirst')); return; }
     if (mode === 'simple') {
@@ -846,16 +887,16 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       setError(null);
       if (assistantReady) {
         const draft = await askAssistant('all');
-        if (draft) onGenerate(buildSimpleRequest(draft));
+        if (draft) generate(buildSimpleRequest(draft));
         return;
       }
       // with a LoRA the planner writes the song first and the render runs without its audio codes
       if (adapters.some(soundAdapter)) {
         const planned = await plan('inspire', { apply: false });
-        if (planned) onGenerate(buildSimpleRequest(planned));
+        if (planned) generate(buildSimpleRequest(planned));
         return;
       }
-      onGenerate(buildSimpleRequest());
+      generate(buildSimpleRequest());
       return;
     }
     if (!caption.trim() && !baseOnly(task)) { setError(t('captionRequired')); return; }
@@ -874,7 +915,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
         delete request.lm_seed;
         if (request.title) request.title = `${request.title} (${index + 1})`;
       }
-      onGenerate(request);
+      generate(request);
     }
   };
 
@@ -1522,15 +1563,27 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       </div>
 
       <footer className="shrink-0 border-t border-zinc-200 bg-zinc-50/95 p-4 backdrop-blur dark:border-white/5 dark:bg-suno-panel/95">
+        {playlists.length > 0 && (
+          <label className="mb-2 flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300">
+            <span className="shrink-0">{t('createIntoPlaylist')}</span>
+            <select value={chosenPlaylist} onChange={event => choosePlaylist(event.target.value)} className="min-w-0 flex-1 rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-black/20">
+              <option value="">{t('createIntoNoPlaylist')}</option>
+              {playlists.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+            </select>
+          </label>
+        )}
+        <label className="mb-2 flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300" title={t('generateForeverHint')}>
+          <input type="checkbox" checked={forever} onChange={event => setForever(event.target.checked)} className="accent-pink-500" />
+          {t('generateForever')}
+        </label>
         <button
           type="button"
           onClick={() => void submit()}
-          disabled={activeJobCount >= 10}
           className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-pink-600 text-base font-bold text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isGenerating ? <Square size={18} /> : <Sparkles size={18} />}
           {t('create')}
-          {activeJobCount > 0 && <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs">{activeJobCount}/10</span>}
+          {activeJobCount > 0 && <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs">{activeJobCount}</span>}
         </button>
       </footer>
     </section>

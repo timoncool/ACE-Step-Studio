@@ -33,6 +33,8 @@ export const AssistantExtras: React.FC<{ engine: string }> = ({ engine }) => {
   const [localModel, setLocalModel] = useState('');
   const [localModels, setLocalModels] = useState<string[]>([]);
   const [localBusy, setLocalBusy] = useState(false);
+  const [localKey, setLocalKey] = useState('');
+  const [localKeySet, setLocalKeySet] = useState(false);
   const [openRouterModel, setOpenRouterModel] = useState('');
   const [managedPath, setManagedPath] = useState('');
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
@@ -51,8 +53,9 @@ export const AssistantExtras: React.FC<{ engine: string }> = ({ engine }) => {
   useEffect(() => {
     void fetch('/v1/assistant/status')
       .then((response) => (response.ok ? response.json() : null))
-      .then((status: { local_base_url?: string | null; local_model?: string | null; openrouter_model?: string | null; managed_path?: string | null } | null) => {
+      .then((status: { local_base_url?: string | null; local_model?: string | null; local_api_key_set?: boolean; openrouter_model?: string | null; managed_path?: string | null } | null) => {
         if (!status) return;
+        setLocalKeySet(Boolean(status.local_api_key_set));
         setLocalBaseUrl(status.local_base_url ?? '');
         setLocalModel(status.local_model ?? '');
         setOpenRouterModel(status.openrouter_model ?? '');
@@ -112,6 +115,27 @@ export const AssistantExtras: React.FC<{ engine: string }> = ({ engine }) => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine, localBaseUrl]);
+
+  // The key of a server that asks for one (an OpenAI-compatible proxy, a
+  // hosted llama.cpp). Stored by the service like the OpenRouter key and never
+  // shown again; an empty field clears it.
+  const saveLocalKey = async () => {
+    try {
+      const response = await fetch('/v1/assistant/local-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api_key: localKey.trim() || null }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.error || `HTTP ${response.status}`);
+      setLocalKeySet(Boolean(body?.local_api_key_set));
+      setLocalKey('');
+      setMessage({ tone: 'ok', text: body?.local_api_key_set ? t('assistantKeySaved') : t('assistantKeyCleared') });
+      void fetchLocalModels(localBaseUrl);
+    } catch (reason) {
+      setMessage({ tone: 'error', text: reason instanceof Error ? reason.message : String(reason) });
+    }
+  };
 
   const loadRuntime = React.useCallback(async () => {
     const response = await fetch('/v1/assistant/runtime');
@@ -230,6 +254,26 @@ export const AssistantExtras: React.FC<{ engine: string }> = ({ engine }) => {
               className="shrink-0 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:border-pink-400 hover:text-pink-600 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300"
             >
               {localBusy ? <Loader2 size={16} className="animate-spin" /> : t('refresh')}
+            </button>
+          </div>
+          <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400">{t('assistantApiKey')}</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="password"
+              autoComplete="off"
+              value={localKey}
+              onChange={(event) => setLocalKey(event.target.value)}
+              onKeyDown={(event) => { if (event.key === 'Enter') void saveLocalKey(); }}
+              placeholder={localKeySet ? t('assistantKeyIsSet') : t('assistantKeyOptional')}
+              className={INPUT}
+            />
+            <button
+              type="button"
+              onClick={() => void saveLocalKey()}
+              disabled={!localKey.trim() && !localKeySet}
+              className="shrink-0 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:border-pink-400 hover:text-pink-600 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300"
+            >
+              {localKey.trim() || !localKeySet ? t('save') : t('assistantKeyClear')}
             </button>
           </div>
           <p className="text-[11px] leading-4 text-zinc-500">{t('assistantLocalHint')}</p>

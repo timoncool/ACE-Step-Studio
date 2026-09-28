@@ -155,7 +155,7 @@ pub fn apply(id: &str, configuration: &mut StudioConfiguration, openrouter_music
 }
 
 fn nvidia_smi() -> Option<(String, f64)> {
-    let output = Command::new("nvidia-smi").args(["--query-gpu=name,memory.total", "--format=csv,noheader,nounits"]).output().ok()?;
+    let output = Command::new("nvidia-smi").args(crate::cuda_build::chosen_card()).args(["--query-gpu=name,memory.total", "--format=csv,noheader,nounits"]).output().ok()?;
     if !output.status.success() { return None; }
     let line = String::from_utf8_lossy(&output.stdout).lines().next()?.trim().to_owned();
     let (name, memory) = line.rsplit_once(',')?;

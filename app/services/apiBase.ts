@@ -22,8 +22,11 @@ const SERVICE_PREFIXES = ['/v1/', '/setup/', '/engine/', '/health'];
 function resolveBase(): string {
   const override = (import.meta as { env?: Record<string, string | undefined> }).env?.VITE_STUDIO_API_BASE;
   if (override) return override.replace(/\/$/, '');
-  // Already served by the service itself: keep requests same-origin.
-  if (typeof location !== 'undefined' && location.port === String(STUDIO.port)) return '';
+  // Only the desktop window's own pages live on another host than the service.
+  // A browser - the dev server, which proxies these paths, or the service
+  // itself handing the page to another computer, on whatever port a router
+  // forwards - keeps requests same-origin.
+  if (typeof location !== 'undefined' && /^https?:$/.test(location.protocol) && location.hostname !== 'tauri.localhost') return '';
   return DEFAULT_BASE;
 }
 

@@ -1,4 +1,5 @@
 import { apiUrl } from './apiBase';
+import { isDesktop } from './externalLinks';
 
 /**
  * "Save as" for anything the window hands the user.
@@ -46,6 +47,18 @@ async function answer(response: Response): Promise<Record<string, unknown>> {
  * to catch.
  */
 export async function saveFile(name: string, source: SaveSource): Promise<void> {
+  // A browser on another computer: the Save dialog would open on the studio's
+  // computer, so the browser downloads the file itself.
+  if (!isDesktop()) {
+    const link = document.createElement('a');
+    link.href = 'url' in source ? apiUrl(source.url) : URL.createObjectURL(source.blob);
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    if (!('url' in source)) window.setTimeout(() => URL.revokeObjectURL(link.href), 60_000);
+    return;
+  }
   let id = `failed-${Date.now()}`;
   try {
     const place = await answer(await fetch(apiUrl('/v1/files/save'), {

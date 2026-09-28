@@ -124,7 +124,9 @@ export const OptionalGroup: React.FC<{
   children?: React.ReactNode | ((engine: string) => React.ReactNode);
   /** Opened and scrolled to: the page was asked for this capability. */
   focused?: boolean;
-}> = ({ title, purpose, statusUrl, installUrl, removeUrl, engines, settingsUrl, serverField, cancelUrl, embedded, children, focused }) => {
+  /** Why the page was sent here, shown on top when it was. */
+  focusNote?: string;
+}> = ({ title, purpose, statusUrl, installUrl, removeUrl, engines, settingsUrl, serverField, cancelUrl, embedded, children, focused, focusNote }) => {
   const { t } = useI18n();
   const box = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<OptionalStatus | null>(null);
@@ -280,6 +282,9 @@ export const OptionalGroup: React.FC<{
       )}
       {open && (
         <div className={embedded ? 'space-y-2' : 'space-y-2 border-t border-zinc-100 p-3 dark:border-white/5'}>
+          {focused && focusNote && (
+            <p className="rounded-lg border border-pink-500/30 bg-pink-500/10 px-3 py-2 text-xs leading-5 text-zinc-700 dark:text-zinc-200">{focusNote}</p>
+          )}
           {engines && engines.length > 0 && (
             <div className="space-y-2 pb-1">
               <div className="grid grid-cols-3 gap-1.5">
@@ -975,6 +980,7 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
           <div className="mt-3 space-y-3">
             <OptionalGroup
               focused={focus === 'assistant'}
+              focusNote={t('assistantWandNeedsIt')}
               title={t('assistantSection')}
               purpose={t('assistantOptionalPurpose')}
               statusUrl="/v1/assistant/runtime"

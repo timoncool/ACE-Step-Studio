@@ -133,6 +133,8 @@ export interface AceCreateRequest {
   source_song_id?: string;
   reference_song_id?: string;
   adapters?: { id: string; scales: Record<string, number> }[];
+  /** The playlist the made songs are added to: a project being worked on. */
+  playlist_id?: string;
   fade_in?: number;
   fade_out?: number;
 }

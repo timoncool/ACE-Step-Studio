@@ -84,6 +84,8 @@ export interface TrainingRun {
   /** Why the run cannot be continued: a code the page translates. */
   resume_refused?: 'method' | 'prepared_gone' | 'no_checkpoint' | 'no_state' | 'no_run';
   continuations?: { from: number; to: number; at: string }[];
+  /** What the trainer computes on while it runs: "CUDA0", "Vulkan0", "CPU". */
+  device?: string | null;
 }
 
 export interface TrainingState {
@@ -212,6 +214,7 @@ export interface PrepareStatus {
 }
 
 export const prepareDataset = (id: string, request: PrepareRequest) => call<PrepareStatus>(`/v1/training/datasets/${id}/prepare`, json('POST', request));
+export const takeAsIs = (id: string, items?: string[]) => call<Dataset>(`/v1/training/datasets/${id}/take-as-is`, json('POST', { items }));
 export const cancelPrepare = () => call<void>('/v1/training/prepare/cancel', { method: 'POST' });
 /** Starts this run once the preparation at work is done, or no run with null. */
 export const setTrainAfter = (train: { name: string; recipe: Recipe } | null) => call<void>('/v1/training/prepare/train-after', json('POST', { train }));

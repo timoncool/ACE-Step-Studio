@@ -463,6 +463,8 @@ pub fn run() {
     }
 
     configure_studio_runtime_paths();
+    // the card chosen in the engine settings, for every CUDA process after this
+    music_server::apply_saved_gpu();
 
     // the service names the studio's version to agents, which only the shell knows
     let context = tauri::generate_context!();
@@ -494,6 +496,10 @@ pub fn run() {
 
     builder
         .setup(move |app| {
+            // the window's own files, for a browser on another computer when
+            // access from the network is on
+            let resolver = app.asset_resolver();
+            music_server::set_asset_source(Box::new(move |path: &str| resolver.get(path.to_string()).map(|asset| (asset.bytes.to_vec(), asset.mime_type))));
             // "Save as" for what the window saves: Windows' own dialog, over
             // the studio's window, asked for by the service off the UI thread.
             let dialogs = app.handle().clone();

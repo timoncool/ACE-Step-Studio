@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { isDesktop } from '../../services/externalLinks';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { ChevronLeft, ChevronRight, ExternalLink, ListOrdered, Lock, LockOpen, Maximize2, Minimize2, Move, Shuffle, X } from 'lucide-react';
 import { useI18n } from '../../context/I18nContext';
@@ -42,6 +43,11 @@ export function setVisualizerPanelSize(size: { width: number; height: number }):
 
 /** Opens the visualiser in its own window. */
 export async function openVisualizerWindow(): Promise<void> {
+  // a browser has no second window of the studio: the visualiser stays in the page
+  if (!isDesktop()) {
+    setVisualizer({ place: 'panel' });
+    return;
+  }
   const already = await WebviewWindow.getByLabel('visualizer');
   await invoke('open_visualizer_window');
   setVisualizer({ place: 'window' });

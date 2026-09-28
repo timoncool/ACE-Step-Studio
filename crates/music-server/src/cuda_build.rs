@@ -51,6 +51,40 @@ pub fn cuda_build(compute: (u32, u32), driver_major: u32) -> Option<CudaBuild> {
     }
 }
 
+/// The card the studio was pointed at (`apply_saved_gpu`), as nvidia-smi's
+/// `-i` takes it: the same PCI order CUDA_DEVICE_ORDER=PCI_BUS_ID gives CUDA.
+pub fn chosen_card() -> Vec<String> {
+    match std::env::var("CUDA_VISIBLE_DEVICES").ok().and_then(|value| value.trim().parse::<u32>().ok()) {
+        Some(index) => vec!["-i".into(), index.to_string()],
+        None => Vec::new(),
+    }
+}
+
+/// Every NVIDIA card: its nvidia-smi index, name and memory in GB.
+pub fn nvidia_cards() -> Vec<(u32, String, f64)> {
+    let mut command = Command::new("nvidia-smi");
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    let Ok(output) = command.args(["--query-gpu=index,name,memory.total", "--format=csv,noheader,nounits"]).output() else { return Vec::new() };
+    if !output.status.success() {
+        return Vec::new();
+    }
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(|line| {
+            let mut fields = line.split(',').map(str::trim);
+            let index = fields.next()?.parse().ok()?;
+            let name = fields.next()?.to_string();
+            let memory = fields.next()?.parse::<f64>().ok()? / 1024.0;
+            Some((index, name, memory))
+        })
+        .collect()
+}
+
 /// The first NVIDIA card's compute capability and driver major version,
 /// probed once: the machine's card does not change inside one process.
 fn device() -> Option<((u32, u32), u32)> {
@@ -66,7 +100,7 @@ fn device() -> Option<((u32, u32), u32)> {
         }
         // A driver too old to know compute_cap fails the query, and such a
         // driver runs neither build.
-        let output = command.args(["--query-gpu=compute_cap,driver_version", "--format=csv,noheader"]).output().ok()?;
+        let output = command.args(chosen_card()).args(["--query-gpu=compute_cap,driver_version", "--format=csv,noheader"]).output().ok()?;
         if !output.status.success() {
             return None;
         }

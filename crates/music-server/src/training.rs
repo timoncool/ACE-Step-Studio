@@ -234,6 +234,16 @@ pub enum RunStatus {
     Interrupted,
 }
 
+/// The device of the last "[Load] <part> backend: <device>" line a trainer
+/// wrote.
+fn trainer_device(log: &str) -> Option<String> {
+    log.lines().rev().find_map(|line| {
+        let rest = line.trim().strip_prefix("[Load] ")?;
+        let device = rest.split_once(" backend: ")?.1;
+        Some(device.split_whitespace().next()?.to_string())
+    })
+}
+
 /// A training run as it is kept on disk and shown on the page.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Run {
@@ -989,6 +999,13 @@ impl Training {
         all[all.len().saturating_sub(lines)..].iter().map(|line| line.to_string()).collect()
     }
 
+    /// What the trainer computes on, as its log names it: "CUDA0", "Vulkan0",
+    /// "CPU". None before it has said.
+    pub fn run_device(&self, run_id: &str) -> Option<String> {
+        let text = self.run_dir(run_id).and_then(|dir| Ok(std::fs::read_to_string(dir.join("run.log"))?)).ok()?;
+        trainer_device(&text)
+    }
+
     /// Starts training a dataset; one run at a time, since each wants the card.
     /// `libraries` is where the CUDA runtime the trainer imports lives: the
     /// engine's, fetched on its first start, so it is not downloaded twice.
@@ -1554,6 +1571,13 @@ pub fn plain_lyrics(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_trainer_says_what_it_computes_on() {
+        assert_eq!(trainer_device("x\n[Load] YuE2 backend: CUDA0 (shared)\nstep 1"), Some("CUDA0".into()));
+        assert_eq!(trainer_device("[Load] DiT backend: CPU (CPU threads: 16)"), Some("CPU".into()));
+        assert_eq!(trainer_device("nothing yet"), None);
+    }
 
     #[test]
     fn a_trigger_word_is_made_from_the_name() {

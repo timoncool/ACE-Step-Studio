@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { AudioLines, Disc3, ExternalLink, Plus, SlidersVertical } from 'lucide-react';
 import { useI18n } from '../../context/I18nContext';
 import { equalizer, onEqualizer } from '../../services/audioGraph';
-import { equalizerPanelOpen, onEqualizerPanel, setEqualizerPanelOpen } from '../../services/playerPanels';
+import { equalizerPanelOpen, onEqualizerPanel, onSidebarExtras, setEqualizerPanelOpen, sidebarExtras } from '../../services/playerPanels';
 import { onVisualizer, setVisualizer, visualizer } from '../../services/visualizerState';
 import { addWinampSkin, onWinamp, SCALE_RANGE, setWinampOn, setWinampSettings, SKIN_MUSEUM, winampSettings, winampSkins, type WinampSkin } from '../../services/winamp';
 import { openExternal } from '../../services/externalLinks';
@@ -37,6 +37,10 @@ export const PlayerExtraButtons: React.FC<{ layout?: ExtrasLayout }> = ({ layout
   const [skins, setSkins] = useState<WinampSkin[]>([]);
   const [settings, setSettings] = useState(winampSettings);
   const [problem, setProblem] = useState<string | null>(null);
+  const [shown, setShown] = useState(sidebarExtras);
+  useEffect(() => onSidebarExtras(setShown), []);
+  // the sidebar shows only the ones kept in Settings; the bar has them all
+  const show = (extra: keyof typeof shown) => layout === 'bar' || shown[extra];
   const picker = useRef<HTMLInputElement>(null);
   const box = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLButtonElement>(null);
@@ -81,11 +85,11 @@ export const PlayerExtraButtons: React.FC<{ layout?: ExtrasLayout }> = ({ layout
 
   return (
     <>
-      <button type="button" onClick={() => setEqualizerPanelOpen(!eqOpen)} title={t('eqTitle')} className={`${LOOK[layout]} ${layout === 'bar' ? 'hidden md:block' : ''} ${eqOpen || eqOn ? ON : ''}`}>
+      {show('equalizer') && <button type="button" onClick={() => setEqualizerPanelOpen(!eqOpen)} title={t('eqTitle')} className={`${LOOK[layout]} ${layout === 'bar' ? 'hidden md:block' : ''} ${eqOpen || eqOn ? ON : ''}`}>
         <SlidersVertical size={layout === 'bar' ? 17 : 20} className="shrink-0" />
         {layout === 'list' && <span className="truncate text-sm font-medium">{t('eqTitle')}</span>}
-      </button>
-      <button
+      </button>}
+      {show('visualizer') && <button
         type="button"
         onClick={() => setVisualizer({ place: visualizer().place === 'closed' ? 'panel' : 'closed', fullscreen: false })}
         title={t('vizTitle')}
@@ -93,8 +97,8 @@ export const PlayerExtraButtons: React.FC<{ layout?: ExtrasLayout }> = ({ layout
       >
         <AudioLines size={layout === 'bar' ? 17 : 20} className="shrink-0" />
         {layout === 'list' && <span className="truncate text-sm font-medium">{t('vizTitle')}</span>}
-      </button>
-      <div ref={box} className={layout === 'bar' ? 'relative hidden md:block' : 'w-full'}>
+      </button>}
+      {show('winamp') && <div ref={box} className={layout === 'bar' ? 'relative hidden md:block' : 'w-full'}>
         <button
           ref={opener}
           type="button"
@@ -188,7 +192,7 @@ export const PlayerExtraButtons: React.FC<{ layout?: ExtrasLayout }> = ({ layout
           </div>,
           document.body,
         )}
-      </div>
+      </div>}
     </>
   );
 };

@@ -341,7 +341,11 @@ function AppContent() {
   });
   const [playbackRate, setPlaybackRate] = useState(1.0);
   const [isShuffle, setIsShuffle] = useState(false);
-  const [repeatMode, setRepeatMode] = useState<'none' | 'all' | 'one'>('all');
+  // stop: play this track to its end and stay there, as Winamp's and
+  // foobar's "stop after current"; next and previous still move by hand
+  const [repeatMode, setRepeatMode] = useState<'none' | 'all' | 'one' | 'stop'>('all');
+  const repeatModeRef = useRef(repeatMode);
+  repeatModeRef.current = repeatMode;
 
   // UI State
   const [isGenerating, setIsGenerating] = useState(false);
@@ -693,6 +697,10 @@ function AppContent() {
     };
 
     const onEnded = () => {
+      if (repeatModeRef.current === 'stop') {
+        setIsPlaying(false);
+        return;
+      }
       playNextRef.current();
     };
 
@@ -1241,7 +1249,7 @@ function AppContent() {
     }
     if (level !== undefined) setVolume(Math.max(0, Math.min(1, Number(level))));
     if (shuffle !== undefined) setIsShuffle(Boolean(shuffle));
-    if (repeat === 'none' || repeat === 'all' || repeat === 'one') setRepeatMode(repeat);
+    if (repeat === 'none' || repeat === 'all' || repeat === 'one' || repeat === 'stop') setRepeatMode(repeat);
     return { text: 'Set.' };
   });
   useBridgeCommand('video_open', ({ song_id }) => {
@@ -1660,7 +1668,7 @@ function AppContent() {
         isShuffle={isShuffle}
         onToggleShuffle={() => setIsShuffle(!isShuffle)}
         repeatMode={repeatMode}
-        onToggleRepeat={() => setRepeatMode(prev => prev === 'none' ? 'all' : prev === 'all' ? 'one' : 'none')}
+        onToggleRepeat={() => setRepeatMode(prev => prev === 'none' ? 'all' : prev === 'all' ? 'one' : prev === 'one' ? 'stop' : 'none')}
         isLiked={currentSong ? likedSongIds.has(currentSong.id) : false}
         onToggleLike={() => currentSong && toggleLike(currentSong.id)}
         onPlayFirst={playFirst}
