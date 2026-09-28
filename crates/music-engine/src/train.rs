@@ -12,7 +12,7 @@
 //! is the dataset's `custom_tag`, put in front of every caption.
 //!
 //! The defaults are HOT-Step's Training Studio's (`TRAIN_DIT_DEFAULTS`,
-//! `TRAIN_DIT_LOKR_DEFAULTS` at 8a5e42c4): flow-SNR loss, rank 128 / alpha 256
+//! `TRAIN_DIT_LOKR_DEFAULTS` at 3e7a0778): flow-SNR loss, rank 128 / alpha 256
 //! with the MLP trained, Prodigy, fused flash attention with the crop fitted
 //! to the card.
 

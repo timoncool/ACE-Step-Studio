@@ -6,7 +6,7 @@
 //! signature. It is unreliable on numbers, so tempo and key come from what
 //! `audio_facts` measured, and a tempo or key the prose states is corrected.
 //!
-//! Prompts, sampling and the caption clean-up follow HOT-Step-CPP 8a5e42c4:
+//! Prompts, sampling and the caption clean-up follow HOT-Step-CPP 3e7a0778:
 //! server/src/services/training/{captionPrompt,mossCaption}.ts.
 
 use std::{collections::HashMap, path::Path, process::Command};
