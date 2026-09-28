@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
 import { ArrowLeft, Play, MoreHorizontal, Clock, Calendar, Shuffle, Trash2, Mic2, Music } from 'lucide-react';
 import { deleteNativePlaylist, getNativePlaylist, loadNativeLibrarySongs, parseDuration, updateNativePlaylist } from '../services/nativeLibrary';
+import { AlbumCover } from './AlbumCover';
 
 interface PlaylistDetailProps {
     playlistId: string;
@@ -212,7 +213,9 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
                                 {/* Cover + Title */}
                                 <div className="flex items-center gap-3 overflow-hidden flex-1 md:flex-none">
                                     <div className="w-12 h-12 md:w-10 md:h-10 rounded-sm bg-zinc-800 shrink-0 overflow-hidden relative group/img">
-                                        <img src={song.coverUrl} alt="" className="w-full h-full object-cover" />
+                                        {song.coverUrl
+                                            ? <img src={song.coverUrl} alt="" className="w-full h-full object-cover" />
+                                            : <AlbumCover seed={song.id || song.title} size="full" className="w-full h-full" />}
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();

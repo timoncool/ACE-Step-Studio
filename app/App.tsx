@@ -275,7 +275,7 @@ function AppContent() {
       title: descriptionPreview.slice(0, 60) || (t('generating') || 'Generating…'),
       lyrics: '',
       style: '',
-      coverUrl: 'https://picsum.photos/200/200?blur=10',
+      coverUrl: '',
       duration: '--:--',
       createdAt: new Date(),
       isGenerating: true,

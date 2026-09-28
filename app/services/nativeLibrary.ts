@@ -85,13 +85,11 @@ export function mapNativeLibrarySong(song: NativeLibrarySong): Song {
     title: song.title,
     lyrics: song.lyrics,
     style: song.caption,
-    // A stored cover always wins. Without one the track still gets real
-    // artwork the same way the original studio did — a photo seeded by the
-    // song id, so it is stable per track — and AlbumCover falls back to its
-    // generated pattern if that image cannot be loaded (offline, blocked).
+    // A track without a cover of its own shows AlbumCover's pattern, drawn
+    // from its id: no stock photo is fetched in its place.
     coverUrl: typeof metadata.cover_filename === 'string'
       ? apiUrl(`/v1/library/songs/${encodeURIComponent(song.id)}/cover`)
-      : `https://picsum.photos/seed/${encodeURIComponent(song.id)}/400/400`,
+      : '',
     duration: (() => {
       const seconds = numberMetadata(metadata, 'duration_seconds') ?? numberMetadata(metadata, 'duration');
       return seconds && seconds > 0 ? `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}` : '0:00';
