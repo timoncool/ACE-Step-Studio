@@ -84,3 +84,9 @@ export function onStockCovers(listener: (on: boolean) => void): () => void {
 export function stockCoverUrl(seed: string): string {
   return `https://picsum.photos/seed/${encodeURIComponent(seed)}/400/400`;
 }
+
+/** The picture a track shows: its own cover, else the stock photo while
+ *  stock covers are on, else none. */
+export function trackCoverUrl(song: { id: string; coverUrl?: string }): string {
+  return song.coverUrl || (stockCovers() ? stockCoverUrl(song.id) : '');
+}

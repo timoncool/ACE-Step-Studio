@@ -247,6 +247,21 @@ pub fn decode_stereo_bytes(bytes: Vec<u8>, extension: &str) -> Result<audio_post
 }
 
 fn decode_source(source: Box<dyn symphonia::core::io::MediaSource>, extension: Option<&str>) -> Result<(Vec<Vec<f32>>, u32)> {
+    let mut planes: Vec<Vec<f32>> = Vec::new();
+    let rate = decode_packets(source, extension, |packet| {
+        if planes.len() < packet.len() {
+            planes.resize(packet.len(), Vec::new());
+        }
+        for (plane, samples) in planes.iter_mut().zip(packet) {
+            plane.extend_from_slice(samples);
+        }
+    })?;
+    Ok((planes, rate))
+}
+
+/// Decodes the default audio track packet by packet, handing each packet's
+/// channels to `each`; returns the sample rate.
+fn decode_packets(source: Box<dyn symphonia::core::io::MediaSource>, extension: Option<&str>, mut each: impl FnMut(&[Vec<f32>])) -> Result<u32> {
     let mut format = probe(source, extension)?;
     let track = format.default_track(TrackType::Audio).context("the file carries no decodable audio track")?;
     let track_id = track.id;
@@ -258,7 +273,6 @@ fn decode_source(source: Box<dyn symphonia::core::io::MediaSource>, extension: O
         .make_audio_decoder(params, &AudioDecoderOptions::default())
         .context("no decoder for this audio")?;
 
-    let mut planes: Vec<Vec<f32>> = Vec::new();
     let mut packet_planes: Vec<Vec<f32>> = Vec::new();
     loop {
         let packet = match format.next_packet() {
@@ -278,23 +292,22 @@ fn decode_source(source: Box<dyn symphonia::core::io::MediaSource>, extension: O
         };
         rate = decoded.spec().rate();
         decoded.copy_to_vecs_planar(&mut packet_planes);
-        if planes.len() < packet_planes.len() {
-            planes.resize(packet_planes.len(), Vec::new());
-        }
-        for (plane, samples) in planes.iter_mut().zip(&packet_planes) {
-            plane.extend_from_slice(samples);
-        }
+        each(&packet_planes);
     }
 
-    Ok((planes, rate))
+    Ok(rate)
 }
 
 /// Every channel averaged into one, at the file's own sample rate.
 fn decode_mono(path: &Path) -> Result<(Vec<f32>, u32)> {
-    let (planes, rate) = decode_channels(path)?;
-    let Some(first) = planes.first() else { return Ok((Vec::new(), rate)) };
-    let count = planes.len() as f32;
-    let mono = (0..first.len()).map(|index| planes.iter().map(|plane| plane.get(index).copied().unwrap_or(0.0)).sum::<f32>() / count).collect();
+    let file = File::open(path).with_context(|| format!("open {}", path.display()))?;
+    let mut mono = Vec::new();
+    let rate = decode_packets(Box::new(file), path.extension().and_then(|value| value.to_str()), |packet| {
+        let Some(first) = packet.first() else { return };
+        let count = packet.len() as f32;
+        mono.extend((0..first.len()).map(|index| packet.iter().map(|plane| plane[index]).sum::<f32>() / count));
+    })
+    .with_context(|| format!("decode {}", path.display()))?;
     Ok((mono, rate))
 }
 

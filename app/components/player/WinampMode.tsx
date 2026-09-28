@@ -6,6 +6,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { useI18n } from '../../context/I18nContext';
 import type { Song } from '../../types';
 import { TRACK_ARTIST } from '../../services/studio';
+import { trackCoverUrl } from '../../services/playerPanels';
 import { isDesktop } from '../../services/externalLinks';
 import { EQ_BANDS, equalizer, setEqualizer } from '../../services/audioGraph';
 import { addWinampSkin, pickSkin, registerWinampControl, setWinampSettings, winampSettings, winampSkins, type WinampSkin } from '../../services/winamp';
@@ -76,7 +77,7 @@ const fromSlider = (value: number) => Math.round(((value - 50) / 50) * 12 * 10) 
 function track(song: Song): Track {
   return {
     url: song.audioUrl as string,
-    metaData: { artist: song.creator || TRACK_ARTIST, title: song.title, albumArtUrl: song.coverUrl || undefined },
+    metaData: { artist: song.creator || TRACK_ARTIST, title: song.title, albumArtUrl: trackCoverUrl(song) || undefined },
     duration: Number(song.duration) || undefined,
   } as Track;
 }
