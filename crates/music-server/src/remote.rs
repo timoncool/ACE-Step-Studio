@@ -76,10 +76,19 @@ fn local_addresses() -> Vec<String> {
     found
 }
 
+/// Whether a request comes from this computer itself. A tunnel or reverse
+/// proxy on this computer (cloudflared, ngrok, nginx) forwards the network
+/// from loopback, and says so in a forwarding header; the studio's window and
+/// agents send none.
+fn from_this_computer(peer: &SocketAddr, headers: &axum::http::HeaderMap) -> bool {
+    const FORWARDED: [&str; 5] = ["forwarded", "x-forwarded-for", "x-forwarded-host", "x-real-ip", "cf-connecting-ip"];
+    peer.ip().is_loopback() && !FORWARDED.iter().any(|name| headers.contains_key(*name))
+}
+
 /// The setting for the page. The key is shown only to this computer.
-pub async fn status(ConnectInfo(peer): ConnectInfo<SocketAddr>) -> Json<Value> {
+pub async fn status(ConnectInfo(peer): ConnectInfo<SocketAddr>, headers: axum::http::HeaderMap) -> Json<Value> {
     let access = current();
-    let local = peer.ip().is_loopback();
+    let local = from_this_computer(&peer, &headers);
     Json(json!({
         "enabled": access.enabled,
         "key": if local { Some(access.key) } else { None },
@@ -102,9 +111,10 @@ pub struct AccessChange {
 pub async fn change(
     axum::extract::State(state): axum::extract::State<crate::AppState>,
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: axum::http::HeaderMap,
     Json(change): Json<AccessChange>,
 ) -> Result<Json<Value>, (StatusCode, Json<crate::ApiError>)> {
-    if !peer.ip().is_loopback() {
+    if !from_this_computer(&peer, &headers) {
         return Err(crate::api_error(StatusCode::FORBIDDEN, "access from the network is changed on the studio's own computer".into()));
     }
     {
@@ -117,7 +127,7 @@ pub async fn change(
         }
     }
     crate::persist_studio_settings(&state).await.map_err(|error| crate::api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("{error:#}")))?;
-    Ok(status(ConnectInfo(peer)).await)
+    Ok(status(ConnectInfo(peer), headers).await)
 }
 
 /// The key a request carries: `?key=`, the cookie, or a bearer token.
@@ -144,7 +154,7 @@ fn same(a: &str, b: &str) -> bool {
 
 /// Lets this computer through, and the network only with the key.
 pub async fn guard(ConnectInfo(peer): ConnectInfo<SocketAddr>, request: Request, next: Next) -> Response {
-    if peer.ip().is_loopback() {
+    if from_this_computer(&peer, request.headers()) {
         return next.run(request).await;
     }
     let access = current();
@@ -212,6 +222,17 @@ pub async fn interface(request: Request) -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_forwarded_request_is_not_this_computer() {
+        let loopback: SocketAddr = "127.0.0.1:50000".parse().unwrap();
+        let mut headers = axum::http::HeaderMap::new();
+        assert!(from_this_computer(&loopback, &headers));
+        headers.insert("x-forwarded-for", "203.0.113.7".parse().unwrap());
+        assert!(!from_this_computer(&loopback, &headers));
+        let lan: SocketAddr = "192.168.1.20:50000".parse().unwrap();
+        assert!(!from_this_computer(&lan, &axum::http::HeaderMap::new()));
+    }
 
     #[test]
     fn keys_compare_only_equal() {

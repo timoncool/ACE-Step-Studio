@@ -6480,12 +6480,22 @@ async fn save_adapter_comfyui(State(state): State<AppState>, Path(id): Path<Stri
     if !target.is_absolute() || target.extension().and_then(|extension| extension.to_str()) != Some("safetensors") {
         return Err(api_error(StatusCode::BAD_REQUEST, "path must be a full path ending in .safetensors".into()));
     }
+    // a file already there is refused, not replaced: the path could name a model
+    if target.exists() {
+        return Err(api_error(StatusCode::CONFLICT, format!("{} already exists; give a new file name", target.display())));
+    }
     let response = export_adapter_comfyui(State(state), Path(id), axum::extract::Query(ComfyExportQuery { strength: request.strength })).await?;
     let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
     if let Some(parent) = target.parent() {
         std::fs::create_dir_all(parent).map_err(|error| api_error(StatusCode::BAD_REQUEST, format!("create {}: {error}", parent.display())))?;
     }
-    std::fs::write(&target, &bytes).map_err(|error| api_error(StatusCode::BAD_REQUEST, format!("write {}: {error}", target.display())))?;
+    // written beside it and renamed once whole, so a failed write leaves no half file
+    let partial = target.with_extension("safetensors.part");
+    if let Err(error) = std::fs::write(&partial, &bytes) {
+        let _ = std::fs::remove_file(&partial);
+        return Err(api_error(StatusCode::BAD_REQUEST, format!("write {}: {error}", target.display())));
+    }
+    std::fs::rename(&partial, &target).map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("rename to {}: {error}", target.display())))?;
     Ok(Json(serde_json::json!({ "path": target.display().to_string(), "bytes": bytes.len() })))
 }
 
