@@ -1,13 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronDown, Download, FolderDown, FolderOpen, Loader2, Piano, Square, Trash2, X } from 'lucide-react';
+import { Check, ChevronDown, Download, FolderDown, FolderOpen, Loader2, Square, Trash2, X } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import { RescanButton } from './RescanButton';
 import { DevicePicker, type Device } from './DevicePicker';
 import { AssistantExtras } from './AssistantSettings';
 import { KaraokeExtras } from './KaraokeSettings';
-import { ListenCard, PackCard } from './TrainingPanel';
-import type { MidiStatus } from './midi/MidiTool';
-import { fetchTraining, type TrainingState } from '../services/training';
 import type { TranslationKey } from '../i18n/translations';
 import {
   componentKindLabel,
@@ -89,7 +86,8 @@ const errorMessage = async (response: Response) => {
 
 /** A recogniser or backend: which one, what it runs on, and one button. */
 /** byAddress: a server chosen by its address, whose fields save the switch once one is typed. */
-type EngineChoice = { id: string; label: string; device?: boolean; byAddress?: boolean };
+/** devicePicker false: downloaded and run here, on whatever the machine has - nothing to choose. */
+type EngineChoice = { id: string; label: string; device?: boolean; byAddress?: boolean; devicePicker?: boolean };
 
 /**
  * One optional capability.
@@ -307,7 +305,7 @@ export const OptionalGroup: React.FC<{
                   </button>
                 ))}
               </div>
-              {engines.find((choice) => choice.id === engine)?.device !== false && (
+              {engines.find((choice) => choice.id === engine)?.device !== false && engines.find((choice) => choice.id === engine)?.devicePicker !== false && (
                 <DevicePicker value={device} onChange={(next) => void remember({ device: next })} />
               )}
             </div>
@@ -484,7 +482,7 @@ export const OptionalGroup: React.FC<{
                               void fetch(removeUrl, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ asset_id: engine }),
+                                body: JSON.stringify({ asset_id: engine, model_id: chosenModel || undefined }),
                               })
                                 .then(async (response) => {
                                   if (!response.ok) setFailed(await errorMessage(response));
@@ -667,126 +665,6 @@ const WhereItRuns: React.FC<{ trainingVram: number | null }> = ({ trainingVram }
   );
 };
 
-/** The training page's state, for its two packs and the reference, while the models page is open. */
-function useTrainingState(enabled: boolean) {
-  const [state, setState] = useState<TrainingState | null>(null);
-  const [failed, setFailed] = useState<string | null>(null);
-  const load = useCallback(
-    () =>
-      fetchTraining()
-        .then((next) => setState(next))
-        .catch((reason: Error) => setFailed(reason.message)),
-    [],
-  );
-  useEffect(() => {
-    if (!enabled) return;
-    void load();
-    const timer = window.setInterval(() => void load(), 2000);
-    return () => window.clearInterval(timer);
-  }, [enabled, load]);
-  return { state, failed, setFailed, load };
-}
-
-/** Audio to MIDI's transcriber and model sizes, fetched and removed here as on the tools page. */
-const MidiModels: React.FC = () => {
-  const { t } = useI18n();
-  const tt = t as unknown as (key: string) => string;
-  const [status, setStatus] = useState<MidiStatus | null>(null);
-  const [failed, setFailed] = useState<string | null>(null);
-  const load = useCallback(
-    () =>
-      fetch('/v1/midi')
-        .then(async (response) => {
-          if (!response.ok) throw new Error(await errorMessage(response));
-          setStatus(await response.json());
-        })
-        .catch((reason: Error) => setFailed(reason.message)),
-    [],
-  );
-  useEffect(() => {
-    void load();
-    const timer = window.setInterval(() => void load(), 2000);
-    return () => window.clearInterval(timer);
-  }, [load]);
-  const post = async (url: string, body: object) => {
-    setFailed(null);
-    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    if (!response.ok) setFailed(await errorMessage(response));
-    await load();
-  };
-  if (!status) return failed ? <p className="text-xs text-rose-600 dark:text-rose-300">{failed}</p> : null;
-  const download = status.download && !status.download.done ? status.download : null;
-  const percent = download ? Math.min(100, Math.round((download.downloaded_bytes / Math.max(1, download.total_bytes)) * 100)) : 0;
-  return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-suno-card">
-      <div className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-white">
-        <Piano size={16} className="text-pink-500" />
-        {t('midiTitle')}
-      </div>
-      <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('midiHint')}</p>
-      <div className="mt-3 space-y-1.5">
-        {status.sizes.map((size) => {
-          const installed = size.missing_bytes === 0;
-          return (
-            <div key={size.id} className="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-200">
-              {installed ? <Check size={13} className="shrink-0 text-emerald-500" /> : <Square size={13} className="shrink-0 text-zinc-400" />}
-              <span className="min-w-0 flex-1 truncate">{tt(`midiSize_${size.id}`)} · {size.params}</span>
-              <span className="shrink-0 tabular-nums text-zinc-500">{bytes(size.bytes)}</span>
-              {installed ? (
-                <button
-                  type="button"
-                  onClick={() => void post('/v1/midi/remove', { size: size.id })}
-                  disabled={Boolean(download)}
-                  title={t('removeDownloaded')}
-                  className="shrink-0 rounded-md border border-zinc-300 p-1 text-zinc-500 hover:border-rose-400 hover:text-rose-600 disabled:opacity-40 dark:border-white/15 dark:text-zinc-400"
-                >
-                  <Trash2 size={13} />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => void post('/v1/midi/install', { size: size.id })}
-                  disabled={Boolean(download)}
-                  title={t('download')}
-                  className="shrink-0 rounded-md border border-zinc-300 p-1 text-zinc-600 hover:border-pink-400 hover:text-pink-600 disabled:opacity-40 dark:border-white/15 dark:text-zinc-300"
-                >
-                  <Download size={13} />
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      {download && (
-        <div className="mt-3">
-          <div className="flex items-center justify-between gap-2 text-xs text-zinc-500">
-            <span className="inline-flex items-center gap-1.5 tabular-nums">
-              <Loader2 size={13} className="animate-spin text-pink-500" />
-              {percent}% · {bytes(download.downloaded_bytes)} / {bytes(download.total_bytes)}
-            </span>
-            <button
-              type="button"
-              onClick={() => void post('/v1/midi/cancel', {})}
-              title={t('cancelDownload')}
-              className="rounded-md border border-zinc-300 p-1 text-zinc-500 hover:border-rose-400 hover:text-rose-600 dark:border-white/15 dark:text-zinc-400"
-            >
-              <Square size={12} />
-            </button>
-          </div>
-          <div className="mt-2 h-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-black/30">
-            <div className="h-full bg-linear-to-r from-orange-500 to-pink-500 transition-[width]" style={{ width: `${percent}%` }} />
-          </div>
-        </div>
-      )}
-      {status.download?.done && status.download.error && status.download.error !== 'cancelled' && (
-        <p className="mt-2 text-xs text-rose-600 dark:text-rose-300">{status.download.error}</p>
-      )}
-      {failed && <p className="mt-2 text-xs text-rose-600 dark:text-rose-300">{failed}</p>}
-      <p className="mt-2 text-[11px] leading-4 text-zinc-500 dark:text-zinc-400">{status.license}</p>
-    </div>
-  );
-};
-
 export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 'settings'; focus?: string | null }> = ({ onReady, mode = 'first-run', focus = null }) => {
   const { t } = useI18n();
   const [status, setStatus] = useState<SetupStatus | null>(null);
@@ -795,7 +673,14 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
   const chosenValues = useMemo(() => Object.values(choice).filter((id): id is string => typeof id === 'string' && id.length > 0), [choice]);
   const [error, setError] = useState<string | null>(null);
   // the training page's packs are listed here too, with everything else the studio downloads
-  const training = useTrainingState(mode === 'settings');
+  const [trainingInfo, setTrainingInfo] = useState<{ min_vram_gb: number; card_trains: boolean } | null>(null);
+  useEffect(() => {
+    if (mode !== 'settings') return;
+    void fetch('/v1/training/pack/runtime')
+      .then((response) => (response.ok ? response.json() : null))
+      .then(setTrainingInfo)
+      .catch(() => undefined);
+  }, [mode]);
 
   const refresh = useCallback(async () => {
     const response = await fetch('/setup/status');
@@ -937,7 +822,7 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
           {mode === 'first-run' ? t('setupSubtitle') : t('resourcesSubtitle')}
         </p>
 
-        {mode === 'settings' && <WhereItRuns trainingVram={training.state?.min_vram_gb ?? null} />}
+        {mode === 'settings' && <WhereItRuns trainingVram={trainingInfo?.min_vram_gb ?? null} />}
         {mode === 'settings' && <div className="mt-4"><RescanButton onDone={() => void refresh().catch((problem: unknown) => setError(problem instanceof Error ? problem.message : String(problem)))} /></div>}
 
         {error && (
@@ -979,6 +864,7 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
             {(catalog?.profiles ?? []).filter((profile) => profile.installable).length > 0 && (
               <div className="space-y-2">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{t('readyMadeSets')}</p>
+                <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('hubSetsOneEnough')}</p>
                 <div className="space-y-2">
                   {(catalog?.profiles ?? []).filter((profile) => profile.installable).map((profile) => {
                     const missingHere = profile.components.filter((id) => !installedIds.includes(id));
@@ -1220,16 +1106,39 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
             >
               {(engine) => <KaraokeExtras engine={engine} />}
             </OptionalGroup>
-            {/* The training page's two packs and the MIDI transcriber: set up
-                where they are used, and listed here with everything else. */}
-            {mode === 'settings' && training.state && (
-              <>
-                <PackCard state={training.state} onError={training.setFailed} onChanged={() => void training.load()} />
-                <ListenCard state={training.state} onError={training.setFailed} onChanged={() => void training.load()} always />
-              </>
+            {/* The training page's two packs and the MIDI transcriber, set up
+                where they are used and listed here with the rest. */}
+            {mode === 'settings' && trainingInfo?.card_trains && (
+              <OptionalGroup
+                title={t('hubPartTraining')}
+                purpose={t('hubTrainingPurpose')}
+                statusUrl="/v1/training/pack/runtime"
+                installUrl="/v1/training/pack/install"
+                cancelUrl="/v1/training/pack/cancel"
+                engines={[{ id: 'music-train', label: 'HOT-Step music-train', devicePicker: false }]}
+              />
             )}
-            {mode === 'settings' && training.failed && <p className="text-xs text-rose-600 dark:text-rose-300">{training.failed}</p>}
-            {mode === 'settings' && <MidiModels />}
+            {mode === 'settings' && (
+              <OptionalGroup
+                title={t('hubPartListen')}
+                purpose={t('hubListenPurpose')}
+                statusUrl="/v1/training/listen/runtime"
+                installUrl="/v1/training/listen/install"
+                cancelUrl="/v1/training/pack/cancel"
+                engines={[{ id: 'moss-music', label: 'MOSS-Music', devicePicker: false }]}
+              />
+            )}
+            {mode === 'settings' && (
+              <OptionalGroup
+                title={t('midiTitle')}
+                purpose={t('hubMidiPurpose')}
+                statusUrl="/v1/midi/runtime"
+                installUrl="/v1/midi/install"
+                removeUrl="/v1/midi/remove"
+                cancelUrl="/v1/midi/cancel"
+                engines={[{ id: 'muscriptor', label: 'MuScriptor', devicePicker: false }]}
+              />
+            )}
           </div>
         </div>
       </div>

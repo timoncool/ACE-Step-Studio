@@ -753,6 +753,9 @@ pub async fn serve() -> anyhow::Result<()> {
         .route("/v1/writing/examples", get(writing_examples))
         .route("/v1/library/songs/{id}/files", get(library_song_files))
         .route("/v1/midi", get(midi_status))
+        .route("/v1/midi/runtime", get(midi_runtime))
+        .route("/v1/training/pack/runtime", get(training_pack_runtime))
+        .route("/v1/training/listen/runtime", get(listen_pack_runtime))
         .route("/v1/midi/notes", get(midi_live_notes))
         .route("/v1/midi/install", post(install_midi))
         .route("/v1/midi/remove", post(remove_midi_model))
@@ -2003,6 +2006,66 @@ async fn read_training(State(state): State<AppState>) -> Json<Value> {
         "runs": runs,
         "active": active,
         "prepare": state.prepare.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).clone(),
+    }))
+}
+
+
+/// A pack as the models page lists an optional part: every file a runtime
+/// row, how much of the whole is on disk, and its download.
+fn pack_runtime(mut files: Vec<Value>, ready: bool, active_download: Option<downloads::DownloadProgress>) -> Value {
+    let bytes: u64 = files.iter().map(|file| file["bytes"].as_u64().unwrap_or(0)).sum();
+    let installed_bytes: u64 = files.iter().filter(|file| file["installed"].as_bool() == Some(true)).map(|file| file["bytes"].as_u64().unwrap_or(0)).sum();
+    for file in &mut files {
+        file["kind"] = "runtime".into();
+        file["note"] = "".into();
+    }
+    let count = files.len();
+    serde_json::json!({
+        "assets": files,
+        "set": { "bytes": bytes, "installed_bytes": installed_bytes, "ready": ready, "files": count },
+        "active_download": active_download,
+    })
+}
+
+/// The training pack on the models page, with what the reference there says:
+/// the video memory a run needs and whether this card trains at all.
+async fn training_pack_runtime(State(state): State<AppState>) -> Json<Value> {
+    let training = &state.training;
+    let mut body = pack_runtime(training.pack_status(), training.pack_ready(), training.downloader().active_for(training::SCOPE).await);
+    body["min_vram_gb"] = music_engine::train::MIN_VRAM_GB.into();
+    body["card_trains"] = cuda_build::current().is_some().into();
+    Json(body)
+}
+
+/// The listening pack on the models page.
+async fn listen_pack_runtime(State(state): State<AppState>) -> Json<Value> {
+    let training = &state.training;
+    let ready = training.listen_ready() && state.lyrics_sync.onnxruntime_library().is_some();
+    Json(pack_runtime(training.listen_status(), ready, training.downloader().active_for(training::LISTEN_SCOPE).await))
+}
+
+/// Audio to MIDI on the models page: the transcriber, and its sizes as one
+/// model's variants - one is chosen and downloaded.
+async fn midi_runtime(State(state): State<AppState>) -> Json<Value> {
+    let tool = midi::tool_asset();
+    let tool_installed = state.midi.tool_installed();
+    let mut assets = vec![serde_json::json!({ "id": tool.id, "label": tool.label, "bytes": tool.bytes, "note": "", "installed": tool_installed, "kind": "runtime" })];
+    assets.extend(midi::SIZES.iter().map(|size| {
+        serde_json::json!({
+            "id": size.id,
+            "label": format!("MuScriptor {} · {}", size.id, size.params),
+            "bytes": size.bytes,
+            "note": "",
+            "installed": state.midi.model_installed(size),
+            "kind": "model",
+        })
+    }));
+    let installed_size = midi::SIZES.iter().find(|size| state.midi.model_installed(size));
+    Json(serde_json::json!({
+        "assets": assets,
+        "set": { "bytes": tool.bytes, "installed_bytes": if tool_installed { tool.bytes } else { 0 }, "ready": tool_installed && installed_size.is_some(), "files": 1 },
+        "active_download": state.midi.downloader().active().await,
+        "chosen_model": installed_size.map_or(midi::DEFAULT_SIZE, |size| size.id),
     }))
 }
 
@@ -5388,7 +5451,8 @@ async fn midi_live_notes(State(state): State<AppState>) -> Json<Value> {
 
 #[derive(Debug, Deserialize)]
 struct MidiSizeRequest {
-    #[serde(default)]
+    /// `model_id` when the models page sends it, as for every optional part.
+    #[serde(default, alias = "model_id")]
     size: Option<String>,
 }
 

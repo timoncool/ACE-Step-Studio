@@ -65,7 +65,7 @@ fn leak(text: String) -> &'static str {
 }
 
 /// The transcriber's archive.
-fn tool_asset() -> &'static Asset {
+pub fn tool_asset() -> &'static Asset {
     static ASSET: OnceLock<Asset> = OnceLock::new();
     ASSET.get_or_init(|| {
         let source = source();

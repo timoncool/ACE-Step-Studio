@@ -11,7 +11,7 @@ import { MidiPlayer, type HeardNote } from './MidiPlayer';
  * first transcription fetches them, or the user does beforehand.
  */
 
-export interface MidiSize {
+interface MidiSize {
   id: 'small' | 'medium' | 'large';
   params: string;
   bytes: number;
@@ -32,7 +32,7 @@ interface MidiRun {
   progress: number;
 }
 
-export interface MidiStatus {
+interface MidiStatus {
   tool_installed: boolean;
   sizes: MidiSize[];
   default_size: MidiSize['id'];

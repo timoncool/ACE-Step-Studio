@@ -194,7 +194,7 @@ function useStrings() {
 const errorText = (problem: unknown) => (problem instanceof Error ? problem.message : String(problem));
 
 /** The pack: what it holds, the requirements, and its download. */
-export const PackCard: React.FC<{ state: TrainingState; onError: (message: string) => void; onChanged: () => void }> = ({ state, onError, onChanged }) => {
+const PackCard: React.FC<{ state: TrainingState; onError: (message: string) => void; onChanged: () => void }> = ({ state, onError, onChanged }) => {
   const { t } = useStrings();
   const total = state.pack.reduce((sum, file) => sum + file.bytes, 0);
   const missing = state.pack.filter(file => !file.installed).reduce((sum, file) => sum + file.bytes, 0);
@@ -239,16 +239,10 @@ export const PackCard: React.FC<{ state: TrainingState; onError: (message: strin
 };
 
 /** The optional listening pack: songs described by ear instead of by hand. */
-export const ListenCard: React.FC<{
-  state: TrainingState;
-  onError: (message: string) => void;
-  onChanged: () => void;
-  /** Shown once installed too, as the models page lists everything the studio has. */
-  always?: boolean;
-}> = ({ state, onError, onChanged, always = false }) => {
+const ListenCard: React.FC<{ state: TrainingState; onError: (message: string) => void; onChanged: () => void }> = ({ state, onError, onChanged }) => {
   const { t } = useStrings();
   const listen = state.listen;
-  if (!listen || (listen.ready && !always)) return null;
+  if (!listen || listen.ready) return null;
   const total = listen.pack.reduce((sum, file) => sum + file.bytes, 0);
   const missing = listen.pack.filter(file => !file.installed).reduce((sum, file) => sum + file.bytes, 0);
   const download = listen.download && !listen.download.done ? listen.download : null;
@@ -277,11 +271,9 @@ export const ListenCard: React.FC<{
           <button type="button" onClick={() => void cancelTrainingPack().then(onChanged)} className={`${OUTLINE} mt-3`}><X size={13} />{t('adaptersCancel')}</button>
         </div>
       ) : (
-        !listen.ready && (
-          <button type="button" onClick={() => void installListenPack().then(onChanged).catch(problem => onError(errorText(problem)))} className={`${OUTLINE} mt-3`}>
-            <Download size={14} />{t('trainingDownload')} · {gigabytes(missing)}
-          </button>
-        )
+        <button type="button" onClick={() => void installListenPack().then(onChanged).catch(problem => onError(errorText(problem)))} className={`${OUTLINE} mt-3`}>
+          <Download size={14} />{t('trainingDownload')} · {gigabytes(missing)}
+        </button>
       )}
       {listen.download?.done && listen.download.error && listen.download.error !== 'cancelled' && (
         <p role="alert" className="mt-3 text-xs text-rose-600 dark:text-rose-300">{listen.download.error}</p>

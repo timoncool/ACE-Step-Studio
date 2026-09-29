@@ -26,6 +26,10 @@ const en = {
   hubRunsTraining: 'Training needs an NVIDIA card with {vram} GB of video memory or more: the trainer has no other path, and on the processor one run would take days.',
   hubRunsStems: 'On AMD and Intel cards stems are separated on the processor: the HT-Demucs model does not run through DirectML.',
   hubRunsAuto: '"Auto" in a device choice takes the card when its runtime is installed, and the processor otherwise.',
+  hubSetsOneEnough: 'The sets replace one another: one is enough, the one that suits your card.',
+  hubTrainingPurpose: 'The trainer and the weights for training your own LoRA',
+  hubListenPurpose: 'Describes dataset songs by ear: style, tempo, key',
+  hubMidiPurpose: 'Turns a track into multi-instrument MIDI',
 };
 
 const ru: typeof en = {
@@ -50,6 +54,10 @@ const ru: typeof en = {
   hubRunsTraining: 'Для обучения нужна видеокарта NVIDIA с {vram} ГБ видеопамяти и больше: у тренера нет другого пути, а на процессоре одно обучение шло бы сутками.',
   hubRunsStems: 'На картах AMD и Intel стемы разделяются на процессоре: модель HT-Demucs не работает через DirectML.',
   hubRunsAuto: '«Авто» в выборе устройства берёт видеокарту, если её рантайм установлен, иначе процессор.',
+  hubSetsOneEnough: 'Наборы заменяют друг друга: нужен один, подходящий вашей карте.',
+  hubTrainingPurpose: 'Тренер и веса для обучения своих LoRA',
+  hubListenPurpose: 'Описывает песни датасета на слух: стиль, темп, тональность',
+  hubMidiPurpose: 'Переводит трек в многодорожечный MIDI',
 };
 
 const zh: typeof en = {
@@ -74,6 +82,10 @@ const zh: typeof en = {
   hubRunsTraining: '训练需要显存 {vram} GB 及以上的 NVIDIA 显卡：训练器没有其他路径，而在处理器上训练一次要好几天。',
   hubRunsStems: '在 AMD 和 Intel 显卡上，分轨在处理器上进行：HT-Demucs 模型无法通过 DirectML 运行。',
   hubRunsAuto: '设备选择中的"自动"：显卡运行时已安装时用显卡，否则用处理器。',
+  hubSetsOneEnough: '这些套装可以互相替代：只需一个，选适合你显卡的那个。',
+  hubTrainingPurpose: '训练器和训练自己的 LoRA 所需的权重',
+  hubListenPurpose: '听辨数据集歌曲：风格、速度、调性',
+  hubMidiPurpose: '把音轨转换为多乐器 MIDI',
 };
 
 const ja: typeof en = {
@@ -98,6 +110,10 @@ const ja: typeof en = {
   hubRunsTraining: '学習には {vram} GB 以上の VRAM を持つ NVIDIA の GPU が必要です。トレーナーには他の経路がなく、プロセッサでは 1 回の学習に何日もかかります。',
   hubRunsStems: 'AMD・Intel の GPU ではステム分離はプロセッサで行います。HT-Demucs モデルは DirectML で動きません。',
   hubRunsAuto: 'デバイス選択の「自動」は、GPU のランタイムが入っていれば GPU を、なければプロセッサを使います。',
+  hubSetsOneEnough: 'セットは互いに置き換えるものです。GPU に合うセットが 1 つあれば十分です。',
+  hubTrainingPurpose: '自分の LoRA を学習するためのトレーナーと重み',
+  hubListenPurpose: 'データセットの曲を耳で説明：スタイル、テンポ、キー',
+  hubMidiPurpose: 'トラックをマルチ楽器の MIDI に変換',
 };
 
 const ko: typeof en = {
@@ -122,6 +138,10 @@ const ko: typeof en = {
   hubRunsTraining: '학습에는 VRAM {vram} GB 이상의 NVIDIA 그래픽카드가 필요합니다. 트레이너에는 다른 경로가 없고, 프로세서로는 한 번 학습하는 데 며칠이 걸립니다.',
   hubRunsStems: 'AMD·Intel 카드에서는 스템 분리를 프로세서에서 합니다. HT-Demucs 모델은 DirectML로 돌아가지 않습니다.',
   hubRunsAuto: '장치 선택의 "자동"은 그래픽카드 런타임이 설치되어 있으면 카드를, 아니면 프로세서를 씁니다.',
+  hubSetsOneEnough: '세트는 서로를 대신합니다. 카드에 맞는 세트 하나면 충분합니다.',
+  hubTrainingPurpose: '나만의 LoRA를 학습하는 트레이너와 가중치',
+  hubListenPurpose: '데이터셋 곡을 귀로 설명: 스타일, 템포, 조성',
+  hubMidiPurpose: '트랙을 다중 악기 MIDI로 변환',
 };
 
 export const hubStrings = { en, ru, zh, ja, ko };
