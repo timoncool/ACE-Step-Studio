@@ -1391,6 +1391,20 @@ function AppContent() {
     }
   };
 
+  // A playlist made from the create form, for the songs still to come.
+  const createEmptyPlaylist = async (name: string, description: string): Promise<Playlist | null> => {
+    try {
+      const playlist = await createNativePlaylist(name, description, []);
+      setPlaylists(prev => [playlist, ...prev]);
+      showToast(t('playlistCreated'));
+      return playlist;
+    } catch (error) {
+      console.error('Create playlist error:', error);
+      showToast(t('failedToCreatePlaylist'), 'error');
+      return null;
+    }
+  };
+
   const openAddToPlaylistModal = (song: Song) => {
     setSongToAddToPlaylist(song);
     setIsAddToPlaylistModalOpen(true);
@@ -1545,6 +1559,8 @@ function AppContent() {
                 isGenerating={isGenerating}
                 activeJobCount={activeJobCount + pendingClickCount}
                 initialData={reuseData}
+                playlists={playlists}
+                onCreatePlaylist={createEmptyPlaylist}
               />
             </div>
             {leftPanel.handle}

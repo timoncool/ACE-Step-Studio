@@ -1526,6 +1526,7 @@ export const en = {
     generateForeverHint: 'When a song is made, the same request goes again with new seeds, until you switch this off. The form is taken as it was when you pressed Create.',
     createIntoPlaylist: 'Into playlist',
     createIntoNoPlaylist: 'None',
+    createIntoNewPlaylist: 'New playlist…',
     networkAccess: 'Access from the network',
     networkAccessHint: 'Opens the studio in a browser on another computer or phone. Everything runs here; the browser needs the access key. Agents on this computer and the window itself need no key.',
     networkAccessRestart: 'Close and open the studio for this to take effect: the address is set when it starts.',

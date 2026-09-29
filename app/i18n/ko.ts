@@ -1521,6 +1521,7 @@ export const ko = {
     generateForeverHint: '곡이 완성되면 같은 요청을 새 시드로 다시 보냅니다. 끌 때까지 계속됩니다. «만들기»를 누른 순간의 양식이 사용됩니다.',
     createIntoPlaylist: '플레이리스트에',
     createIntoNoPlaylist: '없음',
+    createIntoNewPlaylist: '새 플레이리스트…',
     networkAccess: '네트워크에서 접근',
     networkAccessHint: '다른 컴퓨터나 휴대폰의 브라우저에서 스튜디오를 엽니다. 모든 작업은 여기서 실행되며 브라우저에는 접근 키가 필요합니다. 이 컴퓨터의 에이전트와 창 자체에는 필요 없습니다.',
     networkAccessRestart: '적용하려면 스튜디오를 닫았다가 다시 여세요. 주소는 시작할 때 정해집니다.',

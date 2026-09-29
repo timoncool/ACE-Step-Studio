@@ -1521,6 +1521,7 @@ export const zh = {
     generateForeverHint: '一首歌完成后，同一请求会以新的种子再次提交，直到你关闭此项。使用的是你点击“创作”那一刻的表单。',
     createIntoPlaylist: '放入歌单',
     createIntoNoPlaylist: '不放入',
+    createIntoNewPlaylist: '新建歌单…',
     networkAccess: '网络访问',
     networkAccessHint: '在另一台电脑或手机的浏览器中打开工作室。一切都在这里运行；浏览器需要访问密钥。本机上的代理和窗口本身不需要密钥。',
     networkAccessRestart: '关闭并重新打开工作室后生效：地址在启动时设定。',

@@ -1521,6 +1521,7 @@ export const ja = {
     generateForeverHint: '曲ができるたびに、同じリクエストを新しいシードで再送信します。オフにするまで続きます。「作成」を押した時点のフォームが使われます。',
     createIntoPlaylist: 'プレイリストへ',
     createIntoNoPlaylist: 'なし',
+    createIntoNewPlaylist: '新しいプレイリスト…',
     networkAccess: 'ネットワークからのアクセス',
     networkAccessHint: '別のコンピューターやスマホのブラウザーでスタジオを開きます。処理はすべてここで行われ、ブラウザーにはアクセスキーが必要です。このコンピューター上のエージェントとウィンドウ自体には不要です。',
     networkAccessRestart: '反映するにはスタジオを閉じて開き直してください。アドレスは起動時に決まります。',

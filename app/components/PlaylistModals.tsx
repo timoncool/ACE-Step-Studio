@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Plus, Music } from 'lucide-react';
 import { Playlist } from '../types';
 import { useI18n } from '../context/I18nContext';
@@ -26,7 +27,8 @@ export const CreatePlaylistModal: React.FC<CreatePlaylistModalProps> = ({ isOpen
     }
   };
 
-  return (
+  // over the whole window, wherever it is opened from
+  return createPortal(
     <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-xs p-4">
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-xl w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         <div className="flex justify-between items-center mb-6">
@@ -74,7 +76,8 @@ export const CreatePlaylistModal: React.FC<CreatePlaylistModalProps> = ({ isOpen
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
 

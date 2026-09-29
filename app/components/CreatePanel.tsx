@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { karaokeReason } from '../services/karaoke';
 import { AlertTriangle, ChevronDown, CircleAlert, Dices, Ear, FolderOpen, Loader2, Pause, Play, RotateCcw, Save, Sparkles, Square, Tags, Undo2, Upload, Wand2, Lightbulb, ListChecks } from 'lucide-react';
-import type { AceCreateRequest, Song } from '../types';
+import type { AceCreateRequest, Playlist, Song } from '../types';
 import { useI18n } from '../context/I18nContext';
 import { saveFile } from '../services/saveFile';
-import { loadNativePlaylists } from '../services/nativeLibrary';
 import { useBridgeCommand } from '../services/mcpBridge';
 import { AdapterPicker } from './AdapterPicker';
+import { CreatePlaylistModal } from './PlaylistModals';
 import { ModelSwitcher, type SwitcherStatus } from './ModelSwitcher';
 import type { AdapterUse } from '../services/adapters';
 import { randomExample, randomIdea, someGenres } from '../services/examples';
@@ -29,7 +29,12 @@ interface CreatePanelProps {
   isGenerating: boolean;
   activeJobCount?: number;
   initialData?: { song: Song; timestamp: number } | null;
+  playlists: Playlist[];
+  onCreatePlaylist: (name: string, description: string) => Promise<Playlist | null>;
 }
+
+/** The select entry that opens the new-playlist dialog instead of choosing. */
+const NEW_PLAYLIST = '__new__';
 
 type ProfileFiles = { synth_model: string; lm_model: string; text_encoder: string; vae: string };
 
@@ -214,7 +219,7 @@ const usesFromRequest = (settings: Record<string, unknown>): AdapterUse[] => {
   return uses;
 };
 
-export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerating, activeJobCount = 0, initialData }) => {
+export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerating, activeJobCount = 0, initialData, playlists, onCreatePlaylist }) => {
   const { t } = useI18n();
   const tt = t as unknown as (key: string) => string;
 
@@ -845,13 +850,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const [playlistId, setPlaylistId] = useState(() => {
     try { return window.localStorage.getItem('studio.createPlaylist') ?? ''; } catch { return ''; }
   });
-  const [playlists, setPlaylists] = useState<{ id: string; name: string }[]>([]);
-  useEffect(() => {
-    const load = () => void loadNativePlaylists().then(list => setPlaylists(list.map(entry => ({ id: entry.id, name: entry.name })))).catch(() => undefined);
-    load();
-    window.addEventListener('focus', load);
-    return () => window.removeEventListener('focus', load);
-  }, []);
+  const [newPlaylistOpen, setNewPlaylistOpen] = useState(false);
   const choosePlaylist = (id: string) => {
     setPlaylistId(id);
     try { window.localStorage.setItem('studio.createPlaylist', id); } catch { /* kept until a reload */ }
@@ -1568,15 +1567,19 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       </div>
 
       <footer className="shrink-0 border-t border-zinc-200 bg-zinc-50/95 p-4 backdrop-blur-sm dark:border-white/5 dark:bg-suno-panel/95">
-        {playlists.length > 0 && (
-          <label className="mb-2 flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300">
-            <span className="shrink-0">{t('createIntoPlaylist')}</span>
-            <select value={chosenPlaylist} onChange={event => choosePlaylist(event.target.value)} className="min-w-0 flex-1 rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-black/20">
-              <option value="">{t('createIntoNoPlaylist')}</option>
-              {playlists.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-            </select>
-          </label>
-        )}
+        <label className="mb-2 flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300">
+          <span className="shrink-0">{t('createIntoPlaylist')}</span>
+          <select value={chosenPlaylist} onChange={event => (event.target.value === NEW_PLAYLIST ? setNewPlaylistOpen(true) : choosePlaylist(event.target.value))} className="min-w-0 flex-1 rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-black/20">
+            <option value="">{t('createIntoNoPlaylist')}</option>
+            {playlists.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+            <option value={NEW_PLAYLIST}>{t('createIntoNewPlaylist')}</option>
+          </select>
+        </label>
+        <CreatePlaylistModal
+          isOpen={newPlaylistOpen}
+          onClose={() => setNewPlaylistOpen(false)}
+          onCreate={(name, description) => void onCreatePlaylist(name, description).then(playlist => { if (playlist) choosePlaylist(playlist.id); })}
+        />
         <label className="mb-2 flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300" title={t('generateForeverHint')}>
           <input type="checkbox" checked={forever} onChange={event => setForever(event.target.checked)} className="accent-pink-500" />
           {t('generateForever')}
