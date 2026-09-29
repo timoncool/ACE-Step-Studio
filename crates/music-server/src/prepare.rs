@@ -301,6 +301,8 @@ pub async fn describe_song_style(State(state): State<AppState>, Path(song_id): P
     if !state.training.listen_ready() {
         return Err(api_error(StatusCode::CONFLICT, "auto-describe (MOSS-Music) is not installed; install it on the training page".into()));
     }
+    // tempo and key are measured on the card the machine's runtime reaches
+    let card = state.lyrics_sync.onnx_card(crate::lyrics_sync::OnnxFlavour::Auto).map_err(|error| api_error(StatusCode::CONFLICT, format!("{error:#}")))?;
     if state.training.active_run().await.is_some() || state.prepare.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).as_ref().is_some_and(|job| !job.finished) {
         return Err(api_error(StatusCode::CONFLICT, "the card is training or preparing songs; describe once it is free".into()));
     }
@@ -317,7 +319,7 @@ pub async fn describe_song_style(State(state): State<AppState>, Path(song_id): P
         }
         let (captioner, moss, facts_dir, libraries) = (state.training.captioner(), state.training.moss_dir(), state.training.audio_facts_dir(), crate::engine_bundle_root());
         tokio::task::spawn_blocking(move || -> anyhow::Result<listen::Heard> {
-            let facts = audio_facts::Measurer::load(&facts_dir, true)?.measure_mono(&audio_facts::decode(&audio)?)?;
+            let facts = audio_facts::Measurer::load(&facts_dir, card)?.measure_mono(&audio_facts::decode(&audio)?)?;
             let cancel = AtomicBool::new(false);
             let mut caption: Option<anyhow::Result<String>> = None;
             listen::hear_batch(&captioner, &moss, Some(&libraries), std::slice::from_ref(&audio), &cancel, |_, heard| caption = Some(heard))?;
@@ -441,10 +443,8 @@ async fn run(state: &AppState, job: &Job) -> anyhow::Result<()> {
     }
     settle_pending(&state.training, job, &shared, can_listen, Passed::Nothing);
 
-    // The ONNX Runtime the card can use, before anything binds another
-    if let Some(runtime) = crate::preferred_onnx_runtime(state) {
-        crate::point_ort_at(&runtime);
-    }
+    // Binds the machine's ONNX Runtime before anything loads a session
+    state.lyrics_sync.bind_ort();
 
     // One model on the card at a time: Whisper, then MOSS, then the assistant
     let lyric_items: Vec<&training::DatasetItem> = items.iter().filter(|item| job.lyrics && item.lyrics_state == LyricsState::Wanted).collect();
@@ -723,6 +723,7 @@ async fn listen_branch(state: &AppState, job: &Job, style_items: &[&training::Da
         } else {
             update(&shared, |status| status.notices.push("listen_on_cpu"));
         }
+        let card = state.lyrics_sync.onnx_card(crate::lyrics_sync::OnnxFlavour::Auto)?;
         let (captioner, moss, facts_dir) = (state.training.captioner(), state.training.moss_dir(), state.training.audio_facts_dir());
         let ids: Vec<String> = style_items.iter().map(|item| item.id.clone()).collect();
         let audio: Vec<PathBuf> = ids.iter().map(|item| state.training.item_audio(id, item)).collect::<anyhow::Result<_>>()?;
@@ -757,7 +758,7 @@ async fn listen_branch(state: &AppState, job: &Job, style_items: &[&training::Da
                     }
                 }
                 let _finished = Finished(finished);
-                let mut measurer = audio_facts::Measurer::load(&facts_dir, true).map_err(|error| format!("{error:#}"));
+                let mut measurer = audio_facts::Measurer::load(&facts_dir, card).map_err(|error| format!("{error:#}"));
                 if matches!(&measurer, Ok(measurer) if !measurer.on_gpu) {
                     update(&facts_shared, |status| status.notices.push("facts_on_cpu"));
                 }

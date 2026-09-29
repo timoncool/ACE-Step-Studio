@@ -728,7 +728,40 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "Parakeet runs on this; it is loaded at run time, not linked in.",
     },
+    // The card path for every card that is not an NVIDIA one running CUDA:
+    // DirectML over DirectX 12. 1.24.4 is the last DirectML build Microsoft
+    // publishes; it speaks the same API level (24) as the builds above.
+    Asset {
+        id: "onnxruntime-directml",
+        label: "ONNX Runtime 1.24.4 · DirectML",
+        kind: AssetKind::Runtime,
+        url: "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime.directml/1.24.4/microsoft.ml.onnxruntime.directml.1.24.4.nupkg",
+        relative_path: "runtime/onnxruntime-directml.nupkg",
+        bytes: 12_458_649,
+        unzip_into: Some("onnx-dml"),
+        marker: "onnxruntime.dll",
+        pick: &["runtimes/win-x64/native/onnxruntime.dll", "runtimes/win-x64/native/onnxruntime_providers_shared.dll"],
+        vram_gb: None,
+        note: "Runs karaoke's Parakeet and the tempo model on an AMD or Intel card through DirectX 12.",
+    },
+    Asset {
+        id: "directml",
+        label: "DirectML 1.15.4",
+        kind: AssetKind::Runtime,
+        url: "https://api.nuget.org/v3-flatcontainer/microsoft.ai.directml/1.15.4/microsoft.ai.directml.1.15.4.nupkg",
+        relative_path: "runtime/directml.nupkg",
+        bytes: 202_292_617,
+        unzip_into: Some("onnx-dml"),
+        marker: "DirectML.dll",
+        // the package carries the library for Xbox too, under the same name
+        pick: &["bin/x64-win/DirectML.dll"],
+        vram_gb: None,
+        note: "The DirectML the runtime above is built for; the copy inside Windows is older.",
+    },
 ];
+
+/// Everything the DirectML path needs, in the order it is used.
+pub const DIRECTML_ASSETS: [&str; 2] = ["onnxruntime-directml", "directml"];
 
 /// Which build of the ONNX Runtime to load.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -742,6 +775,139 @@ pub enum OnnxFlavour {
     Cuda,
     Cpu,
 }
+
+
+impl OnnxFlavour {
+    /// Whether work runs on the card through CUDA: only an NVIDIA card with a
+    /// driver that runs CUDA does. An AMD card was sent to the CUDA provider
+    /// and failed, after being offered gigabytes of CUDA libraries.
+    pub fn uses_cuda(self) -> bool {
+        !matches!(self, OnnxFlavour::Cpu) && crate::cuda_build::current().is_some()
+    }
+
+    /// Whether work runs on the card through DirectML: every card CUDA does
+    /// not run on - AMD, Intel, an NVIDIA card whose driver is too old - as
+    /// long as there is a card at all.
+    pub fn uses_directml(self) -> bool {
+        !matches!(self, OnnxFlavour::Cpu) && crate::cuda_build::current().is_none() && crate::presets::display_card().is_some()
+    }
+
+    /// The card path this choice takes on this machine; none is the processor.
+    pub fn card(self) -> Option<OnnxCard> {
+        if self.uses_cuda() {
+            Some(OnnxCard::Cuda)
+        } else if self.uses_directml() {
+            Some(OnnxCard::DirectMl)
+        } else {
+            None
+        }
+    }
+}
+
+/// How an ONNX Runtime build reaches the graphics card.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OnnxCard {
+    Cuda,
+    DirectMl,
+}
+
+/// The words Parakeet hears in one track, each with the second it starts.
+fn parakeet_transcribe(model: &mut parakeet_rs::ParakeetTDT, audio: &Path) -> Result<Vec<(f64, String)>> {
+    let samples = crate::audio_pcm::decode_mono_16k(audio).with_context(|| format!("decode {} for recognition", audio.display()))?;
+    let result = model
+        .transcribe_samples(samples, 16_000, 1, Some(parakeet_rs::TimestampMode::Words))
+        .map_err(|error| anyhow!("Parakeet transcription failed: {error}"))?;
+    let words: Vec<(f64, String)> = result
+        .tokens
+        .into_iter()
+        .filter_map(|token| {
+            let text = token.text.trim().to_string();
+            (!text.is_empty()).then_some((token.start as f64, text))
+        })
+        .collect();
+    if words.is_empty() {
+        bail!(NO_WORDS);
+    }
+    Ok(words)
+}
+
+/// A DXGI adapter tests pin DirectML to - the integrated Radeon beside an
+/// NVIDIA card - where the studio takes the fastest card.
+#[cfg(test)]
+static DIRECTML_ADAPTER: std::sync::OnceLock<i32> = std::sync::OnceLock::new();
+
+/// Parakeet's sessions on the card, or no configuration for the processor.
+fn parakeet_config(card: Option<OnnxCard>) -> Option<parakeet_rs::ExecutionConfig> {
+    card.map(|card| parakeet_rs::ExecutionConfig::new().with_custom_configure(move |builder| Ok(with_card(builder, Some(card)).0)))
+}
+
+/// Puts a session on the card a path reaches: CUDA, or DirectML with what it
+/// requires - no memory pattern, one operator at a time - on the fastest card
+/// DirectX reports. Says whether the card took it: a card that refuses runs
+/// the work on the processor and the caller reports that, instead of it
+/// quietly taking ten times as long.
+pub fn with_card(builder: ort::session::builder::SessionBuilder, card: Option<OnnxCard>) -> (ort::session::builder::SessionBuilder, bool) {
+    let attempt = match card {
+        None => return (builder, false),
+        Some(OnnxCard::Cuda) => builder.clone().with_execution_providers([ort::ep::CUDA::default().build().error_on_failure()]),
+        Some(OnnxCard::DirectMl) => {
+            let provider = ort::ep::DirectML::default()
+                .with_performance_preference(ort::ep::directml::PerformancePreference::HighPerformance)
+                .with_device_filter(ort::ep::directml::DeviceFilter::Gpu);
+            #[cfg(test)]
+            let provider = match DIRECTML_ADAPTER.get() {
+                Some(&adapter) => provider.with_device_id(adapter),
+                None => provider,
+            };
+            builder
+                .clone()
+                .with_memory_pattern(false)
+                .and_then(|builder| builder.with_parallel_execution(false))
+                .and_then(|builder| builder.with_execution_providers([provider.build().error_on_failure()]))
+        }
+    };
+    match attempt {
+        Ok(on_card) => (on_card, true),
+        Err(error) => {
+            eprintln!("[ERROR] the {card:?} provider did not register, the processor runs this instead: {error}");
+            (builder, false)
+        }
+    }
+}
+
+/// Points `ort` at one ONNX Runtime build. On Windows a DLL's own dependencies
+/// are resolved through the process search path, not through the folder it
+/// came from, so the folder joins PATH. The DirectML build needs DirectML 1.15,
+/// and System32 carries an older one that the search order reaches first: ours
+/// is loaded by its full path beforehand, and a loaded module is what every
+/// later load of that name gets.
+fn point_ort_at(runtime: &Path, card: Option<OnnxCard>) {
+    unsafe { std::env::set_var("ORT_DYLIB_PATH", runtime) };
+    let Some(directory) = runtime.parent() else { return };
+    let existing = std::env::var("PATH").unwrap_or_default();
+    unsafe { std::env::set_var("PATH", format!("{};{existing}", directory.display())) };
+    if card == Some(OnnxCard::DirectMl) {
+        preload(&directory.join("DirectML.dll"));
+    }
+}
+
+#[cfg(windows)]
+fn preload(library: &Path) {
+    use std::os::windows::ffi::OsStrExt;
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn LoadLibraryExW(name: *const u16, file: *mut std::ffi::c_void, flags: u32) -> *mut std::ffi::c_void;
+    }
+    const LOAD_WITH_ALTERED_SEARCH_PATH: u32 = 0x8;
+    let wide: Vec<u16> = library.as_os_str().encode_wide().chain(Some(0)).collect();
+    if unsafe { LoadLibraryExW(wide.as_ptr(), std::ptr::null_mut(), LOAD_WITH_ALTERED_SEARCH_PATH) }.is_null() {
+        eprintln!("[ERROR] could not load {}: {}", library.display(), std::io::Error::last_os_error());
+    }
+}
+
+#[cfg(not(windows))]
+fn preload(_library: &Path) {}
 
 /// Every Parakeet file, because the model is useless without all of them.
 pub const PARAKEET_ASSET_IDS: [&str; 5] =
@@ -843,20 +1009,61 @@ impl LyricsSync {
     /// `ort` loads this at run time; linking it would tie the build to one
     /// toolchain and one machine's libraries.
     pub fn onnxruntime_library(&self) -> Option<PathBuf> {
-        self.onnxruntime_library_of(OnnxFlavour::Auto)
+        self.machine_runtime().map(|(library, _)| library)
     }
 
-    /// The runtime to load, by name rather than by hope: the CUDA build and the
-    /// processor build sit in their own directories, and "auto" prefers the one
-    /// that uses the graphics card.
-    pub fn onnxruntime_library_of(&self, flavour: OnnxFlavour) -> Option<PathBuf> {
+    /// The ONNX Runtime this process loads, and the card it reaches. A process
+    /// binds one build on first use, so it is chosen by the machine, not by a
+    /// setting: the build for this machine's card when every file of it is
+    /// there - it carries the processor provider too - else the processor build.
+    pub fn machine_runtime(&self) -> Option<(PathBuf, Option<OnnxCard>)> {
         let cuda = self.downloader.runtime_dir("onnx-cuda").join("onnxruntime.dll");
+        let directml = self.downloader.runtime_dir("onnx-dml").join("onnxruntime.dll");
         let cpu = self.downloader.runtime_dir("onnx").join("onnxruntime.dll");
-        match flavour {
-            OnnxFlavour::Cuda => cuda.is_file().then_some(cuda),
-            OnnxFlavour::Cpu => cpu.is_file().then_some(cpu),
-            OnnxFlavour::Auto => cuda.is_file().then_some(cuda).or_else(|| cpu.is_file().then_some(cpu)),
+        match OnnxFlavour::Auto.card() {
+            Some(OnnxCard::Cuda) if self.has_cuda_libraries() => return Some((cuda, Some(OnnxCard::Cuda))),
+            Some(OnnxCard::DirectMl) if self.has_directml_libraries() => return Some((directml, Some(OnnxCard::DirectMl))),
+            _ => {}
         }
+        [cpu, cuda, directml].into_iter().find(|library| library.is_file()).map(|library| (library, None))
+    }
+
+    /// The DirectML build and the DirectML it is built for, side by side.
+    pub fn has_directml_libraries(&self) -> bool {
+        let dir = self.downloader.runtime_dir("onnx-dml");
+        ["onnxruntime.dll", "onnxruntime_providers_shared.dll", "DirectML.dll"].iter().all(|name| dir.join(name).is_file())
+    }
+
+    /// Whether every library the card's provider needs is installed.
+    pub fn has_card_libraries(&self, card: OnnxCard) -> bool {
+        match card {
+            OnnxCard::Cuda => self.has_cuda_libraries(),
+            OnnxCard::DirectMl => self.has_directml_libraries(),
+        }
+    }
+
+    /// Binds `ort` to this machine's runtime - once per process, before
+    /// anything touches `ort`, or it binds to whatever `onnxruntime.dll` the
+    /// system happens to have - and says which card the bound build reaches.
+    /// None when no runtime is installed. Every piece of work on ONNX asks
+    /// here first, so all of it runs on the one build that was bound.
+    pub fn bind_ort(&self) -> Option<Option<OnnxCard>> {
+        static BOUND: std::sync::OnceLock<Option<OnnxCard>> = std::sync::OnceLock::new();
+        if let Some(card) = BOUND.get() {
+            return Some(*card);
+        }
+        let (library, card) = self.machine_runtime()?;
+        Some(*BOUND.get_or_init(|| {
+            point_ort_at(&library, card);
+            card
+        }))
+    }
+
+    /// The card work set to `runtime` runs on, with the machine's runtime
+    /// bound first; none is the processor.
+    pub fn onnx_card(&self, runtime: OnnxFlavour) -> Result<Option<OnnxCard>> {
+        let bound = self.bind_ort().ok_or_else(|| anyhow!("the ONNX Runtime library is not installed"))?;
+        Ok(if matches!(runtime, OnnxFlavour::Cpu) { None } else { bound })
     }
 
     pub fn has_cuda_runtime(&self) -> bool {
@@ -908,41 +1115,20 @@ impl LyricsSync {
         }
     }
 
-    /// Runs Parakeet in this process and returns an LRC built from its word
-    /// timings. Same stack Dub Studio uses: parakeet-rs over ONNX Runtime,
-    /// loaded from the DLL beside the models rather than linked in.
-    pub fn parakeet_words(&self, audio: &Path) -> Result<Vec<(f64, String)>> {
-        let library = self
-            .onnxruntime_library()
-            .ok_or_else(|| anyhow!("the ONNX Runtime library is not installed"))?;
+    /// Runs Parakeet in this process and returns the words it hears, each with
+    /// the second it starts. Same stack Dub Studio uses: parakeet-rs over ONNX
+    /// Runtime, loaded from the DLL beside the models rather than linked in.
+    pub fn parakeet_words(&self, runtime: OnnxFlavour, audio: &Path) -> Result<Vec<(f64, String)>> {
+        let mut model = self.load_parakeet(self.onnx_card(runtime)?)?;
+        parakeet_transcribe(&mut model, audio)
+    }
+
+    /// Parakeet on the card, or on the processor when there is none.
+    fn load_parakeet(&self, card: Option<OnnxCard>) -> Result<parakeet_rs::ParakeetTDT> {
         if !self.parakeet_ready() {
             bail!("the Parakeet model is not fully downloaded");
         }
-        // Must be set before anything touches `ort`, or it binds to whatever
-        // onnxruntime.dll the system happens to have.
-        static ONCE: std::sync::Once = std::sync::Once::new();
-        ONCE.call_once(|| unsafe { std::env::set_var("ORT_DYLIB_PATH", &library) });
-
-        let samples = crate::audio_pcm::decode_mono_16k(audio)
-            .with_context(|| format!("decode {} for recognition", audio.display()))?;
-        let mut model = parakeet_rs::ParakeetTDT::from_pretrained(&self.parakeet_dir(), None)
-            .map_err(|error| anyhow!("load Parakeet: {error}"))?;
-        let result = model
-            .transcribe_samples(samples, 16_000, 1, Some(parakeet_rs::TimestampMode::Words))
-            .map_err(|error| anyhow!("Parakeet transcription failed: {error}"))?;
-
-        let words: Vec<(f64, String)> = result
-            .tokens
-            .into_iter()
-            .filter_map(|token| {
-                let text = token.text.trim().to_string();
-                (!text.is_empty()).then_some((token.start as f64, text))
-            })
-            .collect();
-        if words.is_empty() {
-            bail!(NO_WORDS);
-        }
-        Ok(words)
+        parakeet_rs::ParakeetTDT::from_pretrained(self.parakeet_dir(), parakeet_config(card)).map_err(|error| anyhow!("load Parakeet: {error}"))
     }
 
     /// The words of several tracks from one load of the recogniser: Parakeet
@@ -964,23 +1150,10 @@ impl LyricsSync {
         };
         match config.provider {
             AsrProvider::Parakeet => {
-                let library = match self.onnxruntime_library() {
-                    Some(library) => library,
-                    None => {
-                        failed(heard, anyhow!("the ONNX Runtime library is not installed"));
-                        return Recognised::OnDevice;
-                    }
-                };
-                if !self.parakeet_ready() {
-                    failed(heard, anyhow!("the Parakeet model is not fully downloaded"));
-                    return Recognised::OnDevice;
-                }
-                static ONCE: std::sync::Once = std::sync::Once::new();
-                ONCE.call_once(|| unsafe { std::env::set_var("ORT_DYLIB_PATH", &library) });
-                let mut model = match parakeet_rs::ParakeetTDT::from_pretrained(&self.parakeet_dir(), None) {
+                let mut model = match self.onnx_card(config.runtime).and_then(|card| self.load_parakeet(card)) {
                     Ok(model) => model,
                     Err(error) => {
-                        failed(heard, anyhow!("load Parakeet: {error}"));
+                        failed(heard, error);
                         return Recognised::OnDevice;
                     }
                 };
@@ -988,25 +1161,7 @@ impl LyricsSync {
                     if cancel.load(Ordering::Relaxed) {
                         return Recognised::OnDevice;
                     }
-                    let answer = (|| {
-                        let samples = crate::audio_pcm::decode_mono_16k(path).with_context(|| format!("decode {} for recognition", path.display()))?;
-                        let result = model
-                            .transcribe_samples(samples, 16_000, 1, Some(parakeet_rs::TimestampMode::Words))
-                            .map_err(|error| anyhow!("Parakeet transcription failed: {error}"))?;
-                        let words: Vec<(f64, String)> = result
-                            .tokens
-                            .into_iter()
-                            .filter_map(|token| {
-                                let text = token.text.trim().to_string();
-                                (!text.is_empty()).then_some((token.start as f64, text))
-                            })
-                            .collect();
-                        if words.is_empty() {
-                            bail!(NO_WORDS);
-                        }
-                        Ok(words)
-                    })();
-                    heard(index, answer);
+                    heard(index, parakeet_transcribe(&mut model, path));
                 }
                 Recognised::OnDevice
             }
@@ -1074,7 +1229,7 @@ impl LyricsSync {
                 heard(index, if words.is_empty() { Err(anyhow!(NO_WORDS)) } else { Ok(words) });
             }
         };
-        let on_card = !matches!(config.runtime, OnnxFlavour::Cpu);
+        let on_card = config.runtime.uses_cuda();
         let all: Vec<PathBuf> = wavs.iter().map(|(_, wav)| wav.clone()).collect();
         let mut outcome = self.run_whisper_many(&binary, size, &all, &out_dir, language, on_card, &mut || take(&mut answered), cancel);
         let mut recognised = Recognised::OnDevice;
@@ -1132,7 +1287,7 @@ impl LyricsSync {
         fs::remove_dir_all(&out_dir).ok();
         fs::create_dir_all(&out_dir).with_context(|| format!("create {}", out_dir.display()))?;
 
-        let on_card = !matches!(config.runtime, OnnxFlavour::Cpu);
+        let on_card = config.runtime.uses_cuda();
         let mut outcome = self.run_whisper(&binary, size, &wav, &out_dir, language, on_card);
         // CTranslate2 fails inside itself on a machine without usable CUDA, so
         // the card is tried and the processor is the answer to its refusal -
@@ -1690,6 +1845,8 @@ mod tests {
     const CUFFT_BUILD: &str = "11.4.1.4";
     const CUDNN_BUILD: &str = "9.25.0.15";
     const ONNXRUNTIME_BUILD: &str = "v1.30.0";
+    const ONNXRUNTIME_DIRECTML_BUILD: &str = "onnxruntime.directml/1.24.4/";
+    const DIRECTML_BUILD: &str = "ai.directml/1.15.4/";
 
     impl TimedLine {
         fn text(&self) -> String {
@@ -1827,6 +1984,8 @@ Third");
                     || entry.url.contains(WHISPER_CUBLAS_BUILD)
                     || entry.url.contains(WHISPER_CUDNN_BUILD)
                     || entry.url.contains(ONNXRUNTIME_BUILD)
+                    || entry.url.contains(ONNXRUNTIME_DIRECTML_BUILD)
+                    || entry.url.contains(DIRECTML_BUILD)
                     || entry.url.contains(CUBLAS_BUILD)
                     || entry.url.contains(CUDART_BUILD)
                     || entry.url.contains(CUDNN_BUILD)
@@ -1916,7 +2075,7 @@ mod live_recognition {
             return;
         };
         let sync = LyricsSync::new(std::path::Path::new(&root));
-        let words = sync.parakeet_words(std::path::Path::new(&track)).expect("recognition");
+        let words = sync.parakeet_words(OnnxFlavour::Auto, std::path::Path::new(&track)).expect("recognition");
         let lyrics = std::fs::read_to_string(lyrics).expect("lyrics file");
         for (at, word) in &words {
             eprintln!("W {at:7.2} {word}");
@@ -1933,9 +2092,124 @@ mod live_recognition {
         let (Some(root), Some(track)) = (std::env::var_os("STUDIO_TEST_DATA_ROOT"), std::env::var_os("STUDIO_TEST_TRACK")) else { return };
         let sync = LyricsSync::new(std::path::Path::new(&root));
         assert!(sync.parakeet_ready(), "Parakeet is not installed");
-        let words = sync.parakeet_words(std::path::Path::new(&track)).expect("recognition");
+        let words = sync.parakeet_words(OnnxFlavour::Auto, std::path::Path::new(&track)).expect("recognition");
         let heard: Vec<&str> = words.iter().map(|(_, word)| word.as_str()).collect();
         eprintln!("heard {} words: {}", words.len(), heard.join(" "));
         assert!(!words.is_empty(), "nothing was recognised");
+    }
+}
+
+
+#[cfg(test)]
+mod directml_live {
+    use super::*;
+    use std::time::Instant;
+
+    /// Where the DirectML.dll this process loaded came from.
+    fn loaded_directml() -> Option<PathBuf> {
+        #[link(name = "kernel32")]
+        unsafe extern "system" {
+            fn GetModuleHandleW(name: *const u16) -> *mut std::ffi::c_void;
+            fn GetModuleFileNameW(module: *mut std::ffi::c_void, file: *mut u16, size: u32) -> u32;
+        }
+        let name: Vec<u16> = "DirectML.dll".encode_utf16().chain(Some(0)).collect();
+        let module = unsafe { GetModuleHandleW(name.as_ptr()) };
+        if module.is_null() {
+            return None;
+        }
+        let mut path = vec![0u16; 1024];
+        let length = unsafe { GetModuleFileNameW(module, path.as_mut_ptr(), path.len() as u32) } as usize;
+        Some(PathBuf::from(String::from_utf16_lossy(&path[..length])))
+    }
+
+    fn env_path(name: &str) -> PathBuf {
+        PathBuf::from(std::env::var_os(name).unwrap_or_else(|| panic!("{name} is not set")))
+    }
+
+    /// The DirectML build installed the way the studio installs it and bound,
+    /// once for the process. `STUDIO_TEST_DML_ADAPTER` pins a DXGI adapter -
+    /// the integrated Radeon beside an NVIDIA card - instead of the fastest card.
+    fn directml() -> Option<OnnxCard> {
+        static BOUND: std::sync::Once = std::sync::Once::new();
+        BOUND.call_once(|| {
+            let sync = LyricsSync::new(&env_path("STUDIO_TEST_DATA_ROOT"));
+            let parts: Vec<&'static Asset> = DIRECTML_ASSETS.iter().filter_map(|id| asset(id)).collect();
+            tokio::runtime::Runtime::new().unwrap().block_on(sync.downloader().install_all("test", &parts)).expect("install DirectML");
+            assert!(sync.has_directml_libraries(), "the DirectML build is incomplete after installing it");
+            if let Ok(adapter) = std::env::var("STUDIO_TEST_DML_ADAPTER") {
+                DIRECTML_ADAPTER.set(adapter.parse().expect("a DXGI adapter index")).unwrap();
+            }
+            let runtime = sync.downloader().runtime_dir("onnx-dml");
+            point_ort_at(&runtime.join("onnxruntime.dll"), Some(OnnxCard::DirectMl));
+            assert_eq!(loaded_directml().as_deref(), Some(runtime.join("DirectML.dll").as_path()), "another DirectML.dll serves the process");
+        });
+        Some(OnnxCard::DirectMl)
+    }
+
+    /// Beat This! and S-KEY on the card beside the processor: the tempo and
+    /// the key each hears.
+    #[test]
+    #[ignore = "downloads DirectML; needs STUDIO_TEST_DATA_ROOT, STUDIO_TEST_TRACK and STUDIO_TEST_AUDIO_FACTS"]
+    fn tempo_and_key_run_through_directml() {
+        let card = directml();
+        let mono = crate::audio_facts::decode(&env_path("STUDIO_TEST_TRACK")).expect("decode the track");
+        let models = env_path("STUDIO_TEST_AUDIO_FACTS");
+        let measure = |card| {
+            let started = Instant::now();
+            let mut measurer = crate::audio_facts::Measurer::load(&models, card).expect("load the models");
+            let facts = measurer.measure_mono(&mono).expect("measure");
+            (facts, measurer.on_gpu, started.elapsed().as_secs_f64())
+        };
+        let (on_card, on_gpu, card_time) = measure(card);
+        assert!(on_gpu, "DirectML did not take both models");
+        let (on_processor, _, processor_time) = measure(None);
+        eprintln!("card {on_card:?} in {card_time:.1} s, processor {on_processor:?} in {processor_time:.1} s");
+        assert_eq!(on_card, on_processor, "the card hears another tempo or key");
+    }
+
+    /// Parakeet on the card beside the processor: how much of the song's own
+    /// lyrics each hears, in order, from `STUDIO_TEST_LYRICS`.
+    #[test]
+    #[ignore = "downloads DirectML; needs STUDIO_TEST_DATA_ROOT, STUDIO_TEST_TRACK, STUDIO_TEST_LYRICS and STUDIO_TEST_PARAKEET"]
+    fn parakeet_runs_through_directml() {
+        let card = directml();
+        let track = env_path("STUDIO_TEST_TRACK");
+        let parakeet = env_path("STUDIO_TEST_PARAKEET");
+        let lyrics = std::fs::read_to_string(env_path("STUDIO_TEST_LYRICS")).expect("the lyrics");
+        let sung = words_of(lyrics.lines().filter(|line| !line.trim_start().starts_with('[')).flat_map(str::split_whitespace));
+        let hear = |card: Option<OnnxCard>| {
+            let started = Instant::now();
+            let mut model = parakeet_rs::ParakeetTDT::from_pretrained(&parakeet, parakeet_config(card)).expect("load Parakeet");
+            let words = parakeet_transcribe(&mut model, &track).expect("recognition");
+            let heard = words_of(words.iter().map(|(_, word)| word.as_str()));
+            (in_order(&sung, &heard), started.elapsed().as_secs_f64())
+        };
+        let (processor, processor_time) = hear(None);
+        let (on_card, card_time) = hear(card);
+        eprintln!("Parakeet hears {:.0}% of the lyrics in order on the card in {card_time:.1} s, {:.0}% on the processor in {processor_time:.1} s", on_card * 100.0, processor * 100.0);
+        assert!(on_card >= processor - 0.05, "the card hears the lyrics worse than the processor");
+    }
+
+    /// Words without punctuation, in lower case.
+    fn words_of<'a>(words: impl Iterator<Item = &'a str>) -> Vec<String> {
+        words
+            .map(|word| word.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase())
+            .filter(|word| !word.is_empty())
+            .collect()
+    }
+
+    /// The share of `reference` that `heard` has in the same order: their
+    /// longest common subsequence over the reference's length.
+    fn in_order(reference: &[String], heard: &[String]) -> f64 {
+        let mut row = vec![0usize; heard.len() + 1];
+        for word in reference {
+            let mut diagonal = 0;
+            for (index, other) in heard.iter().enumerate() {
+                let above = row[index + 1];
+                row[index + 1] = if word == other { diagonal + 1 } else { row[index + 1].max(row[index]) };
+                diagonal = above;
+            }
+        }
+        row[heard.len()] as f64 / reference.len().max(1) as f64
     }
 }

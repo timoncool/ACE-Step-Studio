@@ -17,11 +17,11 @@ export const DevicePicker: React.FC<{
   value: Device;
   onChange: (value: Device) => void;
   /** The card is not offered when its runtime is not installed. */
-  cudaAvailable?: boolean;
-}> = ({ value, onChange, cudaAvailable = true }) => {
+  cardAvailable?: boolean;
+}> = ({ value, onChange, cardAvailable = true }) => {
   const { t } = useI18n();
   // the card chosen without its runtime runs on the processor, the way auto does
-  const shown = value === 'cuda' && !cudaAvailable ? 'auto' : value;
+  const shown = value === 'cuda' && !cardAvailable ? 'auto' : value;
   return (
     <div className="flex gap-1.5">
       {DEVICES.map(device => (
@@ -29,7 +29,7 @@ export const DevicePicker: React.FC<{
           key={device}
           type="button"
           onClick={() => onChange(device)}
-          disabled={device === 'cuda' && !cudaAvailable}
+          disabled={device === 'cuda' && !cardAvailable}
           className={`flex-1 cursor-pointer rounded-lg border px-3 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
             shown === device
               ? 'border-pink-400 bg-pink-500/10 text-zinc-900 dark:text-white'

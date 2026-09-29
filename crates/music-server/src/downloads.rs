@@ -136,7 +136,7 @@ impl Downloader {
     pub fn is_installed(&self, asset: &Asset) -> bool {
         if !asset.pick.is_empty() {
             let destination = self.picked_into(asset);
-            return asset.pick.iter().all(|name| destination.join(name).is_file());
+            return asset.pick.iter().all(|name| destination.join(picked_file_name(name)).is_file());
         }
         if let Some(flavour) = asset.unzip_into {
             let marker = asset.marker.to_ascii_lowercase();
@@ -205,7 +205,7 @@ impl Downloader {
         if !asset.pick.is_empty() {
             let destination = self.root.join("runtime").join(asset.unzip_into.unwrap_or("."));
             for name in asset.pick {
-                freed += drop_file(destination.join(name))?;
+                freed += drop_file(destination.join(picked_file_name(name)))?;
             }
         } else if let Some(flavour) = asset.unzip_into {
             let directory = self.runtime_dir(flavour);
@@ -506,7 +506,7 @@ async fn download_and_extract_named(
     cancel: Arc<std::sync::atomic::AtomicBool>,
 ) -> Result<()> {
     fs::create_dir_all(destination).with_context(|| format!("create {}", destination.display()))?;
-    if asset.pick.iter().all(|name| destination.join(name).is_file()) {
+    if asset.pick.iter().all(|name| destination.join(picked_file_name(name)).is_file()) {
         return Ok(());
     }
     let archive = destination.join(format!("{}.part-archive", asset.id));
@@ -535,33 +535,43 @@ async fn download_and_extract_named(
     extracted
 }
 
-/// Pulls named files out of a local archive, by base name, flattened into the
-/// destination. The archive stays where it is; the caller deletes it.
+/// Pulls named files out of a local archive, flattened into the destination.
+/// A name with a `/` is the entry's path inside the archive - packages carry
+/// the same file for several architectures - and a bare name matches any
+/// entry of that name. The archive stays where it is; the caller deletes it.
 fn extract_named_local(archive: &Path, wanted: &[&str], destination: &Path) -> Result<()> {
     let file = fs::File::open(archive).with_context(|| format!("open {}", archive.display()))?;
     let mut zip = zip::ZipArchive::new(file).with_context(|| format!("read {}", archive.display()))?;
-    let mut found: Vec<String> = Vec::new();
+    let mut found: Vec<&str> = Vec::new();
     for index in 0..zip.len() {
         let mut entry = zip.by_index(index).context("read zip entry")?;
-        let Some(name) = entry.enclosed_name().and_then(|path| path.file_name().map(|name| name.to_string_lossy().to_string())) else {
+        let Some(path) = entry.enclosed_name().map(|path| path.to_string_lossy().replace('\\', "/")) else {
             continue;
         };
-        if !wanted.iter().any(|candidate| candidate.eq_ignore_ascii_case(&name)) {
+        let name = path.rsplit('/').next().unwrap_or(&path).to_string();
+        let Some(candidate) = wanted.iter().copied().find(|candidate| {
+            if candidate.contains('/') { candidate.eq_ignore_ascii_case(&path) } else { candidate.eq_ignore_ascii_case(&name) }
+        }) else {
             continue;
-        }
+        };
         let target = destination.join(&name);
         let partial = target.with_extension("part");
         let mut out = fs::File::create(&partial).with_context(|| format!("create {}", partial.display()))?;
-        io::copy(&mut entry, &mut out).with_context(|| format!("extract {name}"))?;
+        io::copy(&mut entry, &mut out).with_context(|| format!("extract {path}"))?;
         drop(out);
         fs::rename(&partial, &target).with_context(|| format!("publish {}", target.display()))?;
-        found.push(name);
+        found.push(candidate);
     }
-    if found.len() != wanted.len() {
-        let missing: Vec<&str> = wanted.iter().copied().filter(|name| !found.iter().any(|got| got.eq_ignore_ascii_case(name))).collect();
+    let missing: Vec<&str> = wanted.iter().copied().filter(|candidate| !found.contains(candidate)).collect();
+    if !missing.is_empty() {
         bail!("{} did not contain {}", archive.display(), missing.join(", "));
     }
     Ok(())
+}
+
+/// The file a picked archive entry lands as: its base name.
+pub fn picked_file_name(entry: &str) -> &str {
+    entry.rsplit('/').next().unwrap_or(entry)
 }
 
 pub fn extract_zip(archive: &Path, destination: &Path) -> Result<()> {
@@ -660,6 +670,29 @@ mod tests {
 
         fs::write(downloader.runtime_dir("cuda").join("whisper-cli.exe"), b"x").unwrap();
         assert!(downloader.is_installed(&runtime));
+        fs::remove_dir_all(&root).ok();
+    }
+
+
+    /// A package carries one library for several platforms under the same
+    /// name: a pick by path takes the entry it names, a bare name any entry.
+    #[test]
+    fn a_pick_by_path_takes_that_entry_and_not_its_namesakes() {
+        use std::io::Write;
+        let root = std::env::temp_dir().join(format!("downloads-{}", uuid::Uuid::now_v7()));
+        fs::create_dir_all(root.join("out")).unwrap();
+        let archive = root.join("package.nupkg");
+        let mut zip = zip::ZipWriter::new(fs::File::create(&archive).unwrap());
+        for (path, body) in [("bin/x64-xbox/DirectML.dll", "xbox"), ("bin/x64-win/DirectML.dll", "win"), ("lib/readme.txt", "notes")] {
+            zip.start_file(path, zip::write::SimpleFileOptions::default()).unwrap();
+            zip.write_all(body.as_bytes()).unwrap();
+        }
+        zip.finish().unwrap();
+
+        extract_named_local(&archive, &["bin/x64-win/DirectML.dll", "readme.txt"], &root.join("out")).unwrap();
+        assert_eq!(fs::read_to_string(root.join("out").join("DirectML.dll")).unwrap(), "win");
+        assert_eq!(fs::read_to_string(root.join("out").join("readme.txt")).unwrap(), "notes");
+        assert!(extract_named_local(&archive, &["bin/arm64-win/DirectML.dll"], &root.join("out")).is_err());
         fs::remove_dir_all(&root).ok();
     }
 }

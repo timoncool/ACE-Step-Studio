@@ -144,26 +144,10 @@ pub struct Loaded {
     pub used_gpu: bool,
 }
 
-/// Loads the model, on the card when asked.
-pub fn load(model: &Path, on_gpu: bool) -> Result<Loaded> {
-    // Ask for the card, and say so if it is not there rather than quietly
-    // spending ten times as long on the processor.
-    let mut builder = Session::builder().context("prepare an ONNX session")?;
-    let mut used_gpu = false;
-    if on_gpu {
-        // `error_on_failure` matters: without it the runtime accepts the
-        // provider, quietly runs on the processor anyway, and the only clue is
-        // that the fans never spin up.
-        match builder.clone().with_execution_providers([
-            ort::ep::CUDA::default().build().error_on_failure(),
-        ]) {
-            Ok(with_cuda) => {
-                builder = with_cuda;
-                used_gpu = true;
-            }
-            Err(error) => eprintln!("the card provider did not register, falling back to the processor: {error}"),
-        }
-    }
+/// Loads the model, on the card a path reaches when one is given.
+pub fn load(model: &Path, card: Option<crate::lyrics_sync::OnnxCard>) -> Result<Loaded> {
+    let builder = Session::builder().context("prepare an ONNX session")?;
+    let (mut builder, used_gpu) = crate::lyrics_sync::with_card(builder, card);
     let session = builder
         .commit_from_file(model)
         .with_context(|| {
@@ -182,10 +166,10 @@ pub fn separate(
     audio: &[f32],
     stem_count: usize,
     overlap: f64,
-    on_gpu: bool,
+    card: Option<crate::lyrics_sync::OnnxCard>,
     progress: impl FnMut(f64),
 ) -> Result<Separated> {
-    let mut loaded = load(model, on_gpu)?;
+    let mut loaded = load(model, card)?;
     separate_with(&mut loaded, audio, stem_count, overlap, progress)
 }
 

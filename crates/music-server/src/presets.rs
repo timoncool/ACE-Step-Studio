@@ -162,6 +162,64 @@ fn nvidia_smi() -> Option<(String, f64)> {
     Some((name.trim().into(), memory.trim().parse::<f64>().ok()? / 1024.0))
 }
 
+
+/// A graphics card of any make - the ONNX parts reach one through DirectML
+/// where CUDA does not run - as the display adapter with the most dedicated
+/// memory. Probed once: the machine's card does not change inside a process.
+pub fn display_card() -> Option<&'static str> {
+    static CARD: OnceLock<Option<String>> = OnceLock::new();
+    CARD.get_or_init(|| display_adapter().map(|(name, _)| name)).as_deref()
+}
+
+/// The display adapter with the most dedicated memory, from the driver's own
+/// registry entry: `HardwareInformation.qwMemorySize` is the 64-bit size the
+/// driver reports, where WMI's `AdapterRAM` wraps at 4 GB.
+#[cfg(windows)]
+fn display_adapter() -> Option<(String, f64)> {
+    use std::os::windows::process::CommandExt;
+    const CLASS: &str = r"HKLM\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}";
+    // A GUI process spawning a console tool flashes a window without this.
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let query = |value: &str| -> Option<String> {
+        let output = Command::new("reg").args(["query", CLASS, "/s", "/v", value]).creation_flags(CREATE_NO_WINDOW).output().ok()?;
+        output.status.success().then(|| String::from_utf8_lossy(&output.stdout).into_owned())
+    };
+    best_adapter(&query("DriverDesc")?, &query("HardwareInformation.qwMemorySize")?)
+}
+
+#[cfg(not(windows))]
+fn display_adapter() -> Option<(String, f64)> {
+    None
+}
+
+/// Joins `reg query /s` listings of the adapter names and memory sizes by
+/// their subkey and keeps the adapter with the most memory.
+fn best_adapter(names: &str, sizes: &str) -> Option<(String, f64)> {
+    fn values(listing: &str) -> Vec<(String, String)> {
+        let mut key = String::new();
+        let mut out = Vec::new();
+        for line in listing.lines() {
+            if line.starts_with("HKEY_") {
+                key = line.trim().to_owned();
+            } else if let Some((_, value)) = line.trim().split_once("    REG_") {
+                if let Some((_, data)) = value.split_once("    ") {
+                    out.push((key.clone(), data.trim().to_owned()));
+                }
+            }
+        }
+        out
+    }
+    let names = values(names);
+    values(sizes)
+        .into_iter()
+        .filter_map(|(key, size)| {
+            let bytes = u64::from_str_radix(size.trim_start_matches("0x"), 16).ok()?;
+            let name = names.iter().find(|(name_key, _)| *name_key == key)?.1.clone();
+            (!name.starts_with("Microsoft")).then_some((name, bytes as f64 / 1024.0 / 1024.0 / 1024.0))
+        })
+        .max_by(|a, b| a.1.total_cmp(&b.1))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -217,5 +275,15 @@ mod tests {
         for vram in [5.0, 8.0, 10.0, 16.0, 24.0, 32.0] {
             assert!(crate::model_manager::profile_exists(profile_for_preset(recommend_for_hardware("NVIDIA test card", vram).0)));
         }
+    }
+
+
+    #[test]
+    fn the_adapter_with_the_most_memory_wins_and_basic_display_never_does() {
+        let names = "\r\nHKEY_LOCAL_MACHINE\\X\\0000\r\n    DriverDesc    REG_SZ    AMD Radeon RX 7800 XT\r\n\r\nHKEY_LOCAL_MACHINE\\X\\0001\r\n    DriverDesc    REG_SZ    Intel(R) UHD Graphics 770\r\n\r\nHKEY_LOCAL_MACHINE\\X\\0002\r\n    DriverDesc    REG_SZ    Microsoft Basic Display Adapter\r\n";
+        let sizes = "\r\nHKEY_LOCAL_MACHINE\\X\\0000\r\n    HardwareInformation.qwMemorySize    REG_QWORD    0x400000000\r\n\r\nHKEY_LOCAL_MACHINE\\X\\0001\r\n    HardwareInformation.qwMemorySize    REG_QWORD    0x80000000\r\n\r\nHKEY_LOCAL_MACHINE\\X\\0002\r\n    HardwareInformation.qwMemorySize    REG_QWORD    0x800000000\r\n";
+        let (name, vram) = best_adapter(names, sizes).unwrap();
+        assert_eq!(name, "AMD Radeon RX 7800 XT");
+        assert_eq!(vram, 16.0);
     }
 }
