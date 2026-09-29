@@ -14,6 +14,7 @@ mod providers;
 mod assistant;
 mod assistant_runtime;
 mod audio_pcm;
+mod legacy_text;
 mod downloads;
 mod cuda_build;
 mod engine_runtime;
@@ -2199,7 +2200,7 @@ async fn upload_training_files(State(state): State<AppState>, Path(id): Path<Str
         let stem = std::path::Path::new(&name).file_stem().and_then(|stem| stem.to_str()).unwrap_or(&name).to_owned();
         if lower.ends_with(".txt") || lower.ends_with(".lrc") {
             let bytes = field.bytes().await.map_err(|e| api_error(StatusCode::BAD_REQUEST, format!("read {name}: {e}")))?;
-            texts.insert(stem, String::from_utf8_lossy(&bytes).into_owned());
+            texts.insert(stem, legacy_text::decode(&bytes));
         } else if lower.ends_with(".cue") {
             let bytes = field.bytes().await.map_err(|e| api_error(StatusCode::BAD_REQUEST, format!("read {name}: {e}")))?;
             let (file, tracks) = training::cue_sheet(&bytes);

@@ -182,7 +182,8 @@ pub fn tags(path: &Path) -> FileTags {
     loop {
         if let Some(revision) = metadata.current() {
             for tag in &revision.media.tags {
-                let trimmed = |value: &str| value.trim().to_string();
+                // an ID3 frame marked ISO-8859-1 often holds the system code page
+                let trimmed = |value: &str| crate::legacy_text::repair_latin1(value.trim());
                 match &tag.std {
                     Some(StandardTag::TrackTitle(value)) if found.title.is_empty() => found.title = trimmed(value),
                     Some(StandardTag::Artist(value)) if found.artist.is_empty() => found.artist = trimmed(value),

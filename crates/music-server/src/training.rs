@@ -1380,15 +1380,14 @@ pub struct CueTrack {
 }
 
 /// A cue sheet: the audio file it describes and the songs in it. Rippers
-/// write them in the system code page as often as in UTF-8; Cyrillic ones
-/// are Windows-1251.
+/// write them in the system code page as often as in UTF-8.
 pub fn cue_sheet(bytes: &[u8]) -> (Option<String>, Vec<CueTrack>) {
+    cue_sheet_text(&crate::legacy_text::decode(bytes))
+}
+
+fn cue_sheet_text(text: &str) -> (Option<String>, Vec<CueTrack>) {
     let mut sheet_performer = String::new();
     let mut performer: Option<String> = None;
-    let text = match std::str::from_utf8(bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes)) {
-        Ok(text) => text.to_string(),
-        Err(_) => encoding_rs::WINDOWS_1251.decode(bytes).0.into_owned(),
-    };
     let quoted = |rest: &str| rest.trim().trim_matches('"').to_string();
     let mut file = None;
     let mut tracks: Vec<CueTrack> = Vec::new();
@@ -1666,10 +1665,9 @@ mod tests {
     }
 
     #[test]
-    fn a_cue_sheet_in_the_windows_code_page_reads() {
+    fn a_cue_sheet_reads() {
         let text = "PERFORMER \"Нейромонах Феофан\"\r\nFILE \"Альбом.flac\" WAVE\r\n  TRACK 01 AUDIO\r\n    TITLE \"Ураган\"\r\n    INDEX 01 00:00:00\r\n  TRACK 02 AUDIO\r\n    TITLE \"Пни\"\r\n    INDEX 00 02:29:70\r\n    INDEX 01 02:30:08\r\n";
-        let bytes = encoding_rs::WINDOWS_1251.encode(text).0.into_owned();
-        let (file, tracks) = cue_sheet(&bytes);
+        let (file, tracks) = cue_sheet_text(text);
         assert_eq!(file.as_deref(), Some("Альбом.flac"));
         assert_eq!(tracks.len(), 2);
         assert_eq!(tracks[1].title, "Пни");
