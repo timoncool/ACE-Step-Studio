@@ -37,6 +37,11 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
+      // Tailwind's palette is oklch(); WebView2 before 111 (the last one for
+      // Windows 7 and 8.1 is 109) drops those colours and every surface turns
+      // transparent. Lightning CSS writes a plain colour first for it.
+      cssTarget: 'chrome100',
+      cssMinify: 'lightningcss',
       rollupOptions: {
         // the visualiser's own window is a second page
         input: {
