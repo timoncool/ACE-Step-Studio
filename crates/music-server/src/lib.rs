@@ -1877,8 +1877,11 @@ async fn remove_song_version(
 struct StudioSeparator {
     model: PathBuf,
     overlap: f64,
-    /// The card the bound runtime reaches, none for the processor.
-    card: Option<lyrics_sync::OnnxCard>,
+    /// The runtime the separation settings chose. The card it reaches is
+    /// settled when the first song is separated: that binds the process's
+    /// ONNX Runtime, which a status read must never do.
+    runtime: lyrics_sync::OnnxFlavour,
+    sync: Arc<lyrics_sync::LyricsSync>,
     /// Loaded on the first song and kept for the rest: one separator is made
     /// per run of songs and dropped with it, taking the card's memory along.
     loaded: std::sync::Mutex<Option<separation::Loaded>>,
@@ -1889,7 +1892,8 @@ impl StudioSeparator {
         let audio = audio_pcm::decode_stereo_44k(mix)?;
         let mut loaded = self.loaded.lock().map_err(|_| anyhow::anyhow!("the separator failed on an earlier song"))?;
         if loaded.is_none() {
-            *loaded = Some(separation::load(&self.model, self.card)?);
+            let card = self.sync.onnx_card(self.runtime)?.filter(|card| separates_on(*card));
+            *loaded = Some(separation::load(&self.model, card)?);
         }
         let model = loaded.as_mut().expect("loaded above");
         let separated = separation::separate_with(model, &audio, separation::STEMS.len(), self.overlap, |_| {})?;
@@ -1898,18 +1902,20 @@ impl StudioSeparator {
     }
 }
 
-/// The separator when its model and runtime are installed, on the card a
-/// song's separation would use.
+/// The separator when its model and a runtime are on disk. The training page
+/// and the models page ask this on every read, so it only looks at the files:
+/// binding the runtime here took the processor build whenever it landed
+/// before the card's libraries, and kept it until the studio restarted.
 async fn vocal_separator(state: &AppState) -> Option<Arc<StudioSeparator>> {
-    let config = state.separation_config.read().await.clone();
-    let card = state.lyrics_sync.onnx_card(config.runtime).ok()?.filter(|card| separates_on(*card));
-    if !state.separator.is_installed() {
+    if !state.separator.is_installed() || state.lyrics_sync.onnxruntime_library().is_none() {
         return None;
     }
+    let config = state.separation_config.read().await.clone();
     Some(Arc::new(StudioSeparator {
         model: state.separator.model_path(),
         overlap: config.sane_overlap(),
-        card,
+        runtime: config.runtime,
+        sync: state.lyrics_sync.clone(),
         loaded: std::sync::Mutex::new(None),
     }))
 }
