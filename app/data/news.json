@@ -1,5 +1,43 @@
 [
   {
+    "id": "ace-step-studio-3-2-0",
+    "date": "2026-09-30",
+    "title": {
+      "en": "ACE-Step Studio 3.2.0",
+      "ru": "ACE-Step Studio 3.2.0",
+      "zh": "ACE-Step Studio 3.2.0",
+      "ja": "ACE-Step Studio 3.2.0",
+      "ko": "ACE-Step Studio 3.2.0"
+    },
+    "body": {
+      "en": "AMD and Intel cards, one page for everything the studio runs, and a library that stays still.\n\n- **One page for all the models.** Settings - Models lists everything the studio downloads and runs - the engine sets, the assistant, stems, karaoke, training, style by ear and Audio to MIDI - with a table of what runs where on NVIDIA, AMD and Intel cards and on the processor.\n- **AMD and Intel cards.** The writing assistant runs through Vulkan, karaoke timing and the tempo and key through DirectML; training stays on NVIDIA and is no longer offered where it cannot run.\n- **A library that stays still.** A song that finishes takes its card's place instead of jumping, Play works on it while other songs are still being made, and progress comes straight from the engine.\n- **Without stopping by a slide**, so a stray click no longer starts it, and **New playlist…** right in the Create form.\n- **Max duration is remembered**, and **Take as they are** is on the train step too, for studios without an assistant.\n- **Fixes:** the trainer starts on any processor, tags and lyric files in Chinese and Cyrillic code pages read correctly, settings are no longer transparent on Windows 7 and 8.1, and the writing assistant keeps what you wrote.\n\nThe whole family moved to 3.2.0 on the same day: YuE2 Studio, MiniMax Music3 Studio and ACE-Step Studio - one core, three models, the links below.",
+      "ru": "Карты AMD и Intel, одна страница для всего, что запускает студия, и библиотека, которая не скачет.\n\n- **Одна страница для всех моделей.** Настройки - Модели показывают всё, что студия скачивает и запускает: наборы моделей, ассистент, стемы, караоке, обучение, стиль на слух и аудио в MIDI - с таблицей, что на чём считает на картах NVIDIA, AMD и Intel и на процессоре.\n- **Карты AMD и Intel.** Ассистент работает через Vulkan, разметка караоке и темп и тональность - через DirectML; обучение остаётся на NVIDIA и больше не предлагается там, где не заработает.\n- **Библиотека не скачет.** Готовая песня встаёт на место своей карточки, её можно включить, пока делаются другие, а прогресс приходит прямо от движка.\n- **«Без остановки» включается протяжкой**, случайный клик его больше не запускает, а **«Новый плейлист…»** есть прямо в форме «Создать».\n- **Макс. длительность запоминается**, а **«Взять как есть»** есть и на шаге обучения - для студий без ассистента.\n- **Исправлено:** тренер запускается на любом процессоре, теги и тексты в китайской и кириллической кодировках читаются правильно, настройки больше не прозрачные на Windows 7 и 8.1, а ассистент держится за то, что вы написали.\n\nВсё семейство перешло на 3.2.0 в один день: YuE2 Studio, MiniMax Music3 Studio и ACE-Step Studio - одно ядро, три модели, ссылки ниже.",
+      "zh": "支持 AMD 和 Intel 显卡，一个页面管理工作室运行的一切，曲库不再跳动。\n\n- **一个页面管理所有模型。** 设置 - 模型列出工作室下载和运行的一切——模型组、写作助手、分轨、卡拉 OK、训练、听歌识风格和音频转 MIDI——并附一张表，说明在 NVIDIA、AMD、Intel 显卡和处理器上各部分用什么运行。\n- **AMD 和 Intel 显卡。** 写作助手通过 Vulkan 运行，卡拉 OK 对时和速度与调性检测通过 DirectML 运行；训练仍只在 NVIDIA 上进行，在无法运行的电脑上不再提供。\n- **曲库不再跳动。** 生成完成的歌曲直接占据其卡片的位置，其他歌曲还在生成时也能播放，进度直接来自引擎。\n- **「不停生成」需滑动开启**，误点不会再启动它；「创建」表单里可直接「新建歌单…」。\n- **「最长时长」会被记住**；没有写作助手时，训练步骤也有「按原样使用」。\n- **修复：** 训练器可在任何处理器上启动；中文和西里尔编码的标签与歌词文件读取正确；Windows 7 和 8.1 上设置不再透明；写作助手会保留你写的内容。\n\n整个工作室家族在同一天升级到 3.2.0：YuE2 Studio、MiniMax Music3 Studio 和 ACE-Step Studio——同一内核，三个模型，链接见下方。",
+      "ja": "AMD・Intel の GPU に対応、スタジオが動かすものを 1 ページに集約、ライブラリが跳ねなくなりました。\n\n- **すべてのモデルを 1 ページに。** 設定 - モデルに、スタジオがダウンロードして動かすもの（モデルのセット、作詞アシスタント、ステム、カラオケ、学習、耳でスタイル、オーディオ→MIDI）がまとまり、NVIDIA・AMD・Intel の GPU とプロセッサで何が動くかの表も付きます。\n- **AMD と Intel の GPU。** 作詞アシスタントは Vulkan、カラオケのタイミングとテンポとキーは DirectML で動きます。学習は NVIDIA のみで、動かない環境では表示しません。\n- **跳ねないライブラリ。** 完成した曲はカードの位置にそのまま入り、ほかの曲を作っている間も再生でき、進捗はエンジンから直接届きます。\n- **「止めずに生成」はスライドでオン**になり、誤クリックでは始まりません。「作成」フォームから「新しいプレイリスト…」も作れます。\n- **「最大の長さ」を記憶**し、アシスタントがなくても学習ステップで「そのまま使う」を選べます。\n- **修正：** トレーナーがどのプロセッサでも起動し、中国語やキリル文字のコードページのタグと歌詞ファイルを正しく読み、Windows 7 と 8.1 で設定が透明にならず、アシスタントが書いた内容を守ります。\n\nスタジオファミリー全体が同じ日に 3.2.0 になりました：YuE2 Studio、MiniMax Music3 Studio、ACE-Step Studio。同じコア、3 つのモデル。リンクは下にあります。",
+      "ko": "AMD·Intel 그래픽카드 지원, 스튜디오가 실행하는 모든 것을 한 페이지에, 흔들리지 않는 라이브러리.\n\n- **모든 모델을 한 페이지에.** 설정 - 모델에서 스튜디오가 내려받고 실행하는 모든 것(모델 세트, 작사 도우미, 스템, 가라오케, 학습, 귀로 듣는 스타일, 오디오→MIDI)을 관리하고, NVIDIA·AMD·Intel 그래픽카드와 프로세서에서 무엇이 어디서 돌아가는지 표로 보여 줍니다.\n- **AMD와 Intel 그래픽카드.** 작사 도우미는 Vulkan으로, 가라오케 타이밍과 템포와 조는 DirectML로 돌아갑니다. 학습은 NVIDIA에서만 되며, 돌아가지 않는 컴퓨터에서는 더 이상 제안하지 않습니다.\n- **흔들리지 않는 라이브러리.** 완성된 곡은 카드 자리를 그대로 이어받고, 다른 곡을 만드는 동안에도 재생할 수 있으며, 진행 상황은 엔진에서 바로 옵니다.\n- **'멈추지 않고 생성'은 밀어서 켭니다.** 실수로 누르면 켜지지 않습니다. '만들기' 양식에서 '새 플레이리스트…'도 바로 만들 수 있습니다.\n- **'최대 길이'를 기억**하고, 도우미가 없어도 학습 단계에서 '그대로 사용'을 쓸 수 있습니다.\n- **수정:** 트레이너가 어떤 프로세서에서도 시작되고, 중국어·키릴 문자 코드 페이지의 태그와 가사 파일을 올바르게 읽으며, Windows 7과 8.1에서 설정이 투명하지 않고, 도우미가 쓴 내용을 지킵니다.\n\n스튜디오 패밀리 전체가 같은 날 3.2.0으로 올라갔습니다: YuE2 Studio, MiniMax Music3 Studio, ACE-Step Studio — 하나의 코어, 세 개의 모델, 링크는 아래에 있습니다."
+    },
+    "tags": [
+      "ACE-Step",
+      "3.2.0",
+      "AMD",
+      "Intel"
+    ],
+    "links": [
+      {
+        "label": "YuE2 Studio",
+        "url": "https://timoncool.github.io/YuE2-Studio/"
+      },
+      {
+        "label": "MiniMax Music3 Studio",
+        "url": "https://timoncool.github.io/MiniMax-Music3-Studio/"
+      },
+      {
+        "label": "ACE-Step Studio",
+        "url": "https://timoncool.github.io/ACE-Step-Studio/"
+      }
+    ]
+  },
+  {
     "id": "ace-step-studio-3-1-0",
     "date": "2026-09-29",
     "title": {
