@@ -97,9 +97,11 @@ export function useGenerations({ enabled, notify, onFinished }: GenerationOption
     if (waiting.length !== cards.length) setCards(prev => prev.filter(entry => !(entry.jobId && madeBy.has(entry.jobId))));
   }, [waiting, cards, madeBy]);
 
-  const follow = useCallback((cardId: string, jobId: string) => {
-    setCards(prev => prev.map(entry => (entry.id === cardId ? { ...entry, jobId } : entry)));
-    setRowOfJob(prev => (prev.has(jobId) ? prev : new Map(prev).set(jobId, cardId)));
+  // the card takes the service's time for its job: a window on another
+  // computer has another clock, and the cards are ordered by this time
+  const follow = useCallback((cardId: string, job: AceJob) => {
+    setCards(prev => prev.map(entry => (entry.id === cardId ? { ...entry, jobId: job.id, createdAt: new Date(job.submitted_at) } : entry)));
+    setRowOfJob(prev => (prev.has(job.id) ? prev : new Map(prev).set(job.id, cardId)));
   }, []);
 
   const remove = useCallback((cardId: string) => {
@@ -221,7 +223,7 @@ export function useGenerations({ enabled, notify, onFinished }: GenerationOption
       if (!response.ok || !job || job.status === 'failed') {
         throw new Error(job?.message || job?.error || `The engine rejected this request (${response.status})`);
       }
-      follow(id, job.id);
+      follow(id, job);
     } catch (error) {
       remove(id);
       notify(error instanceof Error ? error.message : t('generationFailed'), 'error');
