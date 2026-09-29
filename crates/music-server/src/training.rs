@@ -343,8 +343,13 @@ fn trainer_source() -> &'static TrainerSource {
     SOURCE.get_or_init(|| serde_json::from_str(include_str!("../../../engines/music-train-source.json")).expect("engines/music-train-source.json is valid"))
 }
 
-/// The folder the trainer archive unpacks into.
-const TRAINER_FOLDER: &str = "music-train";
+/// The folder the trainer archive unpacks into, named by its release: a
+/// studio updated to a newer trainer must not find the older one's folder and
+/// take it for installed, then call it with options it does not know.
+fn trainer_folder() -> &'static str {
+    static FOLDER: OnceLock<String> = OnceLock::new();
+    FOLDER.get_or_init(|| trainer_source().release_tag.clone())
+}
 
 /// Everything training needs: the trainer, released beside the studio, and
 /// the engine's weights for it.
@@ -360,7 +365,7 @@ fn pack() -> &'static [Asset] {
             url: leak(format!("https://github.com/timoncool/YuE2-Studio/releases/download/{}/{}", source.release_tag, source.asset)),
             relative_path: leak(source.asset.clone()),
             bytes: source.bytes,
-            unzip_into: Some(TRAINER_FOLDER),
+            unzip_into: Some(trainer_folder()),
             marker: leak(source.shipped_as.clone()),
             pick: &[],
             vram_gb: None,
@@ -418,7 +423,7 @@ fn listen_pack() -> &'static [Asset] {
                 url: leak(format!("https://github.com/timoncool/YuE2-Studio/releases/download/{}/ace-caption-windows-x64.zip", source.release_tag)),
                 relative_path: "ace-caption-windows-x64.zip",
                 bytes: 211_038,
-                unzip_into: Some(TRAINER_FOLDER),
+                unzip_into: Some(trainer_folder()),
                 marker: CAPTIONER,
                 pick: &CAPTIONER_PICK,
                 vram_gb: None,
@@ -502,7 +507,7 @@ impl Training {
     pub fn trainer(&self) -> PathBuf {
         std::env::var_os("STUDIO_TRAIN_BIN")
             .map(PathBuf::from)
-            .unwrap_or_else(|| self.downloader.runtime_dir(TRAINER_FOLDER).join(&trainer_source().shipped_as))
+            .unwrap_or_else(|| self.downloader.runtime_dir(trainer_folder()).join(&trainer_source().shipped_as))
     }
 
     pub fn models_dir(&self) -> PathBuf {
@@ -514,7 +519,7 @@ impl Training {
     pub fn captioner(&self) -> PathBuf {
         std::env::var_os("STUDIO_CAPTION_BIN")
             .map(PathBuf::from)
-            .unwrap_or_else(|| self.downloader.runtime_dir(TRAINER_FOLDER).join(CAPTIONER))
+            .unwrap_or_else(|| self.downloader.runtime_dir(trainer_folder()).join(CAPTIONER))
     }
 
     pub fn moss_dir(&self) -> PathBuf {
@@ -584,7 +589,7 @@ impl Training {
     /// Whether a part of the pack is usable; the trainer counts as present
     /// wherever `trainer` finds it.
     fn installed(&self, asset: &Asset) -> bool {
-        if asset.unzip_into == Some(TRAINER_FOLDER) {
+        if asset.id == "music-train" {
             return self.trainer().is_file();
         }
         self.downloader.is_installed(asset)
@@ -607,7 +612,25 @@ impl Training {
         if missing.is_empty() {
             return Ok(());
         }
-        self.downloader.install_all(SCOPE, &missing).await
+        self.downloader.install_all(SCOPE, &missing).await?;
+        self.remove_older_trainers();
+        Ok(())
+    }
+
+    /// The trainers of earlier releases, each in its own folder beside the
+    /// current one; nothing runs them any more.
+    fn remove_older_trainers(&self) {
+        let current = self.downloader.runtime_dir(trainer_folder());
+        let Some(runtime) = current.parent() else { return };
+        let Ok(entries) = std::fs::read_dir(runtime) else { return };
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with("music-train") && entry.path() != current && entry.path().is_dir() {
+                if let Err(error) = std::fs::remove_dir_all(entry.path()) {
+                    eprintln!("[ERROR] could not remove the older trainer {}: {error}", entry.path().display());
+                }
+            }
+        }
     }
 
     // ── datasets ────────────────────────────────────────────────────────────
