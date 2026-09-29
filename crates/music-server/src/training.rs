@@ -391,7 +391,23 @@ fn pack() -> &'static [Asset] {
 /// The captioner, beside the trainer whose ggml it shares. Picked out of its
 /// archive by name, so removing it never takes the trainer's folder along.
 const CAPTIONER: &str = "ace-caption.exe";
-const CAPTIONER_PICK: [&str; 1] = [CAPTIONER];
+/// The captioner with the ggml it was built with, processor builds included:
+/// it runs where the training pack, which carries the CUDA build, is not
+/// installed - a machine without an NVIDIA card is not offered that pack.
+const CAPTIONER_PICK: [&str; 12] = [
+    CAPTIONER,
+    "ggml.dll",
+    "ggml-base.dll",
+    "ggml-cpu-alderlake.dll",
+    "ggml-cpu-cannonlake.dll",
+    "ggml-cpu-cascadelake.dll",
+    "ggml-cpu-haswell.dll",
+    "ggml-cpu-icelake.dll",
+    "ggml-cpu-sandybridge.dll",
+    "ggml-cpu-skylakex.dll",
+    "ggml-cpu-sse42.dll",
+    "ggml-cpu-x64.dll",
+];
 
 /// Describing dataset songs by ear, optional: HOT-Step's `ace-caption` beside
 /// the trainer, MOSS-Music-8B-Instruct (OpenMOSS, Apache-2.0; GGUF by
@@ -422,7 +438,7 @@ fn listen_pack() -> &'static [Asset] {
                 kind: AssetKind::Runtime,
                 url: leak(format!("https://github.com/timoncool/YuE2-Studio/releases/download/{}/ace-caption-windows-x64.zip", source.release_tag)),
                 relative_path: "ace-caption-windows-x64.zip",
-                bytes: 104_651,
+                bytes: 3_161_266,
                 unzip_into: Some(trainer_folder()),
                 marker: CAPTIONER,
                 pick: &CAPTIONER_PICK,

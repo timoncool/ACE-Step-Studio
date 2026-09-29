@@ -39,6 +39,9 @@ What changed, newest first. Dates are release dates.
   beside CUDA, so the trainer and the captioner start without AVX2 or an NVIDIA card instead of
   "no backend available". An installed studio downloads the new trainer once and no longer calls
   an older one with options it does not know ("unknown option --loudness-lufs").
+- **Style by ear without the training pack**: the captioner carries its own libraries, so
+  describing a song by ear works on a machine that never downloaded the trainer - an AMD or Intel
+  one included - on the processor there.
 - **Tags and lyric files in a legacy code page** - Chinese GBK, Windows-1251 and others - are
   read as Windows reads them instead of as mojibake.
 - **Settings and panels on Windows 7 and 8.1** (WebView2 before 111) are no longer transparent.
