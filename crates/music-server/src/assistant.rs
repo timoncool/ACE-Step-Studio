@@ -219,11 +219,24 @@ pub fn user_message(request: &AssistRequest) -> String {
         ),
         AssistTarget::Transcript => format!("Transcript:\n{description}"),
         AssistTarget::Sheet => format!("Lyric sheet:\n{description}"),
-        AssistTarget::Prompt => format!(
-            "Sound instruction: {}\nCurrent lyrics, keep the caption coherent with them:\n{}{instrumental}",
-            if brief.is_empty() { "(none - describe a sound that fits the lyrics)" } else { brief },
-            request.lyrics.trim(),
-        ),
+        AssistTarget::Prompt => {
+            // the caption the user wrote is what the instruction works on, not a blank page (YuE2 #33)
+            let caption = request.caption.trim();
+            let written = if caption.is_empty() {
+                String::new()
+            } else {
+                format!("\nCaption (the user wrote this - keep it, build around it):\n{caption}")
+            };
+            format!(
+                "Sound instruction: {}{written}\nCurrent lyrics, keep the caption coherent with them:\n{}{instrumental}",
+                match (brief.is_empty(), caption.is_empty()) {
+                    (false, _) => brief,
+                    (true, true) => "(none - describe a sound that fits the lyrics)",
+                    (true, false) => "(none - refine the caption the user wrote)",
+                },
+                request.lyrics.trim(),
+            )
+        }
         AssistTarget::All => {
             // Whatever the user already wrote is material, not noise: it goes to
             // the model so the rest is built around it instead of replacing it.
@@ -324,17 +337,20 @@ pub fn draft_schema(required: &[&str]) -> Value {
     // present, and a model that answers with an empty string satisfies that.
     let text = serde_json::json!({ "type": "string", "minLength": 20 });
     let lyric = serde_json::json!({ "type": "string", "minLength": 14 });
-    let short = serde_json::json!({ "type": "string", "minLength": 1 });
+    // A short field has a ceiling too: a string without `maxLength` is unbounded
+    // in the grammar, and a model that loops inside a title runs to the token
+    // limit (YuE2 #32).
+    let short = |ceiling: u32| serde_json::json!({ "type": "string", "minLength": 1, "maxLength": ceiling });
     serde_json::json!({
         "type": "object",
         "properties": {
             "lyrics": lyric,
             "caption": text,
             "bpm": { "type": "integer" },
-            "keyscale": short,
-            "timesignature": short,
-            "title": short,
-            "cover_prompt": short,
+            "keyscale": short(24),
+            "timesignature": short(8),
+            "title": short(80),
+            "cover_prompt": short(300),
             "duration_seconds": { "type": "integer" },
         },
         "required": required,
@@ -868,6 +884,23 @@ mod tests {
             vocal_language: String::new(),
             recording: false,
         }
+    }
+
+    #[test]
+    fn a_prompt_edit_starts_from_the_caption_the_user_wrote() {
+        let message = user_message(&request(AssistTarget::Prompt));
+        assert!(message.contains("synthwave, female vocals, analog bass"));
+        assert!(message.contains("keep it, build around it"));
+        let blank = AssistRequest { caption: String::new(), description: String::new(), ..request(AssistTarget::Prompt) };
+        assert!(user_message(&blank).contains("describe a sound that fits the lyrics"));
+    }
+
+    #[test]
+    fn a_short_field_has_a_ceiling_so_a_model_cannot_loop_in_it() {
+        let schema = draft_schema(&["caption"]);
+        assert_eq!(schema["properties"]["title"]["maxLength"], 80);
+        assert_eq!(schema["properties"]["keyscale"]["maxLength"], 24);
+        assert_eq!(schema["properties"]["timesignature"]["maxLength"], 8);
     }
 
     #[test]
