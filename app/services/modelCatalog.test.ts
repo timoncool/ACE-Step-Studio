@@ -15,6 +15,15 @@ describe('model catalog helpers', () => {
     expect(componentVariant(components[0])).toBe('xl-turbo');
   });
 
+  it('reads the precision and the model of any catalog file name', () => {
+    const file = (filename: string): ModelComponent => ({ ...components[0], filename });
+    expect(componentPrecision(file('acestep-v15-merge-base-sft-xl-ta-0.5-MXFP4.gguf'))).toBe('MXFP4');
+    expect(componentVariant(file('acestep-v15-merge-base-sft-xl-ta-0.5-MXFP4.gguf'))).toBe('merge-base-sft-xl-ta-0.5');
+    expect(componentPrecision(file('acestep_1.5_vae_Regrind_V10b_blend50-BF16.gguf'))).toBe('BF16');
+    expect(componentPrecision(file('acestep-5Hz-lm-4B-Q5_K_M.gguf'))).toBe('Q5_K_M');
+    expect(componentVariant(file('acestep-5Hz-lm-4B-Q5_K_M.gguf'))).toBe('LM 4B');
+  });
+
   it('accepts only a complete set with one file per role', () => {
     expect(completeCustomComponentIds(components, { dit: 'dit-xl-turbo-q8', lm: 'lm-4b-q8', text_encoder: 'te-qwen3-0.6b-q8', vae: 'vae-standard-bf16' })).toHaveLength(4);
     expect(completeCustomComponentIds(components, { dit: 'dit-xl-turbo-q8', lm: 'lm-4b-q8' })).toBeNull();

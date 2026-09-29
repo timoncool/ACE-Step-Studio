@@ -20,7 +20,8 @@ const labels: Record<(typeof COMPONENT_KINDS)[number], string> = {
 export const componentKindLabel = (kind: string) => labels[kind as keyof typeof labels] || kind;
 
 export const componentPrecision = (component: ModelComponent) => {
-  const matched = component.filename.match(/-(BF16|F32|MXFP4|Q\d+(?:_K(?:_M)?|_0)?)\.gguf$/i);
+  // every catalog file ends in -<ggml type>.gguf
+  const matched = component.filename.match(/-([A-Z0-9_]+)\.gguf$/i);
   return matched?.[1]?.toUpperCase() || component.id;
 };
 
@@ -29,7 +30,7 @@ export const componentVariant = (component: ModelComponent) =>
   component.filename
     .replace(/^acestep-v15-/, '')
     .replace(/^acestep-5Hz-lm-/, 'LM ')
-    .replace(/-(BF16|F32|MXFP4|Q\d+(?:_K(?:_M)?|_0)?)\.gguf$/i, '');
+    .replace(/-([A-Z0-9_]+)\.gguf$/i, '');
 
 export const componentsByKind = (components: ModelComponent[]) =>
   COMPONENT_KINDS.map((kind) => ({ kind, components: components.filter((component) => component.kind === kind) }));
