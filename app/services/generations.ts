@@ -72,6 +72,9 @@ export function useGenerations({ enabled, notify, onFinished }: GenerationOption
   const [rowOfJob, setRowOfJob] = useState<ReadonlyMap<string, string>>(() => new Map());
   const library = useLibrarySongs().data ?? NO_SONGS;
   const settling = useRef(new Set<string>());
+  // jobs this window stopped: a read of the running jobs sent before the stop
+  // landed still lists them, and they must not come back as cards
+  const stopped = useRef(new Set<string>());
   const cardsNow = useRef(cards);
   useEffect(() => {
     cardsNow.current = cards;
@@ -154,7 +157,7 @@ export function useGenerations({ enabled, notify, onFinished }: GenerationOption
     const running = new Set(listed.map(job => job.id));
     // an agent's jobs, and the ones sent before this window was opened
     const shown = new Set(cards.flatMap(entry => (entry.jobId ? [entry.id, entry.jobId] : [entry.id])));
-    const fresh = listed.filter(job => !shown.has(job.id) && !(job.client_ref && shown.has(job.client_ref)));
+    const fresh = listed.filter(job => !shown.has(job.id) && !(job.client_ref && shown.has(job.client_ref)) && !stopped.current.has(job.id));
     if (fresh.length > 0) {
       setCards(prev => [
         ...fresh.map(job => card(`restored_${job.id}`, {
@@ -235,6 +238,7 @@ export function useGenerations({ enabled, notify, onFinished }: GenerationOption
   }, []);
 
   const cancel = useCallback(async (jobId: string) => {
+    stopped.current.add(jobId);
     setCards(prev => prev.map(entry => (entry.jobId === jobId ? { ...entry, isGenerating: false, stage: 'cancelled' } : entry)));
     try {
       await stopJob(jobId);
@@ -247,6 +251,7 @@ export function useGenerations({ enabled, notify, onFinished }: GenerationOption
   const reset = useCallback(async (key: string) => {
     const target = cardsNow.current.find(entry => entry.jobId === key || entry.id === key);
     if (!target) return;
+    if (target.jobId) stopped.current.add(target.jobId);
     remove(target.id);
     if (target.jobId && target.isGenerating) {
       try {
@@ -261,6 +266,7 @@ export function useGenerations({ enabled, notify, onFinished }: GenerationOption
     // "without stopping" would send the form again the moment the queue empties
     window.dispatchEvent(new CustomEvent('studio:cancel-all'));
     const mine = cardsNow.current.flatMap(entry => (entry.jobId && entry.isGenerating ? [entry.jobId] : []));
+    mine.forEach(id => stopped.current.add(id));
     setCards(prev => prev.filter(entry => !entry.isGenerating));
     // The service's list, not only this window's: a request whose answer is
     // still on its way back is on neither list here, and would run to the end.
@@ -270,7 +276,9 @@ export function useGenerations({ enabled, notify, onFinished }: GenerationOption
     } catch (error) {
       notify(error instanceof Error ? error.message : String(error), 'error');
     }
-    const results = await Promise.allSettled([...new Set([...mine, ...listed.map(job => job.id)])].map(stopJob));
+    const ids = [...new Set([...mine, ...listed.map(job => job.id)])];
+    ids.forEach(id => stopped.current.add(id));
+    const results = await Promise.allSettled(ids.map(stopJob));
     const refused = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
     if (refused) notify(refused.reason instanceof Error ? refused.reason.message : String(refused.reason), 'error');
     void queryClient.invalidateQueries({ queryKey: activeJobsKey });
