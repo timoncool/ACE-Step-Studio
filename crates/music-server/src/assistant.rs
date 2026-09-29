@@ -220,7 +220,7 @@ pub fn user_message(request: &AssistRequest) -> String {
         AssistTarget::Transcript => format!("Transcript:\n{description}"),
         AssistTarget::Sheet => format!("Lyric sheet:\n{description}"),
         AssistTarget::Prompt => {
-            // the caption the user wrote is what the instruction works on, not a blank page (YuE2 #33)
+            // the caption the user wrote is what the instruction works on, not a blank page
             let caption = request.caption.trim();
             let written = if caption.is_empty() {
                 String::new()
@@ -339,7 +339,7 @@ pub fn draft_schema(required: &[&str]) -> Value {
     let lyric = serde_json::json!({ "type": "string", "minLength": 14 });
     // A short field has a ceiling too: a string without `maxLength` is unbounded
     // in the grammar, and a model that loops inside a title runs to the token
-    // limit (YuE2 #32).
+    // limit.
     let short = |ceiling: u32| serde_json::json!({ "type": "string", "minLength": 1, "maxLength": ceiling });
     serde_json::json!({
         "type": "object",

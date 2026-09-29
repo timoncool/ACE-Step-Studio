@@ -1904,8 +1904,8 @@ impl StudioSeparator {
 
 /// The separator when its model and a runtime are on disk. The training page
 /// and the models page ask this on every read, so it only looks at the files:
-/// binding the runtime here took the processor build whenever it landed
-/// before the card's libraries, and kept it until the studio restarted.
+/// a runtime bound here would be the processor build whenever that lands
+/// before the card's libraries, and it stays bound until the studio restarts.
 async fn vocal_separator(state: &AppState) -> Option<Arc<StudioSeparator>> {
     if !state.separator.is_installed() || state.lyrics_sync.onnxruntime_library().is_none() {
         return None;
