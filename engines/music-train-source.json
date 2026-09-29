@@ -5,7 +5,7 @@
   "source_dir": "engine",
   "target": "ace-train",
   "shipped_as": "music-train.exe",
-  "release_tag": "music-train-3e7a0778",
+  "release_tag": "music-train-3e7a0778-r2",
   "asset": "music-train-cuda-windows-x64.zip",
-  "bytes": 111823899
+  "bytes": 224309232
 }

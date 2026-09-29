@@ -422,7 +422,7 @@ fn listen_pack() -> &'static [Asset] {
                 kind: AssetKind::Runtime,
                 url: leak(format!("https://github.com/timoncool/YuE2-Studio/releases/download/{}/ace-caption-windows-x64.zip", source.release_tag)),
                 relative_path: "ace-caption-windows-x64.zip",
-                bytes: 211_038,
+                bytes: 104_651,
                 unzip_into: Some(trainer_folder()),
                 marker: CAPTIONER,
                 pick: &CAPTIONER_PICK,
