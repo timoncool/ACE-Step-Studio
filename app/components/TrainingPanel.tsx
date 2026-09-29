@@ -194,7 +194,7 @@ function useStrings() {
 const errorText = (problem: unknown) => (problem instanceof Error ? problem.message : String(problem));
 
 /** The pack: what it holds, the requirements, and its download. */
-const PackCard: React.FC<{ state: TrainingState; onError: (message: string) => void; onChanged: () => void }> = ({ state, onError, onChanged }) => {
+export const PackCard: React.FC<{ state: TrainingState; onError: (message: string) => void; onChanged: () => void }> = ({ state, onError, onChanged }) => {
   const { t } = useStrings();
   const total = state.pack.reduce((sum, file) => sum + file.bytes, 0);
   const missing = state.pack.filter(file => !file.installed).reduce((sum, file) => sum + file.bytes, 0);
@@ -204,6 +204,7 @@ const PackCard: React.FC<{ state: TrainingState; onError: (message: string) => v
     <section className={CARD}>
       <p className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-white"><Download size={16} className="text-pink-500" />{t('trainingSetupTitle')}</p>
       <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{t('trainingSetupNeeds').replace('{size}', gigabytes(total)).replace('{vram}', String(state.min_vram_gb))}</p>
+      {!state.card_trains && <p role="note" className="mt-2 text-sm text-amber-700 dark:text-amber-300">{t('trainingNeedsNvidia')}</p>}
       <ul className="mt-3 space-y-1.5">
         {state.pack.map(file => (
           <li key={file.id} className="flex items-center justify-between gap-3 text-xs text-zinc-700 dark:text-zinc-200">
@@ -224,7 +225,7 @@ const PackCard: React.FC<{ state: TrainingState; onError: (message: string) => v
           <button type="button" onClick={() => void cancelTrainingPack().then(onChanged)} className={`${OUTLINE} mt-3`}><X size={13} />{t('adaptersCancel')}</button>
         </div>
       ) : (
-        !state.pack_ready && (
+        !state.pack_ready && state.card_trains && (
           <button type="button" onClick={() => void installTrainingPack().then(onChanged).catch(problem => onError(errorText(problem)))} className={`${PRIMARY} mt-3`}>
             <Download size={15} />{t('trainingDownload')} · {gigabytes(missing)}
           </button>
@@ -238,10 +239,16 @@ const PackCard: React.FC<{ state: TrainingState; onError: (message: string) => v
 };
 
 /** The optional listening pack: songs described by ear instead of by hand. */
-const ListenCard: React.FC<{ state: TrainingState; onError: (message: string) => void; onChanged: () => void }> = ({ state, onError, onChanged }) => {
+export const ListenCard: React.FC<{
+  state: TrainingState;
+  onError: (message: string) => void;
+  onChanged: () => void;
+  /** Shown once installed too, as the models page lists everything the studio has. */
+  always?: boolean;
+}> = ({ state, onError, onChanged, always = false }) => {
   const { t } = useStrings();
   const listen = state.listen;
-  if (!listen || listen.ready) return null;
+  if (!listen || (listen.ready && !always)) return null;
   const total = listen.pack.reduce((sum, file) => sum + file.bytes, 0);
   const missing = listen.pack.filter(file => !file.installed).reduce((sum, file) => sum + file.bytes, 0);
   const download = listen.download && !listen.download.done ? listen.download : null;
@@ -270,9 +277,11 @@ const ListenCard: React.FC<{ state: TrainingState; onError: (message: string) =>
           <button type="button" onClick={() => void cancelTrainingPack().then(onChanged)} className={`${OUTLINE} mt-3`}><X size={13} />{t('adaptersCancel')}</button>
         </div>
       ) : (
-        <button type="button" onClick={() => void installListenPack().then(onChanged).catch(problem => onError(errorText(problem)))} className={`${OUTLINE} mt-3`}>
-          <Download size={14} />{t('trainingDownload')} · {gigabytes(missing)}
-        </button>
+        !listen.ready && (
+          <button type="button" onClick={() => void installListenPack().then(onChanged).catch(problem => onError(errorText(problem)))} className={`${OUTLINE} mt-3`}>
+            <Download size={14} />{t('trainingDownload')} · {gigabytes(missing)}
+          </button>
+        )
       )}
       {listen.download?.done && listen.download.error && listen.download.error !== 'cancelled' && (
         <p role="alert" className="mt-3 text-xs text-rose-600 dark:text-rose-300">{listen.download.error}</p>

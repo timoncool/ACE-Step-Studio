@@ -1982,6 +1982,8 @@ async fn read_training(State(state): State<AppState>) -> Json<Value> {
         "recipe_defaults": training::Recipe::default(),
         "recipe_fields": music_engine::train::recipe_fields(),
         "min_vram_gb": music_engine::train::MIN_VRAM_GB,
+        // the trainer computes on CUDA only
+        "card_trains": cuda_build::current().is_some(),
         "progress_unit": music_engine::train::PROGRESS_UNIT,
         // the DiT a new run trains on: the BF16 of the one the studio renders with
         "base": training_weights(&state).await.ok().map(|weights| serde_json::json!({
@@ -2004,14 +2006,18 @@ async fn read_training(State(state): State<AppState>) -> Json<Value> {
     }))
 }
 
-async fn install_training_pack(State(state): State<AppState>) -> Json<Value> {
+async fn install_training_pack(State(state): State<AppState>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    // gigabytes of training files are no use to a machine that cannot train
+    if cuda_build::current().is_none() {
+        return Err(api_error(StatusCode::CONFLICT, TRAINING_NEEDS_CUDA.into()));
+    }
     let background = state.clone();
     tokio::spawn(async move {
         if let Err(error) = background.training.install_pack().await {
             eprintln!("[ERROR] training pack: {error:#}");
         }
     });
-    Json(serde_json::json!({ "started": true }))
+    Ok(Json(serde_json::json!({ "started": true })))
 }
 
 /// The optional listening pack, and the ONNX Runtime its tempo and key
@@ -2375,14 +2381,22 @@ async fn no_song_rendering(state: &AppState) -> Result<(), String> {
 }
 
 /// What keeps the user from starting a training run or training one further:
-/// songs being prepared or a song being made.
+/// a machine with no card CUDA runs on - the trainer carries no other
+/// backend, and on the processor a run would take days - songs being
+/// prepared, or a song being made.
 async fn card_free_for_training(state: &AppState) -> Result<(), String> {
+    if cuda_build::current().is_none() {
+        return Err(TRAINING_NEEDS_CUDA.into());
+    }
     let preparing = state.prepare.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).as_ref().is_some_and(|job| !job.finished);
     if preparing {
         return Err("songs are being prepared; train once that is done".into());
     }
     no_song_rendering(state).await
 }
+
+/// Why this machine does not train.
+const TRAINING_NEEDS_CUDA: &str = "training runs on an NVIDIA card with CUDA only, and this machine has none";
 
 async fn card_free_of_training(state: &AppState, what: &str) -> Result<(), (StatusCode, Json<ApiError>)> {
     if state.training.active_run().await.is_some() {

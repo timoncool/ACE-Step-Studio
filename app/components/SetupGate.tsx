@@ -1,10 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronDown, Download, FolderDown, FolderOpen, Loader2, Square, Trash2, X } from 'lucide-react';
+import { Check, ChevronDown, Download, FolderDown, FolderOpen, Loader2, Piano, Square, Trash2, X } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import { RescanButton } from './RescanButton';
 import { DevicePicker, type Device } from './DevicePicker';
 import { AssistantExtras } from './AssistantSettings';
 import { KaraokeExtras } from './KaraokeSettings';
+import { ListenCard, PackCard } from './TrainingPanel';
+import type { MidiStatus } from './midi/MidiTool';
+import { fetchTraining, type TrainingState } from '../services/training';
+import type { TranslationKey } from '../i18n/translations';
 import {
   componentKindLabel,
   componentPrecision,
@@ -596,6 +600,193 @@ export const OptionalGroup: React.FC<{
  * the studio cannot work yet, and the settings page, where the models are there
  * and the question is only which of them to use.
  */
+/** How a part of the studio computes on a kind of machine. */
+type Path = 'cuda' | 'vulkan' | 'directml' | 'cpu' | 'none';
+
+/**
+ * What runs where in this studio, as the code decides it: the engine walks
+ * CUDA, Vulkan and the processor; the ONNX parts take CUDA or DirectML;
+ * the rest has a CUDA build and a processor one.
+ */
+const WHERE_IT_RUNS: { part: TranslationKey; name: string; nvidia: Path; other: Path; none: Path }[] = [
+  { part: 'hubPartSongs', name: 'acestep.cpp', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
+  { part: 'hubPartTraining', name: 'music-train', nvidia: 'cuda', other: 'none', none: 'none' },
+  { part: 'hubPartListen', name: 'MOSS-Music', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
+  { part: 'hubPartTempoKey', name: 'Beat This!, S-KEY', nvidia: 'cuda', other: 'directml', none: 'cpu' },
+  { part: 'hubPartStems', name: 'HT-Demucs', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
+  { part: 'hubPartKaraoke', name: 'Parakeet', nvidia: 'cuda', other: 'directml', none: 'cpu' },
+  { part: 'hubPartKaraoke', name: 'Whisper', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
+  { part: 'hubPartAssistant', name: 'llama.cpp', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
+  { part: 'hubPartMidi', name: 'MuScriptor', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
+];
+
+/** The page's reference: every part of the studio, by card. */
+const WhereItRuns: React.FC<{ trainingVram: number | null }> = ({ trainingVram }) => {
+  const { t } = useI18n();
+  const cell = (path: Path) =>
+    path === 'cpu' ? t('hubOnCpu') : path === 'none' ? t('hubNotHere') : path === 'cuda' ? 'CUDA' : path === 'vulkan' ? 'Vulkan' : 'DirectML';
+  const tone = (path: Path) => (path === 'none' ? 'text-zinc-400 dark:text-zinc-500' : path === 'cpu' ? 'text-zinc-600 dark:text-zinc-300' : 'font-semibold text-zinc-900 dark:text-white');
+  return (
+    <details className="group mt-5 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-suno-card">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-white/5">
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-zinc-900 dark:text-white">{t('hubRunsTitle')}</span>
+          <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">{t('hubRunsHint')}</span>
+        </span>
+        <ChevronDown size={15} className="shrink-0 text-zinc-500 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="space-y-2 border-t border-zinc-100 p-4 dark:border-white/5">
+        <table className="w-full text-left text-xs">
+          <thead>
+            <tr className="text-[11px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              <th className="py-1 pr-2 font-semibold">{t('hubColPart')}</th>
+              <th className="py-1 pr-2 font-semibold">{t('hubColNvidia')}</th>
+              <th className="py-1 pr-2 font-semibold">{t('hubColOther')}</th>
+              <th className="py-1 font-semibold">{t('hubColNone')}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-100 dark:divide-white/5">
+            {WHERE_IT_RUNS.map((row) => (
+              <tr key={row.name}>
+                <td className="py-1.5 pr-2 text-zinc-800 dark:text-zinc-100">
+                  {t(row.part)} <span className="text-zinc-500 dark:text-zinc-400">· {row.name}</span>
+                </td>
+                <td className={`py-1.5 pr-2 ${tone(row.nvidia)}`}>{cell(row.nvidia)}</td>
+                <td className={`py-1.5 pr-2 ${tone(row.other)}`}>{cell(row.other)}</td>
+                <td className={`py-1.5 ${tone(row.none)}`}>{cell(row.none)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">{t('hubRunsExperimental')}</p>
+        {trainingVram !== null && <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('hubRunsTraining').replace('{vram}', String(trainingVram))}</p>}
+        <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('hubRunsStems')}</p>
+        <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('hubRunsAuto')}</p>
+      </div>
+    </details>
+  );
+};
+
+/** The training page's state, for its two packs and the reference, while the models page is open. */
+function useTrainingState(enabled: boolean) {
+  const [state, setState] = useState<TrainingState | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  const load = useCallback(
+    () =>
+      fetchTraining()
+        .then((next) => setState(next))
+        .catch((reason: Error) => setFailed(reason.message)),
+    [],
+  );
+  useEffect(() => {
+    if (!enabled) return;
+    void load();
+    const timer = window.setInterval(() => void load(), 2000);
+    return () => window.clearInterval(timer);
+  }, [enabled, load]);
+  return { state, failed, setFailed, load };
+}
+
+/** Audio to MIDI's transcriber and model sizes, fetched and removed here as on the tools page. */
+const MidiModels: React.FC = () => {
+  const { t } = useI18n();
+  const tt = t as unknown as (key: string) => string;
+  const [status, setStatus] = useState<MidiStatus | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  const load = useCallback(
+    () =>
+      fetch('/v1/midi')
+        .then(async (response) => {
+          if (!response.ok) throw new Error(await errorMessage(response));
+          setStatus(await response.json());
+        })
+        .catch((reason: Error) => setFailed(reason.message)),
+    [],
+  );
+  useEffect(() => {
+    void load();
+    const timer = window.setInterval(() => void load(), 2000);
+    return () => window.clearInterval(timer);
+  }, [load]);
+  const post = async (url: string, body: object) => {
+    setFailed(null);
+    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!response.ok) setFailed(await errorMessage(response));
+    await load();
+  };
+  if (!status) return failed ? <p className="text-xs text-rose-600 dark:text-rose-300">{failed}</p> : null;
+  const download = status.download && !status.download.done ? status.download : null;
+  const percent = download ? Math.min(100, Math.round((download.downloaded_bytes / Math.max(1, download.total_bytes)) * 100)) : 0;
+  return (
+    <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-suno-card">
+      <div className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-white">
+        <Piano size={16} className="text-pink-500" />
+        {t('midiTitle')}
+      </div>
+      <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('midiHint')}</p>
+      <div className="mt-3 space-y-1.5">
+        {status.sizes.map((size) => {
+          const installed = size.missing_bytes === 0;
+          return (
+            <div key={size.id} className="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-200">
+              {installed ? <Check size={13} className="shrink-0 text-emerald-500" /> : <Square size={13} className="shrink-0 text-zinc-400" />}
+              <span className="min-w-0 flex-1 truncate">{tt(`midiSize_${size.id}`)} · {size.params}</span>
+              <span className="shrink-0 tabular-nums text-zinc-500">{bytes(size.bytes)}</span>
+              {installed ? (
+                <button
+                  type="button"
+                  onClick={() => void post('/v1/midi/remove', { size: size.id })}
+                  disabled={Boolean(download)}
+                  title={t('removeDownloaded')}
+                  className="shrink-0 rounded-md border border-zinc-300 p-1 text-zinc-500 hover:border-rose-400 hover:text-rose-600 disabled:opacity-40 dark:border-white/15 dark:text-zinc-400"
+                >
+                  <Trash2 size={13} />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void post('/v1/midi/install', { size: size.id })}
+                  disabled={Boolean(download)}
+                  title={t('download')}
+                  className="shrink-0 rounded-md border border-zinc-300 p-1 text-zinc-600 hover:border-pink-400 hover:text-pink-600 disabled:opacity-40 dark:border-white/15 dark:text-zinc-300"
+                >
+                  <Download size={13} />
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {download && (
+        <div className="mt-3">
+          <div className="flex items-center justify-between gap-2 text-xs text-zinc-500">
+            <span className="inline-flex items-center gap-1.5 tabular-nums">
+              <Loader2 size={13} className="animate-spin text-pink-500" />
+              {percent}% · {bytes(download.downloaded_bytes)} / {bytes(download.total_bytes)}
+            </span>
+            <button
+              type="button"
+              onClick={() => void post('/v1/midi/cancel', {})}
+              title={t('cancelDownload')}
+              className="rounded-md border border-zinc-300 p-1 text-zinc-500 hover:border-rose-400 hover:text-rose-600 dark:border-white/15 dark:text-zinc-400"
+            >
+              <Square size={12} />
+            </button>
+          </div>
+          <div className="mt-2 h-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-black/30">
+            <div className="h-full bg-linear-to-r from-orange-500 to-pink-500 transition-[width]" style={{ width: `${percent}%` }} />
+          </div>
+        </div>
+      )}
+      {status.download?.done && status.download.error && status.download.error !== 'cancelled' && (
+        <p className="mt-2 text-xs text-rose-600 dark:text-rose-300">{status.download.error}</p>
+      )}
+      {failed && <p className="mt-2 text-xs text-rose-600 dark:text-rose-300">{failed}</p>}
+      <p className="mt-2 text-[11px] leading-4 text-zinc-500 dark:text-zinc-400">{status.license}</p>
+    </div>
+  );
+};
+
 export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 'settings'; focus?: string | null }> = ({ onReady, mode = 'first-run', focus = null }) => {
   const { t } = useI18n();
   const [status, setStatus] = useState<SetupStatus | null>(null);
@@ -603,6 +794,8 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
   const [choice, setChoice] = useState<Record<string, string>>({});
   const chosenValues = useMemo(() => Object.values(choice).filter((id): id is string => typeof id === 'string' && id.length > 0), [choice]);
   const [error, setError] = useState<string | null>(null);
+  // the training page's packs are listed here too, with everything else the studio downloads
+  const training = useTrainingState(mode === 'settings');
 
   const refresh = useCallback(async () => {
     const response = await fetch('/setup/status');
@@ -743,6 +936,8 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
         <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-500 dark:text-zinc-400">
           {mode === 'first-run' ? t('setupSubtitle') : t('resourcesSubtitle')}
         </p>
+
+        {mode === 'settings' && <WhereItRuns trainingVram={training.state?.min_vram_gb ?? null} />}
         {mode === 'settings' && <div className="mt-4"><RescanButton onDone={() => void refresh().catch((problem: unknown) => setError(problem instanceof Error ? problem.message : String(problem)))} /></div>}
 
         {error && (
@@ -1025,6 +1220,16 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
             >
               {(engine) => <KaraokeExtras engine={engine} />}
             </OptionalGroup>
+            {/* The training page's two packs and the MIDI transcriber: set up
+                where they are used, and listed here with everything else. */}
+            {mode === 'settings' && training.state && (
+              <>
+                <PackCard state={training.state} onError={training.setFailed} onChanged={() => void training.load()} />
+                <ListenCard state={training.state} onError={training.setFailed} onChanged={() => void training.load()} always />
+              </>
+            )}
+            {mode === 'settings' && training.failed && <p className="text-xs text-rose-600 dark:text-rose-300">{training.failed}</p>}
+            {mode === 'settings' && <MidiModels />}
           </div>
         </div>
       </div>

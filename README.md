@@ -214,6 +214,37 @@ or download the MP3s from [docs/samples](docs/samples).
   you train. Describing songs by ear needs about 12 GB of VRAM and 9.8 GB more disk for
   MOSS-Music; without it the captions are written by hand.
 
+## What runs where
+
+| Part | NVIDIA | AMD, Intel | No graphics card |
+| --- | --- | --- | --- |
+| Making songs · acestep.cpp | CUDA | Vulkan | processor |
+| Training a LoRA · music-train | CUDA | not available | not available |
+| Style by ear · MOSS-Music | CUDA | processor | processor |
+| Tempo and key · Beat This!, S-KEY | CUDA | DirectML | processor |
+| Stems · HT-Demucs | CUDA | processor | processor |
+| Karaoke timing · Parakeet | CUDA | DirectML | processor |
+| Karaoke timing · Whisper | CUDA | processor | processor |
+| Writing assistant · llama.cpp | CUDA | processor | processor |
+| Audio to MIDI · MuScriptor | CUDA | processor | processor |
+
+**The paths for AMD and Intel cards (Vulkan, DirectML) and work on the processor are
+experimental:** they exist for computers where the studio would not run at all otherwise.
+The main, tested path is an NVIDIA card.
+
+- Training needs an NVIDIA card with 12 GB of video memory or more. The trainer has no other
+  path, and on the processor one run would take days, so on any other machine the studio
+  does not offer the training files.
+- On AMD and Intel cards stems are separated on the processor: the HT-Demucs model does not
+  run through DirectML (out of memory on a 2 GB integrated card, over 20 GB and minutes for
+  30 seconds of audio on a 24 GB one).
+- Karaoke's Parakeet and the tempo and key models reach any DirectX 12 card through
+  DirectML. Its runtime - ONNX Runtime 1.24.4 DirectML and DirectML 1.15.4, about 215 MB -
+  comes with the card path; the studio loads its own DirectML rather than the older copy
+  inside Windows.
+- "Auto" in a device choice takes the card when its runtime is installed, and the processor
+  otherwise. The same table is in the studio, under Settings → Models.
+
 ## Quick start
 
 1. **Install** — run `ACE-Step.Studio_x.y.z_x64-setup.exe` from the

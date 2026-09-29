@@ -95,6 +95,8 @@ export interface TrainingState {
   recipe_fields: RecipeField[];
   /** Video memory a run of the default recipe needs, in GB. */
   min_vram_gb: number;
+  /** Whether this machine's card runs the trainer: an NVIDIA card with CUDA. */
+  card_trains: boolean;
   /** What checkpoints and "train further" count: steps, or epochs. */
   progress_unit?: 'step' | 'epoch';
   /** The unquantised model a new run trains on, when the engine trains on the one it renders with. */
