@@ -172,6 +172,20 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "The CUDA 12 libraries llama.cpp links against.",
     },
+    // Every other card - AMD, Intel, an NVIDIA card CUDA does not run on -
+    // takes llama.cpp's Vulkan build through the card's own driver
+    Asset {
+        id: "llama-vulkan",
+        label: "llama.cpp runtime (Vulkan)",
+        kind: AssetKind::Runtime,
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-win-vulkan-x64.zip",
+        relative_path: "runtime/llama-vulkan.zip",
+        bytes: 33_064_176,
+        unzip_into: Some("vulkan"),
+        marker: "llama-server",
+        vram_gb: None,
+        note: "For AMD and Intel cards, and NVIDIA cards CUDA does not run on: the card through Vulkan.",
+    },
     Asset {
         id: "llama-cpu",
         label: "llama.cpp runtime (CPU)",
@@ -182,14 +196,20 @@ pub const ASSETS: &[Asset] = &[
         unzip_into: Some("cpu"),
         marker: "llama-server",
         vram_gb: None,
-        note: "For machines without an NVIDIA card. Slow, but it works.",
+        note: "For machines without a graphics card, or for choosing the processor. Slow, but it works.",
     },
 ];
 
 /// The llama.cpp build this machine's card runs: CUDA 13 on Turing and newer
-/// with driver 580 or later, CUDA 12 on anything older the engine still runs.
-pub fn cuda_flavour() -> &'static str {
-    if crate::cuda_build::current() == Some(crate::cuda_build::CudaBuild::Cuda12) { "cuda12" } else { "cuda" }
+/// with driver 580 or later, CUDA 12 on anything older CUDA still runs,
+/// Vulkan on every other card; none without a card.
+pub fn card_flavour() -> Option<&'static str> {
+    match crate::cuda_build::current() {
+        Some(crate::cuda_build::CudaBuild::Cuda12) => Some("cuda12"),
+        Some(_) => Some("cuda"),
+        None if crate::presets::display_card().is_some() => Some("vulkan"),
+        None => None,
+    }
 }
 
 pub fn asset(id: &str) -> Option<&'static Asset> {
@@ -311,11 +331,11 @@ impl AssistantRuntime {
     pub fn server_binary_for(&self, device: Option<&str>) -> Option<PathBuf> {
         let runtime = self.root.join("runtime");
         let name = if cfg!(windows) { "llama-server.exe" } else { "llama-server" };
-        let card = cuda_flavour();
-        let order: &[&str] = match device {
-            Some("cuda") => &[card],
-            Some("cpu") => &["cpu"],
-            _ => &[card, "cpu"],
+        let card = card_flavour();
+        let order: Vec<&str> = match device {
+            Some("cuda") => card.into_iter().collect(),
+            Some("cpu") => vec!["cpu"],
+            _ => card.into_iter().chain(["cpu"]).collect(),
         };
         for flavour in order {
             let candidate = runtime.join(flavour).join(name);

@@ -614,7 +614,7 @@ const WHERE_IT_RUNS: { part: TranslationKey; name: string; nvidia: Path; other: 
   { part: 'hubPartStems', name: 'HT-Demucs', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
   { part: 'hubPartKaraoke', name: 'Parakeet', nvidia: 'cuda', other: 'directml', none: 'cpu' },
   { part: 'hubPartKaraoke', name: 'Whisper', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
-  { part: 'hubPartAssistant', name: 'llama.cpp', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
+  { part: 'hubPartAssistant', name: 'llama.cpp', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
   { part: 'hubPartMidi', name: 'MuScriptor', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
 ];
 
