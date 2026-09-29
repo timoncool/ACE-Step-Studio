@@ -1524,6 +1524,8 @@ export const en = {
     assistantWandNeedsIt: 'The magic wand writes with a text model, the assistant. The music models you downloaded compose songs, they do not write words, so the wand needs one of these: the built-in model (one download, it runs on your card), your own server (LM Studio, Ollama, llama.cpp) or OpenRouter.',
     generateForever: 'Without stopping',
     generateForeverHint: 'When a song is made, the same request goes again with new seeds, until you switch this off. The form is taken as it was when you pressed Create.',
+    generateForeverSlide: 'Slide right to go without stopping',
+    generateForeverStop: 'Turn off “Without stopping”',
     createIntoPlaylist: 'Into playlist',
     createIntoNoPlaylist: 'None',
     createIntoNewPlaylist: 'New playlist…',

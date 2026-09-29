@@ -1,5 +1,6 @@
 import { openStems } from '../services/openStems';
 import React, { useState, useEffect } from 'react';
+import { useKaraokeStatus } from '../services/studioQueries';
 import { TRACK_ARTIST } from '../services/studio';
 import { Song } from '../types';
 import { Heart, Share2, Play, Pause, MoreHorizontal, X, Copy, Wand2, MoreVertical, Download, Repeat, Video, Music, Link as LinkIcon, Sparkles, Globe, Lock, Trash2, Edit3, Layers, ChevronDown, ClipboardCopy, ImagePlus, Loader2, Mic2, Clapperboard } from 'lucide-react';
@@ -93,16 +94,9 @@ const SongVersions: React.FC<{ song: Song; onChanged: (song: Song) => void }> = 
 
 const KaraokeAction: React.FC<{ song: Song; onDone?: (lrc: string) => void }> = ({ song, onDone }) => {
     const { t } = useI18n();
-    const [available, setAvailable] = useState(false);
+    const available = useKaraokeStatus().data?.ready === true;
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-        void fetch('/v1/karaoke/status')
-            .then((response) => (response.ok ? response.json() : Promise.reject(new Error())))
-            .then((status: { ready?: boolean }) => setAvailable(status.ready === true))
-            .catch(() => setAvailable(false));
-    }, []);
 
     if (!available || !song.audioUrl || !song.lyrics?.trim()) return null;
 

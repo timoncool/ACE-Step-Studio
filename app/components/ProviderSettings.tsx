@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { openRouterSettingsChanged } from '../services/studioQueries';
 import { AlertTriangle, Check, Cloud, Cpu, Eye, EyeOff, Loader2, RefreshCw } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import type { TranslationKey } from '../i18n/translations';
@@ -180,6 +181,7 @@ export const ProviderSettings: React.FC = () => {
       });
       const body = await response.json().catch(() => null);
       if (!response.ok) throw new Error(body?.error || `Storing the key failed (${response.status})`);
+      openRouterSettingsChanged();
       setSettings(body);
       setApiKey('');
       setNotice(value ? t('keyStored') : t('keyRemoved'));

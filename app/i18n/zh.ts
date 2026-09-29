@@ -1519,6 +1519,8 @@ export const zh = {
     assistantWandNeedsIt: '魔法棒使用文本模型（助手）来写作。已下载的音乐模型负责作曲，不会写词，因此魔法棒需要以下之一：内置模型（下载一次，在你的显卡上运行）、你自己的服务器（LM Studio、Ollama、llama.cpp）或 OpenRouter。',
     generateForever: '不停生成',
     generateForeverHint: '一首歌完成后，同一请求会以新的种子再次提交，直到你关闭此项。使用的是你点击“创作”那一刻的表单。',
+    generateForeverSlide: '向右滑动：不停生成',
+    generateForeverStop: '关闭“不停生成”',
     createIntoPlaylist: '放入歌单',
     createIntoNoPlaylist: '不放入',
     createIntoNewPlaylist: '新建歌单…',

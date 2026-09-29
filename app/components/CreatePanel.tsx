@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { libraryChanged, setupStatusChanged, updateLibrarySongs, useActivity, useAssistantStatus, useLibrarySongs, useSetupStatus, type ActivityEntry } from '../services/studioQueries';
+import { mapNativeLibrarySong } from '../services/nativeLibrary';
 import { karaokeReason } from '../services/karaoke';
 import { AlertTriangle, ChevronDown, CircleAlert, Dices, Ear, FolderOpen, Loader2, Pause, Play, RotateCcw, Save, Sparkles, Square, Tags, Undo2, Upload, Wand2, Lightbulb, ListChecks } from 'lucide-react';
 import type { AceCreateRequest, Playlist, Song } from '../types';
@@ -7,6 +9,7 @@ import { saveFile } from '../services/saveFile';
 import { useBridgeCommand } from '../services/mcpBridge';
 import { AdapterPicker } from './AdapterPicker';
 import { CreatePlaylistModal } from './PlaylistModals';
+import { SlideToEnable } from './SlideToEnable';
 import { ModelSwitcher, type SwitcherStatus } from './ModelSwitcher';
 import type { AdapterUse } from '../services/adapters';
 import { randomExample, randomIdea, someGenres } from '../services/examples';
@@ -25,7 +28,7 @@ import { SCHEDULERS, SOLVERS } from '../services/aceEngine';
  */
 
 interface CreatePanelProps {
-  onGenerate: (request: AceCreateRequest & { _tempId?: string }) => void;
+  onGenerate: (request: AceCreateRequest) => void;
   isGenerating: boolean;
   activeJobCount?: number;
   initialData?: { song: Song; timestamp: number } | null;
@@ -53,6 +56,8 @@ type EngineCatalog = {
 };
 
 type LibrarySong = { id: string; title: string };
+const NO_LIBRARY: LibrarySong[] = [];
+const NO_ACTIVITY: ActivityEntry[] = [];
 
 type Task = 'text2music' | 'cover' | 'cover-nofsq' | 'repaint' | 'lego' | 'extract' | 'complete';
 const TASKS: Task[] = ['text2music', 'cover', 'cover-nofsq', 'repaint', 'lego', 'extract', 'complete'];
@@ -75,6 +80,16 @@ const PRESETS: Array<{ id: string; start: number; end: number; mode: string }> =
   { id: 'adg', start: 0, end: 1, mode: 'adg' },
 ];
 const MAX_DURATION_SECONDS = 600;
+
+/** The duration last set by hand, kept between sessions like the playlist; '' leaves it to the planner. */
+const keptDuration = (): string => {
+  try {
+    const kept = Number(window.localStorage.getItem('studio.createDuration'));
+    return kept >= 10 && kept <= MAX_DURATION_SECONDS ? String(kept) : '';
+  } catch {
+    return '';
+  }
+};
 const MAX_TAKES = 9;
 
 /** What the chosen DiT is, which decides its defaults. */
@@ -235,7 +250,11 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const [bpm, setBpm] = useState('');
   const [keyscale, setKeyscale] = useState('');
   const [timesignature, setTimesignature] = useState('');
-  const [duration, setDuration] = useState('');
+  const [duration, setDuration] = useState(keptDuration);
+  const chooseDuration = (value: string) => {
+    setDuration(value);
+    try { window.localStorage.setItem('studio.createDuration', value); } catch { /* kept until a reload */ }
+  };
 
   const [task, setTask] = useState<Task>('text2music');
   const [sourceSong, setSourceSong] = useState('');
@@ -303,18 +322,22 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     });
   }, []);
 
-  const [setup, setSetup] = useState<SetupStatus | null>(null);
-  const [serviceDown, setServiceDown] = useState(false);
+  const setupQuery = useSetupStatus<SetupStatus>();
+  const setup = setupQuery.isError ? null : setupQuery.data ?? null;
+  const serviceDown = setupQuery.isError;
   const [catalog, setCatalog] = useState<EngineCatalog | null>(null);
-  const [library, setLibrary] = useState<LibrarySong[]>([]);
-  const [assistantReady, setAssistantReady] = useState(false);
+  // the songs a cover or a repaint can start from: the library the window already holds
+  const library: LibrarySong[] = useLibrarySongs().data ?? NO_LIBRARY;
+  const assistantQuery = useAssistantStatus<{ available?: boolean }>();
+  const assistantReady = !assistantQuery.isError && assistantQuery.data?.available === true;
   const [assisting, setAssisting] = useState<'all' | 'lyrics' | 'prompt' | 'sections' | null>(null);
   const [planning, setPlanning] = useState<'inspire' | 'format' | null>(null);
   const [assistStage, setAssistStage] = useState<string | null>(null);
   const [assistModel, setAssistModel] = useState<string | null>(null);
   const [assistDraft, setAssistDraft] = useState('');
   const [coverPrompt, setCoverPrompt] = useState('');
-  const [activity, setActivity] = useState<Array<{ song_id: string; title: string; kind: string; state: string; detail?: string }>>([]);
+  const activityQuery = useActivity();
+  const activity = activityQuery.data ?? NO_ACTIVITY;
   const [assistSeconds, setAssistSeconds] = useState(0);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [mode, setMode] = useState<'simple' | 'studio'>('simple');
@@ -322,24 +345,16 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const [error, setError] = useState<string | null>(null);
   const promptFile = useRef<HTMLInputElement | null>(null);
 
+  // A cover or a lyric timing finished: the library is read again for it.
+  // What was finished before the page opened is in the library already.
+  const finishedWork = useRef<string | null>(null);
   useEffect(() => {
-    let finished = '';
-    const read = () => void fetch('/v1/activity')
-      .then(response => response.json())
-      .then((body: { activity?: typeof activity }) => {
-        const entries = body.activity ?? [];
-        const done = entries.filter(entry => entry.state === 'done').map(entry => `${entry.song_id}:${entry.kind}`).join(',');
-        if (done !== finished) {
-          finished = done;
-          window.dispatchEvent(new CustomEvent('studio:library-changed'));
-        }
-        setActivity(entries);
-      })
-      .catch(() => undefined);
-    read();
-    const timer = window.setInterval(read, 2000);
-    return () => window.clearInterval(timer);
-  }, []);
+    const entries = activityQuery.data;
+    if (!entries) return;
+    const done = entries.filter(entry => entry.state === 'done').map(entry => `${entry.song_id}:${entry.kind}`).join(',');
+    if (finishedWork.current !== null && done !== finishedWork.current) libraryChanged();
+    finishedWork.current = done;
+  }, [activityQuery.data]);
 
   const ready = setup?.ready === true && setup?.engine_ready === true;
   const synthModel = models.synth_model || setup?.profile_files?.synth_model;
@@ -355,20 +370,6 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     return () => window.clearInterval(timer);
   }, [assisting, planning]);
 
-  const refreshSetup = useCallback(async () => {
-    const response = await fetch('/setup/status');
-    if (!response.ok) throw new Error(String(response.status));
-    setSetup(await response.json());
-    setServiceDown(false);
-  }, []);
-
-
-  useEffect(() => {
-    const poll = () => void refreshSetup().catch(() => { setSetup(null); setServiceDown(true); });
-    poll();
-    const timer = window.setInterval(poll, 5000);
-    return () => window.clearInterval(timer);
-  }, [refreshSetup]);
 
   useEffect(() => {
     void fetch('/v1/local-models/music')
@@ -377,29 +378,6 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       .catch(() => setCatalog(null));
   }, [setup?.engine_ready]);
 
-  useEffect(() => {
-    const read = () => void fetch('/v1/library/songs')
-      .then(response => (response.ok ? response.json() : Promise.reject(new Error())))
-      .then((body: LibrarySong[]) => setLibrary(Array.isArray(body) ? body.map(song => ({ id: song.id, title: song.title })) : []))
-      .catch(() => undefined);
-    read();
-    window.addEventListener('studio:library-changed', read);
-    return () => window.removeEventListener('studio:library-changed', read);
-  }, []);
-
-  useEffect(() => {
-    const read = () => void fetch('/v1/assistant/status')
-      .then(response => (response.ok ? response.json() : Promise.reject(new Error())))
-      .then((body: { available?: boolean }) => setAssistantReady(body.available === true))
-      .catch(() => setAssistantReady(false));
-    read();
-    const timer = window.setInterval(read, 5000);
-    window.addEventListener('studio:settings-changed', read);
-    return () => {
-      window.clearInterval(timer);
-      window.removeEventListener('studio:settings-changed', read);
-    };
-  }, []);
 
   const remember = () => setUndo({ caption, lyrics });
 
@@ -457,7 +435,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
 
   const reset = () => {
     setName(''); setCaption(''); setLyrics(''); setInstrumental(false); setLanguage('en');
-    setBpm(''); setKeyscale(''); setTimesignature(''); setDuration(''); setAudioCodes('');
+    setBpm(''); setKeyscale(''); setTimesignature(''); setDuration(keptDuration()); setAudioCodes('');
     setTask('text2music'); setSourceSong(''); setReferenceSong(''); setTracks([]);
     setAdapters([]); setGroups({}); setCoverPrompt(''); setError(null);
   };
@@ -742,7 +720,8 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       const response = await fetch('/v1/library/import', { method: 'POST', body: form });
       const body = await response.json().catch(() => null);
       if (!response.ok || !body?.id) throw new Error(body?.error || String(response.status));
-      setLibrary(current => [{ id: body.id, title: body.title }, ...current.filter(song => song.id !== body.id)]);
+      const imported = mapNativeLibrarySong(body);
+      updateLibrarySongs(songs => [imported, ...songs.filter(song => song.id !== imported.id)]);
       if (target === 'source') chooseSource(body.id);
       else setReferenceSong(body.id);
       window.dispatchEvent(new CustomEvent('studio:library-changed'));
@@ -867,8 +846,8 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     window.addEventListener('studio:cancel-all', stop);
     return () => window.removeEventListener('studio:cancel-all', stop);
   }, []);
-  const foreverRequest = useRef<(AceCreateRequest & { _tempId?: string }) | null>(null);
-  const generate = (request: AceCreateRequest & { _tempId?: string }) => {
+  const foreverRequest = useRef<AceCreateRequest | null>(null);
+  const generate = (request: AceCreateRequest) => {
     if (chosenPlaylist) request.playlist_id = chosenPlaylist;
     if (forever) foreverRequest.current = { ...request };
     onGenerate(request);
@@ -1033,7 +1012,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     </div>
   );
   const durationField = (
-    <Field label={tt('aceDuration')}><input value={duration} onChange={event => setDuration(event.target.value)} placeholder={tt('aceAuto')} inputMode="numeric" className={CONTROL} /></Field>
+    <Field label={tt('aceDuration')}><input value={duration} onChange={event => chooseDuration(event.target.value)} placeholder={tt('aceAuto')} inputMode="numeric" className={CONTROL} /></Field>
   );
   const activePreset = PRESETS.find(preset => (numberOrUndefined(cfgStart) ?? 0) === preset.start && (numberOrUndefined(cfgEnd) ?? 1) === preset.end && (guidanceMode || '') === preset.mode)?.id;
   const busy = assisting !== null || planning !== null;
@@ -1065,7 +1044,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
             </div>
           )}
 
-          {!serviceDown && setup?.ready && <ModelSwitcher status={setup} onChanged={() => void refreshSetup().catch(() => undefined)} />}
+          {!serviceDown && setup?.ready && <ModelSwitcher status={setup} onChanged={setupStatusChanged} />}
 
           <div className="flex items-center rounded-lg border border-zinc-300 bg-zinc-200 p-1 dark:border-white/5 dark:bg-black/40">
             {(['simple', 'studio'] as const).map(value => (
@@ -1580,10 +1559,16 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
           onClose={() => setNewPlaylistOpen(false)}
           onCreate={(name, description) => void onCreatePlaylist(name, description).then(playlist => { if (playlist) choosePlaylist(playlist.id); })}
         />
-        <label className="mb-2 flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300" title={t('generateForeverHint')}>
-          <input type="checkbox" checked={forever} onChange={event => setForever(event.target.checked)} className="accent-pink-500" />
-          {t('generateForever')}
-        </label>
+        {/* songs without end are switched on by a deliberate slide, never by a stray click */}
+        <div className="mb-2">
+          <SlideToEnable
+            on={forever}
+            onChange={setForever}
+            offLabel={t('generateForeverSlide')}
+            stopLabel={t('generateForeverStop')}
+            title={t('generateForeverHint')}
+          />
+        </div>
         <button
           type="button"
           onClick={() => void submit()}

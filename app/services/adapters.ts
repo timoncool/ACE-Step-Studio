@@ -6,8 +6,9 @@
  * one strength per slot; the service spells it the engine's way.
  */
 
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import type { Language } from '../i18n/translations';
+import { queryClient } from './studioQueries';
 
 export type AdapterText = string | Partial<Record<Language, string>>;
 
@@ -236,20 +237,24 @@ export function usesFromSettings(settings: Record<string, unknown>): AdapterUse[
 export const megabytes = (bytes: number) => `${Math.max(1, Math.round(bytes / 1024 / 1024))} MB`;
 
 /** Installed adapters and slots, kept current while the library changes. */
-export function useAdapterLibrary(): { installed: InstalledAdapter[]; slots: AdapterSlot[]; model: DitFamily | null } {
-  const [library, setLibrary] = useState<{ installed: InstalledAdapter[]; slots: AdapterSlot[]; model: DitFamily | null }>({ installed: [], slots: [], model: null });
-  useEffect(() => {
-    const read = () =>
-      void fetchAdapters()
-        .then(state => setLibrary({ installed: state.installed, slots: state.slots, model: state.model ?? null }))
-        .catch(() => undefined);
-    read();
-    window.addEventListener('studio:adapters-changed', read);
-    window.addEventListener('studio:models-changed', read);
-    return () => {
-      window.removeEventListener('studio:adapters-changed', read);
-      window.removeEventListener('studio:models-changed', read);
-    };
-  }, []);
-  return library;
+type AdapterLibrary = { installed: InstalledAdapter[]; slots: AdapterSlot[]; model: DitFamily | null };
+
+const adaptersKey = ['adapters'] as const;
+/** Until the list is read: one value, so a screen's effects do not re-run on every render. */
+const NO_ADAPTERS: AdapterLibrary = { installed: [], slots: [], model: null };
+
+if (typeof window !== 'undefined') {
+  for (const event of ['studio:adapters-changed', 'studio:models-changed']) {
+    window.addEventListener(event, () => void queryClient.invalidateQueries({ queryKey: adaptersKey }));
+  }
+}
+
+/** The installed adapters and the engine's slots, read once for every screen that shows them. */
+
+export function useAdapterLibrary(): AdapterLibrary {
+  return useQuery({
+    queryKey: adaptersKey,
+    queryFn: fetchAdapters,
+    select: (state) => ({ installed: state.installed, slots: state.slots, model: state.model ?? null }),
+  }).data ?? NO_ADAPTERS;
 }

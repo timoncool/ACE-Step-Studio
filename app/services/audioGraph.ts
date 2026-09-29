@@ -10,8 +10,8 @@ export { EQ_BANDS, EQ_RANGE_DB };
  * resamples.
  *
  * An element can be fed into only one graph, once, and after that it is heard
- * only through the graph, so this is made the first time the user presses
- * play (a gesture the audio context needs) and then kept.
+ * only through the graph: it is fed in when the graph's audio context runs,
+ * and until then it plays straight to the speakers. Playback never waits.
  */
 
 export interface EqualizerState {
@@ -60,7 +60,6 @@ function load(): EqualizerState {
 
 let state: EqualizerState = load();
 let graph: AudioGraph | null = null;
-let element: HTMLMediaElement | null = null;
 const listeners = new Set<(state: EqualizerState) => void>();
 const graphListeners = new Set<(graph: AudioGraph) => void>();
 
@@ -78,11 +77,8 @@ function apply(): void {
   graph.mix.channelCount = state.mono ? 1 : 2;
 }
 
-/** Feeds the player's element through the graph; the same graph on every call. */
-export function attachAudioGraph(audio: HTMLMediaElement): AudioGraph {
-  if (graph && element === audio) return graph;
-  if (graph) throw new Error('the audio graph belongs to another element');
-  const context = new AudioContext();
+/** Feeds `audio` through a graph on `context`, which runs: from now on the element is heard only through it. */
+function feed(context: AudioContext, audio: HTMLMediaElement): void {
   const source = context.createMediaElementSource(audio);
   const preamp = context.createGain();
   const filters = bandFilters(EQ_BANDS.map(() => 0), context.sampleRate).map((band) => {
@@ -116,18 +112,54 @@ export function attachAudioGraph(audio: HTMLMediaElement): AudioGraph {
   merge.connect(output);
   output.connect(context.destination);
   graph = { context, preamp, filters, mix, left, right, output };
-  element = audio;
   apply();
   graphListeners.forEach((listener) => listener(graph as AudioGraph));
-  return graph;
+}
+
+/** The context made for the graph, until it runs and the player is fed into it. */
+let pending: AudioContext | null = null;
+
+/**
+ * Makes the graph for the player's element, once. The element is fed into it
+ * only when its audio context runs - one made before the user's click waits
+ * for one - and until then it plays straight to the speakers, without the
+ * equalizer.
+ */
+function startAudioGraph(audio: HTMLMediaElement): void {
+  if (graph) return;
+  const context = pending ?? new AudioContext();
+  if (!pending) {
+    pending = context;
+    context.addEventListener('statechange', () => feedWhenRunning(context, audio));
+  }
+  feedWhenRunning(context, audio);
+  wake(context);
+}
+
+function feedWhenRunning(context: AudioContext, audio: HTMLMediaElement): void {
+  if (context.state !== 'running' || pending !== context) return;
+  pending = null;
+  feed(context, audio);
+}
+
+/** Asks a suspended context to run: the browser lets it after the user's click. */
+function wake(context: AudioContext): void {
+  if (context.state !== 'suspended') return;
+  context.resume().catch((error: unknown) => console.error('[ERROR] the equalizer audio context did not start:', error));
 }
 
 let player: HTMLMediaElement | null = null;
 
-/** The studio's player element; the graph is made from it when first needed. */
+/**
+ * The studio's player element. Playback never waits for the graph: each play
+ * starts it when the sound needs it and wakes it when it is there.
+ */
 export function registerPlayer(audio: HTMLMediaElement): void {
   player = audio;
-  if (needsGraph()) ensureAudioGraph();
+  audio.addEventListener('play', () => {
+    if (needsGraph() || pending) startAudioGraph(audio);
+    if (graph) wake(graph.context);
+  });
 }
 
 /** The equalizer, balance or mono change the sound; plain playback does not need the graph. */
@@ -135,16 +167,9 @@ function needsGraph(): boolean {
   return state.enabled || state.balance !== 0 || state.mono;
 }
 
-/** The graph, made now if the player is there; woken if the browser holds it. */
-export function ensureAudioGraph(): AudioGraph | null {
-  if (!graph && player) attachAudioGraph(player);
-  void resumeAudioGraph();
-  return graph;
-}
-
-/** Wakes the context: the browser suspends one made before a gesture. */
-export async function resumeAudioGraph(): Promise<void> {
-  if (graph && graph.context.state === 'suspended') await graph.context.resume();
+/** Starts the graph if the player is there; `onAudioGraph` hands it over once it runs. */
+export function ensureAudioGraph(): void {
+  if (player) startAudioGraph(player);
 }
 
 export function audioGraph(): AudioGraph | null {

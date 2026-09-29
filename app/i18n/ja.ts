@@ -1519,6 +1519,8 @@ export const ja = {
     assistantWandNeedsIt: '魔法の杖はテキストモデル（アシスタント）で書きます。ダウンロードした音楽モデルは作曲はしますが歌詞は書かないため、杖には次のいずれかが必要です：内蔵モデル（1回のダウンロードでGPUで動作）、自分のサーバー（LM Studio、Ollama、llama.cpp）、または OpenRouter。',
     generateForever: '止めずに生成',
     generateForeverHint: '曲ができるたびに、同じリクエストを新しいシードで再送信します。オフにするまで続きます。「作成」を押した時点のフォームが使われます。',
+    generateForeverSlide: '右へスライド：止めずに生成',
+    generateForeverStop: '「止めずに生成」をオフ',
     createIntoPlaylist: 'プレイリストへ',
     createIntoNoPlaylist: 'なし',
     createIntoNewPlaylist: '新しいプレイリスト…',

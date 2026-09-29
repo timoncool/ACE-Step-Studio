@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useOpenRouterSettings, useSetupStatus } from '../services/studioQueries';
 import { Disc, Layers, Library, Moon, Newspaper, Search, SlidersHorizontal, Sun } from 'lucide-react';
 import { View } from '../types';
 import { useI18n } from '../context/I18nContext';
@@ -35,38 +36,10 @@ const StatusLine: React.FC<{ active: boolean; pending?: boolean; label: string }
 
 const SystemWidget: React.FC<{ isOpen?: boolean }> = ({ isOpen }) => {
   const { t } = useI18n();
-  const [setup, setSetup] = useState<NativeSetupStatus | null>(null);
-  const [unreachable, setUnreachable] = useState(false);
-  const [openRouter, setOpenRouter] = useState<{ configured?: boolean } | null>(null);
-
-  useEffect(() => {
-    const refresh = async () => {
-      try {
-        const response = await fetch('/setup/status');
-        if (!response.ok) throw new Error(`Setup status ${response.status}`);
-        setSetup(await response.json());
-        setUnreachable(false);
-      } catch {
-        setSetup(null);
-        setUnreachable(true);
-      }
-    };
-    void refresh();
-    const timer = window.setInterval(() => void refresh(), 5000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  // Settings are intentionally local to the user. Polling causes this compact
-  // status to reflect a configuration change made in Settings without reload.
-  useEffect(() => {
-    const refresh = () => void fetch('/v1/openrouter/settings')
-      .then((response) => response.ok ? response.json() : null)
-      .then(setOpenRouter)
-      .catch(() => setOpenRouter(null));
-    refresh();
-    const timer = window.setInterval(refresh, 15000);
-    return () => window.clearInterval(timer);
-  }, []);
+  const setupQuery = useSetupStatus<NativeSetupStatus>();
+  const setup = setupQuery.isError ? null : setupQuery.data ?? null;
+  const unreachable = setupQuery.isError;
+  const openRouter = useOpenRouterSettings<{ configured?: boolean }>().data ?? null;
 
   // The credential lives in the native server, never in browser storage, so
   // the badge asks the server whether one is configured.

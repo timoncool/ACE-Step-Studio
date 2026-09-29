@@ -257,34 +257,10 @@ impl AceClient {
         json_of(self.http.get(self.url("/props")).send().await?).await
     }
 
-    /// `/logs` replays the log ring and then streams forever; the ring is read
-    /// until it goes quiet.
-    pub async fn logs_snapshot(&self, quiet_period: Duration) -> Result<Vec<String>> {
-        use futures_util::StreamExt;
-        let response = self.http.get(self.url("/logs")).send().await?;
-        let status = response.status();
-        if !status.is_success() {
-            bail!("the engine returned {status} for /logs");
-        }
-        let mut stream = response.bytes_stream();
-        let mut buffer = Vec::new();
-        let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
-        loop {
-            let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
-            if remaining.is_zero() {
-                break;
-            }
-            match tokio::time::timeout(quiet_period.min(remaining), stream.next()).await {
-                Ok(Some(chunk)) => buffer.extend_from_slice(&chunk?),
-                Ok(None) | Err(_) => break,
-            }
-        }
-        Ok(String::from_utf8_lossy(&buffer)
-            .lines()
-            .filter_map(|line| line.strip_prefix("data:"))
-            .map(|line| line.trim().to_owned())
-            .filter(|line| !line.is_empty())
-            .collect())
+    /// The engine's `/logs`, an endless SSE stream, followed for the service's
+    /// life: its recent lines and the running job's progress.
+    pub fn follow_log(&self) -> crate::engine_log::EngineLog {
+        crate::engine_log::EngineLog::follow(self.http.clone(), self.url("/logs"))
     }
 
     /// Starts a language-model job over one or several requests.

@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
+import { useKaraokeStatus } from '../services/studioQueries';
 import { TRACK_ARTIST } from '../services/studio';
 import { Song } from '../types';
 import { Play, Pause, SkipBack, SkipForward, Repeat, Shuffle, Download, Heart, MoreVertical, Volume2, VolumeX, Maximize2, Repeat1, CircleStop, ChevronDown, ChevronUp } from 'lucide-react';
@@ -115,16 +116,7 @@ export const Player: React.FC<PlayerProps> = ({
 
     // The karaoke switch governs the whole feature: with it off, a track that
     // already carries timings simply does not show them.
-    const [karaokeOn, setKaraokeOn] = useState(false);
-    useEffect(() => {
-        const read = () => void fetch('/v1/karaoke/status')
-            .then((response) => (response.ok ? response.json() : Promise.reject(new Error())))
-            .then((status: { enabled?: boolean }) => setKaraokeOn(status.enabled === true))
-            .catch(() => setKaraokeOn(false));
-        read();
-        const timer = window.setInterval(read, 15000);
-        return () => window.clearInterval(timer);
-    }, []);
+    const karaokeOn = useKaraokeStatus().data?.enabled === true;
 
     // Karaoke: the line being sung right now, when this track has timings.
     // Parsing is per track, not per tick.

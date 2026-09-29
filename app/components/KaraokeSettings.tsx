@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { karaokeStatusChanged, useKaraokeStatus } from '../services/studioQueries';
 import { Check, Loader2 } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import { loadNativeOpenRouterCatalog, refreshNativeOpenRouterCatalog, type NativeOpenRouterModel } from '../services/nativeOpenRouter';
@@ -33,16 +34,16 @@ export const KaraokeExtras: React.FC<{ engine: string }> = ({ engine }) => {
       .catch(() => undefined);
   }, []);
 
+  // the form starts from the saved settings once; a later re-read must not
+  // overwrite what is being typed
+  const { data: status } = useKaraokeStatus();
+  const seeded = useRef(false);
   useEffect(() => {
-    void fetch('/v1/karaoke/status')
-      .then((response) => (response.ok ? response.json() : null))
-      .then((status: { enabled?: boolean; openrouter_model?: string | null } | null) => {
-        if (!status) return;
-        setEnabled(Boolean(status.enabled));
-        setOpenRouterModel(status.openrouter_model ?? '');
-      })
-      .catch(() => undefined);
-  }, []);
+    if (!status || seeded.current) return;
+    seeded.current = true;
+    setEnabled(Boolean(status.enabled));
+    setOpenRouterModel(status.openrouter_model ?? '');
+  }, [status]);
 
   /// The recogniser and the device belong to the control above; sending them
   /// from here would overwrite whatever it just saved.
@@ -56,6 +57,7 @@ export const KaraokeExtras: React.FC<{ engine: string }> = ({ engine }) => {
       const failure = await response.json().catch(() => null);
       throw new Error(failure?.error || String(response.status));
     }
+    karaokeStatusChanged();
   };
 
   const toggle = async (next: boolean) => {

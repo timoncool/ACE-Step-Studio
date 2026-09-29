@@ -89,6 +89,9 @@ const createDragPreview = (element: HTMLElement) => {
     return clone;
 };
 
+/** A generation's card rather than a song: being made, or stopped and waiting to be cleared. */
+const isCard = (song: Song) => Boolean(song.isGenerating) || song.stage === 'cancelled';
+
 export const SongList: React.FC<SongListProps> = ({
     songs,
     currentSong,
@@ -167,6 +170,8 @@ export const SongList: React.FC<SongListProps> = ({
 
     // the track a derived track was made from, found without a scan per row
     const songsById = useMemo(() => new Map(songs.map(entry => [entry.id, entry])), [songs]);
+    // the cards are not songs yet; the count is of what the library holds
+    const librarySize = useMemo(() => songs.filter(song => !isCard(song)).length, [songs]);
 
     const filteredSongs = useMemo(() => {
         return songs.filter(song => {
@@ -199,24 +204,27 @@ export const SongList: React.FC<SongListProps> = ({
         });
     }, [referenceTracks, searchQuery, activeFilters]);
 
+    // The songs being made stay on top, newest first, and the newest finished
+    // song sits right under them: a card that finishes becomes the song in its
+    // own place instead of moving.
     const listItems = useMemo(() => {
-        const songItems = filteredSongs.map(song => ({
-            type: 'song' as const,
-            id: song.id,
-            createdAt: song.createdAt,
-            song
-        }));
-        const uploadItems = filteredUploads.map(track => ({
-            type: 'upload' as const,
-            id: track.id,
-            createdAt: new Date(track.created_at || Date.now()),
-            track
-        }));
-        return [...songItems, ...uploadItems].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        const newestFirst = (a: { createdAt: Date }, b: { createdAt: Date }) => b.createdAt.getTime() - a.createdAt.getTime();
+        const songItem = (song: Song) => ({ type: 'song' as const, id: song.id, createdAt: song.createdAt, song });
+        const cards = filteredSongs.filter(isCard).map(songItem).sort(newestFirst);
+        const finished = [
+            ...filteredSongs.filter(song => !isCard(song)).map(songItem),
+            ...filteredUploads.map(track => ({
+                type: 'upload' as const,
+                id: track.id,
+                createdAt: new Date(track.created_at || Date.now()),
+                track,
+            })),
+        ].sort(newestFirst);
+        return [...cards, ...finished];
     }, [filteredSongs, filteredUploads]);
 
     const selectableSongs = useMemo(
-        () => filteredSongs.filter(song => !song.isGenerating),
+        () => filteredSongs.filter(song => !isCard(song)),
         [filteredSongs]
     );
 
@@ -235,7 +243,7 @@ export const SongList: React.FC<SongListProps> = ({
                     <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
                         <span className="font-medium text-zinc-900 dark:text-white">{t('library')}</span>
                         <span className="text-zinc-400 dark:text-zinc-600">·</span>
-                        <span>{songCount(songs.length)}</span>
+                        <span>{songCount(librarySize)}</span>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -391,7 +399,7 @@ export const SongList: React.FC<SongListProps> = ({
                         listItems.map((item) => (
                             item.type === 'song' ? (
                                 <SongItem
-                                    key={item.id}
+                                    key={item.song.viewKey ?? item.id}
                                     song={item.song}
                                     isCurrent={currentSong?.id === item.song.id}
                                     isSelected={selectedSong?.id === item.song.id}
@@ -407,7 +415,7 @@ export const SongList: React.FC<SongListProps> = ({
                                         return original ? () => onSelect(original) : undefined;
                                     })()}
                                     onToggleSelect={() => {
-                                        if (item.song.isGenerating) return;
+                                        if (isCard(item.song)) return;
                                         setSelectedIds(prev => {
                                             const next = new Set(prev);
                                             if (next.has(item.song.id)) next.delete(item.song.id);
@@ -421,17 +429,11 @@ export const SongList: React.FC<SongListProps> = ({
                                     onShowDetails={() => onShowDetails && onShowDetails(item.song)}
                                     onNavigateToProfile={onNavigateToProfile}
                                     onSongUpdate={onSongUpdate}
-                                    // Cancel button is also available during pre-flight (placeholder
-                                    // card with no jobId yet) — pass `song.id` (= tempId) and the
-                                    // App.tsx handler routes to the registered AbortController.
-                                    onCancelJob={
-                                      item.song.isGenerating
-                                        ? () => onCancelJob?.(item.song.jobId || item.song.id)
-                                        : undefined
-                                    }
-                                    // Reset works for both real-job and pre-flight cancelled cards
-                                    // (pre-flight cancel sets stage='cancelled' too, no jobId needed
-                                    // — Reset just removes the placeholder).
+                                    // a card can be stopped once the engine has its job
+                                    onCancelJob={(() => {
+                                      const jobId = item.song.isGenerating ? item.song.jobId : undefined;
+                                      return jobId ? () => onCancelJob?.(jobId) : undefined;
+                                    })()}
                                     onResetJob={
                                       item.song.stage === 'cancelled'
                                         ? () => onResetJob?.(item.song.jobId || item.song.id)
@@ -519,6 +521,11 @@ const SongItem: React.FC<SongItemProps> = ({
     const songActions = useSongActions();
     const [editedTitle, setEditedTitle] = useState(song.title);
     const titleInputRef = useRef<HTMLInputElement>(null);
+    // the row may have been a card when it mounted, so the field starts from the title it shows now
+    const startEditingTitle = () => {
+        setEditedTitle(song.title);
+        setIsEditingTitle(true);
+    };
 
     useEffect(() => {
         if (isEditingTitle && titleInputRef.current) {
@@ -593,8 +600,8 @@ const SongItem: React.FC<SongItemProps> = ({
                     className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isChecked
                             ? 'bg-pink-600 border-pink-600 text-white'
                             : 'border-zinc-300 dark:border-zinc-600 text-transparent hover:border-zinc-400 dark:hover:border-zinc-500'
-                        } ${song.isGenerating ? 'opacity-40 cursor-not-allowed' : ''}`}
-                    disabled={song.isGenerating}
+                        } ${isCard(song) ? 'opacity-40 cursor-not-allowed' : ''}`}
+                    disabled={isCard(song)}
                     aria-pressed={isChecked}
                 >
                     <Check size={12} strokeWidth={3} className={isChecked ? 'text-white' : 'text-transparent'} />
@@ -675,7 +682,7 @@ const SongItem: React.FC<SongItemProps> = ({
                                 onClick={(e) => {
                                     if (isOwner && !song.isGenerating) {
                                         e.stopPropagation();
-                                        setIsEditingTitle(true);
+                                        startEditingTitle();
                                     }
                                 }}
                             >
@@ -685,7 +692,7 @@ const SongItem: React.FC<SongItemProps> = ({
                         {isOwner && !song.isGenerating && !isEditingTitle && (
                             <button
                                 type="button"
-                                onClick={(e) => { e.stopPropagation(); setIsEditingTitle(true); }}
+                                onClick={(e) => { e.stopPropagation(); startEditingTitle(); }}
                                 className="shrink-0 rounded-sm p-1 text-zinc-400 opacity-0 transition-opacity hover:text-black focus-visible:opacity-100 group-hover:opacity-100 dark:hover:text-white"
                                 title={t('renameSong')}
                                 aria-label={t('renameSong')}
@@ -726,16 +733,21 @@ const SongItem: React.FC<SongItemProps> = ({
                             </span>
                         )}
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    <div className="flex h-5 items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
                         <span>{song.ditModel === 'imported-audio' ? t('importedAudio') : TRACK_ARTIST}</span>
                         {song.nativeReplayAvailable && <span title={t('replayAvailable')} className="rounded-sm bg-zinc-200/70 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide dark:bg-white/10">replay</span>}
                     </div>
                     <p className="text-xs text-zinc-500 dark:text-zinc-500 line-clamp-2 pt-1 font-medium max-w-2xl">
                         {captionSummary(song.style)}
                     </p>
-                    {song.isGenerating && (
-                        <div className="pt-2">
-                            <div className="h-1 rounded-full bg-zinc-200/70 dark:bg-white/10 overflow-hidden">
+                </div>
+
+                {/* One slot for the progress and, once the song is made, its
+                    actions: the row keeps its height when a card becomes a song. */}
+                {isCard(song) ? (
+                    <div className="flex h-10 items-center pt-2">
+                        {song.isGenerating && (
+                            <div className="h-1 w-full rounded-full bg-zinc-200/70 dark:bg-white/10 overflow-hidden">
                                 <div
                                     className={`h-full bg-linear-to-r from-pink-500 to-purple-600 transition-all ${song.progress === undefined ? 'opacity-40' : ''}`}
                                     style={{
@@ -746,17 +758,10 @@ const SongItem: React.FC<SongItemProps> = ({
                                     }}
                                 />
                             </div>
-                            {/* Cancel button removed here — there's already one rendered
-                                next to the stage label on the right side of the row, which
-                                stays in sync with the Reset state. Two buttons in a single
-                                card looked like an accidental duplicate. */}
-                        </div>
-                    )}
-                </div>
-
-                {/* Actions Row - Hidden while generating */}
-                {!song.isGenerating && (
-                    <div className="flex items-center gap-1 pt-2">
+                        )}
+                    </div>
+                ) : (
+                    <div className="flex h-10 items-center gap-1 pt-2">
                         <button
                             className={`flex items-center gap-1 px-3 py-1.5 rounded-full hover:bg-white/5 transition-colors ${isLiked ? 'text-pink-600 dark:text-pink-500 bg-pink-100 dark:bg-pink-500/10' : 'text-zinc-400 hover:text-black dark:hover:text-white'}`}
                             onClick={(e) => { e.stopPropagation(); onToggleLike(); }}

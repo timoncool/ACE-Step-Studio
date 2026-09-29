@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { karaokeStatusChanged, useSystemResources } from '../services/studioQueries';
 import { AlertTriangle, BookOpen, Check, CheckSquare, ChevronDown, Clock, ChevronLeft, ChevronRight, Cpu, Download, FolderInput, FolderOpen, FolderOutput, Headphones, Library, Loader2, Mic2, MoreHorizontal, Music, Play, Plus, RotateCcw, Search, Square, Trash2, UploadCloud, Wand2, X } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -351,6 +352,7 @@ const separateOnCard = async () => {
 const enableRecogniser = () =>
   fetch('/v1/karaoke/status', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: true, provider: 'whisper', whisper_model: 'whisper-large-v3' }) }).then(response => {
     if (!response.ok) throw new Error(`Karaoke: HTTP ${response.status}`);
+    karaokeStatusChanged();
   });
 
 function songState(item: DatasetItem, job: PrepareStatus | null, datasetId: string, t: (key: string) => string): SongState {
@@ -974,21 +976,8 @@ const RunCard: React.FC<{ run: TrainingRun; epochs: boolean; onChanged: () => vo
   const stageIndex = run.stage ? run.stages.indexOf(run.stage) : run.status === 'done' ? run.stages.length : -1;
   // A card whose own memory is full borrows system memory through the
   // driver, and a run that took an hour takes a day; the log does not say so.
-  const [cardFull, setCardFull] = useState(false);
-  useEffect(() => {
-    if (!running) return;
-    let alive = true;
-    const look = () => void fetch('/v1/system/resources')
-      .then(response => (response.ok ? response.json() : null))
-      .then((body: { resources?: { gpus?: { vram_used_mb: number; vram_total_mb: number }[] } } | null) => {
-        const gpu = body?.resources?.gpus?.[0];
-        if (alive && gpu && gpu.vram_total_mb > 0) setCardFull(gpu.vram_used_mb / gpu.vram_total_mb >= 0.97);
-      })
-      .catch(() => undefined);
-    look();
-    const timer = window.setInterval(look, 5000);
-    return () => { alive = false; window.clearInterval(timer); };
-  }, [running]);
+  const gpu = useSystemResources<{ poll_interval_ms?: number; resources?: { gpus?: { vram_used_mb: number; vram_total_mb: number }[] } }>(running).data?.resources?.gpus?.[0];
+  const cardFull = running && gpu !== undefined && gpu.vram_total_mb > 0 && gpu.vram_used_mb / gpu.vram_total_mb >= 0.97;
   const onCpu = running && run.device === 'CPU';
   const tone = { running: 'text-pink-600 dark:text-pink-300', done: 'text-emerald-600 dark:text-emerald-400', failed: 'text-rose-600 dark:text-rose-300', cancelled: 'text-zinc-500', interrupted: 'text-amber-600 dark:text-amber-300' }[run.status];
   return (

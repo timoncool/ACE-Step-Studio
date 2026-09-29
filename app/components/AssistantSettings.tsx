@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { assistantStatusChanged } from '../services/studioQueries';
 import { Check, Loader2, Square } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import { AgentPanel } from './AgentPanel';
@@ -73,7 +74,7 @@ export const AssistantExtras: React.FC<{ engine: string }> = ({ engine }) => {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ provider: 'local', local_base_url: base.trim() || null, local_model: model.trim() || null }),
-    }).catch(() => undefined);
+    }).then(assistantStatusChanged, () => undefined);
   }, []);
   useEffect(() => {
     if (engine !== 'local') return;
@@ -181,6 +182,7 @@ export const AssistantExtras: React.FC<{ engine: string }> = ({ engine }) => {
       });
       const body = await response.json().catch(() => null);
       if (!response.ok) throw new Error(body?.error || String(response.status));
+      assistantStatusChanged();
 
       // The provider page owns which model each capability uses, and the
       // assistant reads it from there. Saving here without updating it left two

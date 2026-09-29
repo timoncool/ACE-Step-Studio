@@ -1519,6 +1519,8 @@ export const ko = {
     assistantWandNeedsIt: '마술봉은 텍스트 모델(도우미)로 씁니다. 내려받은 음악 모델은 곡을 만들지만 가사는 쓰지 않으므로, 마술봉에는 다음 중 하나가 필요합니다: 내장 모델(한 번 내려받아 그래픽카드에서 실행), 자신의 서버(LM Studio, Ollama, llama.cpp) 또는 OpenRouter.',
     generateForever: '멈추지 않고 생성',
     generateForeverHint: '곡이 완성되면 같은 요청을 새 시드로 다시 보냅니다. 끌 때까지 계속됩니다. «만들기»를 누른 순간의 양식이 사용됩니다.',
+    generateForeverSlide: '오른쪽으로 밀기: 멈추지 않고 생성',
+    generateForeverStop: '«멈추지 않고 생성» 끄기',
     createIntoPlaylist: '플레이리스트에',
     createIntoNoPlaylist: '없음',
     createIntoNewPlaylist: '새 플레이리스트…',

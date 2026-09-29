@@ -22,6 +22,7 @@ base64.workspace = true
 axum.workspace = true
 fs2.workspace = true
 futures-util.workspace = true
+eventsource-stream.workspace = true
 include_dir.workspace = true
 audio-post = { path = "../audio-post" }
 music-core = { path = "../music-core" }
@@ -44,6 +45,7 @@ tempfile = "3"
 parakeet-rs.workspace = true
 rusqlite.workspace = true
 tokio.workspace = true
+tokio-stream.workspace = true
 tower-http.workspace = true
 tower = { version = "0.5", features = ["util"] }
 uuid.workspace = true

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { openRouterSettingsChanged } from '../services/studioQueries';
 import { Check, ChevronDown, Download, FolderDown, FolderOpen, Loader2, Square, Trash2, X } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import { RescanButton } from './RescanButton';
@@ -354,7 +355,7 @@ export const OptionalGroup: React.FC<{
                         })
                           .then(async (response) => {
                             if (!response.ok) setFailed(await errorMessage(response));
-                            else { setApiKey(''); setKeyStored(true); }
+                            else { setApiKey(''); setKeyStored(true); openRouterSettingsChanged(); }
                           })
                           .catch((error: Error) => setFailed(error.message));
                       }}

@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useKaraokeStatus } from '../services/studioQueries';
 import { hasSungLines, karaokeReason } from '../services/karaoke';
 import { Song } from '../types';
 import { useI18n } from '../context/I18nContext';
@@ -68,15 +69,8 @@ const MenuDivider: React.FC = () => (
 /// whether karaoke is configured at all; with it off nothing is shown.
 function useKaraoke(song: Song, onSongUpdate?: (song: Song) => void) {
     const { t: translate } = useI18n();
-    const [ready, setReady] = useState(false);
+    const ready = useKaraokeStatus().data?.ready === true;
     const [busy, setBusy] = useState(false);
-
-    useEffect(() => {
-        void fetch('/v1/karaoke/status')
-            .then((response) => (response.ok ? response.json() : Promise.reject(new Error())))
-            .then((status: { ready?: boolean }) => setReady(status.ready === true))
-            .catch(() => setReady(false));
-    }, []);
 
     // A refusal used to be thrown out of an unawaited promise and land
     // nowhere: the menu item stopped spinning and nothing else happened, which

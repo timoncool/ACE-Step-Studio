@@ -31,6 +31,10 @@ export default defineConfig(({ mode }) => {
           target: service,
           changeOrigin: true,
         },
+        '/mcp': {
+          target: service,
+          changeOrigin: true,
+        },
         // There is deliberately no proxy for the retired ACE Node service:
         // the studio talks to the native Rust server only, so a stray legacy
         // request fails loudly in development instead of silently 500-ing.

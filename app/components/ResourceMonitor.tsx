@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useSystemResources } from '../services/studioQueries';
 import { createPortal } from 'react-dom';
 import { Minimize2, Move, PictureInPicture2 } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
@@ -80,39 +81,12 @@ function storedPosition(): { x: number; y: number } {
 
 export const ResourceMonitor: React.FC<{ isOpen?: boolean }> = ({ isOpen = true }) => {
   const { t } = useI18n();
-  const [snapshot, setSnapshot] = useState<ResourceSnapshot | null>(null);
-  const [unavailable, setUnavailable] = useState(false);
+  const resources = useSystemResources<{ poll_interval_ms?: number; resources: ResourceSnapshot }>();
+  const snapshot = resources.data?.resources ?? null;
+  const unavailable = resources.isError;
   const [floating, setFloating] = useState(false);
   const [position, setPosition] = useState(storedPosition);
   const dragOffset = useRef<{ x: number; y: number } | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    let interval = 1000;
-    let timer = 0;
-
-    const poll = async () => {
-      try {
-        const response = await fetch('/v1/system/resources');
-        if (!response.ok) throw new Error(String(response.status));
-        const body: { poll_interval_ms?: number; resources: ResourceSnapshot } = await response.json();
-        if (!alive) return;
-        setSnapshot(body.resources);
-        setUnavailable(false);
-        if (body.poll_interval_ms && body.poll_interval_ms !== interval) {
-          interval = body.poll_interval_ms;
-          window.clearInterval(timer);
-          timer = window.setInterval(poll, interval);
-        }
-      } catch {
-        if (alive) setUnavailable(true);
-      }
-    };
-
-    void poll();
-    timer = window.setInterval(poll, interval);
-    return () => { alive = false; window.clearInterval(timer); };
-  }, []);
 
   const onDragStart = useCallback((event: React.PointerEvent) => {
     dragOffset.current = { x: event.clientX - position.x, y: event.clientY - position.y };

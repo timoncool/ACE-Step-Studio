@@ -24,12 +24,14 @@ hyper-util = { version = "0.1.20", features = ["client-proxy", "client-proxy-sys
 http = "1"
 fs2 = "0.4"
 futures-util = "0.3"
+eventsource-stream = "0.2"
 sha2 = "0.11"
 sysinfo = "0.39"
 rusqlite = { version = "0.40", features = ["bundled"] }
 thiserror = "2.0"
 tokio = { version = "1.44", features = ["macros", "rt-multi-thread", "signal", "fs", "io-util", "time", "process"] }
-tower-http = { version = "0.7", features = ["cors", "trace"] }
+tokio-stream = { version = "0.1", features = ["sync", "time"] }
+tower-http = { version = "0.7", features = ["cors", "trace", "fs", "set-header"] }
 include_dir = "0.7"
 parakeet-rs = { version = "0.3.8", default-features = false, features = ["load-dynamic"] }
 ort = { version = "=2.0.0-rc.13", default-features = false, features = ["load-dynamic", "api-24", "cuda", "directml"] }
