@@ -2,6 +2,51 @@
 
 What changed, newest first. Dates are release dates.
 
+## 2026-09-30 — 3.3.0
+
+### Added
+
+- **Activity**, beside News in the sidebar: every change an agent makes through the MCP
+  server - a song made, edited or deleted, a playlist, stems, karaoke, a dataset, a LoRA, a
+  download - and every message the studio shows, kept by the service (the latest 500) and read
+  by every window in its own language, with how long ago and the exact moment; beside it, the
+  count of what came since it was last read. (YuE2 Studio #34)
+- **Sort** beside Filters on the Create page and beside the library's tabs: newest or oldest
+  first, by title, by length, and recently liked in Liked Songs; each list keeps its own, and
+  songs being made stay on top. (YuE2 Studio #34)
+- **The Create list shows the playlist the songs go into**, the way a workspace does: with a
+  playlist chosen in "Into playlist" the list beside the form is that playlist and its songs
+  being made; "Nowhere" is the whole library. (YuE2 Studio #34)
+- Song rows say when a song was made, how long ago with the exact moment on hover, and the
+  details give the date with the time. (YuE2 Studio #34)
+
+### Changed
+
+- **A like is kept with the song** in the library instead of one window's storage: every
+  window and the agent see the same likes (the agent without an open window), they survive a
+  profile change, and Liked Songs start from the latest. Likes an earlier version kept in the
+  window move into the library once. (YuE2 Studio #34)
+- **A stem is shown under the song it was separated from**, behind "Stems · N" with its
+  parts' icons, on the Create page and in the library: the song count no longer counts stems,
+  a list plays its songs and a stem plays alone. Covers, re-renders and processed songs stay
+  songs of their own. (YuE2 Studio #34)
+- Separating a song again asks first, naming the stems it replaces, and separating a stem is
+  disabled with the reason. (YuE2 Studio #34)
+- The playlist page reads the shared library, so a deletion, an edit or a song made anywhere
+  shows at once, and deleting a playlist asks in the studio's own dialog.
+- Tools that write over stored content (song, playlist, dataset and LoRA edits, stems,
+  karaoke, covers, the OpenRouter key) are marked destructive, so the agent's client asks
+  before them. (YuE2 Studio #34)
+
+### Fixed
+
+- A playlist created, changed or deleted in one window shows in the others at once.
+- An agent's command goes to the window the person turned to, not the one opened last. (YuE2 Studio #34)
+- Every icon button of the player, the song card and the library rows has a name for screen
+  readers, the same words as its tooltip. (YuE2 Studio #34)
+- While the library is being read, the list says so instead of "no songs match the filters".
+- Stem names are shown in the window's language.
+
 ## 2026-09-30 — 3.2.0
 
 ### Added
