@@ -152,6 +152,21 @@ Code, save [docs/mcp-skill.md](docs/mcp-skill.md) as `~/.claude/skills/ace-step-
 - **A library of plain files** — search, playlists, versions, cover art from prompt
   templates, MP3s with title, lyrics and cover in their tags. Interface in English, Russian,
   Chinese, Japanese and Korean.
+- **A cover for every track** — a track without one wears a free (CC0) Wikimedia Commons
+  photograph that fits the genres, moods and instruments of its style, a pattern in one of 21
+  DiceBear styles, or a cover OpenRouter generates for every new track. It is chosen by the
+  track's seed, so it stays the same, a stem wears its song's, and it is written into the MP3,
+  so players show it after the download.
+- **One picture window** — for a cover, and for the background and centre of a music video:
+  Commons photographs by search starting from the scenes a style calls up, clips free of
+  copyright for a background, the track's pattern in any style, generation through
+  OpenRouter, or a file of your own. No keys, no stock-site accounts.
+- **Music videos** — a visualiser video of any track in 16:9, 9:16 or 1:1, with karaoke
+  lyrics, text layers and effects, rendered to MP4 on your machine.
+- **Activity** — a log in the sidebar of every change a connected agent makes and every
+  message the studio shows.
+- **Likes, sorting and stems in order** — a like is kept with the song for every window and
+  agent, every list sorts by date, title or length, and a song's stems fold under it.
 
 ## Screenshots
 
@@ -425,6 +440,9 @@ never part of a release.
 - [Henrique Vianna](https://github.com/hvianna) for [audioMotion-analyzer](https://github.com/hvianna/audioMotion-analyzer) (AGPL-3.0), the spectrum looks of the visualiser.
 - [Borewit](https://github.com/Borewit) for [music-metadata](https://github.com/Borewit/music-metadata) (MIT) and [Stuart Knightley](https://github.com/Stuk) for [JSZip](https://github.com/Stuk/jszip) (MIT), which read tracks and skins in the Winamp mode.
 - The authors of the skins that come with the studio: Winamp's base skin 2.91 (Nullsoft); Winamp5 Classified (Sven Kistner, Zarko Jovic, GuidoD, Wildrose-Wally); Winamp3 Classified (Steve Gedikian, John Slegers, PeterPan, Wildrose-Wally); Bento Classified and Internet Archive (LuigiHann); Mac OS X 1.5 Aqua (DeeLight); TopazAmp (Kelly McLarnon); Vizor (ViDA); Zaxon Remake (Daniel Jansson); Green Dimension V2 (its author, who signs the readme in ASCII art); XMMS Turquoise (from the XMMS project). Each skin keeps its own readme inside the .wsz.
+- [Wikimedia Commons](https://commons.wikimedia.org) and the photographers and filmmakers who give their work to it under CC0 or into the public domain, many of them through [Unsplash](https://unsplash.com): the pictures and clips a track and its video can wear. A chosen picture keeps a link to its page.
+- [Florian Körner](https://github.com/FlorianKoerner) for [DiceBear](https://www.dicebear.com) (MIT) and the authors of its CC0 styles, the patterns a track without a cover wears, and the [resvg](https://github.com/linebender/resvg) authors, whose renderer writes them into the track as PNG.
+- [MRafStudio](https://github.com/MRafStudio) for the ideas of [pull request #34](https://github.com/timoncool/YuE2-Studio/pull/34): the Activity log, sorting, likes kept in the library and stems under their song.
 
 ## Support the Author
 
