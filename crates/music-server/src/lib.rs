@@ -2654,6 +2654,15 @@ async fn start_separation(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    let song = state
+        .library
+        .get_song(&id)
+        .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
+        .ok_or_else(|| api_error(StatusCode::NOT_FOUND, "Song not found".into()))?;
+    // a stem is a part of a song already: the song it came from is what is separated
+    if song.metadata["derived"]["tool"].as_str() == Some("stems") {
+        return Err(api_error(StatusCode::CONFLICT, "this track is a stem, a part of a song already; separate the song it came from".into()));
+    }
     card_free_of_training(&state, "separate tracks").await?;
     if state.separation_run.read().await.as_ref().is_some_and(|run| !run.done) {
         return Err(api_error(StatusCode::CONFLICT, "a track is already being separated".into()));
@@ -2666,15 +2675,6 @@ async fn start_separation(
         .filter(|card| separates_on(*card));
     if !state.separator.is_installed() {
         return Err(api_error(StatusCode::BAD_REQUEST, "the separation model is not installed yet".into()));
-    }
-    let song = state
-        .library
-        .get_song(&id)
-        .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
-        .ok_or_else(|| api_error(StatusCode::NOT_FOUND, "Song not found".into()))?;
-    // a stem is a part of a song already: the song it came from is what is separated
-    if song.metadata["derived"]["tool"].as_str() == Some("stems") {
-        return Err(api_error(StatusCode::CONFLICT, "this track is a stem, a part of a song already; separate the song it came from".into()));
     }
     let audio_path = state
         .library

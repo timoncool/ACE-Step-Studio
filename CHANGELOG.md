@@ -6,12 +6,12 @@ What changed, newest first. Dates are release dates.
 
 ### Added
 
-- **Activity**, beside News in the sidebar: every change an agent makes through the MCP
-  server - a generation started, a song edited or deleted, a playlist, stems, karaoke, a
-  dataset and its preparation, training, a LoRA, a model downloaded or removed, a setting -
-  and every message the studio shows, kept by the service (the latest 500) and read
-  by every window in its own language, with how long ago and the exact moment; beside it, the
-  count of what came since it was last read. (YuE2 Studio #34)
+- **Activity**, the last item of the sidebar, after News: a log of every change an agent
+  makes through the MCP server - a generation started, a song edited or deleted, a playlist,
+  stems, karaoke, a dataset and its preparation, training, a LoRA, a model downloaded or
+  removed, a setting - and of every message the studio shows, kept by the service (the latest
+  500) and read by every window in its own language, with how long ago and the exact moment.
+  (YuE2 Studio #34)
 - **Sort** beside Filters on the Create page and beside the library's tabs: newest or oldest
   first, by title, by length, and recently liked in Liked Songs; each list keeps its own, and
   songs being made stay on top. (YuE2 Studio #34)

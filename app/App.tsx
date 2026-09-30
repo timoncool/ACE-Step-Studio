@@ -122,14 +122,13 @@ import { StudioOffline } from './components/StudioOffline';
 import { StudioToolsPanel } from './components/StudioToolsPanel';
 import { createNativePlaylist, deleteNativeSong, moveStoredLikes, setNativeSongLiked, updateNativePlaylist } from './services/nativeLibrary';
 import { foldStems } from './services/songStems';
-import { noteStudioMessage, useJournal, type JournalLine } from './services/journal';
+import { noteStudioMessage } from './services/journal';
 import { JournalPanel } from './components/JournalPanel';
 
 /** Where versions before 3.3 kept the likes, in the window's own storage. */
 const STORED_LIKES_KEY = 'native-liked-song-ids';
 const NO_SONGS: Song[] = [];
 const NO_PLAYLISTS: Playlist[] = [];
-const NO_LINES: JournalLine[] = [];
 
 function storedLikes(): string[] {
   try {
@@ -360,20 +359,7 @@ function AppContent() {
     noteStudioMessage(message, type);
   };
 
-  // The journal: what agents changed and what the studio said. What came since
-  // it was last read is counted beside it; open, everything in it is read.
   const [journalOpen, setJournalOpen] = useState(false);
-  const journalLines = useJournal().data ?? NO_LINES;
-  const newestLine = journalLines[0]?.id ?? 0;
-  const [journalSeen, setJournalSeen] = useState(() => {
-    try { return Number(window.localStorage.getItem('studio.journalSeen')) || 0; } catch { return 0; }
-  });
-  useEffect(() => {
-    if (!journalOpen || newestLine <= journalSeen) return;
-    setJournalSeen(newestLine);
-    try { window.localStorage.setItem('studio.journalSeen', String(newestLine)); } catch { /* kept until a reload */ }
-  }, [journalOpen, newestLine, journalSeen]);
-  const journalUnread = journalLines.filter(line => line.id > journalSeen).length;
 
   const closeToast = () => {
     setToast(prev => ({ ...prev, isVisible: false }));
@@ -1298,7 +1284,6 @@ function AppContent() {
           isOpen={showLeftSidebar}
           onToggle={() => setShowLeftSidebar(!showLeftSidebar)}
           journalOpen={journalOpen}
-          journalUnread={journalUnread}
           onToggleJournal={() => setJournalOpen(open => !open)}
         />
 

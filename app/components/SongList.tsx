@@ -348,8 +348,8 @@ export const SongList: React.FC<SongListProps> = ({
                         <span>{songCount(librarySize)}</span>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                        <div className="relative group flex-1">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div className="relative group min-w-48 flex-1">
                             <input
                                 type="text"
                                 value={searchQuery}
