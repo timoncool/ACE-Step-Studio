@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Song, Playlist } from '../services/api';
+import React, { useMemo, useState } from 'react';
+import { Song } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
 import { ArrowLeft, Play, MoreHorizontal, Clock, Calendar, Shuffle, Trash2, Mic2, Music } from 'lucide-react';
-import { deleteNativePlaylist, getNativePlaylist, loadNativeLibrarySongs, parseDuration, updateNativePlaylist } from '../services/nativeLibrary';
+import { deleteNativePlaylist, parseDuration, updateNativePlaylist } from '../services/nativeLibrary';
+import { updateLibraryPlaylists, useLibraryPlaylists, useLibrarySongs } from '../services/studioQueries';
+import { named } from '../services/accessibleName';
 import { AlbumCover } from './AlbumCover';
+import { ConfirmDialog } from './ConfirmDialog';
 import { TRACK_ARTIST } from '../services/studio';
 
 interface PlaylistDetailProps {
@@ -18,49 +21,26 @@ interface PlaylistDetailProps {
 export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBack, onPlaySong, onSelect, onNavigateToProfile }) => {
     const { user: currentUser } = useAuth();
     const { t, songCount } = useI18n();
-    const [playlist, setPlaylist] = useState<Playlist & { creator_avatar?: string } | null>(null);
-    const [songs, setSongs] = useState<Song[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [isNativePlaylist, setIsNativePlaylist] = useState(false);
+    // the library's own reads: a change made anywhere, a deletion included, shows here at once
+    const playlists = useLibraryPlaylists();
+    const library = useLibrarySongs();
+    const playlist = playlists.data?.find(entry => entry.id === playlistId) ?? null;
+    const loading = playlists.isPending || library.isPending;
+    const songs = useMemo(() => {
+        const byId = new Map((library.data ?? []).map(song => [song.id, song]));
+        return (playlist?.songIds ?? []).flatMap(id => {
+            const song = byId.get(id);
+            return song ? [song] : [];
+        });
+    }, [playlist, library.data]);
+    const [confirmDelete, setConfirmDelete] = useState(false);
 
-    useEffect(() => {
-        loadPlaylist();
-    }, [playlistId]);
-
-    const loadPlaylist = async () => {
-        setLoading(true);
-        try {
-            const nativePlaylist = await getNativePlaylist(playlistId);
-            if (nativePlaylist) {
-                const nativeSongs = await loadNativeLibrarySongs();
-                const songIds = nativePlaylist.songIds || [];
-                const nativeById = new Map(nativeSongs.map(song => [song.id, song]));
-                const orderedSongs = songIds.flatMap(id => {
-                    const song = nativeById.get(id);
-                    return song ? [song] : [];
-                });
-                setPlaylist({ ...nativePlaylist, user_id: '__native__' } as Playlist & { creator_avatar?: string });
-                setSongs(orderedSongs as unknown as Song[]);
-                setIsNativePlaylist(true);
-                return;
-            }
-
-            throw new Error('Playlist was not found in the local library');
-        } catch (error) {
-            console.error('Failed to load playlist:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // ... (retaining methods handleRemove, handleDelete) ...
     const handleRemoveSong = async (songId: string) => {
         if (!playlist) return;
         try {
             const songIds = (playlist.songIds || []).filter(id => id !== songId);
             const updated = await updateNativePlaylist(playlist.id, playlist, songIds);
-            setPlaylist({ ...updated, user_id: '__native__' } as Playlist & { creator_avatar?: string });
-            setSongs(prev => prev.filter(s => s.id !== songId));
+            updateLibraryPlaylists(lists => lists.map(entry => (entry.id === updated.id ? updated : entry)));
         } catch (error) {
             console.error('Failed to remove song:', error);
         }
@@ -68,9 +48,10 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
 
     const handleDeletePlaylist = async () => {
         if (!playlist) return;
-        if (!confirm(t('deletePlaylistConfirm'))) return;
+        setConfirmDelete(false);
         try {
             await deleteNativePlaylist(playlist.id);
+            updateLibraryPlaylists(lists => lists.filter(entry => entry.id !== playlist.id));
             onBack();
         } catch (error) {
             console.error('Failed to delete playlist:', error);
@@ -95,7 +76,8 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
         </div>
     );
 
-    const isOwner = isNativePlaylist || currentUser?.id === playlist.user_id;
+    // the local library's playlists are all the person's own
+    const isOwner = true;
 
     // Gradient based on ID/Name
     const gradients = [
@@ -139,11 +121,7 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
                                 className="flex items-center gap-2 cursor-pointer hover:underline"
                                 onClick={() => onNavigateToProfile?.(playlist.creator!)}
                             >
-                                {playlist.creator_avatar ? (
-                                    <img src={playlist.creator_avatar} alt={playlist.creator} className="w-5 h-5 md:w-6 md:h-6 rounded-full object-cover" />
-                                ) : (
-                                    <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-linear-to-r from-green-400 to-blue-500"></div>
-                                )}
+                                <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-linear-to-r from-green-400 to-blue-500"></div>
                                 <span>{playlist.creator}</span>
                             </div>
                         )}
@@ -171,9 +149,9 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
 
                 {isOwner && (
                     <button
-                        onClick={handleDeletePlaylist}
+                        onClick={() => setConfirmDelete(true)}
                         className="text-zinc-400 hover:text-red-500 transition-colors p-2"
-                        title={t('deletePlaylist')}
+                        {...named(t('deletePlaylist'))}
                     >
                         <Trash2 size={20} />
                     </button>
@@ -222,6 +200,7 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
                                                 e.stopPropagation();
                                                 onPlaySong(song, songs);
                                             }}
+                                            {...named(t('play'))}
                                             className="absolute inset-0 bg-black/50 flex md:hidden group-hover/img:flex items-center justify-center text-white"
                                         >
                                             <Play size={16} fill="white" />
@@ -259,7 +238,8 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
                                                 e.stopPropagation();
                                                 handleRemoveSong(song.id);
                                             }}
-                                            className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-white transition-opacity"
+                                            {...named(t('removeFromPlaylist'))}
+                                            className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-zinc-500 hover:text-white transition-opacity"
                                         >
                                             <Trash2 size={16} />
                                         </button>
@@ -273,6 +253,7 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
                                             e.stopPropagation();
                                             handleRemoveSong(song.id);
                                         }}
+                                        {...named(t('removeFromPlaylist'))}
                                         className="md:hidden text-zinc-500 hover:text-white p-2"
                                     >
                                         <Trash2 size={18} />
@@ -284,9 +265,19 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
                 </div>
             </div>
 
+            <ConfirmDialog
+                isOpen={confirmDelete}
+                title={t('deletePlaylist')}
+                message={t('deletePlaylistConfirm')}
+                confirmLabel={t('deletePlaylist')}
+                onConfirm={() => void handleDeletePlaylist()}
+                onCancel={() => setConfirmDelete(false)}
+            />
+
             {/* Back button absolute */}
             <button
                 onClick={onBack}
+                {...named(t('goBack'))}
                 className="absolute top-6 left-6 z-50 w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
             >
                 <ArrowLeft size={18} />

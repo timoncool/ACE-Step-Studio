@@ -15,6 +15,9 @@ import { downloadSongAudio } from '../services/songDownload';
 import { saveFile } from '../services/saveFile';
 import { localized, useAdapterLibrary, usesFromSettings } from '../services/adapters';
 import { useSongActions } from '../context/SongActionsContext';
+import { stemOf } from '../services/songStems';
+import { named } from '../services/accessibleName';
+import { exactMoment } from '../services/dates';
 
 interface RightSidebarProps {
     song: Song | null;
@@ -378,7 +381,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                                 <span className="text-sm font-semibold text-zinc-900 dark:text-white">
                                     {song.creator || TRACK_ARTIST}
                                 </span>
-                                <p className="text-xs text-zinc-500">{t('created')} {new Date(song.createdAt).toLocaleDateString()}</p>
+                                <p className="text-xs text-zinc-500">{t('created')} {exactMoment(new Date(song.createdAt), language)}</p>
                             </div>
                         </div>
                     </div>
@@ -424,8 +427,9 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                         </button>
                         <button
                             onClick={() => { if (song?.audioUrl) openStems(song); }}
-                            title={t('extractStems')}
-                            className="p-3 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-300/50 dark:hover:bg-white/10 rounded-xl transition-all duration-200"
+                            disabled={stemOf(song) !== null}
+                            {...named(stemOf(song) !== null ? t('stemOfStem') : t('extractStems'))}
+                            className="p-3 text-zinc-500 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-300/50 dark:hover:bg-white/10 rounded-xl transition-all duration-200"
                         >
                             <Layers size={18} strokeWidth={1.5} />
                         </button>

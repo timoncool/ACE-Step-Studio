@@ -225,6 +225,7 @@ fn shape(name: &str, args: &Value, value: Value) -> Value {
             value
         }
         "karaoke_settings_get" if !detailed => compact_karaoke(&value),
+        "library_liked" if !detailed => json!({ "songs": value.as_array().into_iter().flatten().map(|song| json!({ "id": song["id"], "title": song["title"], "made": song["created_at"], "liked_at": song["metadata"]["liked_at"] })).collect::<Vec<_>>() }),
         // any other answer that is a whole library song
         _ if !detailed && value.get("audio_codes").is_some() && value.get("replay_request").is_some() => compact_song(&value),
         "training_checkpoint_install" | "lora_install_hf" | "lora_import_files" if value["slots"].as_array().is_some_and(Vec::is_empty) => {
@@ -357,23 +358,127 @@ fn annotations(name: &str) -> Value {
     // a verb that changes something outweighs a noun that reads
     const CHANGES: &[&str] = &["install", "import", "remove", "delete", "refresh", "create", "update", "start", "cancel", "select", "download", "apply", "restart"];
     // reads whose names the rules above miss: create_form names the create page
-    const READ_NAMES: &[&str] = &["lyrics_find", "cover_prompt_render", "studio_wait", "engine_presets_get", "assistant_requests_wait", "ui_console", "song_defaults", "create_form_get"];
+    const READ_NAMES: &[&str] = &["lyrics_find", "cover_prompt_render", "studio_wait", "engine_presets_get", "assistant_requests_wait", "ui_console", "song_defaults", "create_form_get", "library_liked"];
+    // writes over what was stored, so the earlier content is gone: a client asks first
+    const OVERWRITES: &[&str] = &["library_song_update", "playlist_update", "dataset_update", "dataset_song_update", "lora_update", "stems_split", "karaoke_make", "cover_draw", "cover_set_from_file", "openrouter_set_key"];
     let changes = CHANGES.iter().any(|verb| name.split('_').any(|word| word == *verb));
     let read_only = READ_NAMES.contains(&name) || !changes && (READS.iter().any(|part| name.ends_with(part) || name.contains(&format!("{part}_"))) || name.starts_with("writing_"));
-    let destructive = name.ends_with("_delete") || name.ends_with("_remove") || name == "processing_discard" || name.ends_with("_cancel") || name.contains("_cancel_");
+    let destructive = name.ends_with("_delete") || name.ends_with("_remove") || name == "processing_discard" || name.ends_with("_cancel") || name.contains("_cancel_") || OVERWRITES.contains(&name);
     // what reaches the internet: OpenRouter, Hugging Face, the lyric databases and every download
     let open_world = name.starts_with("openrouter_") || name.contains("_hf") || name == "lyrics_find" || name == "models_download" || name == "lora_install_catalog" || name.ends_with("_install") && name != "training_checkpoint_install";
     let title = name.replace('_', " ");
     json!({ "title": title, "readOnlyHint": read_only, "destructiveHint": destructive, "idempotentHint": read_only || name.ends_with("_set") || name.contains("_select"), "openWorldHint": open_world })
 }
 
-/// The window's side of the bridge: the page subscribes to the commands and
-/// posts each answer back.
+/// What an agent's change goes into the journal as: what was done and to what kind
+/// of thing, for the window to put into words of its language. Reads, moving the
+/// window around and playing leave no line.
+const JOURNAL: &[(&str, &str, &str)] = &[
+    ("song_create", "created", "song"),
+    ("song_replay", "created", "song"),
+    ("song_job_cancel", "cancelled", "generation"),
+    ("library_song_update", "updated", "song"),
+    ("library_song_delete", "deleted", "song"),
+    ("library_import_audio", "imported", "song"),
+    ("library_version_select", "updated", "song"),
+    ("library_version_delete", "deleted", "version"),
+    ("playlist_create", "created", "playlist"),
+    ("playlist_update", "updated", "playlist"),
+    ("playlist_delete", "deleted", "playlist"),
+    ("stems_split", "started", "stems"),
+    ("karaoke_make", "started", "karaoke"),
+    ("karaoke_delete", "deleted", "karaoke"),
+    ("midi_transcribe", "started", "midi"),
+    ("midi_delete", "deleted", "midi"),
+    ("processing_start", "started", "processing"),
+    ("processing_keep", "kept", "processing"),
+    ("processing_discard", "discarded", "processing"),
+    ("cover_draw", "started", "cover"),
+    ("cover_set_from_file", "updated", "cover"),
+    ("dataset_create", "created", "dataset"),
+    ("dataset_import_folder", "created", "dataset"),
+    ("dataset_update", "updated", "dataset"),
+    ("dataset_add_folder", "updated", "dataset"),
+    ("dataset_add_library_songs", "updated", "dataset"),
+    ("dataset_song_update", "updated", "dataset"),
+    ("dataset_song_delete", "updated", "dataset"),
+    ("dataset_delete", "deleted", "dataset"),
+    ("training_start", "started", "training"),
+    ("training_cancel", "cancelled", "training"),
+    ("training_run_delete", "deleted", "training"),
+    ("lora_install_catalog", "installed", "lora"),
+    ("lora_install_hf", "installed", "lora"),
+    ("lora_import_files", "installed", "lora"),
+    ("lora_update", "updated", "lora"),
+    ("lora_delete", "deleted", "lora"),
+    ("lora_export_comfyui", "exported", "lora"),
+    ("models_download", "started", "download"),
+    ("models_remove", "deleted", "model"),
+    ("settings_set", "updated", "settings"),
+];
+
+/// The facts of a change, when the tool makes one worth a line.
+fn journal_facts(name: &str, args: &Value) -> Option<(&'static str, &'static str)> {
+    if name == "library_song_like" {
+        let taken_back = args.get("liked").and_then(Value::as_bool) == Some(false);
+        return Some((if taken_back { "unliked" } else { "liked" }, "song"));
+    }
+    JOURNAL.iter().find(|(tool, _, _)| *tool == name).map(|(_, verb, kind)| (*verb, *kind))
+}
+
+/// The name of what a change touches when the call does not carry it, read
+/// before the change: a deletion leaves nothing to read it from.
+async fn name_before_change(args: &Value) -> String {
+    let named = args.get("title").or_else(|| args.get("name")).and_then(Value::as_str).is_some_and(|name| !name.trim().is_empty());
+    if named {
+        return String::new();
+    }
+    let (path, field) = if let Some(id) = args.get("playlist_id").and_then(Value::as_str) {
+        (format!("/v1/library/playlists/{}", segment(id)), "name")
+    } else if let Some(id) = args.get("song_id").and_then(Value::as_str) {
+        (format!("/v1/library/songs/{}", segment(id)), "title")
+    } else {
+        return String::new();
+    };
+    fetch(&path).await.get(field).and_then(Value::as_str).unwrap_or_default().to_string()
+}
+
+/// The name a journal line gives what a change touched: the one the call gave,
+/// the one read before the change, or the one the studio answered with.
+fn change_target(args: &Value, before: &str, reply: &str) -> String {
+    let short = |text: &str| text.trim().chars().take(80).collect::<String>();
+    if let Some(name) = args.get("title").or_else(|| args.get("name")).and_then(Value::as_str).filter(|name| !name.trim().is_empty()) {
+        return short(name);
+    }
+    if !before.trim().is_empty() {
+        return short(before);
+    }
+    serde_json::from_str::<Value>(reply)
+        .ok()
+        .and_then(|value| value.get("title").or_else(|| value.get("name")).and_then(Value::as_str).map(short))
+        .unwrap_or_default()
+}
+
+/// Writes an agent's change into the studio's journal, where the person reads it.
+async fn journal_change(name: &str, args: &Value, before: &str, reply: &str) {
+    let Some((verb, kind)) = journal_facts(name, args) else { return };
+    let line = json!({ "source": "agent", "verb": verb, "kind": kind, "target": change_target(args, before, reply) });
+    let written = match send(Method::POST, "/v1/journal".into(), line) {
+        Ok(call) => call_route(call).await,
+        Err(problem) => Err(problem),
+    };
+    match written {
+        Ok((status, _)) if status.is_success() => {}
+        Ok((status, text)) => eprintln!("[ERROR] the journal refused an agent's change to {name}: {status} {text}"),
+        Err(problem) => eprintln!("[ERROR] the journal did not take an agent's change to {name}: {problem}"),
+    }
+}
+
 struct Bridge {
     commands: tokio::sync::broadcast::Sender<String>,
     pending: Mutex<HashMap<String, tokio::sync::oneshot::Sender<Result<Value, String>>>>,
-    /// The open windows, oldest first; a command goes to the newest only, so
-    /// a second window never runs it again.
+    /// The open windows, the one the person turned to last at the end: a
+    /// command goes to that one only, so a second window never runs it again.
     windows: Mutex<Vec<u64>>,
     sequence: AtomicU64,
 }
@@ -459,6 +564,28 @@ pub async fn window_result(headers: HeaderMap, Json(answer): Json<WindowAnswer>)
         }
         None => StatusCode::NOT_FOUND,
     }
+}
+
+#[derive(serde::Deserialize)]
+pub struct WindowFocus {
+    window: u64,
+}
+
+/// The page the person turned to: an agent's command goes there, not to the
+/// window that happened to open last.
+pub async fn window_focus(headers: HeaderMap, Json(focus): Json<WindowFocus>) -> StatusCode {
+    if !local_origin(&headers) {
+        return StatusCode::FORBIDDEN;
+    }
+    if focus_window(focus.window) { StatusCode::NO_CONTENT } else { StatusCode::NOT_FOUND }
+}
+
+fn focus_window(window: u64) -> bool {
+    let mut windows = open_windows();
+    let Some(place) = windows.iter().position(|open| *open == window) else { return false };
+    windows.remove(place);
+    windows.push(window);
+    true
 }
 
 /// Tells every open window that something changed behind it, so the screens
@@ -1282,15 +1409,15 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "library_liked",
-                description: "The songs the user liked (the thumbs-up in the library): the ones they count as the best. With library_songs_list since today it gives today's best.",
+                description: "The songs the user liked (the thumbs-up in the library), the latest like first: the ones they count as the best. With library_songs_list since today it gives today's best. The like is kept with the song, so no window has to be open.",
                 schema: nothing,
-                call: |args| window("library_liked", args, 15),
+                call: |_| get("/v1/library/liked".into()),
             },
             Tool {
                 name: "library_song_like",
                 description: "Like a library song (liked true, the default) or take the like back (liked false), as the thumbs-up in the library does.",
                 schema: || object(json!({ "song_id": { "type": "string" }, "liked": { "type": "boolean" } }), &["song_id"]),
-                call: |args| window("library_song_like", args, 15),
+                call: |args| send(Method::PUT, format!("/v1/library/songs/{}/liked", segment(&text(args, "song_id")?)), json!({ "liked": args.get("liked").and_then(Value::as_bool).unwrap_or(true) })),
             },
             Tool {
                 name: "library_song_get",
@@ -2333,17 +2460,21 @@ pub async fn handle(headers: HeaderMap, body: axum::body::Bytes) -> Response {
                     Ok(text) => answer(text, false),
                     Err(problem) => answer(problem, true),
                 },
-                Ok(call) => match call_route(call).await {
-                    Ok((status, text)) if status.is_success() => {
-                        announce_change(name);
-                        match serde_json::from_str::<Value>(&text) {
-                            Ok(value) => tool_json(id, shape(name, &args, value)),
-                            Err(_) => answer(text, false),
+                Ok(call) => {
+                    let before = if journal_facts(name, &args).is_some() { name_before_change(&args).await } else { String::new() };
+                    match call_route(call).await {
+                        Ok((status, text)) if status.is_success() => {
+                            announce_change(name);
+                            journal_change(name, &args, &before, &text).await;
+                            match serde_json::from_str::<Value>(&text) {
+                                Ok(value) => tool_json(id, shape(name, &args, value)),
+                                Err(_) => answer(text, false),
+                            }
                         }
+                        Ok((_, text)) => answer(text, true),
+                        Err(problem) => answer(problem, true),
                     }
-                    Ok((_, text)) => answer(text, true),
-                    Err(problem) => answer(problem, true),
-                },
+                }
             }
         }
         _ => rpc_failure(StatusCode::NOT_FOUND, id, -32601, format!("Method not found: {method}"), None),
@@ -2399,7 +2530,7 @@ fn moment(text: &str, end: bool) -> Result<i64, String> {
 
 /// What an agent is told when it connects.
 fn instructions() -> String {
-    format!("You drive {} on this computer. Every tool runs the same code as a button of the studio, and the user sees what you do in its window. Start with studio_status. Long work (songs, stems, karaoke, dataset preparation, training) is a job: start it, then studio_wait instead of polling. The graphics card runs one heavy job at a time; while a LoRA trains no song is made. Look ids up instead of guessing them: library_songs_list, training_status, dataset_get, lora_list, models_status. Before writing for the model yourself read writing_guide and writing_examples. When the user has made you the studio's writing assistant, answer its requests: assistant_requests_wait, then assistant_request_answer. The whole guide is the resource studio://skill (prompt 'studio').", music_core::studio().name)
+    format!("You drive {} on this computer. Every tool runs the same code as a button of the studio, the user sees what you do in its window, and every change you make is written into its Activity journal. Start with studio_status. Long work (songs, stems, karaoke, dataset preparation, training) is a job: start it, then studio_wait instead of polling. The graphics card runs one heavy job at a time; while a LoRA trains no song is made. Look ids up instead of guessing them: library_songs_list, training_status, dataset_get, lora_list, models_status. Before writing for the model yourself read writing_guide and writing_examples. When the user has made you the studio's writing assistant, answer its requests: assistant_requests_wait, then assistant_request_answer. The whole guide is the resource studio://skill (prompt 'studio').", music_core::studio().name)
 }
 
 #[cfg(test)]
@@ -2417,6 +2548,18 @@ mod tests {
         }
         assert!(notices.contains(&json!({ "changed": "song_create" })));
         assert!(!notices.contains(&json!({ "changed": "library_songs_list" })));
+    }
+
+    #[test]
+    fn a_command_goes_to_the_window_the_person_turned_to() {
+        let (older, newer) = (u64::MAX - 20, u64::MAX - 21);
+        open_windows().extend([older, newer]);
+        let place = |window: u64| open_windows().iter().position(|open| *open == window).unwrap();
+        assert!(place(newer) > place(older), "the window opened last is asked first");
+        assert!(focus_window(older));
+        assert!(place(older) > place(newer), "the one the person turned to is asked now");
+        assert!(!focus_window(u64::MAX - 22), "a window that is not open is not taken");
+        open_windows().retain(|open| *open != older && *open != newer);
     }
 
     #[test]
@@ -2496,6 +2639,32 @@ mod tests {
             assert_eq!(annotations(name)["openWorldHint"], true, "{name}");
         }
         assert_eq!(annotations("training_checkpoint_install")["openWorldHint"], false);
+    }
+
+    #[test]
+    fn a_tool_that_writes_over_what_was_stored_is_destructive() {
+        for name in ["library_song_update", "playlist_update", "stems_split", "karaoke_make", "cover_set_from_file", "library_song_delete"] {
+            assert_eq!(annotations(name)["destructiveHint"], true, "{name}");
+        }
+        for name in ["song_create", "playlist_create", "library_song_like", "library_version_select", "settings_set"] {
+            assert_eq!(annotations(name)["destructiveHint"], false, "{name}");
+        }
+        assert_eq!(annotations("library_liked")["readOnlyHint"], true, "reading the liked songs changes nothing");
+    }
+
+    #[test]
+    fn a_change_is_written_as_what_was_done_and_to_what() {
+        for (tool, _, _) in JOURNAL {
+            assert!(tools().iter().any(|entry| entry.name == *tool), "{tool} is a tool of the studio");
+        }
+        assert_eq!(journal_facts("playlist_delete", &json!({})), Some(("deleted", "playlist")));
+        assert_eq!(journal_facts("library_song_like", &json!({ "liked": false })), Some(("unliked", "song")));
+        assert_eq!(journal_facts("library_song_like", &json!({})), Some(("liked", "song")));
+        assert_eq!(journal_facts("library_songs_list", &json!({})), None, "a read leaves no line");
+        assert_eq!(journal_facts("ui_click", &json!({})), None, "nor does moving the window around");
+        assert_eq!(change_target(&json!({ "title": " Night " }), "", "{}"), "Night");
+        assert_eq!(change_target(&json!({ "song_id": "s1" }), "Old name", "{}"), "Old name", "a deletion keeps the name it had");
+        assert_eq!(change_target(&json!({}), "", r#"{"name":"Rock"}"#), "Rock", "or the one the studio answered with");
     }
 
     #[test]

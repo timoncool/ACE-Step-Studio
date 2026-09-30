@@ -11,6 +11,7 @@ import { PlayerExtraButtons } from './player/PlayerExtraButtons';
 import { downloadSongAudio } from '../services/songDownload';
 import { captionSummary } from '../services/examples';
 import { getCurrentLrcIndex, parseLrc } from '../services/lrc-parser';
+import { named } from '../services/accessibleName';
 
 interface PlayerProps {
     currentSong: Song | null;
@@ -147,6 +148,7 @@ export const Player: React.FC<PlayerProps> = ({
                     <div className="flex items-center justify-between px-4 py-3">
                         <button
                             onClick={() => setIsFullscreen(false)}
+                            {...named(t('collapsePlayer'))}
                             className="p-2 text-zinc-600 dark:text-white/70 tap-highlight-none"
                         >
                             <ChevronDown size={28} />
@@ -188,6 +190,7 @@ export const Player: React.FC<PlayerProps> = ({
                             </div>
                             <button
                                 onClick={onToggleLike}
+                                {...named(t('like'))} aria-pressed={isLiked}
                                 className={`p-2 tap-highlight-none ${isLiked ? 'text-pink-600 dark:text-pink-500' : 'text-zinc-400 dark:text-white/50'}`}
                             >
                                 <Heart size={24} fill={isLiked ? "currentColor" : "none"} />
@@ -219,31 +222,35 @@ export const Player: React.FC<PlayerProps> = ({
                     <div className="flex items-center justify-center gap-8 py-4">
                         <button
                             onClick={onToggleShuffle}
+                            {...named(t('shuffle'))} aria-pressed={isShuffle}
                             className={`p-2 tap-highlight-none ${isShuffle ? 'text-pink-600 dark:text-pink-500' : 'text-zinc-400 dark:text-white/50'}`}
                         >
                             <Shuffle size={22} />
                         </button>
                         <button
                             onClick={onPrevious}
+                            {...named(t('previous'))}
                             className="p-2 text-zinc-800 dark:text-white tap-highlight-none"
                         >
                             <SkipBack size={32} fill="currentColor" />
                         </button>
                         <button
                             onClick={onTogglePlay}
+                            {...named(isPlaying ? t('pause') : t('play'))}
                             className="w-16 h-16 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-black flex items-center justify-center shadow-lg tap-highlight-none"
                         >
                             {isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1" />}
                         </button>
                         <button
                             onClick={onNext}
+                            {...named(t('next'))}
                             className="p-2 text-zinc-800 dark:text-white tap-highlight-none"
                         >
                             <SkipForward size={32} fill="currentColor" />
                         </button>
                         <button
                             onClick={onToggleRepeat}
-                            title={t(`repeatMode_${repeatMode}`)}
+                            {...named(t(`repeatMode_${repeatMode}`))}
                             className={`p-2 tap-highlight-none relative ${repeatMode !== 'none' ? 'text-pink-600 dark:text-pink-500' : 'text-zinc-400 dark:text-white/50'}`}
                         >
                             {repeatMode === 'one' ? <Repeat1 size={22} /> : repeatMode === 'stop' ? <CircleStop size={22} /> : <Repeat size={22} />}
@@ -269,6 +276,7 @@ export const Player: React.FC<PlayerProps> = ({
                         </div>
                         <button
                             onClick={() => onVolumeChange(volume === 0 ? 0.8 : 0)}
+                            {...named(t('mute'))} aria-pressed={volume === 0}
                             className="text-zinc-400 dark:text-white/50 tap-highlight-none"
                         >
                             {volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
@@ -280,12 +288,13 @@ export const Player: React.FC<PlayerProps> = ({
                         <button
                             onClick={handleDownload}
                             className="p-3 tap-highlight-none"
-                            title={t('downloadAudio')}
+                            {...named(t('downloadAudio'))}
                         >
                             <Download size={20} />
                         </button>
                         <button
                             onClick={() => setShowDropdown(!showDropdown)}
+                            {...named(t('moreActions'))} aria-haspopup="menu" aria-expanded={showDropdown}
                             className="p-3 tap-highlight-none relative"
                         >
                             <MoreVertical size={20} />
@@ -351,24 +360,28 @@ export const Player: React.FC<PlayerProps> = ({
                     <div className="flex items-center gap-1 shrink-0">
                         <button
                             onClick={onToggleLike}
+                            {...named(t('like'))} aria-pressed={isLiked}
                             className={`p-2 tap-highlight-none ${isLiked ? 'text-pink-600 dark:text-pink-500' : 'text-zinc-400'}`}
                         >
                             <Heart size={20} fill={isLiked ? "currentColor" : "none"} />
                         </button>
                         <button
                             onClick={onPrevious}
+                            {...named(t('previous'))}
                             className="p-2 text-zinc-700 dark:text-zinc-300 tap-highlight-none"
                         >
                             <SkipBack size={22} fill="currentColor" />
                         </button>
                         <button
                             onClick={onTogglePlay}
+                            {...named(isPlaying ? t('pause') : t('play'))}
                             className="w-11 h-11 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-black flex items-center justify-center shadow-lg tap-highlight-none"
                         >
                             {isPlaying ? <Pause size={22} fill="currentColor" /> : <Play size={22} fill="currentColor" className="ml-0.5" />}
                         </button>
                         <button
                             onClick={onNext}
+                            {...named(t('next'))}
                             className="p-2 text-zinc-700 dark:text-zinc-300 tap-highlight-none"
                         >
                             <SkipForward size={22} fill="currentColor" />
@@ -390,6 +403,7 @@ export const Player: React.FC<PlayerProps> = ({
                 <div className="flex items-center justify-between px-6 py-4" onClick={(e) => e.stopPropagation()}>
                     <button
                         onClick={() => setIsFullscreen(false)}
+                        {...named(t('collapsePlayer'))}
                         className="p-2 text-zinc-600 dark:text-white/70 hover:bg-zinc-200 dark:hover:bg-white/10 rounded-full transition-colors"
                     >
                         <ChevronDown size={28} />
@@ -455,31 +469,35 @@ export const Player: React.FC<PlayerProps> = ({
                             <div className="flex items-center justify-center gap-8 py-2 w-full">
                                 <button
                                     onClick={onToggleShuffle}
+                                    {...named(t('shuffle'))} aria-pressed={isShuffle}
                                     className={`p-2 transition-colors ${isShuffle ? 'text-pink-600 dark:text-pink-500' : 'text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}
                                 >
                                     <Shuffle size={22} />
                                 </button>
                                 <button
                                     onClick={onPrevious}
+                                    {...named(t('previous'))}
                                     className="p-2 text-zinc-800 dark:text-white hover:scale-110 transition-transform"
                                 >
                                     <SkipBack size={36} fill="currentColor" />
                                 </button>
                                 <button
                                     onClick={onTogglePlay}
+                                    {...named(isPlaying ? t('pause') : t('play'))}
                                     className="w-18 h-18 p-5 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-black flex items-center justify-center shadow-lg hover:scale-105 transition-transform"
                                 >
                                     {isPlaying ? <Pause size={36} fill="currentColor" /> : <Play size={36} fill="currentColor" className="ml-1" />}
                                 </button>
                                 <button
                                     onClick={onNext}
+                                    {...named(t('next'))}
                                     className="p-2 text-zinc-800 dark:text-white hover:scale-110 transition-transform"
                                 >
                                     <SkipForward size={36} fill="currentColor" />
                                 </button>
                                 <button
                                     onClick={onToggleRepeat}
-                            title={t(`repeatMode_${repeatMode}`)}
+                            {...named(t(`repeatMode_${repeatMode}`))}
                                     className={`p-2 transition-colors relative ${repeatMode !== 'none' ? 'text-pink-600 dark:text-pink-500' : 'text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}
                                 >
                                     {repeatMode === 'one' ? <Repeat1 size={22} /> : repeatMode === 'stop' ? <CircleStop size={22} /> : <Repeat size={22} />}
@@ -519,6 +537,7 @@ export const Player: React.FC<PlayerProps> = ({
                             <div className="flex items-center gap-4 w-full max-w-xs">
                                 <button
                                     onClick={() => onVolumeChange(volume === 0 ? 0.8 : 0)}
+                                    {...named(t('mute'))} aria-pressed={volume === 0}
                                     className="text-zinc-500 dark:text-white/50 hover:text-zinc-900 dark:hover:text-white transition-colors"
                                 >
                                     {volume === 0 ? <VolumeX size={22} /> : <Volume2 size={22} />}
@@ -550,6 +569,7 @@ export const Player: React.FC<PlayerProps> = ({
                             <div className="flex items-center justify-center gap-4 text-zinc-400 dark:text-white/50">
                                 <button
                                     onClick={onToggleLike}
+                                    {...named(t('like'))} aria-pressed={isLiked}
                                     className={`p-3 rounded-full hover:bg-zinc-200 dark:hover:bg-white/10 transition-colors ${isLiked ? 'text-pink-600 dark:text-pink-500' : ''}`}
                                 >
                                     <Heart size={22} fill={isLiked ? "currentColor" : "none"} />
@@ -557,13 +577,14 @@ export const Player: React.FC<PlayerProps> = ({
                                 <button
                                     onClick={handleDownload}
                                     className="p-3 rounded-full hover:bg-zinc-200 dark:hover:bg-white/10 transition-colors"
-                                    title={t('downloadAudio')}
+                                    {...named(t('downloadAudio'))}
                                 >
                                     <Download size={20} />
                                 </button>
                                 <div className="relative">
                                     <button
                                         onClick={() => setShowDropdown(!showDropdown)}
+                                        {...named(t('moreActions'))} aria-haspopup="menu" aria-expanded={showDropdown}
                                         className="p-3 rounded-full hover:bg-zinc-200 dark:hover:bg-white/10 transition-colors"
                                     >
                                         <MoreVertical size={20} />
@@ -625,6 +646,7 @@ export const Player: React.FC<PlayerProps> = ({
                     </div>
                     <button
                         onClick={onToggleLike}
+                        {...named(t('like'))} aria-pressed={isLiked}
                         className={`ml-1 sm:ml-2 transition-colors shrink-0 hidden sm:block ${isLiked ? 'text-pink-600 dark:text-pink-500' : 'text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}
                     >
                         <Heart size={18} fill={isLiked ? "currentColor" : "none"} />
@@ -636,31 +658,35 @@ export const Player: React.FC<PlayerProps> = ({
                     <div className="flex items-center gap-2 sm:gap-4 lg:gap-6">
                         <button
                             onClick={onToggleShuffle}
+                            {...named(t('shuffle'))} aria-pressed={isShuffle}
                             className={`transition-colors hidden sm:block ${isShuffle ? 'text-pink-600 dark:text-pink-500' : 'text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}
                         >
                             <Shuffle size={16} />
                         </button>
                         <button
                             onClick={onPrevious}
+                            {...named(t('previous'))}
                             className="text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors"
                         >
                             <SkipBack size={18} className="sm:w-[22px] sm:h-[22px]" fill="currentColor" />
                         </button>
                         <button
                             onClick={onTogglePlay}
+                            {...named(isPlaying ? t('pause') : t('play'))}
                             className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-black flex items-center justify-center hover:scale-105 transition-transform shadow-lg"
                         >
                             {isPlaying ? <Pause size={18} className="sm:w-5 sm:h-5" fill="currentColor" /> : <Play size={18} className="sm:w-5 sm:h-5 ml-0.5" fill="currentColor" />}
                         </button>
                         <button
                             onClick={onNext}
+                            {...named(t('next'))}
                             className="text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors"
                         >
                             <SkipForward size={18} className="sm:w-[22px] sm:h-[22px]" fill="currentColor" />
                         </button>
                         <button
                             onClick={onToggleRepeat}
-                            title={t(`repeatMode_${repeatMode}`)}
+                            {...named(t(`repeatMode_${repeatMode}`))}
                             className={`transition-colors hidden sm:block ${repeatMode !== 'none' ? 'text-pink-600 dark:text-pink-500' : 'text-zinc-400 hover:text-zinc-900 dark:hover:text-white'} relative`}
                         >
                             {repeatMode === 'one' ? <Repeat1 size={16} /> : repeatMode === 'stop' ? <CircleStop size={16} /> : <Repeat size={16} />}
@@ -716,6 +742,7 @@ export const Player: React.FC<PlayerProps> = ({
                     >
                         <button
                             onClick={() => onVolumeChange(volume === 0 ? 0.8 : 0)}
+                            {...named(t('mute'))} aria-pressed={volume === 0}
                             className="p-1.5 lg:p-2 hover:bg-zinc-100 dark:hover:bg-white/10 rounded-full transition-colors"
                         >
                             {volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
@@ -752,12 +779,13 @@ export const Player: React.FC<PlayerProps> = ({
                     <button
                         onClick={handleDownload}
                         className="p-1.5 lg:p-2 hover:bg-zinc-100 dark:hover:bg-white/10 rounded-full transition-colors hidden lg:block"
-                        title={t('downloadAudio')}
+                        {...named(t('downloadAudio'))}
                     >
                         <Download size={18} />
                     </button>
                     <button
                         onClick={() => setIsFullscreen(true)}
+                        {...named(t('expandPlayer'))}
                         className="p-1.5 lg:p-2 hover:bg-zinc-100 dark:hover:bg-white/10 rounded-full transition-colors"
                     >
                         <Maximize2 size={16} />
@@ -765,6 +793,7 @@ export const Player: React.FC<PlayerProps> = ({
                     <div className="relative hidden sm:block">
                         <button
                             onClick={() => setShowDropdown(!showDropdown)}
+                            {...named(t('moreActions'))} aria-haspopup="menu" aria-expanded={showDropdown}
                             className="p-1.5 lg:p-2 hover:bg-zinc-100 dark:hover:bg-white/10 rounded-full transition-colors"
                         >
                             <MoreVertical size={18} />

@@ -80,6 +80,8 @@ export function mapNativeLibrarySong(song: NativeLibrarySong): Song {
     })(),
     createdAt: nativeDate(song.created_at),
     madeByJob: stringMetadata(metadata, 'job_id'),
+    liked: metadata.liked === true,
+    likedAt: metadata.liked === true && typeof metadata.liked_at === 'string' ? nativeDate(metadata.liked_at) : undefined,
     tags,
     derived: (() => {
       const derived = metadata.derived as { from?: unknown; from_title?: unknown; tool?: unknown; settings?: unknown } | null | undefined;
@@ -189,6 +191,38 @@ export async function updateNativeSong(existing: Song, update: Partial<NativeSon
 export async function deleteNativeSong(id: string): Promise<void> {
   const response = await fetch(`/v1/library/songs/${encodeURIComponent(id)}`, { method: 'DELETE' });
   if (!response.ok) throw new Error(`Native song deletion failed (${response.status})`);
+}
+
+/** The thumbs-up, set or taken back in the library; answers with the song as stored. */
+export async function setNativeSongLiked(id: string, liked: boolean): Promise<Song> {
+  const response = await fetch(`/v1/library/songs/${encodeURIComponent(id)}/liked`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ liked }),
+  });
+  if (!response.ok) throw new Error(`Native like failed (${response.status})`);
+  return mapNativeLibrarySong(await response.json() as NativeLibrarySong);
+}
+
+/**
+ * Likes an earlier version kept in the window's own storage, moved into the
+ * library: a like of a song that is gone goes with it. Answers with the ones
+ * the service could not take now, for the next start.
+ */
+export async function moveStoredLikes(ids: string[]): Promise<string[]> {
+  const left: string[] = [];
+  for (const id of ids) {
+    const response = await fetch(`/v1/library/songs/${encodeURIComponent(id)}/liked`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ liked: true }),
+    }).catch((error: unknown) => {
+      console.error('[ERROR] moving a like into the library:', error);
+      return null;
+    });
+    if (!response || (!response.ok && response.status !== 404)) left.push(id);
+  }
+  return left;
 }
 
 export function parseDuration(value: string): number | undefined {

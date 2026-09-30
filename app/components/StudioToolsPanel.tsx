@@ -1,6 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Copy, Download, FileAudio, Loader2, Music, Play, RefreshCw, Scissors, Search, SlidersHorizontal, Wand2 } from 'lucide-react';
 import { mapNativeLibrarySong } from '../services/nativeLibrary';
+import type { NativeLibrarySong } from '../types';
+import type { TranslationKey } from '../i18n/translations';
+import { stemOf } from '../services/songStems';
+import { ConfirmDialog } from './ConfirmDialog';
 import { MidiTool } from './midi/MidiTool';
 import { useI18n } from '../context/I18nContext';
 import { saveFile } from '../services/saveFile';
@@ -23,11 +27,6 @@ import { StemPlayer } from './StemPlayer';
  * that produce them, which left this page for the tools it is named after.
  */
 
-interface LibrarySong {
-  id: string;
-  title: string;
-  audio_path?: string | null;
-}
 
 interface SeparationStatus {
   model: { label: string; bytes: number; installed: boolean; note: string };
@@ -65,11 +64,13 @@ const megabytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(0)} MB`;
 export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | null } = {}): React.ReactElement {
   const { t } = useI18n();
 
-  const [songs, setSongs] = useState<LibrarySong[]>([]);
+  const [songs, setSongs] = useState<NativeLibrarySong[]>([]);
   const [songId, setSongId] = useState('');
   const [status, setStatus] = useState<SeparationStatus | null>(null);
   const [stems, setStems] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  // separating again replaces the stems the song has: asked first
+  const [confirmReplace, setConfirmReplace] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [asrModels, setAsrModels] = useState<CatalogModel[]>([]);
@@ -84,7 +85,7 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
 
   const loadSongs = useCallback(async () => {
     const body = await fetch('/v1/library/songs').then(response => response.json());
-    const list: LibrarySong[] = Array.isArray(body) ? body : body.songs ?? [];
+    const list: NativeLibrarySong[] = Array.isArray(body) ? body : body.songs ?? [];
     const playable = list.filter(song => song.audio_path);
     setSongs(playable);
     setSongId(current => current || playable[0]?.id || '');
@@ -138,6 +139,12 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
     await fetch('/v1/separation/install', { method: 'POST' }).catch(() => undefined);
     setBusy(false);
   };
+
+  // a stem is a part of a song already: there is nothing in it to separate
+  const chosenIsStem = useMemo(() => {
+    const chosen = songs.find(song => song.id === songId);
+    return chosen ? stemOf(mapNativeLibrarySong(chosen)) !== null : false;
+  }, [songs, songId]);
 
   const separate = async () => {
     if (!songId) return;
@@ -323,13 +330,22 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
 
             <button
               type="button"
-              onClick={() => void separate()}
-              disabled={!status?.ready || !songId || settings.stems.length === 0 || running || busy}
+              onClick={() => (stems.length > 0 ? setConfirmReplace(true) : void separate())}
+              disabled={!status?.ready || !songId || chosenIsStem || settings.stems.length === 0 || running || busy}
               className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg bg-linear-to-r from-orange-500 to-pink-600 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               {running ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
               {stems.length > 0 ? t('stemsAgain') : t('stemsStart')}
             </button>
+            {chosenIsStem && <p className="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('stemOfStem')}</p>}
+            <ConfirmDialog
+              isOpen={confirmReplace}
+              title={t('replaceStemsTitle')}
+              message={t('replaceStemsMessage').replace('{stems}', stems.map(stem => t(`stem_${stem}` as TranslationKey) || stem).join(', '))}
+              confirmLabel={t('replaceStemsConfirm')}
+              onConfirm={() => { setConfirmReplace(false); void separate(); }}
+              onCancel={() => setConfirmReplace(false)}
+            />
           </div>
 
           {status && !status.model.installed && (

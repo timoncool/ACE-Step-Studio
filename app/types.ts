@@ -11,6 +11,8 @@ export interface Song {
   isGenerating?: boolean;
   /** The engine job a generation's row follows. */
   jobId?: string;
+  /** The playlist the song being made goes into. */
+  playlistId?: string;
   /** The job that made a library song; its row becomes this song. */
   madeByJob?: string;
   /** The list row this item is drawn in, when it took over another item's row. */
@@ -21,6 +23,10 @@ export interface Song {
   generationParams?: any;
   tags: string[];
   audioUrl?: string;
+  /** The thumbs-up, kept with the song in the library. */
+  liked?: boolean;
+  /** When it was liked: the liked list is read from the latest. */
+  likedAt?: Date;
   isPublic?: boolean;
   likeCount?: number;
   viewCount?: number;

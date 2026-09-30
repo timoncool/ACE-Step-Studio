@@ -5,7 +5,7 @@ import type { AceCreateRequest, AceJob, AceProgress, Song } from '../types';
 import { STUDIO } from '../studio';
 import { followEngineProgress } from './engineProgress';
 import { mapNativeLibrarySong } from './nativeLibrary';
-import { playlistsChanged, queryClient, readJson, updateLibrarySongs, useLibrarySongs } from './studioQueries';
+import { playlistsChanged, queryClient, readJson, updateLibraryPlaylists, updateLibrarySongs, useLibrarySongs } from './studioQueries';
 
 /**
  * The songs being made, as cards in the list. A card follows its engine job
@@ -40,12 +40,15 @@ interface CardFields {
   lyrics?: string;
   jobId?: string;
   createdAt?: Date;
+  /** The playlist the songs go into. */
+  playlistId?: string;
 }
 
 function card(id: string, fields: CardFields): Song {
   return {
     id,
     jobId: fields.jobId,
+    playlistId: fields.playlistId,
     title: fields.title,
     style: fields.style ?? '',
     lyrics: fields.lyrics ?? '',
@@ -129,7 +132,14 @@ export function useGenerations({ enabled, notify, onFinished }: GenerationOption
       return;
     }
     updateLibrarySongs(songs => [...made.filter(song => !songs.some(entry => entry.id === song.id)), ...songs]);
-    if (job.playlist_id) playlistsChanged();
+    if (job.playlist_id) {
+      // the songs are in their playlist at once, so a list showing it keeps their row
+      const into = job.playlist_id;
+      updateLibraryPlaylists(lists => lists.map(list => (list.id === into
+        ? { ...list, songIds: [...(list.songIds ?? []), ...made.map(song => song.id).filter(id => !(list.songIds ?? []).includes(id))] }
+        : list)));
+      playlistsChanged();
+    }
     onFinished(finished.id, made);
     notify(made.length > 1 ? `${made.length} ${t('tracksReady')}` : t('trackReady'), 'success');
   });
@@ -168,6 +178,7 @@ export function useGenerations({ enabled, notify, onFinished }: GenerationOption
           lyrics: job.lyrics,
           jobId: job.id,
           createdAt: new Date(job.submitted_at),
+          playlistId: job.playlist_id,
         })),
         ...prev,
       ]);
@@ -212,7 +223,7 @@ export function useGenerations({ enabled, notify, onFinished }: GenerationOption
 
   const generate = useCallback(async (request: AceCreateRequest) => {
     const id = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-    setCards(prev => [card(id, { title: request.title?.trim() || t('generating'), style: request.caption, lyrics: request.lyrics }), ...prev]);
+    setCards(prev => [card(id, { title: request.title?.trim() || t('generating'), style: request.caption, lyrics: request.lyrics, playlistId: request.playlist_id }), ...prev]);
     try {
       const response = await fetch('/v1/music/jobs', {
         method: 'POST',

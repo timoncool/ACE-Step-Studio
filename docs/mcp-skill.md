@@ -54,6 +54,16 @@ connected and the address to paste.
   `cover_set_from_file` still works.
 - **Look ids up, never guess them**: `library_songs_list`, `training_status`,
   `dataset_get`, `lora_list`, `models_status`.
+- **What you change is written down where the user reads it.** Every change you make - a
+  song made, edited or deleted, a playlist, stems, karaoke, a dataset, a LoRA, a download -
+  goes into the studio's Activity journal as what was done, to what and its name; reads,
+  `ui_*` and playing leave no line. A tool that writes over what was stored (a song or
+  playlist edit, stems made again, karaoke, a cover) is marked destructive, so your client
+  asks the user first.
+- **A like lives with the song**: `library_liked` (the latest like first) and
+  `library_song_like` work without the window open.
+- **A stem belongs to its song**: the window shows it under the song it was separated
+  from, and `stems_split` on a song that has stems replaces them.
 - **Files on this computer are passed by path**: `dataset_add_folder`,
   `library_import_audio`, `cover_set_from_file`, `video_set`. `library_song_files` and
   `dataset_song_files` give the paths of the studio's own files.

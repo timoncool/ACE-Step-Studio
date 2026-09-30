@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useOpenRouterSettings, useSetupStatus } from '../services/studioQueries';
-import { Disc, Layers, Library, Moon, Newspaper, Search, SlidersHorizontal, Sun } from 'lucide-react';
+import { Bell, Disc, Layers, Library, Moon, Newspaper, Search, SlidersHorizontal, Sun } from 'lucide-react';
 import { View } from '../types';
 import { useI18n } from '../context/I18nContext';
 import { ResourceMonitor } from './ResourceMonitor';
@@ -17,6 +17,10 @@ interface SidebarProps {
   onOpenSettings?: () => void;
   isOpen?: boolean;
   onToggle?: () => void;
+  /** The journal: whether it is open, and how many lines came since it was last read. */
+  journalOpen?: boolean;
+  journalUnread?: number;
+  onToggleJournal?: () => void;
 }
 
 type NativeSetupStatus = {
@@ -89,6 +93,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenSettings,
   isOpen = true,
   onToggle,
+  journalOpen = false,
+  journalUnread = 0,
+  onToggleJournal,
 }) => {
   const { t } = useI18n();
 
@@ -128,6 +135,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <NavItem icon={<Library size={20} />} label={t('library')} active={currentView === 'library'} onClick={() => onNavigate('library')} isExpanded={isOpen} />
           <NavItem icon={<Search size={20} />} label={t('search')} active={currentView === 'search'} onClick={() => onNavigate('search')} isExpanded={isOpen} />
           <NavItem icon={<Newspaper size={20} />} label={t('news')} active={currentView === 'news'} onClick={() => onNavigate('news')} isExpanded={isOpen} />
+          {onToggleJournal && <NavItem icon={<Bell size={20} />} label={t('journal')} active={journalOpen} onClick={onToggleJournal} isExpanded={isOpen} badge={journalUnread} />}
           <NavItem icon={<Layers size={20} />} label={t('adaptersNav')} active={currentView === 'adapters'} onClick={() => onNavigate('adapters')} isExpanded={isOpen} />
           <NavItem icon={<SlidersHorizontal size={20} />} label={t('studioTools')} active={currentView === 'tools'} onClick={() => onNavigate('tools')} isExpanded={isOpen} />
 
@@ -162,12 +170,22 @@ interface NavItemProps {
   active?: boolean;
   onClick: () => void;
   isExpanded?: boolean;
+  /** How many new things wait there. */
+  badge?: number;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ icon, label, active, onClick, isExpanded }) => (
+const NavItem: React.FC<NavItemProps> = ({ icon, label, active, onClick, isExpanded, badge = 0 }) => (
   <button type="button" onClick={onClick} className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-xl transition-all duration-200 ${isExpanded ? 'justify-start px-3 py-2.5' : 'aspect-square justify-center'} ${active ? 'bg-zinc-100 text-black dark:bg-white/10 dark:text-white' : 'text-zinc-500 hover:bg-zinc-100 hover:text-black dark:hover:bg-white/5 dark:hover:text-white'}`} title={label}>
     {active && <span className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-pink-500" />}
-    <span className="shrink-0">{icon}</span>
+    <span className="relative shrink-0">
+      {icon}
+      {badge > 0 && !isExpanded && (
+        <span className="absolute -right-2 -top-1.5 min-w-4 rounded-full bg-pink-600 px-1 text-center text-[10px] font-bold leading-4 text-white">{badge > 99 ? '99+' : badge}</span>
+      )}
+    </span>
     {isExpanded && <span className="truncate text-sm font-medium">{label}</span>}
+    {badge > 0 && isExpanded && (
+      <span className="ml-auto min-w-5 rounded-full bg-pink-600 px-1.5 text-center text-[11px] font-bold leading-5 text-white">{badge > 99 ? '99+' : badge}</span>
+    )}
   </button>
 );

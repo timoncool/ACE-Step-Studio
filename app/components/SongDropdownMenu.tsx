@@ -9,6 +9,7 @@ import { downloadSongAudio } from '../services/songDownload';
 import { openMidi, openStems } from '../services/openStems';
 import { useAuth } from '../context/AuthContext';
 import { ownsSong, useSongActions } from '../context/SongActionsContext';
+import { stemOf } from '../services/songStems';
 import {
     Clapperboard,
     Edit3,
@@ -43,9 +44,11 @@ interface MenuItemProps {
     onClick?: () => void;
     danger?: boolean;
     disabled?: boolean;
+    /** Why a disabled item cannot be used, shown under it. */
+    hint?: string;
 }
 
-const MenuItem: React.FC<MenuItemProps> = ({ icon, label, onClick, danger, disabled }) => (
+const MenuItem: React.FC<MenuItemProps> = ({ icon, label, onClick, danger, disabled, hint }) => (
     <button
         onClick={onClick}
         disabled={disabled}
@@ -57,7 +60,10 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, onClick, danger, disab
         `}
     >
         <span className="w-4 h-4 flex items-center justify-center opacity-70">{icon}</span>
-        <span>{label}</span>
+        <span className="min-w-0">
+            <span className="block">{label}</span>
+            {hint && <span className="block text-xs text-zinc-500">{hint}</span>}
+        </span>
     </button>
 );
 
@@ -251,7 +257,8 @@ export const SongDropdownMenu: React.FC<SongDropdownMenuProps> = ({
                 icon={<Scissors size={14} />}
                 label={t('stemsTitle')}
                 onClick={() => handleAction(() => openStems(song))}
-                disabled={!song.audioUrl}
+                disabled={!song.audioUrl || stemOf(song) !== null}
+                hint={stemOf(song) !== null ? t('stemOfStem') : undefined}
             />
             {actions.reusePrompt && (
                 <MenuItem
