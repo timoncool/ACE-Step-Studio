@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { Song, Playlist } from '../types';
 import { Heart, Plus, Music, Play, Pause, MoreHorizontal, Trash2, Upload, Loader2 } from 'lucide-react';
 import { SongDropdownMenu } from './SongDropdownMenu';
-import { AlbumCover } from './AlbumCover';
+import { AlbumCover, SongCover } from './AlbumCover';
 import { useI18n } from '../context/I18nContext';
 import { captionSummary } from '../services/examples';
 import { named } from '../services/accessibleName';
@@ -108,11 +108,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                     {playing && isPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
                 </span>
 
-                {song.coverUrl ? (
-                    <img src={song.coverUrl} className="w-10 h-10 rounded-sm object-cover shadow-xs" alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                ) : (
-                    <AlbumCover seed={song.id || song.title} size="sm" className="w-10 h-10" />
-                )}
+                <SongCover song={song} size="sm" className="w-10 h-10" />
 
                 <div className="flex-1 min-w-0">
                     <div className={`font-medium truncate ${playing ? 'text-pink-600 dark:text-pink-500' : 'text-zinc-900 dark:text-white'}`}>{number === null ? stemName(song) : song.title}</div>

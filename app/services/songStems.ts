@@ -4,10 +4,15 @@ import type { Song } from '../types';
 const STEM_ORDER = ['vocals', 'drums', 'bass', 'guitar', 'piano', 'other'];
 
 /** Which stem a track is, when a separation made it; null for anything else. */
-export function stemOf(song: Song): string | null {
+export function stemOf(song: Pick<Song, 'derived'>): string | null {
   if (song.derived?.tool !== 'stems') return null;
   const stem = song.derived.settings?.stem;
   return typeof stem === 'string' && stem ? stem : 'other';
+}
+
+/** What a track's placeholder cover - the stock photo or the pattern - is drawn from: a stem wears its song's. */
+export function coverSeed(song: Pick<Song, 'id' | 'title' | 'derived'>): string {
+  return (stemOf(song) !== null && song.derived?.from) || song.id || song.title;
 }
 
 const stemRank = (song: Song) => {

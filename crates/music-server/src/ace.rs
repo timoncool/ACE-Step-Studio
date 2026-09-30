@@ -241,10 +241,6 @@ impl AceClient {
         &self.base_url
     }
 
-    pub fn http(&self) -> &reqwest::Client {
-        &self.http
-    }
-
     fn url(&self, path: &str) -> String {
         format!("{}{path}", self.base_url)
     }

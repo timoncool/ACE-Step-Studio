@@ -29,6 +29,11 @@ music-core = { path = "../music-core" }
 music-engine = { path = "../music-engine" }
 flate2.workspace = true
 id3 = "1.17"
+# The pattern a track without a cover of its own wears (DiceBear, CC0 styles), and
+# the PNG it is written into the track as.
+dicebear-core = "=11.0.0-rc.2"
+dicebear-styles = { version = "=11.0.0-rc.3", default-features = false, features = ["waves", "squircles", "blobs", "constellation", "disco", "glass", "identicon", "landscape", "loops", "marbles", "patchwork", "planets", "rings", "shadows", "shape-grid", "shapes", "slice", "stack", "stripes", "triangles", "weave"] }
+resvg = { version = "0.48", default-features = false }
 reqwest.workspace = true
 hyper-util.workspace = true
 http.workspace = true

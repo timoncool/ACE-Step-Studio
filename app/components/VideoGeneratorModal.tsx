@@ -3,16 +3,21 @@ import { useI18n } from '../context/I18nContext';
 import type { TranslationKey } from '../i18n/translations';
 import { saveFile } from '../services/saveFile';
 import { Song } from '../types';
-import { X, Play, Pause, Download, Wand2, Image as ImageIcon, Music, Video, Loader2, Palette, Layers, Zap, Type, Monitor, Aperture, Activity, Circle, Grid, Box, BarChart2, Waves, Disc, Upload, Plus, Trash2, Settings2, MousePointer2, Search, ExternalLink, Sun, Film, Minus } from 'lucide-react';
+import { X, Play, Pause, Download, Wand2, Image as ImageIcon, Music, Video, Loader2, Palette, Layers, Zap, Type, Monitor, Aperture, Activity, Circle, Grid, Box, BarChart2, Waves, Disc, Plus, Trash2, MousePointer2, Sun, Film, Minus, FolderOpen } from 'lucide-react';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import { createHardwareEncoder, type HardwareEncoder } from '../services/videoEncoder';
 import { lineProgress } from '../services/lrc-parser';
 import { useResponsive } from '../context/ResponsiveContext';
 import { useBridgeCommand } from '../services/mcpBridge';
-import { apiUrl } from '../services/apiBase';
+import { API_BASE, apiUrl } from '../services/apiBase';
 import { trackCoverUrl } from '../services/playerPanels';
 import { STUDIO } from '../studio';
+import { coverLookNow, readJson } from '../services/studioQueries';
+import { DEFAULT_COVER_PATTERN, isCoverPattern, patternArt } from '../services/coverArt';
+import { coverSeed } from '../services/songStems';
+import { CoverRegenModal } from './CoverRegenModal';
+import type { CommonsPhoto, PickedMedia } from './CoverPicker';
 
 interface VideoGeneratorModalProps {
   isOpen: boolean;
@@ -89,19 +94,6 @@ interface TextLayer {
   font: string;
 }
 
-interface PexelsPhoto {
-  id: number;
-  src: { large: string; original: string };
-  photographer: string;
-}
-
-interface PexelsVideo {
-  id: number;
-  image: string;
-  video_files: { link: string; quality: string; width: number }[];
-  user: { name: string };
-}
-
 const PRESETS: { id: PresetType; labelKey: TranslationKey; icon: React.ReactNode }[] = [
   { id: 'NCS Circle', labelKey: 'presetClassicNcs', icon: <Circle size={16} /> },
   { id: 'Linear Bars', labelKey: 'presetSpectrum', icon: <BarChart2 size={16} /> },
@@ -123,6 +115,19 @@ function drawImageCover(ctx: CanvasRenderingContext2D, img: CanvasImageSource, c
   const drawW = imgW * scale;
   const drawH = imgH * scale;
   ctx.drawImage(img, cx - drawW / 2, cy - drawH / 2, drawW, drawH);
+}
+
+/**
+ * An address a canvas may draw from and still be read back: pictures held in
+ * memory and the service's own as they are, anything else through the
+ * service, whose answer carries no cross-origin limits.
+ */
+function drawable(url: string): string {
+  if (/^(data|blob):/.test(url)) return url;
+  if (url.startsWith('/')) return apiUrl(url);
+  if (API_BASE && url.startsWith(`${API_BASE}/`)) return url;
+  if (url.startsWith(`${location.origin}/`)) return url;
+  return apiUrl(`/v1/proxy/image?url=${encodeURIComponent(url)}`);
 }
 
 function ColumnsIcon() {
@@ -157,8 +162,6 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const bgImageRef = useRef<HTMLImageElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoFileInputRef = useRef<HTMLInputElement>(null);
 
   // FFmpeg Refs
   const ffmpegRef = useRef<FFmpeg | null>(null);
@@ -180,21 +183,15 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
 
   // Custom Album Art
   const [customAlbumArt, setCustomAlbumArt] = useState<string | null>(null);
-  const albumArtInputRef = useRef<HTMLInputElement>(null);
   const albumArtImageRef = useRef<HTMLImageElement | null>(null);
 
-  // Pexels Browser State
-  const [showPexelsBrowser, setShowPexelsBrowser] = useState(false);
-  const [pexelsTarget, setPexelsTarget] = useState<'background' | 'albumArt'>('background');
-  const [pexelsTab, setPexelsTab] = useState<'photos' | 'videos'>('photos');
-  const [pexelsQuery, setPexelsQuery] = useState('abstract');
-  const [pexelsPhotos, setPexelsPhotos] = useState<PexelsPhoto[]>([]);
-  const [pexelsVideos, setPexelsVideos] = useState<PexelsVideo[]>([]);
-  const [pexelsLoading, setPexelsLoading] = useState(false);
-  const [pexelsApiKey, setPexelsApiKey] = useState<string>(() => localStorage.getItem('pexels_api_key') || '');
-  const [showPexelsApiKeyInput, setShowPexelsApiKeyInput] = useState(false);
-  const [pexelsError, setPexelsError] = useState<string | null>(null);
-  
+  // The picture window, open for the background or for the centre
+  const [pickerFor, setPickerFor] = useState<'background' | 'center' | null>(null);
+  // The random background: a photograph the song's style calls up, or its
+  // pattern when there is none to be had, and why.
+  const [randomBackground, setRandomBackground] = useState<string | null>(null);
+  const [randomProblem, setRandomProblem] = useState<string | null>(null);
+
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [exportStage, setExportStage] = useState<'idle' | 'capturing' | 'encoding'>('idle');
@@ -483,25 +480,55 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
     }
   }, [ffmpegLoading, exportStage]);
 
+  // The random background: another photograph the song's style calls up each
+  // time random is pressed, the song's pattern when Commons has none to give.
+  const songSeed = song ? coverSeed(song) : '';
+  const songStyle = song?.style ?? '';
+  useEffect(() => {
+    if (!isOpen || !songSeed || backgroundType !== 'random') return;
+    let current = true;
+    (async () => {
+      const { scenes } = await readJson<{ scenes: string[] }>(`/v1/media/scenes?style=${encodeURIComponent(songStyle)}`);
+      const scene = scenes[backgroundSeed % scenes.length];
+      const { photos } = await readJson<{ photos: CommonsPhoto[] }>(`/v1/media/photos?q=${encodeURIComponent(scene)}`);
+      if (!photos.length) throw new Error(`Commons has no photograph for "${scene}"`);
+      return photos[Math.floor(backgroundSeed / scenes.length) % photos.length].large;
+    })()
+      .then(url => {
+        if (!current) return;
+        setRandomBackground(url);
+        setRandomProblem(null);
+      })
+      .catch(reason => {
+        if (!current) return;
+        console.error('[ERROR] the random background:', reason);
+        const look = coverLookNow();
+        setRandomBackground(patternArt(`${songSeed}~${backgroundSeed}`, isCoverPattern(look?.pattern) ? look.pattern : DEFAULT_COVER_PATTERN, 1920));
+        setRandomProblem(reason instanceof Error ? reason.message : String(reason));
+      });
+    return () => { current = false; };
+  }, [isOpen, songSeed, songStyle, backgroundType, backgroundSeed]);
+
   // Load Background Image
   useEffect(() => {
     if (backgroundType === 'video') {
       bgImageRef.current = null;
       return;
     }
-
+    const source = backgroundType === 'custom' && customImage ? customImage : randomBackground;
+    if (!source) return;
+    let current = true;
     const img = new Image();
-    img.crossOrigin = "Anonymous";
-    if (backgroundType === 'custom' && customImage) {
-      img.src = customImage;
-    } else {
-      const bgRes = RESOLUTIONS[config.aspectRatio || '16:9'];
-      img.src = `https://picsum.photos/seed/${backgroundSeed}/${bgRes.width}/${bgRes.height}?blur=4`;
-    }
+    img.crossOrigin = 'anonymous';
+    img.src = drawable(source);
     img.onload = () => {
-      bgImageRef.current = img;
+      if (current) bgImageRef.current = img;
     };
-  }, [backgroundSeed, backgroundType, customImage]);
+    img.onerror = () => {
+      console.error('[ERROR] the background picture did not load:', source);
+    };
+    return () => { current = false; };
+  }, [backgroundType, customImage, randomBackground]);
 
   // Load Background Video
   useEffect(() => {
@@ -548,8 +575,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
     if (!albumArtSource) return;
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    // External pictures come through the service, which the canvas may read.
-    img.src = albumArtSource.startsWith('http') ? `/v1/proxy/image?url=${encodeURIComponent(albumArtSource)}` : albumArtSource;
+    img.src = drawable(albumArtSource);
     img.onload = () => {
       albumArtImageRef.current = img;
     };
@@ -688,19 +714,17 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
 
   const loadImageAsDataUrl = async (url: string): Promise<string | null> => {
     try {
-      // Use proxy for external URLs to avoid CORS issues
-      const isExternal = url.startsWith('http') && !url.includes(window.location.host);
-      const fetchUrl = isExternal ? `/v1/proxy/image?url=${encodeURIComponent(url)}` : url;
-
-      const response = await fetch(fetchUrl);
+      const response = await fetch(drawable(url));
+      if (!response.ok) throw new Error(`the picture answered ${response.status}`);
       const blob = await response.blob();
-      return new Promise((resolve) => {
+      return await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => resolve(null);
+        reader.onerror = () => reject(reader.error);
         reader.readAsDataURL(blob);
       });
-    } catch {
+    } catch (error) {
+      console.error('[ERROR] the centre picture did not load for the render:', url, error);
       return null;
     }
   };
@@ -1289,120 +1313,17 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
     // This is kept for compatibility but offline render runs to completion
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            const result = ev.target?.result as string;
-            setCustomImage(result);
-            setBackgroundType('custom');
-        };
-        reader.readAsDataURL(file);
-    }
-  };
-
-  const handleVideoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setVideoUrl(url);
+  // What the picture window hands back: a picture or a clip for the
+  // background, a picture for the centre.
+  const applyPicked = (choice: PickedMedia) => {
+    if (pickerFor === 'center') {
+      setCustomAlbumArt(choice.url);
+    } else if (choice.kind === 'video') {
+      setVideoUrl(choice.url);
       setBackgroundType('video');
-    }
-  };
-
-  const searchPexels = async (query: string, type: 'photos' | 'videos') => {
-    setPexelsLoading(true);
-    setPexelsError(null);
-    try {
-      // Pexels is called directly. The old server route existed only to attach
-      // the key; the key belongs to the user and is already stored locally.
-      if (!pexelsApiKey) {
-        setPexelsError('API key required');
-        setShowPexelsApiKeyInput(true);
-        return;
-      }
-      const endpoint = type === 'photos'
-        ? `https://api.pexels.com/v1/search?per_page=24&query=${encodeURIComponent(query)}`
-        : `https://api.pexels.com/videos/search?per_page=24&query=${encodeURIComponent(query)}`;
-
-      const response = await fetch(endpoint, { headers: { Authorization: pexelsApiKey } });
-      const data = await response.json();
-
-      if (!response.ok) {
-        if (response.status === 400 || response.status === 401) {
-          setPexelsError(data.error || 'API key required');
-          setShowPexelsApiKeyInput(true);
-        } else {
-          setPexelsError(data.error || 'Search failed');
-        }
-        return;
-      }
-
-      if (type === 'photos') {
-        setPexelsPhotos(data.photos || []);
-      } else {
-        setPexelsVideos(data.videos || []);
-      }
-    } catch (error) {
-      console.error('Pexels search failed:', error);
-      setPexelsError('Search failed. Please try again.');
-    } finally {
-      setPexelsLoading(false);
-    }
-  };
-
-  const savePexelsApiKey = (key: string) => {
-    setPexelsApiKey(key);
-    localStorage.setItem('pexels_api_key', key);
-    setShowPexelsApiKeyInput(false);
-    setPexelsError(null);
-    // Retry search with new key
-    if (key) {
-      searchPexels(pexelsQuery, pexelsTab);
-    }
-  };
-
-  const selectPexelsPhoto = (photo: PexelsPhoto) => {
-    if (pexelsTarget === 'albumArt') {
-      setCustomAlbumArt(photo.src.large);
     } else {
-      setCustomImage(photo.src.large);
+      setCustomImage(choice.url);
       setBackgroundType('custom');
-    }
-    setShowPexelsBrowser(false);
-  };
-
-  const selectPexelsVideo = (video: PexelsVideo) => {
-    // Get best quality video file (prefer HD)
-    const hdFile = video.video_files.find(f => f.quality === 'hd' && f.width >= 1280);
-    const sdFile = video.video_files.find(f => f.quality === 'sd');
-    const videoFile = hdFile || sdFile || video.video_files[0];
-    if (videoFile) {
-      setVideoUrl(videoFile.link);
-      setBackgroundType('video');
-      setShowPexelsBrowser(false);
-    }
-  };
-
-  const openPexelsBrowser = (target: 'background' | 'albumArt' = 'background', tab: 'photos' | 'videos' = 'photos') => {
-    setPexelsTarget(target);
-    setPexelsTab(target === 'albumArt' ? 'photos' : tab); // Album art is always photos
-    setShowPexelsBrowser(true);
-    const searchTab = target === 'albumArt' ? 'photos' : tab;
-    if ((searchTab === 'photos' && pexelsPhotos.length === 0) || (searchTab === 'videos' && pexelsVideos.length === 0)) {
-      searchPexels(pexelsQuery, searchTab);
-    }
-  };
-
-  const handleAlbumArtUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setCustomAlbumArt(ev.target?.result as string);
-      };
-      reader.readAsDataURL(file);
     }
   };
 
@@ -2517,23 +2438,30 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                      </button>
                                 </div>
 
+                                {/* Random: a photograph for the song's style */}
+                                {backgroundType === 'random' && (
+                                    <div className="space-y-2">
+                                        {randomBackground && (
+                                            <div className="relative rounded-sm overflow-hidden h-20">
+                                                <img src={randomBackground} alt="" className="w-full h-full object-cover" />
+                                            </div>
+                                        )}
+                                        <p className="text-[10px] leading-4 text-zinc-500">{t('bgRandomHint')}</p>
+                                        {randomProblem && (
+                                            <p className="text-[10px] leading-4 text-amber-400">{t('bgRandomFailed').replace('{reason}', () => randomProblem)}</p>
+                                        )}
+                                    </div>
+                                )}
+
                                 {/* Image Options */}
                                 {backgroundType === 'custom' && (
                                     <div className="space-y-2">
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <button
-                                                onClick={() => fileInputRef.current?.click()}
-                                                className="py-2 px-3 bg-zinc-700 hover:bg-zinc-600 rounded-sm text-xs text-white flex items-center justify-center gap-1"
-                                            >
-                                                <Upload size={12}/> {t('upload')}
-                                            </button>
-                                            <button
-                                                onClick={() => openPexelsBrowser('background', 'photos')}
-                                                className="py-2 px-3 bg-emerald-600 hover:bg-emerald-700 rounded-sm text-xs text-white flex items-center justify-center gap-1"
-                                            >
-                                                <Search size={12}/> Pexels
-                                            </button>
-                                        </div>
+                                        <button
+                                            onClick={() => setPickerFor('background')}
+                                            className="w-full py-2 px-3 bg-zinc-700 hover:bg-zinc-600 rounded-sm text-xs text-white flex items-center justify-center gap-1"
+                                        >
+                                            <FolderOpen size={12}/> {t('pickerChoose')}
+                                        </button>
                                         {customImage && (
                                             <div className="relative rounded-sm overflow-hidden h-20">
                                                 <img src={customImage} alt="Background" className="w-full h-full object-cover" />
@@ -2545,20 +2473,12 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                 {/* Video Options */}
                                 {backgroundType === 'video' && (
                                     <div className="space-y-2">
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <button
-                                                onClick={() => videoFileInputRef.current?.click()}
-                                                className="py-2 px-3 bg-zinc-700 hover:bg-zinc-600 rounded-sm text-xs text-white flex items-center justify-center gap-1"
-                                            >
-                                                <Upload size={12}/> {t('upload')}
-                                            </button>
-                                            <button
-                                                onClick={() => openPexelsBrowser('background', 'videos')}
-                                                className="py-2 px-3 bg-emerald-600 hover:bg-emerald-700 rounded-sm text-xs text-white flex items-center justify-center gap-1"
-                                            >
-                                                <Search size={12}/> Pexels
-                                            </button>
-                                        </div>
+                                        <button
+                                            onClick={() => setPickerFor('background')}
+                                            className="w-full py-2 px-3 bg-zinc-700 hover:bg-zinc-600 rounded-sm text-xs text-white flex items-center justify-center gap-1"
+                                        >
+                                            <FolderOpen size={12}/> {t('pickerChoose')}
+                                        </button>
                                         <input
                                             type="text"
                                             placeholder={t('orPasteVideoUrl')}
@@ -2577,22 +2497,6 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                         )}
                                     </div>
                                 )}
-
-                                {/* Hidden File Inputs */}
-                                <input
-                                    type="file"
-                                    ref={fileInputRef}
-                                    onChange={handleFileUpload}
-                                    className="hidden"
-                                    accept="image/*"
-                                />
-                                <input
-                                    type="file"
-                                    ref={videoFileInputRef}
-                                    onChange={handleVideoFileUpload}
-                                    className="hidden"
-                                    accept="video/*"
-                                />
 
                                 <div>
                                     <div className="flex justify-between text-sm text-zinc-300 mb-2">
@@ -2708,20 +2612,12 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                         )}
                                     </div>
                                     <div className="flex-1 space-y-2">
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <button
-                                                onClick={() => albumArtInputRef.current?.click()}
-                                                className="py-1.5 px-2 bg-zinc-700 hover:bg-zinc-600 rounded-sm text-[10px] text-white flex items-center justify-center gap-1"
-                                            >
-                                                <Upload size={10}/> {t('upload')}
-                                            </button>
-                                            <button
-                                                onClick={() => openPexelsBrowser('albumArt')}
-                                                className="py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 rounded-sm text-[10px] text-white flex items-center justify-center gap-1"
-                                            >
-                                                <Search size={10}/> Pexels
-                                            </button>
-                                        </div>
+                                        <button
+                                            onClick={() => setPickerFor('center')}
+                                            className="w-full py-1.5 px-2 bg-zinc-700 hover:bg-zinc-600 rounded-sm text-[10px] text-white flex items-center justify-center gap-1"
+                                        >
+                                            <FolderOpen size={10}/> {t('pickerChoose')}
+                                        </button>
                                         {customAlbumArt && (
                                             <button
                                                 onClick={() => setCustomAlbumArt(null)}
@@ -2732,13 +2628,6 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                         )}
                                     </div>
                                 </div>
-                                <input
-                                    type="file"
-                                    ref={albumArtInputRef}
-                                    onChange={handleAlbumArtUpload}
-                                    className="hidden"
-                                    accept="image/*"
-                                />
                             </div>
                         </div>
                     </div>
@@ -3051,200 +2940,15 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
 
       </div>
 
-      {/* Pexels Browser Modal */}
-      {showPexelsBrowser && (
-        <div className="fixed inset-0 z-70 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4">
-          <div className="bg-zinc-900 w-full max-w-4xl max-h-[80vh] rounded-2xl border border-white/10 flex flex-col overflow-hidden">
-            {/* Header */}
-            <div className="p-4 border-b border-white/10 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-emerald-600 rounded-lg">
-                  <ExternalLink size={18} className="text-white" />
-                </div>
-                <div>
-                  <h3 className="text-white font-bold">
-                    {pexelsTarget === 'albumArt' ? t('selectCenterImage') : t('selectBackground')}
-                  </h3>
-                  <p className="text-zinc-500 text-xs">
-                    {pexelsTarget === 'albumArt' ? 'Choose an image for the center circle' : 'Free stock photos & videos'}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowPexelsApiKeyInput(!showPexelsApiKeyInput)}
-                  className={`p-2 hover:bg-white/10 rounded-lg ${pexelsApiKey ? 'text-emerald-400' : 'text-amber-400'}`}
-                  title={pexelsApiKey ? 'API key configured' : 'Set API key'}
-                >
-                  <Settings2 size={20} />
-                </button>
-                <button onClick={() => setShowPexelsBrowser(false)} className="p-2 hover:bg-white/10 rounded-lg text-zinc-400">
-                  <X size={20} />
-                </button>
-              </div>
-            </div>
-
-            {/* API Key Input */}
-            {showPexelsApiKeyInput && (
-              <div className="p-4 bg-zinc-800/50 border-b border-white/10 space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-zinc-300">{t('pexelsApiKey')}</label>
-                  <a
-                    href="https://www.pexels.com/api/new/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-emerald-400 hover:underline flex items-center gap-1"
-                  >
-                    Get free API key <ExternalLink size={10} />
-                  </a>
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="password"
-                    value={pexelsApiKey}
-                    onChange={(e) => setPexelsApiKey(e.target.value)}
-                    placeholder={t('enterPexelsApiKey')}
-                    className="flex-1 bg-zinc-900 rounded-lg px-4 py-2 text-sm text-white border border-white/10 placeholder-zinc-500"
-                  />
-                  <button
-                    onClick={() => savePexelsApiKey(pexelsApiKey)}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-white font-bold text-sm"
-                  >
-                    {t('save')}
-                  </button>
-                </div>
-                <p className="text-xs text-zinc-500">{t('apiKeyStoredLocally')}</p>
-              </div>
-            )}
-
-            {/* Error Message */}
-            {pexelsError && (
-              <div className="px-4 py-2 bg-red-500/10 border-b border-red-500/20 text-red-400 text-sm flex items-center gap-2">
-                <span>{pexelsError}</span>
-                {!pexelsApiKey && (
-                  <button
-                    onClick={() => setShowPexelsApiKeyInput(true)}
-                    className="text-red-300 underline hover:text-red-200"
-                  >
-                    {t('setApiKey')}
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Tabs & Search */}
-            <div className="p-4 border-b border-white/10 space-y-3">
-              {pexelsTarget !== 'albumArt' && (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => { setPexelsTab('photos'); searchPexels(pexelsQuery, 'photos'); }}
-                  className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 ${pexelsTab === 'photos' ? 'bg-emerald-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}
-                >
-                  <ImageIcon size={14} /> {t('pexelsPhotos')}
-                </button>
-                <button
-                  onClick={() => { setPexelsTab('videos'); searchPexels(pexelsQuery, 'videos'); }}
-                  className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 ${pexelsTab === 'videos' ? 'bg-emerald-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}
-                >
-                  <Video size={14} /> {t('pexelsVideos')}
-                </button>
-              </div>
-              )}
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={pexelsQuery}
-                  onChange={(e) => setPexelsQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && searchPexels(pexelsQuery, pexelsTab)}
-                  placeholder={t('searchBackgrounds')}
-                  className="flex-1 bg-zinc-800 rounded-lg px-4 py-2 text-sm text-white border border-white/10 placeholder-zinc-500"
-                />
-                <button
-                  onClick={() => searchPexels(pexelsQuery, pexelsTab)}
-                  disabled={pexelsLoading}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-white font-bold text-sm flex items-center gap-2 disabled:opacity-50"
-                >
-                  {pexelsLoading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-                  {t('search')}
-                </button>
-              </div>
-              {/* Quick Tags */}
-              <div className="flex flex-wrap gap-2">
-                {['abstract', 'nature', 'city', 'space', 'neon', 'particles', 'smoke', 'fire', 'water', 'technology'].map(tag => (
-                  <button
-                    key={tag}
-                    onClick={() => { setPexelsQuery(tag); searchPexels(tag, pexelsTab); }}
-                    className="px-3 py-1 bg-zinc-800 hover:bg-zinc-700 rounded-full text-xs text-zinc-400 hover:text-white capitalize"
-                  >
-                    {tag}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Results Grid */}
-            <div className="flex-1 overflow-y-auto p-4">
-              {pexelsLoading ? (
-                <div className="flex items-center justify-center h-48">
-                  <Loader2 size={32} className="animate-spin text-emerald-500" />
-                </div>
-              ) : pexelsTab === 'photos' ? (
-                <div className="grid grid-cols-3 gap-3">
-                  {pexelsPhotos.map(photo => (
-                    <button
-                      key={photo.id}
-                      onClick={() => selectPexelsPhoto(photo)}
-                      className="relative group rounded-lg overflow-hidden aspect-video bg-zinc-800"
-                    >
-                      <img src={photo.src.large} alt="" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <span className="text-white text-xs font-bold bg-emerald-600 px-3 py-1 rounded-full">{t('select')}</span>
-                      </div>
-                      <div className="absolute bottom-0 left-0 right-0 p-2 bg-linear-to-t from-black/80 to-transparent">
-                        <p className="text-[10px] text-zinc-300 truncate">by {photo.photographer}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="grid grid-cols-3 gap-3">
-                  {pexelsVideos.map(video => (
-                    <button
-                      key={video.id}
-                      onClick={() => selectPexelsVideo(video)}
-                      className="relative group rounded-lg overflow-hidden aspect-video bg-zinc-800"
-                    >
-                      <img src={video.image} alt="" className="w-full h-full object-cover" />
-                      <div className="absolute top-2 right-2 bg-black/60 px-2 py-0.5 rounded-sm text-[10px] text-white font-bold">
-                        <Video size={10} className="inline mr-1" />{t('videoBadge')}
-                      </div>
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <span className="text-white text-xs font-bold bg-emerald-600 px-3 py-1 rounded-full">{t('select')}</span>
-                      </div>
-                      <div className="absolute bottom-0 left-0 right-0 p-2 bg-linear-to-t from-black/80 to-transparent">
-                        <p className="text-[10px] text-zinc-300 truncate">by {video.user.name}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {!pexelsLoading && pexelsPhotos.length === 0 && pexelsTab === 'photos' && (
-                <p className="text-center text-zinc-500 py-8">{t('noPhotosFound')}</p>
-              )}
-              {!pexelsLoading && pexelsVideos.length === 0 && pexelsTab === 'videos' && (
-                <p className="text-center text-zinc-500 py-8">{t('noVideosFound')}</p>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="p-3 border-t border-white/10 bg-zinc-800/50">
-              <p className="text-[10px] text-zinc-500 text-center">
-                {t('pexelsAttribution')}
-              </p>
-            </div>
-          </div>
-        </div>
+      {/* The same picture window as a track's cover, handing its choice back */}
+      {pickerFor && song && (
+        <CoverRegenModal
+          song={song}
+          purpose={pickerFor}
+          startOn={pickerFor === 'background' && backgroundType === 'video' ? 'video' : 'photo'}
+          onPicked={applyPicked}
+          onClose={() => setPickerFor(null)}
+        />
       )}
     </div>
   );

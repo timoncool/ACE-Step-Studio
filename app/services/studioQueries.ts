@@ -104,6 +104,51 @@ export function useActivity() {
   });
 }
 
+export interface CoverLook {
+  /** A photograph that fits the track's style; off, the track's pattern. */
+  photo: boolean;
+  pattern: string;
+  /** The placeholder is written into the track, and into an MP3's tags. */
+  keep: boolean;
+  patterns: string[];
+  /** Why the last photograph could not be fetched, until one is. */
+  problem?: string | null;
+}
+
+const coverLookKey = ['cover-look'] as const;
+
+/** How a track without a cover of its own looks. */
+export function useCoverLook(poll = false) {
+  return useQuery({
+    queryKey: coverLookKey,
+    queryFn: () => readJson<CoverLook>('/v1/covers/look'),
+    staleTime: Infinity,
+    refetchInterval: poll ? 5_000 : false,
+  });
+}
+
+export function coverLookChanged(): void {
+  void queryClient.invalidateQueries({ queryKey: coverLookKey });
+}
+
+/** The look as this window last read it, for code outside a component. */
+export function coverLookNow(): CoverLook | undefined {
+  return queryClient.getQueryData<CoverLook>(coverLookKey);
+}
+
+/** Changes the look; the service writes it into the tracks that wear the old one. */
+export async function changeCoverLook(change: Partial<Pick<CoverLook, 'photo' | 'pattern' | 'keep'>>): Promise<CoverLook> {
+  const response = await fetch('/v1/covers/look', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(change),
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(body?.error || `/v1/covers/look answered ${response.status}`);
+  queryClient.setQueryData(coverLookKey, body as CoverLook);
+  return body as CoverLook;
+}
+
 const libraryKey = ['library'] as const;
 const librarySongsKey = [...libraryKey, 'songs'] as const;
 const libraryPlaylistsKey = [...libraryKey, 'playlists'] as const;
@@ -160,6 +205,7 @@ if (typeof window !== 'undefined') {
     karaokeStatusChanged();
     assistantStatusChanged();
     openRouterSettingsChanged();
+    coverLookChanged();
   });
   window.addEventListener('studio:models-changed', setupStatusChanged);
   // six stems or a batch delete arrive as one burst and are read once

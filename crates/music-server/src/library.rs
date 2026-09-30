@@ -139,7 +139,14 @@ impl Library {
  /// Stores a cover image next to the track audio and records its filename in
  /// the song metadata. Covers are a Studio-side concept: the engine never sees
  /// them, so they are stored as plain media rather than in the request record.
- pub fn store_song_cover(&self,id:&str,image:&[u8],media_type:&str)->Result<Song>{
+ pub fn store_song_cover(&self,id:&str,image:&[u8],media_type:&str)->Result<Song>{self.store_cover(id,image,media_type,None,None)}
+ /// A cover chosen for the track that came from somewhere: the page it is
+ /// recorded with says where and under what terms.
+ pub fn store_chosen_cover(&self,id:&str,image:&[u8],media_type:&str,source:Option<&str>)->Result<Song>{self.store_cover(id,image,media_type,None,source)}
+ /// A placeholder written into a track as its cover, recorded with the look it
+ /// was drawn with: a change of look draws it again, a real cover replaces it.
+ pub fn store_placeholder_cover(&self,id:&str,image:&[u8],media_type:&str,look:&str,source:Option<&str>)->Result<Song>{self.store_cover(id,image,media_type,Some(look),source)}
+ fn store_cover(&self,id:&str,image:&[u8],media_type:&str,placeholder:Option<&str>,source:Option<&str>)->Result<Song>{
   if image.is_empty(){anyhow::bail!("cannot store an empty cover image")}
   // The declared type is a claim, the magic numbers are the fact. A model that
   // answered with a JPEG had it stored as `image/png`, and the tag inside the
@@ -161,11 +168,31 @@ impl Library {
   if let Some(fields)=song.metadata.as_object_mut(){
    fields.insert("cover_filename".into(),serde_json::Value::String(filename.clone()));
    fields.insert("cover_media_type".into(),serde_json::Value::String(format!("image/{}",if extension=="jpg"{"jpeg"}else{extension})));
+   match placeholder{Some(look)=>{fields.insert("cover_placeholder".into(),serde_json::Value::String(look.to_owned()));}None=>{fields.remove("cover_placeholder");}}
+   match source{Some(page)=>{fields.insert("cover_source".into(),serde_json::Value::String(page.to_owned()));}None=>{fields.remove("cover_source");}}
   }
   song.updated_at=now();
   if let Err(error)=self.save_song(&song){let _=fs::remove_file(&target);return Err(error.context("store song cover record"))}
   if let Some(previous)=previous.filter(|previous|previous!=&filename){let _=fs::remove_file(self.media_dir.join(previous));}
+  // a stem wears its song's cover: a new one reaches the stems separated from it
+  let separated=|other:&Song|other.metadata.pointer("/derived/tool").and_then(|v|v.as_str())==Some("stems")&&other.metadata.pointer("/derived/from").and_then(|v|v.as_str())==Some(id);
+  for stem in self.list_songs()?.into_iter().filter(separated){
+   if let Err(error)=self.store_cover(&stem.id,image,media_type,placeholder,source){eprintln!("[ERROR] the cover of {id} did not reach its stem {}: {error:#}",stem.id)}
+  }
   Ok(song)
+ }
+ /// Takes a placeholder back out of a track. A cover of its own stays.
+ pub fn remove_placeholder_cover(&self,id:&str)->Result<Option<Song>>{
+  let Some(mut song)=self.get_song(id)? else{anyhow::bail!("song not found")};
+  if song.metadata.get("cover_placeholder").is_none(){return Ok(None)}
+  let filename=song.metadata.get("cover_filename").and_then(|v|v.as_str()).map(str::to_owned);
+  if let Some(fields)=song.metadata.as_object_mut(){
+   for key in ["cover_filename","cover_media_type","cover_placeholder","cover_source"]{fields.remove(key);}
+  }
+  song.updated_at=now();
+  self.save_song(&song).context("take the placeholder cover out of the record")?;
+  if let Some(filename)=filename{let _=fs::remove_file(self.media_dir.join(filename));}
+  Ok(Some(song))
  }
  pub fn cover_path_for_song(&self,song:&Song)->Option<(PathBuf,String)>{
   let filename=song.metadata.get("cover_filename")?.as_str()?;
@@ -416,6 +443,25 @@ mod edit_tests {
         assert!(taken_back.metadata.get("liked").is_none() && taken_back.metadata.get("liked_at").is_none());
         assert_eq!(taken_back.metadata["tags"][0], "t", "the rest of the metadata stays");
         assert!(db.set_song_liked("gone", true).unwrap().is_none());
+        drop(db);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn a_stem_wears_the_cover_its_song_gets() {
+        let root = std::env::temp_dir().join(format!("library-stem-cover-{}", uuid::Uuid::now_v7().simple()));
+        let db = Library::open_at(root.join("library.sqlite"), root.join("media")).unwrap();
+        let song = |title: &str, metadata: serde_json::Value| db.create_song(SongInput { title: title.into(), audio_path: None, caption: String::new(), lyrics: String::new(), metadata, generation_settings: serde_json::Value::Null, engine_id: "manual".into(), profile_id: None, replay_request: None, audio_codes: None, source: "manual".into() }).unwrap().id;
+        let night = song("Night", serde_json::json!({}));
+        let vocals = song("Night · vocals", serde_json::json!({ "derived": { "from": night, "from_title": "Night", "tool": "stems", "settings": { "stem": "vocals" } } }));
+        let cover = song("Night · cover", serde_json::json!({ "derived": { "from": night, "from_title": "Night", "tool": "cover" } }));
+        let png = [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3];
+        db.store_song_cover(&night, &png, "image/png").unwrap();
+        let stem = db.get_song(&vocals).unwrap().unwrap();
+        let (path, media_type) = db.cover_path_for_song(&stem).expect("the stem has the song's cover");
+        assert_eq!(fs::read(path).unwrap(), png);
+        assert_eq!(media_type, "image/png");
+        assert!(db.get_song(&cover).unwrap().unwrap().metadata.get("cover_filename").is_none(), "a cover version is a song of its own");
         drop(db);
         let _ = fs::remove_dir_all(root);
     }

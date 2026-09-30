@@ -10,7 +10,7 @@ import { useI18n } from '../context/I18nContext';
 import { openExternal } from '../services/externalLinks';
 import { apiUrl } from '../services/apiBase';
 import { SongDropdownMenu } from './SongDropdownMenu';
-import { AlbumCover } from './AlbumCover';
+import { SongCover } from './AlbumCover';
 import { downloadSongAudio } from '../services/songDownload';
 import { saveFile } from '../services/saveFile';
 import { localized, useAdapterLibrary, usesFromSettings } from '../services/adapters';
@@ -256,10 +256,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                         className="group relative aspect-square w-full rounded-xl overflow-hidden shadow-2xl bg-zinc-200 dark:bg-zinc-800 ring-1 ring-black/5 dark:ring-white/10 cursor-pointer"
                         onClick={() => onPlay?.(song)}
                     >
-                        {song.coverUrl ? (
-                            <img src={song.coverUrl} alt={song.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                        ) : null}
-                        {!song.coverUrl && <AlbumCover seed={song.id || song.title} size="full" className="w-full h-full" />}
+                        <SongCover song={song} size="full" className="w-full h-full transition-transform duration-700 group-hover:scale-105" />
 
                         {/* Overlay Gradient */}
                         <div className="absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-transparent opacity-60"></div>

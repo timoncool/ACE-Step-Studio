@@ -9,6 +9,7 @@ mod listen;
 mod prepare;
 mod auto_title;
 mod tagging;
+mod cover_art;
 mod cover_prompt;
 mod providers;
 mod assistant;
@@ -111,6 +112,13 @@ struct AppState {
     separation_config: Arc<RwLock<separation::SeparationConfig>>,
     /// Draw a cover as soon as a track is finished.
     cover_auto: Arc<RwLock<bool>>,
+    /// How a track without a cover of its own looks, and whether that look is
+    /// written into the track.
+    cover_look: Arc<RwLock<cover_art::CoverLook>>,
+    /// Why the last photo for a track could not be fetched, until one is.
+    cover_problem: Arc<RwLock<Option<String>>>,
+    /// One pass over the library at a time writes placeholders into tracks.
+    cover_pinning: Arc<tokio::sync::Mutex<()>>,
     /// What is being done to finished tracks right now - covers, karaoke - so
     /// the interface can say it instead of leaving the user guessing.
     activity: Arc<RwLock<Vec<Activity>>>,
@@ -379,6 +387,8 @@ struct PersistedStudioSettings {
     #[serde(default)]
     cover_auto: Option<bool>,
     #[serde(default)]
+    cover_look: Option<cover_art::CoverLook>,
+    #[serde(default)]
     proxy: Option<net::ProxySettings>,
     /// Access from other computers, off unless turned on.
     #[serde(default)]
@@ -637,6 +647,11 @@ pub async fn serve() -> anyhow::Result<()> {
         cover_auto: Arc::new(RwLock::new(
             persisted.as_ref().and_then(|settings| settings.cover_auto).unwrap_or(false),
         )),
+        cover_look: Arc::new(RwLock::new(
+            persisted.as_ref().and_then(|settings| settings.cover_look.clone()).unwrap_or_default().checked(),
+        )),
+        cover_problem: Arc::new(RwLock::new(None)),
+        cover_pinning: Arc::new(tokio::sync::Mutex::new(())),
         separation_config: Arc::new(RwLock::new(
             persisted.as_ref().and_then(|settings| settings.separation.clone()).unwrap_or_default(),
         )),
@@ -685,7 +700,14 @@ pub async fn serve() -> anyhow::Result<()> {
     processing::clear_workspace(state.library.media_dir());
     state.training.recover();
     prepare::resume(&state);
-    tokio::spawn(tag_untagged_songs(state.clone()));
+    {
+        let state = state.clone();
+        // both rewrite the tags of stored tracks, so one after the other
+        tokio::spawn(async move {
+            tag_untagged_songs(state.clone()).await;
+            pin_placeholders(state).await;
+        });
+    }
 
     let app = Router::new()
         .route("/health", get(health))
@@ -819,6 +841,13 @@ pub async fn serve() -> anyhow::Result<()> {
         .route("/v1/journal/{id}", axum::routing::delete(remove_journal_entry))
         .route("/v1/library/media/{song_id}", get(library_media))
         .route("/v1/library/songs/{id}/cover", get(library_cover).put(store_library_cover))
+        .route("/v1/covers/look", get(read_cover_look).put(write_cover_look))
+        .route("/v1/library/songs/{id}/cover/placeholder", get(placeholder_cover))
+        .route("/v1/media/scenes", get(media_scenes))
+        .route("/v1/media/photos", get(media_photos))
+        .route("/v1/media/videos", get(media_videos))
+        .route("/v1/library/songs/{id}/cover/photo", post(choose_cover_photo))
+        .route("/v1/library/songs/{id}/cover/pattern", post(choose_cover_pattern))
         .route("/v1/library/playlists", get(library_playlists).post(create_library_playlist))
         .route("/v1/library/playlists/{id}", get(library_playlist).put(update_library_playlist).delete(delete_library_playlist))
         .route("/setup/status", get(setup_status))
@@ -1119,11 +1148,16 @@ fn derived_from(song: &library::Song) -> Option<(&str, &str)> {
     Some((derived.get("from")?.as_str()?, derived.get("tool")?.as_str()?))
 }
 
-/// Gives a track made by a tool the cover of the one it was made from.
+/// Gives a track made by a tool the cover of the one it was made from: a
+/// placeholder stays a placeholder, a photograph keeps where it came from.
 fn cover_like(state: &AppState, from: &library::Song, to: &str) -> anyhow::Result<()> {
     if let Some((path, media_type)) = state.library.cover_path_for_song(from) {
         let image = std::fs::read(&path).with_context(|| format!("read the cover {}", path.display()))?;
-        state.library.store_song_cover(to, &image, &media_type)?;
+        let source = from.metadata.get("cover_source").and_then(Value::as_str);
+        match from.metadata.get("cover_placeholder").and_then(Value::as_str) {
+            Some(look) => state.library.store_placeholder_cover(to, &image, &media_type, look, source)?,
+            None => state.library.store_chosen_cover(to, &image, &media_type, source)?,
+        };
     }
     Ok(())
 }
@@ -3272,6 +3306,301 @@ async fn tag_untagged_songs(state: AppState) {
     }
 }
 
+#[derive(Debug, Deserialize)]
+struct CoverLookRequest {
+    #[serde(default)]
+    photo: Option<bool>,
+    #[serde(default)]
+    pattern: Option<String>,
+    #[serde(default)]
+    keep: Option<bool>,
+}
+
+async fn cover_look_reply(state: &AppState) -> Value {
+    let look = state.cover_look.read().await.clone();
+    serde_json::json!({
+        "photo": look.photo,
+        "pattern": look.pattern,
+        "keep": look.keep,
+        "patterns": cover_art::PATTERNS,
+        "problem": state.cover_problem.read().await.clone(),
+    })
+}
+
+async fn read_cover_look(State(state): State<AppState>) -> Json<Value> {
+    Json(cover_look_reply(&state).await)
+}
+
+/// A new look is written into the tracks that wear the old one, in the
+/// background: the answer does not wait for a pass over the whole library.
+async fn write_cover_look(
+    State(state): State<AppState>,
+    Json(request): Json<CoverLookRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    if let Some(pattern) = request.pattern.as_deref().filter(|pattern| !cover_art::PATTERNS.contains(pattern)) {
+        return Err(api_error(StatusCode::BAD_REQUEST, format!("there is no cover pattern '{pattern}'")));
+    }
+    {
+        let mut look = state.cover_look.write().await;
+        if let Some(photo) = request.photo {
+            look.photo = photo;
+        }
+        if let Some(pattern) = request.pattern {
+            look.pattern = pattern;
+        }
+        if let Some(keep) = request.keep {
+            look.keep = keep;
+        }
+    }
+    persist_studio_settings(&state)
+        .await
+        .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    tokio::spawn(pin_placeholders(state.clone()));
+    Ok(Json(cover_look_reply(&state).await))
+}
+
+/// The photograph a track's style calls up, picked by its seed: the same one
+/// every time, the next one along for each further variant.
+async fn photo_for(style: &str, seed: &str, variant: u64) -> anyhow::Result<Option<(Vec<u8>, cover_art::Photo)>> {
+    let client = net::client();
+    let photos = cover_art::photos_for(&client, style).await?;
+    let Some(photo) = cover_art::chosen(&photos, seed, variant).cloned() else { return Ok(None) };
+    let image = cover_art::download(&client, &photo.image).await?;
+    Ok(Some((image, photo)))
+}
+
+/// The picture a track without a cover of its own wears in a look: its
+/// photograph, or its pattern when the look is a pattern or no photograph
+/// could be had. Why a photograph could not be had waits in Settings, and the
+/// track tries again on the next pass, its placeholder not being the look's.
+async fn placeholder_image(
+    state: &AppState,
+    song: &library::Song,
+    look: &cover_art::CoverLook,
+) -> anyhow::Result<(Vec<u8>, &'static str, String, Option<String>)> {
+    let seed = cover_art::cover_seed(song);
+    if look.photo {
+        match photo_for(&song.caption, &seed, 0).await {
+            Ok(Some((image, photo))) => {
+                *state.cover_problem.write().await = None;
+                return Ok((image, "image/jpeg", look.label(), Some(photo.page)));
+            }
+            Ok(None) => {}
+            Err(error) => {
+                eprintln!("[ERROR] no photo for {}: {error:#}", song.id);
+                *state.cover_problem.write().await = Some(format!("{error:#}"));
+            }
+        }
+    }
+    let pattern = look.pattern.clone();
+    let label = format!("pattern:{pattern}");
+    let image = tokio::task::spawn_blocking(move || cover_art::pattern_png(&pattern, &seed, cover_art::KEPT_SIZE))
+        .await
+        .context("the pattern drawing stopped")??;
+    Ok((image, "image/png", label, None))
+}
+
+/// Writes the look's placeholder into a track without a cover of its own, or
+/// takes it back out when keeping is off. Says whether the track changed.
+async fn pin_placeholder(state: &AppState, song_id: &str) -> anyhow::Result<bool> {
+    let Some(song) = state.library.get_song(song_id)? else { return Ok(false) };
+    let pinned = song.metadata.get("cover_placeholder").and_then(Value::as_str).map(str::to_owned);
+    if song.metadata.get("cover_filename").is_some() && pinned.is_none() {
+        return Ok(false);
+    }
+    let look = state.cover_look.read().await.clone();
+    if !look.keep {
+        let removed = state.library.remove_placeholder_cover(song_id)?.is_some();
+        if removed {
+            tag_stored_song(state, song_id).await;
+        }
+        return Ok(removed);
+    }
+    if pinned.as_deref() == Some(look.label().as_str()) {
+        return Ok(false);
+    }
+    // a stem wears its song's cover: it takes the song's, drawn for the song first
+    if let Some((from, "stems")) = derived_from(&song) {
+        if let Some(parent) = state.library.get_song(from)? {
+            if parent.metadata.get("cover_filename").is_none() {
+                return Box::pin(pin_placeholder(state, from)).await;
+            }
+            cover_like(state, &parent, song_id)?;
+            tag_stored_song(state, song_id).await;
+            return Ok(true);
+        }
+    }
+    let (image, media_type, label, source) = placeholder_image(state, &song, &look).await?;
+    state.library.store_placeholder_cover(song_id, &image, media_type, &label, source.as_deref())?;
+    tag_stored_song(state, song_id).await;
+    Ok(true)
+}
+
+/// Brings every track in line with the look: a placeholder written into each
+/// track without a cover of its own, or taken out of all when keeping is off.
+/// Songs go first, so their stems take the covers from them.
+async fn pin_placeholders(state: AppState) {
+    let _pass = state.cover_pinning.lock().await;
+    let songs = match state.library.list_songs() {
+        Ok(songs) => songs,
+        Err(error) => {
+            eprintln!("[ERROR] the library did not list its tracks for their covers: {error:#}");
+            return;
+        }
+    };
+    let (stems, songs): (Vec<_>, Vec<_>) =
+        songs.into_iter().partition(|song| derived_from(song).is_some_and(|(_, tool)| tool == "stems"));
+    for song in songs.into_iter().chain(stems) {
+        if let Err(error) = pin_placeholder(&state, &song.id).await {
+            eprintln!("[ERROR] no placeholder cover for {}: {error:#}", song.id);
+        }
+    }
+}
+
+/// The placeholder a track shows while it has no cover of its own and keeping
+/// is off: drawn once per look and kept beside the library.
+async fn placeholder_cover(State(state): State<AppState>, Path(id): Path<String>) -> Result<axum::response::Response, (StatusCode, Json<ApiError>)> {
+    let song = state
+        .library
+        .get_song(&id)
+        .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
+        .ok_or_else(|| api_error(StatusCode::NOT_FOUND, "Song not found".into()))?;
+    let look = state.cover_look.read().await.clone();
+    let folder = state.library.media_dir().join("cover-placeholders");
+    let seed = cover_art::cover_seed(&song);
+    let named = |label: &str, extension: &str| folder.join(format!("{seed}-{}.{extension}", label.replace(':', "-")));
+    let kept = [("jpg", "image/jpeg"), ("png", "image/png")]
+        .into_iter()
+        .map(|(extension, media_type)| (named(&look.label(), extension), media_type))
+        .find(|(path, _)| path.is_file());
+    let (bytes, media_type) = match kept {
+        Some((path, media_type)) => (
+            tokio::fs::read(&path).await.map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("read the placeholder: {error}")))?,
+            media_type,
+        ),
+        None => {
+            let (image, media_type, label, _) = placeholder_image(&state, &song, &look)
+                .await
+                .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("{error:#}")))?;
+            let extension = if media_type == "image/png" { "png" } else { "jpg" };
+            if let Err(error) = std::fs::create_dir_all(&folder).and_then(|()| std::fs::write(named(&label, extension), &image)) {
+                eprintln!("[ERROR] the placeholder of {id} was drawn but not kept: {error}");
+            }
+            (image, media_type)
+        }
+    };
+    Ok(axum::response::Response::builder()
+        .header(header::CONTENT_TYPE, media_type)
+        .header(header::CONTENT_LENGTH, bytes.len())
+        .body(Body::from(bytes))
+        .expect("valid placeholder response"))
+}
+
+#[derive(Debug, Deserialize)]
+struct MediaSearch {
+    #[serde(default)]
+    q: String,
+    #[serde(default)]
+    from: usize,
+}
+
+#[derive(Debug, Deserialize)]
+struct MediaStyle {
+    #[serde(default)]
+    style: String,
+}
+
+/// The scenes a style calls up: what the picture search starts from.
+async fn media_scenes(Query(query): Query<MediaStyle>) -> Json<Value> {
+    Json(serde_json::json!({ "scenes": cover_art::scenes(&query.style) }))
+}
+
+/// CC0 photographs from Commons for a search, twenty-four at a time.
+async fn media_photos(Query(query): Query<MediaSearch>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    let wanted = query.q.trim();
+    if wanted.is_empty() {
+        return Err(api_error(StatusCode::BAD_REQUEST, "say what to look for".into()));
+    }
+    let photos = cover_art::photos_of(&net::client(), wanted)
+        .await
+        .map_err(|error| api_error(StatusCode::BAD_GATEWAY, format!("{error:#}")))?;
+    let shown: Vec<cover_art::Photo> = photos.iter().skip(query.from).take(24).cloned().collect();
+    Ok(Json(serde_json::json!({ "photos": shown, "from": query.from, "total": photos.len() })))
+}
+
+/// Clips from Commons free of copyright for a search, twenty-four at a time.
+async fn media_videos(Query(query): Query<MediaSearch>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    let wanted = query.q.trim();
+    if wanted.is_empty() {
+        return Err(api_error(StatusCode::BAD_REQUEST, "say what to look for".into()));
+    }
+    let clips = cover_art::clips_of(&net::client(), wanted)
+        .await
+        .map_err(|error| api_error(StatusCode::BAD_GATEWAY, format!("{error:#}")))?;
+    let shown: Vec<cover_art::Clip> = clips.iter().skip(query.from).take(24).cloned().collect();
+    Ok(Json(serde_json::json!({ "videos": shown, "from": query.from, "total": clips.len() })))
+}
+
+#[derive(Debug, Deserialize)]
+struct ChosenCoverPhoto {
+    image: String,
+    #[serde(default)]
+    page: Option<String>,
+}
+
+/// A photograph chosen in the cover dialog becomes the track's own cover.
+async fn choose_cover_photo(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Json(request): Json<ChosenCoverPhoto>,
+) -> Result<Json<library::Song>, (StatusCode, Json<ApiError>)> {
+    let image = cover_art::download(&net::client(), &request.image)
+        .await
+        .map_err(|error| api_error(StatusCode::BAD_GATEWAY, format!("{error:#}")))?;
+    let song = state
+        .library
+        .store_chosen_cover(&id, &image, "image/jpeg", request.page.as_deref())
+        .map_err(|error| api_error(StatusCode::BAD_REQUEST, error.to_string()))?;
+    tag_stored_song(&state, &id).await;
+    Ok(Json(song))
+}
+
+#[derive(Debug, Deserialize)]
+struct ChosenCoverPattern {
+    pattern: String,
+    seed: String,
+}
+
+/// A pattern chosen in the cover dialog becomes the track's own cover.
+async fn choose_cover_pattern(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Json(request): Json<ChosenCoverPattern>,
+) -> Result<Json<library::Song>, (StatusCode, Json<ApiError>)> {
+    if !cover_art::PATTERNS.contains(&request.pattern.as_str()) {
+        return Err(api_error(StatusCode::BAD_REQUEST, format!("there is no cover pattern '{}'", request.pattern)));
+    }
+    let image = tokio::task::spawn_blocking(move || cover_art::pattern_png(&request.pattern, &request.seed, cover_art::KEPT_SIZE))
+        .await
+        .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("the pattern drawing stopped: {error}")))?
+        .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("{error:#}")))?;
+    let song = state
+        .library
+        .store_chosen_cover(&id, &image, "image/png", None)
+        .map_err(|error| api_error(StatusCode::BAD_REQUEST, error.to_string()))?;
+    tag_stored_song(&state, &id).await;
+    Ok(Json(song))
+}
+
+/// A finished track gets its drawn cover, or the look's placeholder when none
+/// was drawn.
+async fn cover_after_import(state: AppState, song_id: String) {
+    draw_cover_for(state.clone(), song_id.clone()).await;
+    if let Err(error) = pin_placeholder(&state, &song_id).await {
+        eprintln!("[ERROR] no placeholder cover for {song_id}: {error:#}");
+    }
+}
+
 async fn store_library_cover(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -4176,6 +4505,7 @@ async fn persist_studio_settings(state: &AppState) -> anyhow::Result<()> {
         cover_template_default: state.cover_template_default.read().await.clone(),
         separation: Some(state.separation_config.read().await.clone()),
         cover_auto: Some(*state.cover_auto.read().await),
+        cover_look: Some(state.cover_look.read().await.clone()),
         proxy: Some(net::current()),
         network: Some(remote::current()),
     };
@@ -4311,7 +4641,6 @@ async fn system_resources() -> Json<Value> {
 /// response must actually be an image, so this cannot be used to reach local
 /// services or to pull arbitrary files.
 async fn proxy_image(
-    State(state): State<AppState>,
     axum::extract::Query(request): axum::extract::Query<ProxyImageRequest>,
 ) -> Result<axum::response::Response, (StatusCode, Json<ApiError>)> {
     let url = reqwest::Url::parse(&request.url)
@@ -4322,10 +4651,13 @@ async fn proxy_image(
     if url.host_str().is_some_and(|host| host == "localhost" || host.starts_with("127.") || host == "0.0.0.0" || host == "[::1]") {
         return Err(api_error(StatusCode::BAD_REQUEST, "loopback addresses cannot be proxied".into()));
     }
-    let response = state
-        .music_server
-        .http()
-        .get(url)
+    // Commons asks every client to name itself and a way to reach its authors
+    let commons = url.host_str().is_some_and(|host| host.ends_with(".wikimedia.org"));
+    let mut request = net::client().get(url);
+    if commons {
+        request = request.header(reqwest::header::USER_AGENT, cover_art::commons_agent());
+    }
+    let response = request
         .send()
         .await
         .map_err(|error| api_error(StatusCode::BAD_GATEWAY, format!("image request failed: {error}")))?;
@@ -6859,7 +7191,7 @@ async fn import_take(
     {
         let (cover_state, timing_state) = (state.clone(), state.clone());
         let (cover_song, timing_song) = (song_id.clone(), song_id.clone());
-        tokio::spawn(async move { draw_cover_for(cover_state, cover_song).await });
+        tokio::spawn(async move { cover_after_import(cover_state, cover_song).await });
         tokio::spawn(async move { time_lyrics_for(timing_state, timing_song).await });
     }
     Ok(CompletedSong { id: song_id.clone(), audio_url: format!("/v1/library/media/{song_id}"), song: imported.song })
@@ -7084,7 +7416,7 @@ async fn run_openrouter_music_generation(state: AppState, job_id: String, stream
             let song_id = imported_song.song.id.clone();
             let timing_state = state.clone();
             let timing_song = song_id.clone();
-            tokio::spawn(async move { draw_cover_for(state, song_id).await });
+            tokio::spawn(async move { cover_after_import(state, song_id).await });
             tokio::spawn(async move { time_lyrics_for(timing_state, timing_song).await });
         }
         Ok::<CompletedSong, anyhow::Error>(CompletedSong { id: imported_song.song.id.clone(), audio_url: format!("/v1/library/media/{}", imported_song.song.id), song: imported_song.song })
@@ -7474,6 +7806,7 @@ mod tests {
             selected_component_ids: Some(vec!["lm-q8".into(), "depth-q8".into(), "condition-f32".into(), "dit-q6".into(), "vocoder-f32".into()]),
             cover_templates: Some(cover_prompt::default_templates()),
             cover_auto: Some(true),
+            cover_look: None,
             proxy: None,
             network: None,
             separation: Some(separation::SeparationConfig::default()),

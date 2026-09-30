@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import { X, Link, Check } from 'lucide-react';
-import { AlbumCover } from './AlbumCover';
+import { SongCover } from './AlbumCover';
 import { Song } from '../types';
 import { useI18n } from '../context/I18nContext';
 import { STUDIO } from '../studio';
@@ -143,7 +143,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, song })
         </div>
 
         <div className="flex items-center gap-3 mb-6 p-3 bg-zinc-50 dark:bg-black/30 rounded-lg">
-          <AlbumCover seed={song.id || song.title} coverUrl={song.coverUrl} size="full" className="w-12 h-12 shrink-0 rounded-sm" />
+          <SongCover song={song} size="full" className="w-12 h-12 shrink-0 rounded-sm" />
           <div className="overflow-hidden">
             <div className="font-medium text-zinc-900 dark:text-white truncate">{song.title}</div>
             <div className="text-sm text-zinc-500 truncate">{song.style}</div>

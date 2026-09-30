@@ -6,7 +6,7 @@ import { Play, Pause, SkipBack, SkipForward, Repeat, Shuffle, Download, Heart, M
 import { useResponsive } from '../context/ResponsiveContext';
 import { useI18n } from '../context/I18nContext';
 import { SongDropdownMenu } from './SongDropdownMenu';
-import { AlbumCover } from './AlbumCover';
+import { SongCover } from './AlbumCover';
 import { PlayerExtraButtons } from './player/PlayerExtraButtons';
 import { downloadSongAudio } from '../services/songDownload';
 import { captionSummary } from '../services/examples';
@@ -160,15 +160,7 @@ export const Player: React.FC<PlayerProps> = ({
                     {/* Album Art */}
                     <div className="flex-1 flex items-center justify-center px-8 py-4">
                         <div className="w-full max-w-[280px] aspect-square rounded-lg overflow-hidden shadow-2xl">
-                            {currentSong.coverUrl ? (
-                                <img
-                                    src={currentSong.coverUrl}
-                                    className="w-full h-full object-cover"
-                                    alt="cover"
-                                    onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }}
-                                />
-                            ) : null}
-                            <AlbumCover seed={currentSong.id || currentSong.title} size="full" className={`w-full h-full ${currentSong.coverUrl ? 'hidden' : ''}`} />
+                            <SongCover song={currentSong} size="full" className="w-full h-full" />
                         </div>
                     </div>
 
@@ -338,10 +330,7 @@ export const Player: React.FC<PlayerProps> = ({
                         onClick={() => setIsFullscreen(true)}
                     >
                         <div className="w-11 h-11 rounded-sm bg-zinc-200 dark:bg-zinc-800 overflow-hidden shadow-xs shrink-0 relative">
-                            {currentSong.coverUrl ? (
-                                <img src={currentSong.coverUrl} className="w-full h-full object-cover" alt="cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                            ) : null}
-                            {!currentSong.coverUrl && <AlbumCover seed={currentSong.id || currentSong.title} size="full" className="w-full h-full" />}
+                            <SongCover song={currentSong} size="full" className="w-full h-full" />
                             <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 active:opacity-100 transition-opacity">
                                 <ChevronUp size={20} className="text-white" />
                             </div>
@@ -417,15 +406,7 @@ export const Player: React.FC<PlayerProps> = ({
                     <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-16 max-w-5xl w-full">
                         {/* Album Art */}
                         <div className="w-full max-w-[320px] lg:max-w-[400px] aspect-square rounded-lg overflow-hidden shadow-2xl shrink-0">
-                            {currentSong.coverUrl ? (
-                                <img
-                                    src={currentSong.coverUrl}
-                                    className="w-full h-full object-cover"
-                                    alt="cover"
-                                    onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }}
-                                />
-                            ) : null}
-                            <AlbumCover seed={currentSong.id || currentSong.title} size="full" className={`w-full h-full ${currentSong.coverUrl ? 'hidden' : ''}`} />
+                            <SongCover song={currentSong} size="full" className="w-full h-full" />
                         </div>
 
                         {/* Right side: Song info and controls */}
@@ -631,10 +612,7 @@ export const Player: React.FC<PlayerProps> = ({
                 {/* Song Info */}
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 max-w-[30%] lg:max-w-[33%]">
                     <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-sm bg-zinc-200 dark:bg-zinc-800 overflow-hidden shadow-xs shrink-0">
-                        {currentSong.coverUrl ? (
-                            <img src={currentSong.coverUrl} className="w-full h-full object-cover" alt="cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                        ) : null}
-                        {!currentSong.coverUrl && <AlbumCover seed={currentSong.id || currentSong.title} size="full" className="w-full h-full" />}
+                        <SongCover song={currentSong} size="full" className="w-full h-full" />
                     </div>
                     <div className="overflow-hidden min-w-0">
                         <h4 className="text-xs sm:text-sm font-bold text-zinc-900 dark:text-white truncate">

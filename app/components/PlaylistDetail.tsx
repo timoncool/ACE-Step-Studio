@@ -5,7 +5,7 @@ import { ArrowLeft, Play, MoreHorizontal, Clock, Calendar, Shuffle, Trash2, Mic2
 import { deleteNativePlaylist, parseDuration, updateNativePlaylist } from '../services/nativeLibrary';
 import { updateLibraryPlaylists, useLibraryPlaylists, useLibrarySongs } from '../services/studioQueries';
 import { named } from '../services/accessibleName';
-import { AlbumCover } from './AlbumCover';
+import { SongCover } from './AlbumCover';
 import { ConfirmDialog } from './ConfirmDialog';
 import { TRACK_ARTIST } from '../services/studio';
 
@@ -188,9 +188,7 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
                                 {/* Cover + Title */}
                                 <div className="flex items-center gap-3 overflow-hidden flex-1 md:flex-none">
                                     <div className="w-12 h-12 md:w-10 md:h-10 rounded-sm bg-zinc-800 shrink-0 overflow-hidden relative group/img">
-                                        {song.coverUrl
-                                            ? <img src={song.coverUrl} alt="" className="w-full h-full object-cover" />
-                                            : <AlbumCover seed={song.id || song.title} size="full" className="w-full h-full" />}
+                                        <SongCover song={song} size="full" className="w-full h-full" />
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();

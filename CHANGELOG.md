@@ -6,6 +6,23 @@ What changed, newest first. Dates are release dates.
 
 ### Added
 
+- **A cover for every track.** A track without a cover of its own gets one chosen in
+  Settings - Cover art: a free (CC0) photograph from Wikimedia Commons that fits the genres,
+  moods and instruments of its style, found without a key; a pattern in one of 21 DiceBear
+  styles (CC0), waves by default; or a cover generated through OpenRouter for every new track,
+  the prompt templates shown in that mode. The picture is chosen by the track's seed, so it
+  stays the same after a restart, and a stem wears its song's.
+- **Save the cover into the track**, on by default: the photograph or pattern is stored with
+  the track and written into the MP3's tags, tracks made before included, so a player shows
+  it after the download; off, it is only shown in the studio. Changing the look draws the
+  placeholders again, and a cover of the track's own is never touched.
+- **The cover window** offers the same choices for one track: Commons photographs by search,
+  starting from the scenes its style calls up, the track's pattern in any style with Another
+  variant, generation through OpenRouter, or a file of one's own; a chosen photograph keeps a
+  link to its page.
+- **The video editor's background and centre picture** are chosen in the same window, the
+  background also from Commons clips free of copyright; the Random background is a
+  photograph for the track's style.
 - **Activity**, the last item of the sidebar, after News: a log of every change an agent
   makes through the MCP server - a generation started, a song edited or deleted, a playlist,
   stems, karaoke, a dataset and its preparation, training, a LoRA, a model downloaded or
@@ -23,6 +40,11 @@ What changed, newest first. Dates are release dates.
 
 ### Changed
 
+- The hand-written pattern generator is replaced by DiceBear 11, drawing the same picture in
+  the window and in the service, which writes it into the track as a PNG.
+- The Pexels browser, which needed an API key, and the random photograph from picsum.photos,
+  which answers Russia with 403, are gone.
+- "Draw a cover for every new track" is now the Generation mode of Settings - Cover art.
 - **A like is kept with the song** in the library instead of one window's storage: every
   window and the agent see the same likes (the agent without an open window), they survive a
   profile change, and Liked Songs start from the latest. Likes an earlier version kept in the

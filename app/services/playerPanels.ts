@@ -1,3 +1,9 @@
+import type { Song } from '../types';
+import { apiUrl } from './apiBase';
+import { DEFAULT_COVER_PATTERN, isCoverPattern, patternArt } from './coverArt';
+import { coverSeed } from './songStems';
+import { coverLookNow } from './studioQueries';
+
 /** Whether the equalizer panel is open, for the player's button, the panel and the agent. */
 
 let equalizerOpen = false;
@@ -52,41 +58,12 @@ export function onSidebarExtras(listener: (extras: SidebarExtras) => void): () =
   return () => extrasListeners.delete(listener);
 }
 
-const STOCK_COVERS_KEY = 'studio.stockCovers';
-const stockCoverListeners = new Set<(on: boolean) => void>();
-
-/** Whether a track without a cover of its own shows a stock photo (on by
- *  default) or the pattern drawn from its id. */
-export function stockCovers(): boolean {
-  try {
-    return window.localStorage.getItem(STOCK_COVERS_KEY) !== 'off';
-  } catch {
-    return true;
-  }
-}
-
-export function setStockCovers(on: boolean): void {
-  try {
-    window.localStorage.setItem(STOCK_COVERS_KEY, on ? 'on' : 'off');
-  } catch {
-    // a browser that keeps nothing still shows the change until a reload
-  }
-  stockCoverListeners.forEach((listener) => listener(on));
-}
-
-export function onStockCovers(listener: (on: boolean) => void): () => void {
-  stockCoverListeners.add(listener);
-  return () => stockCoverListeners.delete(listener);
-}
-
-/** The photo a track without a cover shows while stock covers are on:
- *  picsum.photos, seeded by the track so it stays the same. */
-export function stockCoverUrl(seed: string): string {
-  return `https://picsum.photos/seed/${encodeURIComponent(seed)}/400/400`;
-}
-
-/** The picture a track shows: its own cover, else the stock photo while
- *  stock covers are on, else none. */
-export function trackCoverUrl(song: { id: string; coverUrl?: string }): string {
-  return song.coverUrl || (stockCovers() ? stockCoverUrl(song.id) : '');
+/** The picture a track shows outside the lists - the player's skins, a video:
+ *  its own cover, else the look's photograph while it is not written into the
+ *  track, else its pattern. */
+export function trackCoverUrl(song: Pick<Song, 'id' | 'title' | 'derived' | 'coverUrl'>): string {
+  if (song.coverUrl) return song.coverUrl;
+  const look = coverLookNow();
+  if (look?.photo && !look.keep) return apiUrl(`/v1/library/songs/${encodeURIComponent(song.id)}/cover/placeholder`);
+  return patternArt(coverSeed(song), isCoverPattern(look?.pattern) ? look.pattern : DEFAULT_COVER_PATTERN);
 }

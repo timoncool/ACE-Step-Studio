@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
 import type { TranslationKey } from '../i18n/translations';
 import { SongDropdownMenu } from './SongDropdownMenu';
-import { AlbumCover } from './AlbumCover';
+import { SongCover } from './AlbumCover';
 import { updateNativeSong } from '../services/nativeLibrary';
 import { ownsSong, SongActionsProvider, useSongActions } from '../context/SongActionsContext';
 import { captionSummary } from '../services/examples';
@@ -610,7 +610,6 @@ const SongItem: React.FC<SongItemProps> = ({
     const { t, language } = useI18n();
     const stemName = useStemName();
     const [showDropdown, setShowDropdown] = useState(false);
-    const [imageError, setImageError] = useState(false);
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const songActions = useSongActions();
     const [editedTitle, setEditedTitle] = useState(song.title);
@@ -704,17 +703,7 @@ const SongItem: React.FC<SongItemProps> = ({
 
             {/* Cover Art - Reduced size */}
             <div className="relative w-16 h-16 shrink-0 rounded-md bg-zinc-200 dark:bg-zinc-800 overflow-hidden shadow-xs group/image">
-                {/* Use gradient fallback if no coverUrl or image fails to load */}
-                {(!song.coverUrl || imageError) ? (
-                    <AlbumCover seed={song.id || song.title} size="full" className={`w-full h-full ${song.isGenerating ? 'opacity-20 blur-xs' : 'opacity-100'}`} />
-                ) : (
-                    <img
-                        src={song.coverUrl}
-                        alt={song.title}
-                        className={`w-full h-full object-cover transition-opacity ${song.isGenerating ? 'opacity-20 blur-xs' : 'opacity-100'}`}
-                        onError={() => setImageError(true)}
-                    />
-                )}
+                <SongCover song={song} size="full" className={`w-full h-full transition-opacity ${song.isGenerating ? 'opacity-20 blur-xs' : 'opacity-100'}`} />
 
                 {song.isGenerating ? (
                     <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center gap-1">

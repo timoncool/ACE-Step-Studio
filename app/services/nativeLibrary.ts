@@ -69,11 +69,13 @@ export function mapNativeLibrarySong(song: NativeLibrarySong): Song {
     title: song.title,
     lyrics: song.lyrics,
     style: song.caption,
-    // A track without a cover of its own shows AlbumCover's pattern, drawn
-    // from its id: no stock photo is fetched in its place.
+    // The address changes with the record, so a new cover is shown at once
+    // instead of the old one from the browser's cache.
     coverUrl: typeof metadata.cover_filename === 'string'
-      ? apiUrl(`/v1/library/songs/${encodeURIComponent(song.id)}/cover`)
+      ? apiUrl(`/v1/library/songs/${encodeURIComponent(song.id)}/cover${song.updated_at ? `?v=${encodeURIComponent(song.updated_at)}` : ''}`)
       : '',
+    coverSource: stringMetadata(metadata, 'cover_source'),
+    coverPlaceholder: stringMetadata(metadata, 'cover_placeholder'),
     duration: (() => {
       const seconds = numberMetadata(metadata, 'duration_seconds') ?? numberMetadata(metadata, 'duration');
       return seconds && seconds > 0 ? `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}` : '0:00';

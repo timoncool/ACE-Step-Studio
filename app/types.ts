@@ -6,6 +6,10 @@ export interface Song {
   lyrics: string;
   style: string;
   coverUrl: string;
+  /** The page a cover photograph came from and the terms it is under. */
+  coverSource?: string;
+  /** Set while the cover is the look's placeholder, not one of the track's own. */
+  coverPlaceholder?: string;
   duration: string;
   createdAt: Date;
   isGenerating?: boolean;

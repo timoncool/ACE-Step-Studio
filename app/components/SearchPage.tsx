@@ -3,7 +3,7 @@ import { Check, Copy, ListMusic, Music2, Search as SearchIcon, X } from 'lucide-
 import { Song, Playlist } from '../types';
 import { useI18n } from '../context/I18nContext';
 import { GENRE_KEYS } from '../data/genres';
-import { AlbumCover } from './AlbumCover';
+import { SongCover } from './AlbumCover';
 import { captionSummary } from '../services/examples';
 
 /**
@@ -177,7 +177,7 @@ const SongGrid: React.FC<{
           className="group text-left"
         >
           <span className="relative block aspect-square overflow-hidden rounded-xl">
-            <AlbumCover seed={song.id} size="full" coverUrl={song.coverUrl} className="rounded-xl" />
+            <SongCover song={song} size="full" className="rounded-xl" />
             <span className={`absolute inset-0 grid place-items-center bg-black/40 transition-opacity ${active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
               <Music2 size={22} className="text-white" />
             </span>

@@ -10,11 +10,11 @@
       "ko": "ACE-Step Studio 3.3.0"
     },
     "body": {
-      "en": "Likes that stay, stems in their place, and a journal of what an agent did.\n\n- **A like stays with the song.** Every window and a connected agent see the same likes, they survive a profile change, and Liked Songs start from the latest.\n- **Stems under their song.** A separation no longer floods the list: its parts fold under the song as “Stems · N”, a list plays its songs, and separating again asks first.\n- **Sort** any list: newest, oldest, by title or by length.\n- **The Create list shows your playlist.** Pick one in “Into playlist” and the list beside the form shows that project.\n- **Activity** in the sidebar: a log of every change an agent made and every message the studio showed.\n- **Smaller things:** song rows say when a song was made, every icon button has a name for screen readers, and a playlist changed in one window shows in the others at once.\n\nIdeas from a pull request by MRafStudio (#34 in YuE2 Studio) - thank you. The whole family moved to 3.3.0 on the same day: YuE2 Studio, MiniMax Music3 Studio and ACE-Step Studio - one core, three models, the links below.",
-      "ru": "Лайки, которые не теряются, стемы на своём месте и журнал того, что сделал агент.\n\n- **Лайк живёт в песне.** Все окна и подключённый агент видят одни и те же лайки, они переживают смену профиля, а «Понравившиеся песни» начинаются с последнего.\n- **Стемы под своей песней.** Разделение больше не засыпает список: части сворачиваются под песней в «Стемы · N», список играет песни, а повторное разделение сначала спрашивает.\n- **Сортировка** любого списка: новые, старые, по названию или по длине.\n- **Список «Создать» показывает ваш плейлист.** Выберите его в «В плейлист» - и рядом с формой будет этот проект.\n- **Журнал** в боковой панели: лог всех изменений, сделанных агентом, и всех сообщений студии.\n- **По мелочи:** у песен видно, когда они сделаны, у всех кнопок-иконок есть подписи для экранного диктора, а плейлист, изменённый в одном окне, сразу виден в других.\n\nИдеи - из пулл-реквеста MRafStudio (#34 в YuE2 Studio), спасибо. Вся семья перешла на 3.3.0 в один день: YuE2 Studio, MiniMax Music3 Studio и ACE-Step Studio - одно ядро, три модели, ссылки ниже.",
-      "zh": "喜欢不再丢失，分轨各归其位，还有记录代理所做操作的动态。\n\n- **喜欢随歌曲保存。** 所有窗口和已连接的代理看到同样的喜欢，更换配置也不会丢失，“喜欢的歌曲”从最近的一首开始。\n- **分轨归在原曲之下。** 分离不再塞满列表：分轨折叠在原曲下的“分轨 · N”中，列表只播放歌曲，再次分离前会先询问。\n- **排序**任意列表：最新、最早、按标题或按时长。\n- **创作页的列表显示你的播放列表。** 在“放入歌单”中选择一个，表单旁的列表就会显示这个项目。\n- 侧边栏中的**动态**：记录代理所做的每项更改和工作室显示的每条消息。\n- **细节：** 歌曲行显示创作时间，所有图标按钮都有供读屏软件使用的名称，在一个窗口中修改的播放列表会立即出现在其他窗口中。\n\n这些想法来自 MRafStudio 的拉取请求（YuE2 Studio 的 #34），感谢。整个系列在同一天升级到 3.3.0：YuE2 Studio、MiniMax Music3 Studio 和 ACE-Step Studio——同一个核心，三个模型，链接见下方。",
-      "ja": "消えないいいね、あるべき場所に収まるステム、そしてエージェントの操作を記録するアクティビティ。\n\n- **いいねは曲と一緒に保存。** すべてのウィンドウと接続中のエージェントが同じいいねを見られ、プロフィールを変えても消えず、「いいねした曲」は最新のものから並びます。\n- **ステムは元の曲の下に。** 分離しても一覧があふれません。パートは曲の下の「ステム · N」にまとまり、一覧は曲だけを再生し、もう一度分離するときは先に確認します。\n- どの一覧も**並べ替え**：新しい順、古い順、タイトル順、長さ順。\n- **作成ページの一覧があなたのプレイリストを表示。** 「プレイリストへ」で選ぶと、フォームの横の一覧がそのプロジェクトになります。\n- サイドバーの**アクティビティ**：エージェントによる変更とスタジオのメッセージをすべて記録します。\n- **細かな改善：** 曲の行に作成日時を表示、すべてのアイコンボタンにスクリーンリーダー用の名前、あるウィンドウで変えたプレイリストはほかのウィンドウにもすぐ反映されます。\n\nアイデアは MRafStudio さんのプルリクエスト（YuE2 Studio の #34）から。ありがとうございます。シリーズ全体が同じ日に 3.3.0 になりました：YuE2 Studio、MiniMax Music3 Studio、ACE-Step Studio ― ひとつのコア、三つのモデル。リンクは下にあります。",
-      "ko": "사라지지 않는 좋아요, 제자리를 찾은 스템, 그리고 에이전트가 한 일을 남기는 활동 기록.\n\n- **좋아요는 곡과 함께 저장됩니다.** 모든 창과 연결된 에이전트가 같은 좋아요를 보고, 프로필을 바꿔도 사라지지 않으며, '좋아하는 곡'은 가장 최근 것부터 보여 줍니다.\n- **스템은 원곡 아래에.** 분리해도 목록이 넘치지 않습니다. 파트는 곡 아래 '스템 · N'으로 접히고, 목록은 곡만 재생하며, 다시 분리할 때는 먼저 확인합니다.\n- 어떤 목록이든 **정렬**: 최신순, 오래된순, 제목순, 길이순.\n- **만들기 페이지의 목록이 내 재생목록을 보여 줍니다.** '플레이리스트에'에서 고르면 양식 옆 목록이 그 프로젝트가 됩니다.\n- 사이드바의 **활동**: 에이전트가 한 모든 변경과 스튜디오가 보여 준 모든 메시지를 기록합니다.\n- **작은 개선:** 곡 행에 만든 시간이 표시되고, 모든 아이콘 버튼에 스크린 리더용 이름이 있으며, 한 창에서 바꾼 재생목록이 다른 창에도 바로 보입니다.\n\n아이디어는 MRafStudio의 풀 리퀘스트(YuE2 Studio #34)에서 왔습니다. 감사합니다. 시리즈 전체가 같은 날 3.3.0이 되었습니다: YuE2 Studio, MiniMax Music3 Studio, ACE-Step Studio - 하나의 코어, 세 개의 모델, 링크는 아래에 있습니다."
+      "en": "A cover for every track, likes that stay, stems in their place, and a journal of what an agent did.\n\n- **A cover for every track.** A track without one gets a free (CC0) photograph from Wikimedia Commons that fits its genre, mood or instruments, a pattern in one of 21 styles, or a cover generated through OpenRouter for every new track - chosen in Settings - Cover art. The picture stays the same after a restart, stems wear their song's, and it is written into the MP3, so a player shows it after the download.\n- **One window for any picture.** A track's cover, its video's background and the picture in the video's centre are chosen the same way: Commons photos by search (and clips for a background), the track's pattern in any style with Another variant, generation through OpenRouter, or a file of your own. The video editor no longer asks for a Pexels key.\n- **A like stays with the song.** Every window and a connected agent see the same likes, they survive a profile change, and Liked Songs start from the latest.\n- **Stems under their song.** A separation no longer floods the list: its parts fold under the song as “Stems · N”, a list plays its songs, and separating again asks first.\n- **Sort** any list: newest, oldest, by title or by length.\n- **The Create list shows your playlist.** Pick one in “Into playlist” and the list beside the form shows that project.\n- **Activity** in the sidebar: a log of every change an agent made and every message the studio showed.\n- **Smaller things:** song rows say when a song was made, every icon button has a name for screen readers, and a playlist changed in one window shows in the others at once.\n\nIdeas from a pull request by MRafStudio (#34 in YuE2 Studio) - thank you. The whole family moved to 3.3.0 on the same day: YuE2 Studio, MiniMax Music3 Studio and ACE-Step Studio - one core, three models, the links below.",
+      "ru": "Обложка у каждого трека, лайки, которые не теряются, стемы на своём месте и журнал того, что сделал агент.\n\n- **Обложка у каждого трека.** Трек без своей обложки получает бесплатное фото (CC0) с Wikimedia Commons под его жанр, настроение или инструменты, узор в одном из 21 стиля или обложку, сгенерированную через OpenRouter для каждого нового трека, - выбирается в «Настройки - Обложки». Картинка не меняется после перезапуска, стемы носят обложку своей песни, и она записывается в MP3 - плеер покажет её после скачивания.\n- **Одно окно для любой картинки.** Обложка трека, фон его видео и картинка в центре выбираются одинаково: поиск фото на Commons (а для фона - и роликов), узор трека в любом стиле с кнопкой «Другой вариант», генерация через OpenRouter или свой файл. Видеоредактору больше не нужен ключ Pexels.\n- **Лайк живёт в песне.** Все окна и подключённый агент видят одни и те же лайки, они переживают смену профиля, а «Понравившиеся песни» начинаются с последнего.\n- **Стемы под своей песней.** Разделение больше не засыпает список: части сворачиваются под песней в «Стемы · N», список играет песни, а повторное разделение сначала спрашивает.\n- **Сортировка** любого списка: новые, старые, по названию или по длине.\n- **Список «Создать» показывает ваш плейлист.** Выберите его в «В плейлист» - и рядом с формой будет этот проект.\n- **Журнал** в боковой панели: лог всех изменений, сделанных агентом, и всех сообщений студии.\n- **По мелочи:** у песен видно, когда они сделаны, у всех кнопок-иконок есть подписи для экранного диктора, а плейлист, изменённый в одном окне, сразу виден в других.\n\nИдеи - из пулл-реквеста MRafStudio (#34 в YuE2 Studio), спасибо. Вся семья перешла на 3.3.0 в один день: YuE2 Studio, MiniMax Music3 Studio и ACE-Step Studio - одно ядро, три модели, ссылки ниже.",
+      "zh": "每首曲目都有封面，喜欢不再丢失，分轨各归其位，还有记录代理所做操作的动态。\n\n- **每首曲目都有封面。** 没有封面的曲目会得到符合其流派、情绪或乐器的 Wikimedia Commons 免费（CC0）照片、21 种样式之一的图案，或为每首新曲目通过 OpenRouter 生成的封面（在“设置 - 封面”中选择）。重启后不会改变，分轨沿用原曲的封面，并写入 MP3，下载后播放器也能显示。\n- **一个窗口选任何图片。** 曲目封面、视频背景和视频中间的图片都用同样的方式选择：搜索 Commons 照片（背景还可用视频）、任意样式的曲目图案并可“换一个”、通过 OpenRouter 生成，或使用自己的文件。视频编辑器不再需要 Pexels 密钥。\n- **喜欢随歌曲保存。** 所有窗口和已连接的代理看到同样的喜欢，更换配置也不会丢失，“喜欢的歌曲”从最近的一首开始。\n- **分轨归在原曲之下。** 分离不再塞满列表：分轨折叠在原曲下的“分轨 · N”中，列表只播放歌曲，再次分离前会先询问。\n- **排序**任意列表：最新、最早、按标题或按时长。\n- **创作页的列表显示你的播放列表。** 在“放入歌单”中选择一个，表单旁的列表就会显示这个项目。\n- 侧边栏中的**动态**：记录代理所做的每项更改和工作室显示的每条消息。\n- **细节：** 歌曲行显示创作时间，所有图标按钮都有供读屏软件使用的名称，在一个窗口中修改的播放列表会立即出现在其他窗口中。\n\n这些想法来自 MRafStudio 的拉取请求（YuE2 Studio 的 #34），感谢。整个系列在同一天升级到 3.3.0：YuE2 Studio、MiniMax Music3 Studio 和 ACE-Step Studio——同一个核心，三个模型，链接见下方。",
+      "ja": "すべての曲にジャケット、消えないいいね、あるべき場所に収まるステム、そしてエージェントの操作を記録するアクティビティ。\n\n- **すべての曲にジャケット。** ジャケットのない曲には、ジャンル・ムード・楽器に合う Wikimedia Commons の無料（CC0）写真、21 種類のスタイルの模様、または新しい曲ごとに OpenRouter で生成するジャケットが付きます（設定 - ジャケット で選択）。再起動しても変わらず、ステムは元の曲のジャケットを使い、MP3 にも書き込まれるのでダウンロード後もプレーヤーに表示されます。\n- **どの画像もひとつのウィンドウで。** 曲のジャケット、動画の背景、動画の中央の画像を同じ方法で選べます：Commons の写真検索（背景には動画も）、「別のバリエーション」付きで好きなスタイルの模様、OpenRouter での生成、または手持ちのファイル。動画エディターに Pexels のキーはもう要りません。\n- **いいねは曲と一緒に保存。** すべてのウィンドウと接続中のエージェントが同じいいねを見られ、プロフィールを変えても消えず、「いいねした曲」は最新のものから並びます。\n- **ステムは元の曲の下に。** 分離しても一覧があふれません。パートは曲の下の「ステム · N」にまとまり、一覧は曲だけを再生し、もう一度分離するときは先に確認します。\n- どの一覧も**並べ替え**：新しい順、古い順、タイトル順、長さ順。\n- **作成ページの一覧があなたのプレイリストを表示。** 「プレイリストへ」で選ぶと、フォームの横の一覧がそのプロジェクトになります。\n- サイドバーの**アクティビティ**：エージェントによる変更とスタジオのメッセージをすべて記録します。\n- **細かな改善：** 曲の行に作成日時を表示、すべてのアイコンボタンにスクリーンリーダー用の名前、あるウィンドウで変えたプレイリストはほかのウィンドウにもすぐ反映されます。\n\nアイデアは MRafStudio さんのプルリクエスト（YuE2 Studio の #34）から。ありがとうございます。シリーズ全体が同じ日に 3.3.0 になりました：YuE2 Studio、MiniMax Music3 Studio、ACE-Step Studio ― ひとつのコア、三つのモデル。リンクは下にあります。",
+      "ko": "모든 트랙에 커버, 사라지지 않는 좋아요, 제자리를 찾은 스템, 그리고 에이전트가 한 일을 남기는 활동 기록.\n\n- **모든 트랙에 커버.** 커버가 없는 트랙은 장르·분위기·악기에 맞는 Wikimedia Commons의 무료(CC0) 사진, 21가지 스타일의 무늬, 또는 새 트랙마다 OpenRouter로 생성한 커버를 받습니다(설정 - 커버에서 선택). 다시 시작해도 바뀌지 않고, 스템은 원곡의 커버를 쓰며, MP3에도 기록되어 내려받은 뒤에도 플레이어에 보입니다.\n- **어떤 그림이든 한 창에서.** 트랙 커버, 영상 배경, 영상 가운데 그림을 같은 방식으로 고릅니다: Commons 사진 검색(배경에는 영상도), '다른 변형'이 있는 원하는 스타일의 무늬, OpenRouter 생성, 또는 내 파일. 비디오 편집기에 더 이상 Pexels 키가 필요 없습니다.\n- **좋아요는 곡과 함께 저장됩니다.** 모든 창과 연결된 에이전트가 같은 좋아요를 보고, 프로필을 바꿔도 사라지지 않으며, '좋아하는 곡'은 가장 최근 것부터 보여 줍니다.\n- **스템은 원곡 아래에.** 분리해도 목록이 넘치지 않습니다. 파트는 곡 아래 '스템 · N'으로 접히고, 목록은 곡만 재생하며, 다시 분리할 때는 먼저 확인합니다.\n- 어떤 목록이든 **정렬**: 최신순, 오래된순, 제목순, 길이순.\n- **만들기 페이지의 목록이 내 재생목록을 보여 줍니다.** '플레이리스트에'에서 고르면 양식 옆 목록이 그 프로젝트가 됩니다.\n- 사이드바의 **활동**: 에이전트가 한 모든 변경과 스튜디오가 보여 준 모든 메시지를 기록합니다.\n- **작은 개선:** 곡 행에 만든 시간이 표시되고, 모든 아이콘 버튼에 스크린 리더용 이름이 있으며, 한 창에서 바꾼 재생목록이 다른 창에도 바로 보입니다.\n\n아이디어는 MRafStudio의 풀 리퀘스트(YuE2 Studio #34)에서 왔습니다. 감사합니다. 시리즈 전체가 같은 날 3.3.0이 되었습니다: YuE2 Studio, MiniMax Music3 Studio, ACE-Step Studio - 하나의 코어, 세 개의 모델, 링크는 아래에 있습니다."
     },
     "tags": [
       "ACE-Step",
@@ -199,11 +199,25 @@
       "ja": "3 つのオプションクラウド機能。3 つともデフォルトでオフ、3 つとも無料ティアあり、使わなければローカルパイプラインは従来どおり動作。\n\n• OpenRouter による歌詞とメタデータ — ローカル LM の代わりに 200+ クラウドモデル(Claude、GPT-4o、DeepSeek、Llama、Gemini、Mistral など)を接続できます。多くは完全無料 — モデルピッカーで ':free' でフィルタするだけ。曲の 1 行の説明からモデルが歌詞、caption、BPM、キー、長さ、そしてカバー用の短いビジュアルプロンプトを生成します。\n\n• Pollinations.ai による自動カバー生成 — LLM がカバープロンプトを出すと、Pollinations がオーディオと並行してカバーをレンダリング。匿名ティアは透かしなし・アカウント不要、auth.pollinations.ai の無料トークンでフルモデルカタログ(FLUX、Qwen-Image、GPT-Image、Z-Image など)と高速レートを解放。\n\n• 手動カバー再生成 — 自分の各曲行の「画像 + 鉛筆」ボタン。任意の Pollinations モデルを選び、独自のプロンプトを書き、「もう一度」で気に入るまで再生成、またはディスクから自分の画像をアップロード(JPEG/PNG/WEBP、最大 10 MB)。選んだ画像はカバーとして保存され、MP3 にも埋め込まれるため、ダウンロードしたファイルを再生する外部プレイヤーでも表示されます。\n\nキーの入力場所:作成パネル → 詳細 → 対応するパネル → キーを貼り付け、モデルを選択、テスト。キーはブラウザ内にのみ保存され、プロバイダ自身の API 以外には送信されません。",
       "ko": "세 가지 선택적 클라우드 기능. 셋 다 기본값은 꺼져 있고, 셋 다 무료 티어가 있으며, 사용하지 않으면 로컬 파이프라인은 그대로 동작합니다.\n\n• OpenRouter 로 가사와 메타데이터 — 로컬 LM 대신 200+ 클라우드 모델(Claude、GPT-4o、DeepSeek、Llama、Gemini、Mistral 등) 중 하나를 연결할 수 있습니다. 다수는 완전 무료 — 모델 선택기에서 ':free' 로 필터링만 하면 됩니다. 한 줄 설명에서 모델이 가사, caption, BPM, 키, 길이, 그리고 커버용 짧은 비주얼 프롬프트를 작성합니다.\n\n• Pollinations.ai 로 자동 커버 생성 — LLM 이 커버 프롬프트를 만들면 Pollinations 가 오디오와 병렬로 커버를 렌더링합니다. 익명 티어는 워터마크 없이 계정 없이 동작하며, auth.pollinations.ai 의 무료 토큰으로 전체 모델 카탈로그(FLUX、Qwen-Image、GPT-Image、Z-Image 등)와 더 빠른 레이트를 해제합니다.\n\n• 수동 커버 재생성 — 자신의 각 곡 행에 있는 «이미지+연필» 버튼. 임의의 Pollinations 모델을 선택하고, 자신의 프롬프트를 작성하고, 마음에 들 때까지 «다시 시도», 또는 디스크에서 자신의 이미지를 업로드 (JPEG/PNG/WEBP, 최대 10 MB) 합니다. 선택한 이미지는 커버로 저장되고 MP3 에도 포함되므로, 파일을 다운로드해서 외부 플레이어로 재생해도 같은 이미지가 표시됩니다.\n\n키 입력 위치: 생성 패널 → 고급 → 해당 패널 → 키 붙여넣기, 모델 선택, 테스트. 키는 브라우저에만 저장되며 공급자의 자체 API 외에는 어디에도 전송되지 않습니다."
     },
-    "tags": ["update", "feature", "cloud", "covers"],
+    "tags": [
+      "update",
+      "feature",
+      "cloud",
+      "covers"
+    ],
     "links": [
-      { "label": "🤖 OpenRouter — get a free API key", "url": "https://openrouter.ai/keys" },
-      { "label": "🎨 Pollinations.ai — get a free token", "url": "https://auth.pollinations.ai" },
-      { "label": "📦 ACE-Step Studio repo", "url": "https://github.com/timoncool/ACE-Step-Studio" }
+      {
+        "label": "🤖 OpenRouter — get a free API key",
+        "url": "https://openrouter.ai/keys"
+      },
+      {
+        "label": "🎨 Pollinations.ai — get a free token",
+        "url": "https://auth.pollinations.ai"
+      },
+      {
+        "label": "📦 ACE-Step Studio repo",
+        "url": "https://github.com/timoncool/ACE-Step-Studio"
+      }
     ]
   },
   {
@@ -223,13 +237,31 @@
       "ja": "ACE-Step Studio は 100% 無料でローカル動作します。Suno や Udio の月額 $10+ を節約できたなら — プロジェクトのサポートをご検討ください。\n\n最も簡単な方法：\n• カード / PayPal / Apple Pay（任意の通貨）— dalink.to/nerual_dreming\n• Boosty（月額サポート / Patreon 代替）— boosty.to/neuro_art\n\n暗号通貨：\n• BTC — 1E7dHL22RpyhJGVpcvKdbyZgksSYkYeEBC\n• ETH (ERC20) — 0xb5db65adf478983186d4897ba92fe2c25c594a0c\n• USDT (TRC20) — TQST9Lp2TjK6FiVkn4fwfGUee7NmkxEE7C\n\nサポートはホスティング、テスト用ハードウェア、開発時間に使われます。スター、シェア、寄付はすべて大切です。ありがとうございます！",
       "ko": "ACE-Step Studio는 100% 무료이며 로컬에서 실행됩니다. Suno/Udio 월 $10+ 구독료를 아껴주었다면 — 프로젝트 후원을 고려해 주세요.\n\n가장 쉬운 방법:\n• 카드 / PayPal / Apple Pay (모든 통화) — dalink.to/nerual_dreming\n• Boosty (월간 후원 / Patreon 대안) — boosty.to/neuro_art\n\n암호화폐:\n• BTC — 1E7dHL22RpyhJGVpcvKdbyZgksSYkYeEBC\n• ETH (ERC20) — 0xb5db65adf478983186d4897ba92fe2c25c594a0c\n• USDT (TRC20) — TQST9Lp2TjK6FiVkn4fwfGUee7NmkxEE7C\n\n후원은 호스팅, 테스트 하드웨어, 개발 시간에 사용됩니다. 모든 별표, 공유, 기부가 중요합니다. 감사합니다!"
     },
-    "tags": ["donate", "support"],
+    "tags": [
+      "donate",
+      "support"
+    ],
     "links": [
-      { "label": "💳 Card / PayPal / Apple Pay — dalink.to", "url": "https://dalink.to/nerual_dreming" },
-      { "label": "🎨 Boosty — monthly support",             "url": "https://boosty.to/neuro_art" },
-      { "label": "📖 Full donation guide (EN / RU)",         "url": "https://github.com/timoncool/ACE-Step-Studio/blob/master/DONATE.md" },
-      { "label": "Nerual Dreming — Telegram",                "url": "https://t.me/nerual_dreming" },
-      { "label": "@timoncool on GitHub",                     "url": "https://github.com/timoncool" }
+      {
+        "label": "💳 Card / PayPal / Apple Pay — dalink.to",
+        "url": "https://dalink.to/nerual_dreming"
+      },
+      {
+        "label": "🎨 Boosty — monthly support",
+        "url": "https://boosty.to/neuro_art"
+      },
+      {
+        "label": "📖 Full donation guide (EN / RU)",
+        "url": "https://github.com/timoncool/ACE-Step-Studio/blob/master/DONATE.md"
+      },
+      {
+        "label": "Nerual Dreming — Telegram",
+        "url": "https://t.me/nerual_dreming"
+      },
+      {
+        "label": "@timoncool on GitHub",
+        "url": "https://github.com/timoncool"
+      }
     ]
   },
   {
@@ -249,11 +281,24 @@
       "ja": "Upstream ACE-Step v0.1.7 + post-release fixes (5/1) と同期。大規模な品質アップデート。\n\n新機能:\n• DCW (Differential Correction in Wavelet domain) — CVPR 2026 論文、各サンプラーステップで無料の品質向上。デフォルトオン。Custom モードに新パネル: Mode (low/high/double/pix) + Wavelet (haar/db4/sym8/...) + 2 つの強度スライダー。\n• Retake — Variance スライダー付きバリエーションシード。メインモチーフを保ちながら微妙な違い(ボーカル、編曲)で同じ曲を生成。\n• Flow-edit (#1156) — text2music + cover + cover-nofsq タスク用テキスト編集オーバーレイ。ソース caption+lyrics をターゲットプロンプトに向かってモーフ。Custom モードに完全 UI パネル (source caption + source lyrics + n_min/n_max + n_avg)。\n• ScragVAE — 代替コミュニティ VAE、ACESTEP_VAE_CHECKPOINT 環境変数で切り替え。\n• Repaint Most Natural — 4 番目のモードオプション (Conservative/Balanced/Aggressive に加えて)、最大ソース保持、反復的な repaint リファインメントに有用。\n• 7 スケジューラ (linear/karras/cosine/beta/sway/logit_normal/laplace) — 当 fork から保持。\n\n修正:\n• turbo/xl-turbo の infer_steps — 以前は黙って 8 ステップにクランプされていた、UI 値 (1–20) を尊重するように。\n• LM CFG uncond prompt をトレーニング dropout 形式に整合 (#1127, #1128) — 歌詞品質向上。\n• Apple Silicon の MLX DiT static buffers 修正 (#1166)。\n• 多数の上流からの小さなバグ修正。\n\n依存関係: pip install pytorch-wavelets PyWavelets (install.bat / Pinokio が自動インストール)。",
       "ko": "Upstream ACE-Step v0.1.7 + post-release fixes (5/1) 와 동기화. 대규모 품질 업데이트.\n\n새 기능:\n• DCW (Differential Correction in Wavelet domain) — CVPR 2026 논문, 각 샘플러 단계에서 무료 품질 향상. 기본 ON. Custom 모드에 새 패널: Mode (low/high/double/pix) + Wavelet (haar/db4/sym8/...) + 2 개 강도 슬라이더.\n• Retake — Variance 슬라이더가 있는 변형 시드. 메인 모티브를 유지하면서 미묘한 차이(보컬, 편곡)로 같은 곡 생성.\n• Flow-edit (#1156) — text2music + cover + cover-nofsq 작업용 텍스트 편집 오버레이. 소스 caption+lyrics를 타겟 prompt로 모핑. Custom 모드에 완전한 UI 패널 (source caption + source lyrics + n_min/n_max + n_avg).\n• ScragVAE — 대체 커뮤니티 VAE, ACESTEP_VAE_CHECKPOINT 환경 변수로 전환.\n• Repaint Most Natural — 4 번째 모드 옵션 (Conservative/Balanced/Aggressive 외에), 최대 소스 보존, 반복적인 repaint 다듬기에 유용.\n• 7 스케줄러 (linear/karras/cosine/beta/sway/logit_normal/laplace) — 우리 fork 에서 유지.\n\n수정사항:\n• turbo/xl-turbo 의 infer_steps — 이전에는 8 단계로 무음 클램프, 이제 UI 값 (1–20) 존중.\n• LM CFG uncond prompt 를 훈련 dropout 형식과 정렬 (#1127, #1128) — 가사 품질 향상.\n• Apple Silicon MLX DiT static buffers 수정 (#1166).\n• 다수의 upstream 작은 버그 수정.\n\n의존성: pip install pytorch-wavelets PyWavelets (install.bat / Pinokio 자동 설치)."
     },
-    "tags": ["update", "quality", "upstream-sync"],
+    "tags": [
+      "update",
+      "quality",
+      "upstream-sync"
+    ],
     "links": [
-      { "label": "📄 DCW paper (arXiv 2604.16044)", "url": "https://arxiv.org/abs/2604.16044" },
-      { "label": "🔬 Upstream ACE-Step v0.1.7 release", "url": "https://github.com/ace-step/ACE-Step-1.5/releases/tag/v0.1.7" },
-      { "label": "📦 ACE-Step Studio repo", "url": "https://github.com/timoncool/ACE-Step-Studio" }
+      {
+        "label": "📄 DCW paper (arXiv 2604.16044)",
+        "url": "https://arxiv.org/abs/2604.16044"
+      },
+      {
+        "label": "🔬 Upstream ACE-Step v0.1.7 release",
+        "url": "https://github.com/ace-step/ACE-Step-1.5/releases/tag/v0.1.7"
+      },
+      {
+        "label": "📦 ACE-Step Studio repo",
+        "url": "https://github.com/timoncool/ACE-Step-Studio"
+      }
     ]
   },
   {
@@ -273,13 +318,31 @@
       "ja": "ACE-Step Studio が Pinokio の 1-click ランチャーとして利用可能になりました。Pinokio が Python 3.12、Node.js、ffmpeg、venv、torch、triton、flash-attention をすべて同梱 — install.bat はもう不要です。\n\n対応プラットフォーム:\n• Windows 10/11 — NVIDIA RTX 20xx–50xx、AMD (DirectML)\n• Linux x64 — NVIDIA CUDA 12.8、AMD ROCm 6.3\n• Linux aarch64 — NVIDIA DGX Spark / Jetson (CUDA 13.0)\n• macOS Apple Silicon — MPS + MLX ネイティブアクセラレーション\n• macOS Intel / CPU のみ — 遅いが動作\n\nhttps://pinokio.co から Pinokio をインストールし、Discover タブで 'ACE-Step Studio' を検索してください。",
       "ko": "ACE-Step Studio가 이제 Pinokio 원클릭 런처로 제공됩니다. Pinokio는 Python 3.12, Node.js, ffmpeg, venv, torch, triton, flash-attention을 모두 번들 — install.bat 불필요.\n\n지원 플랫폼:\n• Windows 10/11 — NVIDIA RTX 20xx–50xx, AMD (DirectML)\n• Linux x64 — NVIDIA CUDA 12.8, AMD ROCm 6.3\n• Linux aarch64 — NVIDIA DGX Spark / Jetson (CUDA 13.0)\n• macOS Apple Silicon — MPS + MLX 네이티브 가속\n• macOS Intel / CPU 전용 — 느리지만 작동\n\nhttps://pinokio.co 에서 Pinokio를 설치하고 Discover 탭에서 'ACE-Step Studio'를 검색하세요."
     },
-    "tags": ["release", "pinokio"],
+    "tags": [
+      "release",
+      "pinokio"
+    ],
     "links": [
-      { "label": "🚀 Install on Pinokio (1-click)",   "url": "https://pinokio.co/item?uri=https://github.com/timoncool/ACE-Step-Studio-pinokio" },
-      { "label": "📂 Open in Pinokio (app page)",     "url": "https://beta.pinokio.co/apps/github-com-timoncool-ace-step-studio-pinokio" },
-      { "label": "Pinokio launcher repo (GitHub)",    "url": "https://github.com/timoncool/ACE-Step-Studio-pinokio" },
-      { "label": "Pinokio — download app",            "url": "https://pinokio.co" },
-      { "label": "ACE-Step Studio repo (GitHub)",     "url": "https://github.com/timoncool/ACE-Step-Studio" }
+      {
+        "label": "🚀 Install on Pinokio (1-click)",
+        "url": "https://pinokio.co/item?uri=https://github.com/timoncool/ACE-Step-Studio-pinokio"
+      },
+      {
+        "label": "📂 Open in Pinokio (app page)",
+        "url": "https://beta.pinokio.co/apps/github-com-timoncool-ace-step-studio-pinokio"
+      },
+      {
+        "label": "Pinokio launcher repo (GitHub)",
+        "url": "https://github.com/timoncool/ACE-Step-Studio-pinokio"
+      },
+      {
+        "label": "Pinokio — download app",
+        "url": "https://pinokio.co"
+      },
+      {
+        "label": "ACE-Step Studio repo (GitHub)",
+        "url": "https://github.com/timoncool/ACE-Step-Studio"
+      }
     ]
   },
   {
@@ -299,13 +362,31 @@
       "ja": "プロジェクトをフォークし、ACE-Step Studio として大幅にアップグレードしました。Windows 向けのフル機能ポータブル音楽生成アプリです。新機能：XL モデル対応（4B DiT）BF16、シングルターミナルモード、API によるモデルホットスワップ、LRC タイムスタンプ歌詞カラオケビデオオーバーレイ、WYSIWYG エディター付き Video Studio、GPU 加速 FFmpeg サーバーサイドレンダリング、MP3 ID3 タグ、国際化（5言語）、Flash Attention 2 + Triton 高速化、ワンクリックポータブルインストーラー。",
       "ko": "프로젝트를 포크하여 ACE-Step Studio로 대폭 업그레이드했습니다 — Windows용 풀기능 포터블 음악 생성 앱입니다. 새 기능: XL 모델 지원 (4B DiT) BF16, 단일 터미널 모드, API 모델 핫스왑, LRC 타임스탬프 가사 노래방 비디오 오버레이, WYSIWYG 편집기 Video Studio, GPU 가속 FFmpeg 서버 렌더링, MP3 ID3 태그, 국제화 (5개 언어), Flash Attention 2 + Triton 가속, 원클릭 포터블 설치."
     },
-    "tags": ["release", "feature"],
+    "tags": [
+      "release",
+      "feature"
+    ],
     "links": [
-      { "label": "ACE-Step Studio on GitHub", "url": "https://github.com/timoncool/ACE-Step-Studio" },
-      { "label": "Nerual Dreming — Telegram", "url": "https://t.me/nerual_dreming" },
-      { "label": "neuro-cartel.com", "url": "https://neuro-cartel.com" },
-      { "label": "ArtGeneration.me", "url": "https://artgeneration.me" },
-      { "label": "Neiro-Soft — Telegram", "url": "https://t.me/neiro_soft" }
+      {
+        "label": "ACE-Step Studio on GitHub",
+        "url": "https://github.com/timoncool/ACE-Step-Studio"
+      },
+      {
+        "label": "Nerual Dreming — Telegram",
+        "url": "https://t.me/nerual_dreming"
+      },
+      {
+        "label": "neuro-cartel.com",
+        "url": "https://neuro-cartel.com"
+      },
+      {
+        "label": "ArtGeneration.me",
+        "url": "https://artgeneration.me"
+      },
+      {
+        "label": "Neiro-Soft — Telegram",
+        "url": "https://t.me/neiro_soft"
+      }
     ]
   },
   {
@@ -325,7 +406,10 @@
       "ja": "バックエンドを REST API から Gradio API に移行し、ACE-Step と直接通信できるようになりました。このバージョンは実験的です — バグを見つけた場合は GitHub で issue または PR を作成してください。",
       "ko": "백엔드를 REST API에서 Gradio API로 마이그레이션하여 ACE-Step과 직접 통신합니다. 이 버전은 실험적입니다 — 버그를 발견하면 GitHub에서 issue 또는 PR을 생성해 주세요."
     },
-    "tags": ["backend", "experimental"]
+    "tags": [
+      "backend",
+      "experimental"
+    ]
   },
   {
     "id": "v1-training-experimental",
@@ -344,6 +428,9 @@
       "ja": "トレーニング機能が利用可能になりましたが、まだ実験的です。データセット構築、前処理、トレーニング中にバグが発生する可能性があります。バグレポートと PR を歓迎します！",
       "ko": "훈련 기능이 사용 가능하지만 아직 실험적입니다. 데이터셋 구축, 전처리, 훈련 중 버그가 발생할 수 있습니다. 버그 리포트와 PR을 환영합니다!"
     },
-    "tags": ["training", "experimental"]
+    "tags": [
+      "training",
+      "experimental"
+    ]
   }
 ]
