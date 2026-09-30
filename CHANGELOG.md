@@ -31,12 +31,12 @@ What changed, newest first. Dates are release dates.
   parts' icons, on the Create page and in the library: the song count no longer counts stems,
   a list plays its songs and a stem plays alone. Covers, re-renders and processed songs stay
   songs of their own. (YuE2 Studio #34)
-- Separating a song again asks first, naming the stems it replaces, and separating a stem is
-  disabled with the reason. (YuE2 Studio #34)
+- Separating a song again asks first, naming the stems it replaces; separating a stem is
+  disabled with the reason, and the service refuses it to an agent too. (YuE2 Studio #34)
 - The playlist page reads the shared library, so a deletion, an edit or a song made anywhere
   shows at once, and deleting a playlist asks in the studio's own dialog.
-- Tools that write over stored content (song, playlist, dataset and LoRA edits, stems,
-  karaoke, covers, the OpenRouter key) are marked destructive, so the agent's client asks
+- Tools that write over stored content (song, playlist, dataset and LoRA edits, a dataset
+  prepared again, stems, karaoke, MIDI, covers, the OpenRouter key) are marked destructive, so the agent's client asks
   before them. (YuE2 Studio #34)
 
 ### Fixed

@@ -60,12 +60,12 @@ connected and the address to paste.
   studio's Activity journal as what was done, to what and its name; a job is written as
   started. Reads, the window's own controls (`ui_*`, the player, the create form, the video
   editor, the visualizer) and answers that store nothing leave no line. A tool that writes
-  over what was stored (a song or playlist edit, stems made again, karaoke, a cover) is
-  marked destructive, so your client asks the user first.
+  over what was stored (a song or playlist edit, a dataset prepared again, stems made again,
+  karaoke, MIDI, a cover) is marked destructive, so your client asks the user first.
 - **A like lives with the song**: `library_liked` (the latest like first) and
   `library_song_like` work without the window open.
 - **A stem belongs to its song**: the window shows it under the song it was separated
-  from, and `stems_split` on a song that has stems replaces them.
+  from, `stems_split` on a song that has stems replaces them, and a stem itself is not split.
 - **Files on this computer are passed by path**: `dataset_add_folder`,
   `library_import_audio`, `cover_set_from_file`, `video_set`. `library_song_files` and
   `dataset_song_files` give the paths of the studio's own files.

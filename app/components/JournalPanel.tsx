@@ -45,7 +45,7 @@ export const JournalPanel: React.FC<{ open: boolean; onClose: () => void }> = ({
   return (
     <aside
       aria-label={t('journal')}
-      className="fixed inset-y-0 right-0 z-[60] flex w-[min(24rem,100vw)] flex-col border-l border-zinc-200 bg-white shadow-2xl dark:border-white/10 dark:bg-suno-panel"
+      className="fixed inset-y-0 right-0 z-[55] flex w-[min(24rem,100vw)] flex-col border-l border-zinc-200 bg-white shadow-2xl dark:border-white/10 dark:bg-suno-panel"
     >
       <div className="flex h-14 shrink-0 items-center gap-2 border-b border-zinc-200 px-4 dark:border-white/5">
         <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">{t('journal')}</h2>

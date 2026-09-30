@@ -2672,6 +2672,10 @@ async fn start_separation(
         .get_song(&id)
         .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
         .ok_or_else(|| api_error(StatusCode::NOT_FOUND, "Song not found".into()))?;
+    // a stem is a part of a song already: the song it came from is what is separated
+    if song.metadata["derived"]["tool"].as_str() == Some("stems") {
+        return Err(api_error(StatusCode::CONFLICT, "this track is a stem, a part of a song already; separate the song it came from".into()));
+    }
     let audio_path = state
         .library
         .media_path_for_song(&song)

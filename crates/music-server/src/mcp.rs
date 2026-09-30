@@ -360,7 +360,7 @@ fn annotations(name: &str) -> Value {
     // reads whose names the rules above miss: create_form names the create page
     const READ_NAMES: &[&str] = &["lyrics_find", "cover_prompt_render", "studio_wait", "engine_presets_get", "assistant_requests_wait", "ui_console", "song_defaults", "create_form_get", "library_liked"];
     // writes over what was stored, so the earlier content is gone: a client asks first
-    const OVERWRITES: &[&str] = &["library_song_update", "playlist_update", "dataset_update", "dataset_song_update", "lora_update", "stems_split", "karaoke_make", "cover_draw", "cover_set_from_file", "openrouter_set_key"];
+    const OVERWRITES: &[&str] = &["library_song_update", "playlist_update", "dataset_update", "dataset_song_update", "dataset_song_describe", "dataset_prepare", "lora_update", "stems_split", "karaoke_make", "midi_transcribe", "cover_draw", "cover_set_from_file", "openrouter_set_key"];
     let changes = CHANGES.iter().any(|verb| name.split('_').any(|word| word == *verb));
     let read_only = READ_NAMES.contains(&name) || !changes && (READS.iter().any(|part| name.ends_with(part) || name.contains(&format!("{part}_"))) || name.starts_with("writing_"));
     let destructive = name.ends_with("_delete") || name.ends_with("_remove") || name == "processing_discard" || name.ends_with("_cancel") || name.contains("_cancel_") || OVERWRITES.contains(&name);
@@ -1590,7 +1590,7 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "stems_split",
-                description: "Split a library song into six stems (drums, bass, other, vocals, guitar, piano) with HT-Demucs. Each stem becomes a track of the library made from the song (made_from, made_by stems), replacing the stems of an earlier split; stems_get names them. Wait with studio_wait until stems.",
+                description: "Split a library song into six stems (drums, bass, other, vocals, guitar, piano) with HT-Demucs. Each stem becomes a track of the library made from the song (made_from, made_by stems), replacing the stems of an earlier split; stems_get names them. A stem is not split again: split the song it came from. Wait with studio_wait until stems.",
                 schema: || id_only("song_id", "library song id"),
                 call: |args| post(format!("/v1/library/songs/{}/stems", segment(&text(args, "song_id")?)), json!({})),
             },
@@ -2624,7 +2624,7 @@ fn moment(text: &str, end: bool) -> Result<i64, String> {
 
 /// What an agent is told when it connects.
 fn instructions() -> String {
-    format!("You drive {} on this computer. Every tool runs the same code as a button of the studio, the user sees what you do in its window, and every change you make is written into its Activity journal. Start with studio_status. Long work (songs, stems, karaoke, dataset preparation, training) is a job: start it, then studio_wait instead of polling. The graphics card runs one heavy job at a time; while a LoRA trains no song is made. Look ids up instead of guessing them: library_songs_list, training_status, dataset_get, lora_list, models_status. Before writing for the model yourself read writing_guide and writing_examples. When the user has made you the studio's writing assistant, answer its requests: assistant_requests_wait, then assistant_request_answer. The whole guide is the resource studio://skill (prompt 'studio').", music_core::studio().name)
+    format!("You drive {} on this computer. Every tool runs the same code as a button of the studio, the user sees what you do in its window, and every change a tool makes - all but the window's own controls - is written into its Activity journal. Start with studio_status. Long work (songs, stems, karaoke, dataset preparation, training) is a job: start it, then studio_wait instead of polling. The graphics card runs one heavy job at a time; while a LoRA trains no song is made. Look ids up instead of guessing them: library_songs_list, training_status, dataset_get, lora_list, models_status. Before writing for the model yourself read writing_guide and writing_examples. When the user has made you the studio's writing assistant, answer its requests: assistant_requests_wait, then assistant_request_answer. The whole guide is the resource studio://skill (prompt 'studio').", music_core::studio().name)
 }
 
 #[cfg(test)]
@@ -2737,7 +2737,7 @@ mod tests {
 
     #[test]
     fn a_tool_that_writes_over_what_was_stored_is_destructive() {
-        for name in ["library_song_update", "playlist_update", "stems_split", "karaoke_make", "cover_set_from_file", "library_song_delete"] {
+        for name in ["library_song_update", "playlist_update", "stems_split", "karaoke_make", "midi_transcribe", "dataset_prepare", "dataset_song_describe", "cover_set_from_file", "library_song_delete"] {
             assert_eq!(annotations(name)["destructiveHint"], true, "{name}");
         }
         for name in ["song_create", "playlist_create", "library_song_like", "library_version_select", "settings_set"] {
