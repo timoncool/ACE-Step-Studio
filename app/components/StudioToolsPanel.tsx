@@ -190,6 +190,8 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
   const visible = matches.slice(0, 12);
   const hidden = matches.length - visible.length;
   const settings = status?.settings ?? { stems: status?.stems ?? [], overlap: 0.25, runtime: 'auto' as const };
+  // what separating again replaces: the stems it makes that the song has already
+  const replacing = stems.filter(stem => settings.stems.includes(stem));
   const run = status?.run?.song_id === songId ? status?.run : null;
   const running = Boolean(run && !run.done);
   const percent = Math.round((run?.progress ?? 0) * 100);
@@ -330,7 +332,7 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
 
             <button
               type="button"
-              onClick={() => (stems.length > 0 ? setConfirmReplace(true) : void separate())}
+              onClick={() => (replacing.length > 0 ? setConfirmReplace(true) : void separate())}
               disabled={!status?.ready || !songId || chosenIsStem || settings.stems.length === 0 || running || busy}
               className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg bg-linear-to-r from-orange-500 to-pink-600 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -341,7 +343,7 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
             <ConfirmDialog
               isOpen={confirmReplace}
               title={t('replaceStemsTitle')}
-              message={t('replaceStemsMessage').replace('{stems}', stems.map(stem => t(`stem_${stem}` as TranslationKey) || stem).join(', '))}
+              message={t('replaceStemsMessage').replace('{stems}', () => replacing.map(stem => t(`stem_${stem}` as TranslationKey)).join(', '))}
               confirmLabel={t('replaceStemsConfirm')}
               onConfirm={() => { setConfirmReplace(false); void separate(); }}
               onCancel={() => setConfirmReplace(false)}

@@ -65,7 +65,8 @@ connected and the address to paste.
 - **A like lives with the song**: `library_liked` (the latest like first) and
   `library_song_like` work without the window open.
 - **A stem belongs to its song**: the window shows it under the song it was separated
-  from, `stems_split` on a song that has stems replaces them, and a stem itself is not split.
+  from, `stems_split` on a song that has stems replaces the ones it makes again, and a stem
+  itself is not split.
 - **Files on this computer are passed by path**: `dataset_add_folder`,
   `library_import_audio`, `cover_set_from_file`, `video_set`. `library_song_files` and
   `dataset_song_files` give the paths of the studio's own files.

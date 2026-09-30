@@ -50,7 +50,8 @@ export const SortMenu: React.FC<{ order: SongOrder; orders: SongOrder[]; onChang
           : 'border-zinc-200 bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:border-white/10 dark:bg-suno-panel dark:text-white dark:hover:bg-white/5'}`}
       >
         <ArrowUpDown size={14} />
-        <span className="whitespace-nowrap">{t(LABELS[order])}</span>
+        {/* on a phone the icon stands alone; the name and tooltip keep the words */}
+        <span className="hidden whitespace-nowrap sm:inline">{t(LABELS[order])}</span>
       </button>
       {open && (
         <div role="menu" className="absolute right-0 top-full z-50 mt-2 w-60 origin-top-right overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-2xl dark:border-white/10 dark:bg-suno-card">

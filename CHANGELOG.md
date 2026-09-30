@@ -36,12 +36,14 @@ What changed, newest first. Dates are release dates.
 - The playlist page reads the shared library, so a deletion, an edit or a song made anywhere
   shows at once, and deleting a playlist asks in the studio's own dialog.
 - Tools that write over stored content (song, playlist, dataset and LoRA edits, a dataset
-  prepared again, stems, karaoke, MIDI, covers, the OpenRouter key) are marked destructive, so the agent's client asks
-  before them. (YuE2 Studio #34)
+  prepared again, stems, karaoke, MIDI, covers, the OpenRouter key) are marked destructive,
+  so the agent's client asks before them. (YuE2 Studio #34)
 
 ### Fixed
 
 - A playlist created, changed or deleted in one window shows in the others at once.
+- An agent's song edit that leaves the metadata out keeps what the studio stores there - the
+  like, processed versions, karaoke, the cover - instead of wiping it.
 - An agent's command goes to the window the person turned to, not the one opened last. (YuE2 Studio #34)
 - Every icon button of the player, the song card and the library rows has a name for screen
   readers, the same words as its tooltip. (YuE2 Studio #34)
