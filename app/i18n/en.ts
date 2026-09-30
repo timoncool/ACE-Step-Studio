@@ -1229,6 +1229,7 @@ export const en = {
     pickerChoose: 'Choose…',
     bgRandomHint: 'A photograph the track\'s style calls up; press Random again for another.',
     bgRandomFailed: 'No photograph could be fetched ({reason}), so the track\'s pattern is used.',
+    bgImageFailed: 'The background picture did not load; choose another.',
     coverLookTitle: 'Tracks without a cover of their own',
     coverLookHint: 'Every track gets a picture. One whose cover was not generated, uploaded or chosen wears a photograph or a pattern picked for it: it stays the same after a restart, and a stem wears its song\'s.',
     coverLookPhoto: 'Photo for the style',

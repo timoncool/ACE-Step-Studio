@@ -1224,6 +1224,7 @@ export const ko = {
     pickerChoose: '선택…',
     bgRandomHint: '트랙 스타일에 맞는 사진. "무작위"를 다시 누르면 다른 사진이 나옵니다.',
     bgRandomFailed: '사진을 가져오지 못해({reason}) 트랙 무늬를 사용합니다.',
+    bgImageFailed: '배경 그림을 불러오지 못했습니다. 다른 그림을 고르세요.',
     coverLookTitle: '자체 커버가 없는 트랙',
     coverLookHint: '모든 트랙에 그림이 붙습니다. 커버를 생성·업로드·선택하지 않은 트랙은 그 트랙에 맞춘 사진이나 무늬를 씁니다. 다시 시작해도 바뀌지 않으며, 스템은 원곡의 커버를 씁니다.',
     coverLookPhoto: '스타일에 맞는 사진',

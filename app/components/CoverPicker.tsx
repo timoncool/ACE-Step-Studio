@@ -169,7 +169,6 @@ const Problem: React.FC<{ text: string }> = ({ text }) => (
 
 interface Found {
   query: string;
-  from: number;
   total: number;
   photos: CommonsPhoto[];
   videos: CommonsClip[];
@@ -190,6 +189,8 @@ const CommonsSearch: React.FC<{
   const [found, setFound] = useState<Found | null>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  // once the user has looked for something, the suggestion no longer takes the box
+  const asked = useRef(false);
 
   const search = useCallback(async (wanted: string, from = 0) => {
     const q = wanted.trim();
@@ -200,7 +201,9 @@ const CommonsSearch: React.FC<{
       const response = await fetch(`/v1/media/${kind === 'photo' ? 'photos' : 'videos'}?q=${encodeURIComponent(q)}&from=${from}`);
       const body = await response.json().catch(() => null);
       if (!response.ok) throw new Error(body?.error || `the search answered ${response.status}`);
-      setFound({ query: q, from, total: body.total ?? 0, photos: body.photos ?? [], videos: body.videos ?? [] });
+      setFound(shown => (from > 0 && shown?.query === q
+        ? { query: q, total: body.total ?? 0, photos: [...shown.photos, ...(body.photos ?? [])], videos: [...shown.videos, ...(body.videos ?? [])] }
+        : { query: q, total: body.total ?? 0, photos: body.photos ?? [], videos: body.videos ?? [] }));
     } catch (reason) {
       setProblem(reasonOf(reason));
     } finally {
@@ -215,7 +218,7 @@ const CommonsSearch: React.FC<{
       .then(({ scenes: suggested }) => {
         if (!current) return;
         setScenes(suggested);
-        if (suggested[0]) {
+        if (suggested[0] && !asked.current) {
           setQuery(suggested[0]);
           void search(suggested[0]);
         }
@@ -233,7 +236,7 @@ const CommonsSearch: React.FC<{
       <div className="flex gap-2">
         <input
           value={query}
-          onChange={event => setQuery(event.target.value)}
+          onChange={event => { asked.current = true; setQuery(event.target.value); }}
           onKeyDown={event => { if (event.key === 'Enter') void search(query); }}
           placeholder={t('pickerSearchPlaceholder')}
           className={CONTROL}
@@ -254,7 +257,7 @@ const CommonsSearch: React.FC<{
             <button
               key={scene}
               type="button"
-              onClick={() => { setQuery(scene); void search(scene); }}
+              onClick={() => { asked.current = true; setQuery(scene); void search(scene); }}
               className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${found?.query === scene ? 'bg-pink-500/15 text-pink-600 dark:text-pink-300' : 'bg-zinc-200/70 text-zinc-600 hover:text-pink-600 dark:bg-white/10 dark:text-zinc-300'}`}
             >
               {scene}
@@ -302,10 +305,10 @@ const CommonsSearch: React.FC<{
 
       <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] text-zinc-500">{kind === 'photo' ? t('pickerCommonsPhotos') : t('pickerCommonsVideos')}</p>
-        {found && found.total > found.from + items.length && (
+        {found && found.total > items.length && (
           <button
             type="button"
-            onClick={() => void search(found.query, found.from + items.length)}
+            onClick={() => void search(found.query, items.length)}
             disabled={busy}
             className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-pink-600 hover:bg-pink-500/10 disabled:opacity-50"
           >

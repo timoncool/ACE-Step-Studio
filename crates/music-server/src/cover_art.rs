@@ -279,6 +279,9 @@ const PREVIEW_WIDTH: &str = "500px-";
 const SEARCH_KEPT: Duration = Duration::from_secs(24 * 60 * 60);
 const PHOTOS_PER_SCENE: &str = "40";
 
+/// Where a photograph's page lives; a cover's source is shown and opened only from here.
+pub const COMMONS_PAGES: &str = "https://commons.wikimedia.org/";
+
 /// Commons asks every client to name itself and a way to reach its authors.
 pub fn commons_agent() -> String {
     let studio = music_core::studio();
@@ -287,6 +290,19 @@ pub fn commons_agent() -> String {
 
 /// Commons asks for no more than a few requests at a time.
 static COMMONS_TURNS: LazyLock<tokio::sync::Semaphore> = LazyLock::new(|| tokio::sync::Semaphore::new(2));
+
+/// After a photograph for a placeholder could not be had, the placeholders
+/// drawn for a while wear their pattern instead of each waiting on Commons.
+pub const PHOTO_REST: Duration = Duration::from_secs(120);
+static PHOTO_FAILED: Mutex<Option<Instant>> = Mutex::new(None);
+
+pub fn photos_resting() -> bool {
+    PHOTO_FAILED.lock().expect("the photo rest").is_some_and(|when| when.elapsed() < PHOTO_REST)
+}
+
+pub fn photo_failed(failed: bool) {
+    *PHOTO_FAILED.lock().expect("the photo rest") = failed.then(Instant::now);
+}
 static FOUND: LazyLock<Mutex<HashMap<String, (Instant, Vec<Photo>)>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// Files whose names say they are not a picture of a scene.
@@ -313,8 +329,12 @@ pub async fn photos_of(client: &reqwest::Client, scene: &str) -> Result<Vec<Phot
             return Ok(photos.clone());
         }
     }
-    let mut photos = search(client, &format!("{scene} incategory:\"Images from Unsplash\"")).await?;
-    for photo in search(client, &format!("{scene} filetype:bitmap haswbstatement:P275=Q6938433")).await? {
+    let (unsplash, cc0) = (
+        format!("{scene} incategory:\"Images from Unsplash\""),
+        format!("{scene} filetype:bitmap haswbstatement:P275=Q6938433"),
+    );
+    let (mut photos, more) = tokio::try_join!(search(client, &unsplash), search(client, &cc0))?;
+    for photo in more {
         if !photos.iter().any(|known| known.title == photo.title) {
             photos.push(photo);
         }
@@ -397,8 +417,12 @@ pub async fn clips_of(client: &reqwest::Client, query: &str) -> Result<Vec<Clip>
             return Ok(clips.clone());
         }
     }
-    let mut clips = search_clips(client, &format!("{query} filetype:video haswbstatement:P275=Q6938433")).await?;
-    for clip in search_clips(client, &format!("{query} filetype:video haswbstatement:P6216=Q19652")).await? {
+    let (cc0, public_domain) = (
+        format!("{query} filetype:video haswbstatement:P275=Q6938433"),
+        format!("{query} filetype:video haswbstatement:P6216=Q19652"),
+    );
+    let (mut clips, more) = tokio::try_join!(search_clips(client, &cc0), search_clips(client, &public_domain))?;
+    for clip in more {
         if !clips.iter().any(|known| known.title == clip.title) {
             clips.push(clip);
         }

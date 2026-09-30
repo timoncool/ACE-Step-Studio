@@ -1,9 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, ExternalLink, Image as ImageIcon, Loader2, Maximize2, X } from 'lucide-react';
 import { Song } from '../types';
-import { AlbumCover } from './AlbumCover';
+import { SongCover } from './AlbumCover';
 import { CoverPicker, type PickedMedia } from './CoverPicker';
-import { coverSeed } from '../services/songStems';
 import { ImageLightbox } from './ImageLightbox';
 import { apiUrl } from '../services/apiBase';
 import { openExternal } from '../services/externalLinks';
@@ -85,9 +84,11 @@ export const CoverRegenModal: React.FC<CoverRegenModalProps> = ({ song, onClose,
 
   // What the preview shows: the choice, or what the track has now.
   const still = choice && choice.kind !== 'video' ? choice.url : purpose === 'cover' ? song.coverUrl : '';
-  const source = choice?.kind === 'photo' ? choice.photo.page
+  const page = choice?.kind === 'photo' ? choice.photo.page
     : choice?.kind === 'video' ? choice.clip?.page
       : !choice && purpose === 'cover' ? song.coverSource : undefined;
+  // only a Commons page is opened: the address is stored data anyone could write
+  const source = page?.startsWith('https://commons.wikimedia.org/') ? page : undefined;
 
   return (
     <div className="fixed inset-0 z-70 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
@@ -118,7 +119,7 @@ export const CoverRegenModal: React.FC<CoverRegenModalProps> = ({ song, onClose,
               ) : purpose === 'background' ? (
                 <span className="flex h-full w-full items-center justify-center px-6 text-center text-xs text-zinc-500">{t('pickerNothingChosen')}</span>
               ) : (
-                <AlbumCover seed={coverSeed(song)} size="full" coverUrl={song.coverUrl} />
+                <SongCover song={song} size="full" />
               )}
               {still && (
                 <span className="pointer-events-none absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-lg bg-black/60 px-2 py-1 text-[11px] text-white opacity-0 transition-opacity group-hover:opacity-100">

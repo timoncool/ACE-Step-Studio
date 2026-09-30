@@ -35,7 +35,8 @@ export const AlbumCover: React.FC<AlbumCoverProps> = ({ seed, size = 'md', class
   const pattern = isCoverPattern(look?.pattern) ? look.pattern : DEFAULT_COVER_PATTERN;
   const art = useMemo(() => patternArt(seed, pattern), [seed, pattern]);
   // a written placeholder arrives as the track's cover; until then its pattern shows
-  const source = coverUrl || (look?.photo && !look.keep ? placeholderUrl ?? '' : '');
+  // the address names the look, so a changed look is not answered from the cache
+  const source = coverUrl || (look?.photo && !look.keep && placeholderUrl ? `${placeholderUrl}?look=${encodeURIComponent(look.pattern)}` : '');
   const [imageFailed, setImageFailed] = useState(false);
   useEffect(() => { setImageFailed(false); }, [source]);
 

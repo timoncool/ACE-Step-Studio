@@ -191,6 +191,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
   // pattern when there is none to be had, and why.
   const [randomBackground, setRandomBackground] = useState<string | null>(null);
   const [randomProblem, setRandomProblem] = useState<string | null>(null);
+  const [backgroundFailed, setBackgroundFailed] = useState(false);
 
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
@@ -516,7 +517,11 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
       return;
     }
     const source = backgroundType === 'custom' && customImage ? customImage : randomBackground;
-    if (!source) return;
+    setBackgroundFailed(false);
+    if (!source) {
+      bgImageRef.current = null;
+      return;
+    }
     let current = true;
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -526,6 +531,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
     };
     img.onerror = () => {
       console.error('[ERROR] the background picture did not load:', source);
+      if (current) setBackgroundFailed(true);
     };
     return () => { current = false; };
   }, [backgroundType, customImage, randomBackground]);
@@ -583,6 +589,14 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
       console.error('[ERROR] the centre picture did not load:', albumArtSource);
     };
   }, [albumArtSource]);
+
+  // the centre picture belongs to a song; the background may serve a series
+  const songId = song?.id;
+  useEffect(() => {
+    setCustomAlbumArt(null);
+    setRandomBackground(null);
+    setRandomProblem(null);
+  }, [songId]);
 
   // Initialize Audio & Canvas
   useEffect(() => {
@@ -2437,6 +2451,10 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                          <Video size={12}/> {t('bgVideo')}
                                      </button>
                                 </div>
+
+                                {backgroundFailed && backgroundType !== 'video' && (
+                                    <p className="text-[10px] leading-4 text-amber-400">{t('bgImageFailed')}</p>
+                                )}
 
                                 {/* Random: a photograph for the song's style */}
                                 {backgroundType === 'random' && (

@@ -64,6 +64,6 @@ export function onSidebarExtras(listener: (extras: SidebarExtras) => void): () =
 export function trackCoverUrl(song: Pick<Song, 'id' | 'title' | 'derived' | 'coverUrl'>): string {
   if (song.coverUrl) return song.coverUrl;
   const look = coverLookNow();
-  if (look?.photo && !look.keep) return apiUrl(`/v1/library/songs/${encodeURIComponent(song.id)}/cover/placeholder`);
+  if (look?.photo && !look.keep) return apiUrl(`/v1/library/songs/${encodeURIComponent(song.id)}/cover/placeholder?look=${encodeURIComponent(look.pattern)}`);
   return patternArt(coverSeed(song), isCoverPattern(look?.pattern) ? look.pattern : DEFAULT_COVER_PATTERN);
 }

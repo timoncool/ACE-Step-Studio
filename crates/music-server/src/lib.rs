@@ -3355,6 +3355,13 @@ async fn write_cover_look(
     persist_studio_settings(&state)
         .await
         .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    // the placeholders drawn for the old look are never shown again
+    let drawn = state.library.media_dir().join("cover-placeholders");
+    match tokio::fs::remove_dir_all(&drawn).await {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => eprintln!("[ERROR] the old placeholders in {} stay: {error}", drawn.display()),
+    }
     tokio::spawn(pin_placeholders(state.clone()));
     Ok(Json(cover_look_reply(&state).await))
 }
@@ -3379,14 +3386,16 @@ async fn placeholder_image(
     look: &cover_art::CoverLook,
 ) -> anyhow::Result<(Vec<u8>, &'static str, String, Option<String>)> {
     let seed = cover_art::cover_seed(song);
-    if look.photo {
+    if look.photo && !cover_art::photos_resting() {
         match photo_for(&song.caption, &seed, 0).await {
             Ok(Some((image, photo))) => {
+                cover_art::photo_failed(false);
                 *state.cover_problem.write().await = None;
                 return Ok((image, "image/jpeg", look.label(), Some(photo.page)));
             }
             Ok(None) => {}
             Err(error) => {
+                cover_art::photo_failed(true);
                 eprintln!("[ERROR] no photo for {}: {error:#}", song.id);
                 *state.cover_problem.write().await = Some(format!("{error:#}"));
             }
@@ -3431,6 +3440,9 @@ async fn pin_placeholder(state: &AppState, song_id: &str) -> anyhow::Result<bool
         }
     }
     let (image, media_type, label, source) = placeholder_image(state, &song, &look).await?;
+    if pinned.as_deref() == Some(label.as_str()) {
+        return Ok(false);
+    }
     state.library.store_placeholder_cover(song_id, &image, media_type, &label, source.as_deref())?;
     tag_stored_song(state, song_id).await;
     Ok(true)
@@ -3438,8 +3450,20 @@ async fn pin_placeholder(state: &AppState, song_id: &str) -> anyhow::Result<bool
 
 /// Brings every track in line with the look: a placeholder written into each
 /// track without a cover of its own, or taken out of all when keeping is off.
-/// Songs go first, so their stems take the covers from them.
+/// Tracks that wore their pattern while Commons rested try for a photograph
+/// again once the rest is over.
 async fn pin_placeholders(state: AppState) {
+    loop {
+        pin_pass(&state).await;
+        if !(state.cover_look.read().await.photo && cover_art::photos_resting()) {
+            return;
+        }
+        tokio::time::sleep(cover_art::PHOTO_REST).await;
+    }
+}
+
+/// One pass over the library. Songs go first, so their stems take the covers from them.
+async fn pin_pass(state: &AppState) {
     let _pass = state.cover_pinning.lock().await;
     let songs = match state.library.list_songs() {
         Ok(songs) => songs,
@@ -3451,7 +3475,7 @@ async fn pin_placeholders(state: AppState) {
     let (stems, songs): (Vec<_>, Vec<_>) =
         songs.into_iter().partition(|song| derived_from(song).is_some_and(|(_, tool)| tool == "stems"));
     for song in songs.into_iter().chain(stems) {
-        if let Err(error) = pin_placeholder(&state, &song.id).await {
+        if let Err(error) = pin_placeholder(state, &song.id).await {
             eprintln!("[ERROR] no placeholder cover for {}: {error:#}", song.id);
         }
     }
@@ -3467,8 +3491,12 @@ async fn placeholder_cover(State(state): State<AppState>, Path(id): Path<String>
         .ok_or_else(|| api_error(StatusCode::NOT_FOUND, "Song not found".into()))?;
     let look = state.cover_look.read().await.clone();
     let folder = state.library.media_dir().join("cover-placeholders");
-    let seed = cover_art::cover_seed(&song);
-    let named = |label: &str, extension: &str| folder.join(format!("{seed}-{}.{extension}", label.replace(':', "-")));
+    // the seed can come from metadata an agent edits, so it never names a path
+    let name: String = cover_art::cover_seed(&song)
+        .chars()
+        .map(|character| if character.is_ascii_alphanumeric() || character == '-' { character } else { '_' })
+        .collect();
+    let named = |label: &str, extension: &str| folder.join(format!("{name}-{}.{extension}", label.replace(':', "-")));
     let kept = [("jpg", "image/jpeg"), ("png", "image/png")]
         .into_iter()
         .map(|(extension, media_type)| (named(&look.label(), extension), media_type))
@@ -3559,7 +3587,7 @@ async fn choose_cover_photo(
         .map_err(|error| api_error(StatusCode::BAD_GATEWAY, format!("{error:#}")))?;
     let song = state
         .library
-        .store_chosen_cover(&id, &image, "image/jpeg", request.page.as_deref())
+        .store_chosen_cover(&id, &image, "image/jpeg", request.page.as_deref().filter(|page| page.starts_with(cover_art::COMMONS_PAGES)))
         .map_err(|error| api_error(StatusCode::BAD_REQUEST, error.to_string()))?;
     tag_stored_song(&state, &id).await;
     Ok(Json(song))
@@ -4674,14 +4702,27 @@ async fn proxy_image(
     if !content_type.starts_with("image/") {
         return Err(api_error(StatusCode::UNSUPPORTED_MEDIA_TYPE, "the proxied url is not an image".into()));
     }
-    let bytes = response
-        .bytes()
+    const LARGEST: usize = 32 * 1024 * 1024;
+    let too_large = || api_error(StatusCode::PAYLOAD_TOO_LARGE, format!("the image is larger than {} MB", LARGEST / (1024 * 1024)));
+    if response.content_length().is_some_and(|length| length > LARGEST as u64) {
+        return Err(too_large());
+    }
+    let mut response = response;
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response
+        .chunk()
         .await
-        .map_err(|error| api_error(StatusCode::BAD_GATEWAY, format!("reading the image failed: {error}")))?;
+        .map_err(|error| api_error(StatusCode::BAD_GATEWAY, format!("reading the image failed: {error}")))?
+    {
+        if bytes.len() + chunk.len() > LARGEST {
+            return Err(too_large());
+        }
+        bytes.extend_from_slice(&chunk);
+    }
     Ok(axum::response::Response::builder()
         .header(header::CONTENT_TYPE, content_type)
         .header(header::CONTENT_LENGTH, bytes.len())
-        .body(Body::from(bytes.to_vec()))
+        .body(Body::from(bytes))
         .expect("valid image response"))
 }
 

@@ -1224,6 +1224,7 @@ export const ja = {
     pickerChoose: '選ぶ…',
     bgRandomHint: '曲のスタイルに合う写真。もう一度「ランダム」を押すと別の写真になります。',
     bgRandomFailed: '写真を取得できなかったため（{reason}）、曲の模様を使っています。',
+    bgImageFailed: '背景画像を読み込めませんでした。別の画像を選んでください。',
     coverLookTitle: '自分のカバーがない曲',
     coverLookHint: 'すべての曲に画像が付きます。カバーを生成・アップロード・選択していない曲には、その曲に合わせた写真か模様が付きます。再起動しても変わらず、ステムは元の曲のカバーを使います。',
     coverLookPhoto: 'スタイルに合う写真',

@@ -1224,6 +1224,7 @@ export const zh = {
     pickerChoose: '选择…',
     bgRandomHint: '符合曲目风格的照片；再次点击“随机”换一张。',
     bgRandomFailed: '无法获取照片（{reason}），因此使用曲目图案。',
+    bgImageFailed: '背景图片未能加载，请换一张。',
     coverLookTitle: '没有自己封面的曲目',
     coverLookHint: '每首曲目都会有一张图片。没有生成、上传或选择封面的曲目，会使用为它挑选的照片或图案：重启后不会改变，分轨沿用原曲的封面。',
     coverLookPhoto: '符合风格的照片',
