@@ -1266,6 +1266,9 @@ impl Training {
                 }
                 command.env("PATH", path);
             }
+            // The pack carries ggml's processor builds beside CUDA; without this
+            // a card whose CUDA does not load would train on the processor.
+            command.env("GGML_BACKEND", "CUDA0");
             #[cfg(windows)]
             command.creation_flags(0x0800_0000);
             let mut child = command.spawn().with_context(|| format!("start {}", trainer.display()))?;
@@ -1301,7 +1304,7 @@ impl Training {
                                 if let Err(error) = recorded {
                                     log.write_all(format!("[studio] the step was not recorded: {error:#}\n").as_bytes()).await?;
                                 }
-                            } else if line.to_ascii_lowercase().contains("error") {
+                            } else if line.contains("FATAL") || line.to_ascii_lowercase().contains("error") {
                                 last_error = line;
                             }
                         }
@@ -1314,6 +1317,9 @@ impl Training {
                 }
             };
             if !status.success() {
+                if last_error.contains("GGML_BACKEND=CUDA0 not found") {
+                    bail!("{} stopped: the trainer's CUDA did not load on the graphics card, and training does not run on the processor; it needs NVIDIA driver {} or newer", stage.id, crate::cuda_build::CUDA13_DRIVER);
+                }
                 bail!("{} stopped ({status}){}", stage.id, if last_error.is_empty() { String::new() } else { format!(": {last_error}") });
             }
         }

@@ -205,7 +205,11 @@ const PackCard: React.FC<{ state: TrainingState; onError: (message: string) => v
     <section className={CARD}>
       <p className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-white"><Download size={16} className="text-pink-500" />{t('trainingSetupTitle')}</p>
       <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{t('trainingSetupNeeds').replace('{size}', gigabytes(total)).replace('{vram}', String(state.min_vram_gb))}</p>
-      {!state.card_trains && <p role="note" className="mt-2 text-sm text-amber-700 dark:text-amber-300">{t('trainingNeedsNvidia')}</p>}
+      {!state.card_trains && (
+        <p role="note" className="mt-2 text-sm text-amber-700 dark:text-amber-300">
+          {state.card_needs === 'driver' ? t('trainingNeedsDriver').replace('{driver}', String(state.trainer_driver ?? '')) : t('trainingNeedsNvidia')}
+        </p>
+      )}
       <ul className="mt-3 space-y-1.5">
         {state.pack.map(file => (
           <li key={file.id} className="flex items-center justify-between gap-3 text-xs text-zinc-700 dark:text-zinc-200">

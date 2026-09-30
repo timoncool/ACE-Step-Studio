@@ -2046,17 +2046,18 @@ async fn read_training(State(state): State<AppState>) -> Json<Value> {
             value
         })
         .collect();
-    let pack = training.pack_status();
-    let training_download = training.downloader().active_for(training::SCOPE).await;
+    let pack = training_pack_files(&state);
+    let training_download = training_pack_download(&state).await;
     let listen_download = training.downloader().active_for(training::LISTEN_SCOPE).await.filter(|active| !active.done);
     Json(serde_json::json!({
         "pack": pack,
-        "pack_ready": training.pack_ready(),
+        "pack_ready": training.pack_ready() && !trainer_cublas_missing(&state),
         "recipe_defaults": training::Recipe::default(),
         "recipe_fields": music_engine::train::recipe_fields(),
         "min_vram_gb": music_engine::train::MIN_VRAM_GB,
-        // the trainer computes on CUDA only
-        "card_trains": cuda_build::current().is_some(),
+        "card_trains": trainer_card_refusal().is_none(),
+        "card_needs": trainer_card_needs(),
+        "trainer_driver": cuda_build::CUDA13_DRIVER,
         "progress_unit": music_engine::train::PROGRESS_UNIT,
         // the DiT a new run trains on: the BF16 of the one the studio renders with
         "base": training_weights(&state).await.ok().map(|weights| serde_json::json!({
@@ -2100,10 +2101,11 @@ fn pack_runtime(mut files: Vec<Value>, ready: bool, active_download: Option<down
 /// The training pack on the models page, with what the reference there says:
 /// the video memory a run needs and whether this card trains at all.
 async fn training_pack_runtime(State(state): State<AppState>) -> Json<Value> {
-    let training = &state.training;
-    let mut body = pack_runtime(training.pack_status(), training.pack_ready(), training.downloader().active_for(training::SCOPE).await);
+    let ready = state.training.pack_ready() && !trainer_cublas_missing(&state);
+    let mut body = pack_runtime(training_pack_files(&state), ready, training_pack_download(&state).await);
     body["min_vram_gb"] = music_engine::train::MIN_VRAM_GB.into();
-    body["card_trains"] = cuda_build::current().is_some().into();
+    body["card_trains"] = trainer_card_refusal().is_none().into();
+    body["card_needs"] = trainer_card_needs().into();
     Json(body)
 }
 
@@ -2141,13 +2143,17 @@ async fn midi_runtime(State(state): State<AppState>) -> Json<Value> {
 
 async fn install_training_pack(State(state): State<AppState>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
     // gigabytes of training files are no use to a machine that cannot train
-    if cuda_build::current().is_none() {
-        return Err(api_error(StatusCode::CONFLICT, TRAINING_NEEDS_CUDA.into()));
+    if let Some(refusal) = trainer_card_refusal() {
+        return Err(api_error(StatusCode::CONFLICT, refusal));
     }
     let background = state.clone();
     tokio::spawn(async move {
         if let Err(error) = background.training.install_pack().await {
             eprintln!("[ERROR] training pack: {error:#}");
+            return;
+        }
+        if let Err(error) = background.engine_runtime.install_missing(cuda_build::CudaBuild::Cuda13).await {
+            eprintln!("[ERROR] cuBLAS for the trainer: {error:#}");
         }
     });
     Ok(Json(serde_json::json!({ "started": true })))
@@ -2174,6 +2180,7 @@ async fn install_listen_pack(State(state): State<AppState>) -> Json<Value> {
 
 async fn cancel_training_pack(State(state): State<AppState>) -> Json<Value> {
     state.training.downloader().cancel();
+    state.engine_runtime.downloader().cancel();
     Json(serde_json::json!({ "cancelled": true }))
 }
 
@@ -2462,8 +2469,10 @@ async fn training_base(state: &AppState) -> Result<music_engine::train::Training
     Ok(weights.base)
 }
 
-/// A run of `dataset`, refused while a song renders.
+/// A run of `dataset`, refused while a song renders or where the trainer
+/// could not compute on the card.
 async fn start_training_run(state: &AppState, dataset: &str, name: &str, recipe: training::Recipe) -> Result<training::Run, String> {
+    trainer_ready(state)?;
     no_song_rendering(state).await?;
     let base = training_base(state).await?;
     state
@@ -2514,13 +2523,10 @@ async fn no_song_rendering(state: &AppState) -> Result<(), String> {
 }
 
 /// What keeps the user from starting a training run or training one further:
-/// a machine with no card CUDA runs on - the trainer carries no other
-/// backend, and on the processor a run would take days - songs being
-/// prepared, or a song being made.
+/// a machine the trainer does not run on, songs being prepared, or a song
+/// being made.
 async fn card_free_for_training(state: &AppState) -> Result<(), String> {
-    if cuda_build::current().is_none() {
-        return Err(TRAINING_NEEDS_CUDA.into());
-    }
+    trainer_ready(state)?;
     let preparing = state.prepare.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).as_ref().is_some_and(|job| !job.finished);
     if preparing {
         return Err("songs are being prepared; train once that is done".into());
@@ -2528,8 +2534,81 @@ async fn card_free_for_training(state: &AppState) -> Result<(), String> {
     no_song_rendering(state).await
 }
 
+/// Why the trainer does not run on this machine's card, none when it does. It
+/// is a CUDA 13 build and computes on the card only: on the processor one run
+/// would take days.
+fn trainer_card_refusal() -> Option<String> {
+    match cuda_build::current() {
+        Some(cuda_build::CudaBuild::Cuda13) => None,
+        Some(cuda_build::CudaBuild::Cuda12) => Some(format!(
+            "training needs NVIDIA driver {} or newer: the trainer is a CUDA 13 build, and this card or its driver runs CUDA 12 only",
+            cuda_build::CUDA13_DRIVER
+        )),
+        None => Some(TRAINING_NEEDS_CUDA.into()),
+    }
+}
+
+/// What the card lacks for the trainer, as the training page names it:
+/// "nvidia" on a machine with no CUDA card, "driver" where the card or its
+/// driver runs CUDA 12 only.
+fn trainer_card_needs() -> Option<&'static str> {
+    match cuda_build::current() {
+        Some(cuda_build::CudaBuild::Cuda13) => None,
+        Some(cuda_build::CudaBuild::Cuda12) => Some("driver"),
+        None => Some("nvidia"),
+    }
+}
+
+/// Whether the cuBLAS the trainer's CUDA backend loads is missing. It comes
+/// from beside the engine, which fetches it only for a CUDA 13 run of its own.
+fn trainer_cublas_missing(state: &AppState) -> bool {
+    !state.engine_runtime.missing(cuda_build::CudaBuild::Cuda13).is_empty()
+}
+
+/// Refuses a run the trainer could not compute on the card.
+fn trainer_ready(state: &AppState) -> Result<(), String> {
+    if let Some(refusal) = trainer_card_refusal() {
+        return Err(refusal);
+    }
+    if trainer_cublas_missing(state) {
+        return Err(TRAINER_CUBLAS_MISSING.into());
+    }
+    Ok(())
+}
+
+/// The training pack's files as the training page lists them: the trainer's
+/// own and the cuBLAS its CUDA backend loads.
+fn training_pack_files(state: &AppState) -> Vec<Value> {
+    let mut pack = state.training.pack_status();
+    if trainer_card_refusal().is_none() {
+        let cublas = engine_runtime::cublas_asset(cuda_build::CudaBuild::Cuda13);
+        pack.push(serde_json::json!({
+            "id": cublas.id,
+            "label": cublas.label,
+            "bytes": cublas.bytes,
+            "installed": !trainer_cublas_missing(state),
+        }));
+    }
+    pack
+}
+
+/// The training pack's download in progress: its own, or the trainer's
+/// cuBLAS, which comes through the engine's downloader.
+async fn training_pack_download(state: &AppState) -> Option<downloads::DownloadProgress> {
+    let cublas_download = state.engine_runtime.downloader().active_for("engine").await;
+    match state.training.downloader().active_for(training::SCOPE).await {
+        Some(active) if !active.done => Some(active),
+        other => match cublas_download {
+            Some(active) if !active.done || active.error.is_some() => Some(active),
+            _ => other,
+        },
+    }
+}
+
 /// Why this machine does not train.
 const TRAINING_NEEDS_CUDA: &str = "training runs on an NVIDIA card with CUDA only, and this machine has none";
+/// Why a run cannot start before the training pack is complete.
+const TRAINER_CUBLAS_MISSING: &str = "the training files are not downloaded yet: the trainer needs NVIDIA cuBLAS 13; download the training pack";
 
 async fn card_free_of_training(state: &AppState, what: &str) -> Result<(), (StatusCode, Json<ApiError>)> {
     if state.training.active_run().await.is_some() {

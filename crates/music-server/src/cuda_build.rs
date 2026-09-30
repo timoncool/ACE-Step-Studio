@@ -30,7 +30,7 @@ impl CudaBuild {
 /// The first driver of each CUDA major line, from NVIDIA's CUDA compatibility
 /// tables: minor version compatibility runs a whole major line on it, and
 /// device code needs nothing newer.
-const CUDA13_DRIVER: u32 = 580;
+pub const CUDA13_DRIVER: u32 = 580;
 const CUDA12_DRIVER: u32 = 525;
 
 /// The oldest architecture the CUDA 12 build has device code for: 5.2, the
