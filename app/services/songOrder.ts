@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Song } from '../types';
+import { parseDuration } from './nativeLibrary';
 
 /** How a list of songs is read. */
 export type SongOrder = 'newest' | 'oldest' | 'titleAsc' | 'titleDesc' | 'longest' | 'shortest' | 'likedNewest';
@@ -8,9 +9,7 @@ export const SONG_ORDERS: SongOrder[] = ['newest', 'oldest', 'titleAsc', 'titleD
 
 /** "3:07" as seconds; a song without a length sorts as the shortest. */
 function seconds(duration: string | undefined): number {
-  const [minutes, rest] = (duration ?? '').split(':');
-  const value = Number(minutes) * 60 + Number(rest);
-  return Number.isFinite(value) ? value : 0;
+  return parseDuration(duration ?? '') ?? 0;
 }
 
 /** Anything a list shows as a row: a song, or a file brought in beside the songs. */

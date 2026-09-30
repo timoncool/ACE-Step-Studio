@@ -20,6 +20,8 @@ pub struct ImportedSong { pub song: Song, pub audio_filename: String }
 /// A line of the studio's journal: a change an agent made - what was done, to what
 /// kind of thing and its name, put into words by the window in its language - or a
 /// message the studio showed, with its tone.
+/// How many of the latest journal lines are kept, and read.
+pub const JOURNAL_KEPT:i64=500;
 #[derive(Debug, Clone, Serialize, Deserialize)] pub struct JournalEntry { #[serde(default)] pub id:i64, #[serde(default)] pub at:String, pub source:String, #[serde(default)] pub tone:String, #[serde(default)] pub verb:String, #[serde(default)] pub kind:String, #[serde(default)] pub target:String, #[serde(default)] pub text:String }
 #[derive(Debug, Clone, Deserialize)] pub struct PlaylistInput { pub name:String, pub description:Option<String>, #[serde(default)] pub song_ids:Vec<String> }
 fn manual_source()->String{"manual".into()}
@@ -288,13 +290,12 @@ impl Library {
  /// Writes a line into the journal, keeping the latest ones: an older line
  /// goes as a new one comes.
  pub fn note_journal(&self,entry:&JournalEntry)->Result<JournalEntry>{
-  const KEPT:i64=500;
   let at=now();
   let id={
    let c=self.connection.lock().unwrap();
    c.execute("INSERT INTO journal(at,source,tone,verb,kind,target,text) VALUES(?,?,?,?,?,?,?)",params![at,entry.source,entry.tone,entry.verb,entry.kind,entry.target,entry.text])?;
    let id=c.last_insert_rowid();
-   c.execute("DELETE FROM journal WHERE id<=?",[id-KEPT])?;
+   c.execute("DELETE FROM journal WHERE id<=?",[id-JOURNAL_KEPT])?;
    id
   };
   crate::mcp::announce("journal");

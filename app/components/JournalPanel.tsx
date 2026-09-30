@@ -28,15 +28,16 @@ export const JournalPanel: React.FC<{ open: boolean; onClose: () => void }> = ({
 
   if (!open) return null;
 
-  // an agent's change in the window's words, never in a tool's name
+  // an agent's change in the window's words, never in a tool's name; the words
+  // go in as they are, a $ in a title included
   const sentence = (line: JournalLine) => {
     if (line.source !== 'agent') return line.text;
-    const verb = t(`journalVerb_${line.verb}` as TranslationKey) || line.verb;
-    const kind = t(`journalKind_${line.kind}` as TranslationKey) || line.kind;
+    const verb = t(`journalVerb_${line.verb}` as TranslationKey);
+    const kind = t(`journalKind_${line.kind}` as TranslationKey);
     return (line.target ? t('journalLine') : t('journalLineNoName'))
-      .replace('{verb}', verb)
-      .replace('{kind}', kind)
-      .replace('{name}', line.target);
+      .replace('{verb}', () => verb)
+      .replace('{kind}', () => kind)
+      .replace('{name}', () => line.target);
   };
 
   const report = (problem: unknown) => console.error('[ERROR] the journal:', problem);
@@ -79,8 +80,9 @@ export const JournalPanel: React.FC<{ open: boolean; onClose: () => void }> = ({
               return (
                 <li key={line.id} className="group flex items-start gap-2 rounded-md px-1 py-1.5 hover:bg-zinc-50 dark:hover:bg-white/5">
                   <span
+                    role="img"
+                    {...named(agent ? t('journalAgent') : t('journalStudio'))}
                     className={`mt-0.5 shrink-0 ${agent ? 'text-violet-500' : TONE[line.tone] ?? 'text-zinc-400'}`}
-                    title={agent ? t('journalAgent') : t('journalStudio')}
                   >
                     {agent ? <Bot size={15} /> : <MonitorSpeaker size={15} />}
                   </span>

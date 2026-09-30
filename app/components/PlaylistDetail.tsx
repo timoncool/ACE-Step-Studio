@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import { Song } from '../services/api';
-import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
 import { ArrowLeft, Play, MoreHorizontal, Clock, Calendar, Shuffle, Trash2, Mic2, Music } from 'lucide-react';
 import { deleteNativePlaylist, parseDuration, updateNativePlaylist } from '../services/nativeLibrary';
@@ -16,10 +15,11 @@ interface PlaylistDetailProps {
     onPlaySong: (song: Song, list?: Song[]) => void;
     onSelect: (song: Song) => void;
     onNavigateToProfile?: (username: string) => void;
+    /** Says why a change to the playlist did not go through. */
+    onError: (message: string) => void;
 }
 
-export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBack, onPlaySong, onSelect, onNavigateToProfile }) => {
-    const { user: currentUser } = useAuth();
+export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBack, onPlaySong, onSelect, onNavigateToProfile, onError }) => {
     const { t, songCount } = useI18n();
     // the library's own reads: a change made anywhere, a deletion included, shows here at once
     const playlists = useLibraryPlaylists();
@@ -42,7 +42,7 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
             const updated = await updateNativePlaylist(playlist.id, playlist, songIds);
             updateLibraryPlaylists(lists => lists.map(entry => (entry.id === updated.id ? updated : entry)));
         } catch (error) {
-            console.error('Failed to remove song:', error);
+            onError(error instanceof Error ? error.message : String(error));
         }
     };
 
@@ -54,7 +54,7 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
             updateLibraryPlaylists(lists => lists.filter(entry => entry.id !== playlist.id));
             onBack();
         } catch (error) {
-            console.error('Failed to delete playlist:', error);
+            onError(error instanceof Error ? error.message : String(error));
         }
     };
 
@@ -75,9 +75,6 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
             </button>
         </div>
     );
-
-    // the local library's playlists are all the person's own
-    const isOwner = true;
 
     // Gradient based on ID/Name
     const gradients = [
@@ -142,20 +139,19 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
             <div className="px-4 md:px-8 py-3 md:py-4 bg-black/20 flex items-center gap-3 md:gap-4">
                 <button
                     onClick={() => songs.length > 0 && onPlaySong(songs[0], songs)}
+                    {...named(t('play'))}
                     className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-green-500 hover:scale-105 transition-transform flex items-center justify-center text-black shadow-lg"
                 >
                     <Play size={24} fill="currentColor" className="ml-1" />
                 </button>
 
-                {isOwner && (
-                    <button
-                        onClick={() => setConfirmDelete(true)}
-                        className="text-zinc-400 hover:text-red-500 transition-colors p-2"
-                        {...named(t('deletePlaylist'))}
-                    >
-                        <Trash2 size={20} />
-                    </button>
-                )}
+                <button
+                    onClick={() => setConfirmDelete(true)}
+                    className="text-zinc-400 hover:text-red-500 transition-colors p-2"
+                    {...named(t('deletePlaylist'))}
+                >
+                    <Trash2 size={20} />
+                </button>
 
                 <div className="flex-1"></div>
 
@@ -232,33 +228,29 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlistId, onBa
                                     <span className="font-mono text-xs">
                                         {song.duration || '0:00'}
                                     </span>
-                                    {isOwner && (
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleRemoveSong(song.id);
-                                            }}
-                                            {...named(t('removeFromPlaylist'))}
-                                            className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-zinc-500 hover:text-white transition-opacity"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    )}
-                                </div>
-
-                                {/* Mobile delete button */}
-                                {isOwner && (
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             handleRemoveSong(song.id);
                                         }}
                                         {...named(t('removeFromPlaylist'))}
-                                        className="md:hidden text-zinc-500 hover:text-white p-2"
+                                        className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-zinc-500 hover:text-white transition-opacity"
                                     >
-                                        <Trash2 size={18} />
+                                        <Trash2 size={16} />
                                     </button>
-                                )}
+                                </div>
+
+                                {/* Mobile delete button */}
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRemoveSong(song.id);
+                                    }}
+                                    {...named(t('removeFromPlaylist'))}
+                                    className="md:hidden text-zinc-500 hover:text-white p-2"
+                                >
+                                    <Trash2 size={18} />
+                                </button>
                             </div>
                         ))}
                     </div>

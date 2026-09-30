@@ -979,7 +979,7 @@ async fn library_liked(State(state): State<AppState>) -> Result<Json<Vec<library
 /// The journal's latest lines, the newest first: what agents changed and what
 /// the studio told the person.
 async fn read_journal(State(state): State<AppState>) -> Result<Json<Vec<library::JournalEntry>>, (StatusCode, Json<ApiError>)> {
-    state.library.journal(200).map(Json).map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
+    state.library.journal(library::JOURNAL_KEPT).map(Json).map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
 }
 
 /// A line for the journal: an agent's change as facts (the studio's MCP writes

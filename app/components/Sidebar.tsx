@@ -174,8 +174,10 @@ interface NavItemProps {
   badge?: number;
 }
 
+// with a count beside it, the button's name says both: collapsed, the count
+// would otherwise be all a screen reader hears
 const NavItem: React.FC<NavItemProps> = ({ icon, label, active, onClick, isExpanded, badge = 0 }) => (
-  <button type="button" onClick={onClick} className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-xl transition-all duration-200 ${isExpanded ? 'justify-start px-3 py-2.5' : 'aspect-square justify-center'} ${active ? 'bg-zinc-100 text-black dark:bg-white/10 dark:text-white' : 'text-zinc-500 hover:bg-zinc-100 hover:text-black dark:hover:bg-white/5 dark:hover:text-white'}`} title={label}>
+  <button type="button" onClick={onClick} aria-label={badge > 0 ? `${label} (${badge > 99 ? '99+' : badge})` : undefined} className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-xl transition-all duration-200 ${isExpanded ? 'justify-start px-3 py-2.5' : 'aspect-square justify-center'} ${active ? 'bg-zinc-100 text-black dark:bg-white/10 dark:text-white' : 'text-zinc-500 hover:bg-zinc-100 hover:text-black dark:hover:bg-white/5 dark:hover:text-white'}`} title={label}>
     {active && <span className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-pink-500" />}
     <span className="relative shrink-0">
       {icon}

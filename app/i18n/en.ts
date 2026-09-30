@@ -41,6 +41,7 @@ export const en = {
     journalKind_download: 'download',
     journalKind_model: 'model',
     journalKind_settings: 'settings',
+    journalKind_preparation: 'dataset preparation',
 
     // Tools
     toolsDescription: 'Utilities for model conversion and management',

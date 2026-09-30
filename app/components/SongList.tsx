@@ -278,10 +278,11 @@ export const SongList: React.FC<SongListProps> = ({
     const allSelected = selectableSongs.length > 0 && selectableSongs.every(song => selectedIds.has(song.id));
     const selectedSongs = selectableSongs.filter(song => selectedIds.has(song.id));
 
-    // one row for a song and for each of its stems
+    // one row for a song and for each of its stems; a song keeps the key of the
+    // row it took over, so a finished card turns into its song in place
     const renderSong = (song: Song, play: () => void, nested = false) => (
         <SongItem
-            key={song.id}
+            key={song.viewKey ?? song.id}
             song={song}
             nested={nested}
             isCurrent={currentSong?.id === song.id}

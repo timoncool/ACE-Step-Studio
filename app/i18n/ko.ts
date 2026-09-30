@@ -41,6 +41,7 @@ export const ko = {
     journalKind_download: '다운로드',
     journalKind_model: '모델',
     journalKind_settings: '설정',
+    journalKind_preparation: '데이터셋 준비',
 
     // Tools
     toolsDescription: '모델 변환 및 관리 유틸리티',

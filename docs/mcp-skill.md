@@ -55,11 +55,13 @@ connected and the address to paste.
 - **Look ids up, never guess them**: `library_songs_list`, `training_status`,
   `dataset_get`, `lora_list`, `models_status`.
 - **What you change is written down where the user reads it.** Every change you make - a
-  song made, edited or deleted, a playlist, stems, karaoke, a dataset, a LoRA, a download -
-  goes into the studio's Activity journal as what was done, to what and its name; reads,
-  `ui_*` and playing leave no line. A tool that writes over what was stored (a song or
-  playlist edit, stems made again, karaoke, a cover) is marked destructive, so your client
-  asks the user first.
+  generation started, a song edited or deleted, a playlist, stems, karaoke, a dataset and its
+  preparation, training, a LoRA, a model downloaded or removed, a setting - goes into the
+  studio's Activity journal as what was done, to what and its name; a job is written as
+  started. Reads, the window's own controls (`ui_*`, the player, the create form, the video
+  editor, the visualizer) and answers that store nothing leave no line. A tool that writes
+  over what was stored (a song or playlist edit, stems made again, karaoke, a cover) is
+  marked destructive, so your client asks the user first.
 - **A like lives with the song**: `library_liked` (the latest like first) and
   `library_song_like` work without the window open.
 - **A stem belongs to its song**: the window shows it under the song it was separated

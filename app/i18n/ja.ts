@@ -41,6 +41,7 @@ export const ja = {
   journalKind_download: 'ダウンロード',
   journalKind_model: 'モデル',
   journalKind_settings: '設定',
+  journalKind_preparation: 'データセットの準備',
 
   // Tools
   toolsDescription: 'モデルの変換・管理ツール',

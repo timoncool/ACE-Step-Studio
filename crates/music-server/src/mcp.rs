@@ -371,11 +371,13 @@ fn annotations(name: &str) -> Value {
 }
 
 /// What an agent's change goes into the journal as: what was done and to what kind
-/// of thing, for the window to put into words of its language. Reads, moving the
-/// window around and playing leave no line.
+/// of thing, for the window to put into words of its language. A job is written
+/// as started, since what it makes is not there yet. Reads, the window's own
+/// controls, answers that store nothing and the service's upkeep leave no line;
+/// a test holds every other tool to this list.
 const JOURNAL: &[(&str, &str, &str)] = &[
-    ("song_create", "created", "song"),
-    ("song_replay", "created", "song"),
+    ("song_create", "started", "generation"),
+    ("song_replay", "started", "generation"),
     ("song_job_cancel", "cancelled", "generation"),
     ("library_song_update", "updated", "song"),
     ("library_song_delete", "deleted", "song"),
@@ -389,10 +391,12 @@ const JOURNAL: &[(&str, &str, &str)] = &[
     ("karaoke_make", "started", "karaoke"),
     ("karaoke_delete", "deleted", "karaoke"),
     ("midi_transcribe", "started", "midi"),
+    ("midi_cancel", "cancelled", "midi"),
     ("midi_delete", "deleted", "midi"),
     ("processing_start", "started", "processing"),
     ("processing_keep", "kept", "processing"),
     ("processing_discard", "discarded", "processing"),
+    ("processing_set_reference", "updated", "processing"),
     ("cover_draw", "started", "cover"),
     ("cover_set_from_file", "updated", "cover"),
     ("dataset_create", "created", "dataset"),
@@ -401,11 +405,18 @@ const JOURNAL: &[(&str, &str, &str)] = &[
     ("dataset_add_folder", "updated", "dataset"),
     ("dataset_add_library_songs", "updated", "dataset"),
     ("dataset_song_update", "updated", "dataset"),
+    ("dataset_song_describe", "updated", "dataset"),
     ("dataset_song_delete", "updated", "dataset"),
+    ("dataset_take_as_is", "updated", "dataset"),
     ("dataset_delete", "deleted", "dataset"),
+    ("dataset_prepare", "started", "preparation"),
+    ("dataset_prepare_train_after", "updated", "preparation"),
+    ("dataset_prepare_cancel", "cancelled", "preparation"),
     ("training_start", "started", "training"),
+    ("training_continue", "started", "training"),
     ("training_cancel", "cancelled", "training"),
     ("training_run_delete", "deleted", "training"),
+    ("training_checkpoint_install", "installed", "lora"),
     ("lora_install_catalog", "installed", "lora"),
     ("lora_install_hf", "installed", "lora"),
     ("lora_import_files", "installed", "lora"),
@@ -413,8 +424,34 @@ const JOURNAL: &[(&str, &str, &str)] = &[
     ("lora_delete", "deleted", "lora"),
     ("lora_export_comfyui", "exported", "lora"),
     ("models_download", "started", "download"),
+    ("training_pack_install", "started", "download"),
+    ("training_listen_pack_install", "started", "download"),
+    ("assistant_model_install", "started", "download"),
+    ("separator_install", "started", "download"),
+    ("separator_runtime_install", "started", "download"),
+    ("recogniser_install", "started", "download"),
+    ("midi_install", "started", "download"),
+    ("models_cancel_download", "cancelled", "download"),
+    ("training_pack_cancel", "cancelled", "download"),
+    ("assistant_cancel_download", "cancelled", "download"),
+    ("separator_cancel_download", "cancelled", "download"),
+    ("recogniser_cancel_download", "cancelled", "download"),
+    ("lora_cancel_download", "cancelled", "download"),
+    ("models_adopt", "installed", "model"),
     ("models_remove", "deleted", "model"),
+    ("assistant_model_remove", "deleted", "model"),
+    ("separator_remove", "deleted", "model"),
+    ("recogniser_remove", "deleted", "model"),
+    ("midi_remove", "deleted", "model"),
+    ("models_select", "updated", "settings"),
     ("settings_set", "updated", "settings"),
+    ("engine_options_set", "updated", "settings"),
+    ("engine_preset_apply", "updated", "settings"),
+    ("karaoke_settings_set", "updated", "settings"),
+    ("separator_settings_set", "updated", "settings"),
+    ("cover_templates_set", "updated", "settings"),
+    ("assistant_set", "updated", "settings"),
+    ("openrouter_set_key", "updated", "settings"),
 ];
 
 /// The facts of a change, when the tool makes one worth a line.
@@ -426,43 +463,71 @@ fn journal_facts(name: &str, args: &Value) -> Option<(&'static str, &'static str
     JOURNAL.iter().find(|(tool, _, _)| *tool == name).map(|(_, verb, kind)| (*verb, *kind))
 }
 
+/// The fields that name a thing of the kind in a call or an answer: a dataset's
+/// songs carry titles of their own, and settings name nothing.
+fn name_fields(kind: &str) -> &'static [&'static str] {
+    match kind {
+        "settings" => &[],
+        "dataset" | "preparation" => &["name"],
+        _ => &["title", "name"],
+    }
+}
+
+fn named_in(kind: &str, value: &Value) -> Option<String> {
+    name_fields(kind).iter().find_map(|field| value.get(*field).and_then(Value::as_str).filter(|name| !name.trim().is_empty())).map(|name| name.trim().chars().take(80).collect())
+}
+
+/// Where the name of the thing a change touches is read: its id in the call,
+/// the studio's read of it and the field holding the name. Only the thing of
+/// the change's kind is looked up, not every id the call holds.
+fn name_source(kind: &str, args: &Value) -> Option<(String, &'static str)> {
+    let id = |key: &str| args.get(key).and_then(Value::as_str).filter(|id| !id.trim().is_empty());
+    match kind {
+        "playlist" => id("playlist_id").map(|id| (format!("/v1/library/playlists/{}", segment(id)), "name")),
+        "song" | "generation" | "version" | "stems" | "karaoke" | "midi" | "processing" | "cover" => {
+            id("song_id").map(|id| (format!("/v1/library/songs/{}", segment(id)), "title"))
+        }
+        _ => None,
+    }
+}
+
 /// The name of what a change touches when the call does not carry it, read
-/// before the change: a deletion leaves nothing to read it from.
-async fn name_before_change(args: &Value) -> String {
-    let named = args.get("title").or_else(|| args.get("name")).and_then(Value::as_str).is_some_and(|name| !name.trim().is_empty());
-    if named {
+/// before the change, since a deletion leaves nothing to read it from.
+async fn name_before_change(kind: &str, args: &Value) -> String {
+    if named_in(kind, args).is_some() {
         return String::new();
     }
-    let (path, field) = if let Some(id) = args.get("playlist_id").and_then(Value::as_str) {
-        (format!("/v1/library/playlists/{}", segment(id)), "name")
-    } else if let Some(id) = args.get("song_id").and_then(Value::as_str) {
-        (format!("/v1/library/songs/{}", segment(id)), "title")
-    } else {
-        return String::new();
-    };
+    let Some((path, field)) = name_source(kind, args) else { return String::new() };
     fetch(&path).await.get(field).and_then(Value::as_str).unwrap_or_default().to_string()
 }
 
 /// The name a journal line gives what a change touched: the one the call gave,
-/// the one read before the change, or the one the studio answered with.
-fn change_target(args: &Value, before: &str, reply: &str) -> String {
-    let short = |text: &str| text.trim().chars().take(80).collect::<String>();
-    if let Some(name) = args.get("title").or_else(|| args.get("name")).and_then(Value::as_str).filter(|name| !name.trim().is_empty()) {
-        return short(name);
+/// the one read before the change, the one the studio answered with, or what
+/// the call named instead - a model, a file.
+fn change_target(kind: &str, args: &Value, before: &str, reply: &str) -> String {
+    if let Some(name) = named_in(kind, args) {
+        return name;
     }
     if !before.trim().is_empty() {
-        return short(before);
+        return before.trim().chars().take(80).collect();
     }
-    serde_json::from_str::<Value>(reply)
-        .ok()
-        .and_then(|value| value.get("title").or_else(|| value.get("name")).and_then(Value::as_str).map(short))
-        .unwrap_or_default()
+    let answer = serde_json::from_str::<Value>(reply).unwrap_or(Value::Null);
+    if let Some(name) = named_in(kind, &answer).or_else(|| named_in(kind, &answer["song"])) {
+        return name;
+    }
+    if !matches!(kind, "download" | "model" | "processing") {
+        return String::new();
+    }
+    let id = |key: &str| args.get(key).and_then(Value::as_str).map(str::trim).filter(|value| !value.is_empty());
+    let ids = args.get("ids").and_then(Value::as_array).map(|ids| ids.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(", ")).filter(|ids| !ids.is_empty());
+    let file = id("path").map(|path| Path::new(path).file_name().map_or_else(|| path.to_string(), |name| name.to_string_lossy().into_owned()));
+    ids.or_else(|| ["model_id", "asset_id", "profile_id", "size"].into_iter().find_map(id).map(str::to_string)).or(file).map(|name| name.chars().take(80).collect()).unwrap_or_default()
 }
 
 /// Writes an agent's change into the studio's journal, where the person reads it.
 async fn journal_change(name: &str, args: &Value, before: &str, reply: &str) {
     let Some((verb, kind)) = journal_facts(name, args) else { return };
-    let line = json!({ "source": "agent", "verb": verb, "kind": kind, "target": change_target(args, before, reply) });
+    let line = json!({ "source": "agent", "verb": verb, "kind": kind, "target": change_target(kind, args, before, reply) });
     let written = match send(Method::POST, "/v1/journal".into(), line) {
         Ok(call) => call_route(call).await,
         Err(problem) => Err(problem),
@@ -2461,7 +2526,10 @@ pub async fn handle(headers: HeaderMap, body: axum::body::Bytes) -> Response {
                     Err(problem) => answer(problem, true),
                 },
                 Ok(call) => {
-                    let before = if journal_facts(name, &args).is_some() { name_before_change(&args).await } else { String::new() };
+                    let before = match journal_facts(name, &args) {
+                        Some((_, kind)) => name_before_change(kind, &args).await,
+                        None => String::new(),
+                    };
                     match call_route(call).await {
                         Ok((status, text)) if status.is_success() => {
                             announce_change(name);
@@ -2658,13 +2726,64 @@ mod tests {
             assert!(tools().iter().any(|entry| entry.name == *tool), "{tool} is a tool of the studio");
         }
         assert_eq!(journal_facts("playlist_delete", &json!({})), Some(("deleted", "playlist")));
+        assert_eq!(journal_facts("song_create", &json!({})), Some(("started", "generation")), "the song is made later: the line says the job started");
         assert_eq!(journal_facts("library_song_like", &json!({ "liked": false })), Some(("unliked", "song")));
         assert_eq!(journal_facts("library_song_like", &json!({})), Some(("liked", "song")));
         assert_eq!(journal_facts("library_songs_list", &json!({})), None, "a read leaves no line");
         assert_eq!(journal_facts("ui_click", &json!({})), None, "nor does moving the window around");
-        assert_eq!(change_target(&json!({ "title": " Night " }), "", "{}"), "Night");
-        assert_eq!(change_target(&json!({ "song_id": "s1" }), "Old name", "{}"), "Old name", "a deletion keeps the name it had");
-        assert_eq!(change_target(&json!({}), "", r#"{"name":"Rock"}"#), "Rock", "or the one the studio answered with");
+        assert_eq!(change_target("song", &json!({ "title": " Night " }), "", "{}"), "Night");
+        assert_eq!(change_target("song", &json!({ "song_id": "s1" }), "Old name", "{}"), "Old name", "a deletion keeps the name it had");
+        assert_eq!(change_target("playlist", &json!({}), "", r#"{"name":"Rock"}"#), "Rock", "or the one the studio answered with");
+        assert_eq!(change_target("song", &json!({ "path": "C:/music/take.wav" }), "", r#"{"song":{"title":"Take"},"audio_filename":"x.wav"}"#), "Take", "an imported song by its title");
+        assert_eq!(change_target("dataset", &json!({ "dataset_id": "d", "song_id": "s", "title": "A song" }), "", r#"{"name":"Voices"}"#), "Voices", "a dataset by its own name, not its song's");
+        assert_eq!(change_target("model", &json!({ "ids": ["acestep-v15-turbo", "vae"] }), "", "{}"), "acestep-v15-turbo, vae", "a model by what the call named");
+        assert_eq!(change_target("processing", &json!({ "path": "C:/refs/master.wav" }), "", "{}"), "master.wav");
+        assert_eq!(change_target("settings", &json!({ "name": "x" }), "", r#"{"title":"y"}"#), "", "settings name nothing");
+        assert!(name_source("generation", &json!({ "playlist_id": "p" })).is_none(), "a new song is not named after the playlist it goes into");
+        assert!(name_source("dataset", &json!({ "dataset_id": "d", "song_id": "s" })).is_none(), "nor a dataset after a library song");
+        assert_eq!(name_source("playlist", &json!({ "playlist_id": "p 1" })), Some(("/v1/library/playlists/p%201".to_string(), "name")));
+        assert_eq!(name_source("stems", &json!({ "song_id": "s" })), Some(("/v1/library/songs/s".to_string(), "title")));
+    }
+
+    #[test]
+    fn every_change_an_agent_can_make_is_journaled() {
+        // the window's own controls: the person watches them happen, and what
+        // they make the studio reports as it happens
+        const WINDOW: &[&str] = &["ui_", "player_", "video_", "visualizer_", "winamp_", "equalizer_"];
+        const UNJOURNALED: &[&str] = &[
+            "create_form_set",
+            "create_form_submit",
+            "dataset_reveal",
+            "studio_open_data_folder",
+            "vst_open_editor",
+            // answers that store nothing
+            "openrouter_complete",
+            "openrouter_cover",
+            "openrouter_transcribe",
+            "assistant_write",
+            "assistant_sections",
+            "assistant_request_answer",
+            "library_song_describe_style",
+            "song_plan",
+            "song_understand",
+            // the service's upkeep
+            "engine_restart",
+            "resources_rescan",
+            "vst_scan",
+            "openrouter_catalog_refresh",
+            "assistant_start",
+            "assistant_stop",
+        ];
+        let unwritten: Vec<&str> = tools()
+            .iter()
+            .map(|tool| tool.name)
+            .filter(|name| annotations(name)["readOnlyHint"] != true && !WINDOW.iter().any(|prefix| name.starts_with(prefix)) && !UNJOURNALED.contains(name))
+            .filter(|name| journal_facts(name, &json!({})).is_none())
+            .collect();
+        assert!(unwritten.is_empty(), "these change something: each goes into JOURNAL, or into this test's list with why it leaves no line: {unwritten:?}");
+        for name in UNJOURNALED {
+            assert!(tools().iter().any(|entry| entry.name == *name), "{name} is a tool of the studio");
+        }
     }
 
     #[test]

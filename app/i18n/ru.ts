@@ -41,6 +41,7 @@ export const ru = {
     journalKind_download: 'загрузка',
     journalKind_model: 'модель',
     journalKind_settings: 'настройки',
+    journalKind_preparation: 'подготовка датасета',
 
     // Tools
     toolsDescription: 'Утилиты для конвертации и управления моделями',
