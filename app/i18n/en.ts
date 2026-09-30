@@ -8,6 +8,7 @@ export const en = {
     news: 'News',
     journal: 'Activity',
     journalEmpty: 'Changes an agent makes and the studio’s messages show up here.',
+    journalUnreadable: 'Activity could not be read: {error}',
     journalClear: 'Clear',
     journalRemove: 'Remove this line',
     journalAgent: 'Agent',

@@ -320,11 +320,12 @@ impl Library {
 }
 /// An edit's metadata over the stored one: what the studio keeps there itself
 /// (processed versions, the original audio, karaoke, the cover) is not the
-/// client's to drop by leaving it out, and the like belongs to its own route,
-/// so an edit carrying an older copy of it does not undo a like.
+/// client's to drop by leaving it out, an edit with no metadata leaves it as it
+/// is, and the like belongs to its own route, so an edit carrying an older copy
+/// of it does not undo a like.
 fn merged_metadata(stored:&serde_json::Value,edit:serde_json::Value)->serde_json::Value{
  const OWN_ROUTE:[&str;2]=["liked","liked_at"];
- let serde_json::Value::Object(mut edit)=edit else{return edit};
+ let mut edit=match edit{serde_json::Value::Object(edit)=>edit,_=>serde_json::Map::new()};
  let nothing=serde_json::Map::new();
  let stored=stored.as_object().unwrap_or(&nothing);
  for key in OWN_ROUTE{
@@ -387,6 +388,9 @@ mod edit_tests {
         assert!(merged.get("liked").is_none() && merged.get("liked_at").is_none(), "only the like route sets it");
         let merged = merged_metadata(&serde_json::Value::Null, serde_json::json!({ "liked": true }));
         assert!(merged.get("liked").is_none(), "nor on a song with no metadata yet");
+        let merged = merged_metadata(&serde_json::json!({ "liked": true, "liked_at": "100", "karaoke": { "file": "k.json" } }), serde_json::Value::Null);
+        assert_eq!(merged["liked"], true, "an edit with no metadata leaves it as it is");
+        assert_eq!(merged["karaoke"]["file"], "k.json");
     }
 
     #[test]

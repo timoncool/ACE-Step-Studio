@@ -70,7 +70,11 @@ export const JournalPanel: React.FC<{ open: boolean; onClose: () => void }> = ({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
-        {lines.length === 0 ? (
+        {journal.isError ? (
+          <p role="alert" className="px-1 py-3 text-xs leading-5 text-rose-500">
+            {t('journalUnreadable').replace('{error}', () => (journal.error instanceof Error ? journal.error.message : String(journal.error)))}
+          </p>
+        ) : lines.length === 0 ? (
           <p className="px-1 py-3 text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('journalEmpty')}</p>
         ) : (
           <ul className="space-y-1">

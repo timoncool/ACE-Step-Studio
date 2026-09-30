@@ -8,6 +8,7 @@ export const ko = {
     news: '뉴스',
     journal: '활동',
     journalEmpty: '에이전트가 한 변경과 스튜디오 메시지가 여기에 표시됩니다.',
+    journalUnreadable: '활동 기록을 읽지 못했습니다: {error}',
     journalClear: '지우기',
     journalRemove: '이 줄 삭제',
     journalAgent: '에이전트',

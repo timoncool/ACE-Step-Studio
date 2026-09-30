@@ -8,6 +8,7 @@ export const ru = {
     news: 'Новости',
     journal: 'Журнал',
     journalEmpty: 'Здесь появятся изменения, сделанные агентом, и сообщения студии.',
+    journalUnreadable: 'Журнал не удалось прочитать: {error}',
     journalClear: 'Очистить',
     journalRemove: 'Убрать строку',
     journalAgent: 'Агент',

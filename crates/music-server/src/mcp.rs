@@ -477,28 +477,54 @@ fn named_in(kind: &str, value: &Value) -> Option<String> {
     name_fields(kind).iter().find_map(|field| value.get(*field).and_then(Value::as_str).filter(|name| !name.trim().is_empty())).map(|name| name.trim().chars().take(80).collect())
 }
 
-/// Where the name of the thing a change touches is read: its id in the call,
-/// the studio's read of it and the field holding the name. Only the thing of
+/// Where the name of the thing a change touches is read before the change.
+#[derive(Debug, PartialEq)]
+struct NameSource {
+    /// the studio's read that holds it
+    path: String,
+    /// the list in that answer it is found in by its id; none when the read is
+    /// of the thing itself
+    list: Option<(&'static str, String)>,
+    /// the field holding the name
+    field: &'static str,
+}
+
+/// Where a change's thing is named, by its id in the call: only the thing of
 /// the change's kind is looked up, not every id the call holds.
-fn name_source(kind: &str, args: &Value) -> Option<(String, &'static str)> {
+fn name_source(kind: &str, args: &Value) -> Option<NameSource> {
     let id = |key: &str| args.get(key).and_then(Value::as_str).filter(|id| !id.trim().is_empty());
+    let itself = |path: String, field| NameSource { path, list: None, field };
+    let listed = |path: &str, list, id: &str| NameSource { path: path.into(), list: Some((list, id.to_string())), field: "name" };
     match kind {
-        "playlist" => id("playlist_id").map(|id| (format!("/v1/library/playlists/{}", segment(id)), "name")),
+        "playlist" => id("playlist_id").map(|id| itself(format!("/v1/library/playlists/{}", segment(id)), "name")),
         "song" | "generation" | "version" | "stems" | "karaoke" | "midi" | "processing" | "cover" => {
-            id("song_id").map(|id| (format!("/v1/library/songs/{}", segment(id)), "title"))
+            id("song_id").map(|id| itself(format!("/v1/library/songs/{}", segment(id)), "title"))
         }
+        "lora" => id("lora_id").map(|id| listed("/v1/adapters", "installed", id)),
+        "dataset" | "preparation" => id("dataset_id").map(|id| listed("/v1/training", "datasets", id)),
+        "training" => id("run_id").map(|id| listed("/v1/training", "runs", id)),
         _ => None,
     }
 }
 
 /// The name of what a change touches when the call does not carry it, read
-/// before the change, since a deletion leaves nothing to read it from.
-async fn name_before_change(kind: &str, args: &Value) -> String {
+/// before the change, since a deletion leaves nothing to read it from. A list
+/// is read whole, so it is read only for a deletion; any other change is
+/// named by the studio's answer.
+async fn name_before_change(verb: &str, kind: &str, args: &Value) -> String {
     if named_in(kind, args).is_some() {
         return String::new();
     }
-    let Some((path, field)) = name_source(kind, args) else { return String::new() };
-    fetch(&path).await.get(field).and_then(Value::as_str).unwrap_or_default().to_string()
+    let Some(source) = name_source(kind, args) else { return String::new() };
+    if source.list.is_some() && verb != "deleted" {
+        return String::new();
+    }
+    let answer = fetch(&source.path).await;
+    let thing = match &source.list {
+        Some((list, id)) => answer[*list].as_array().into_iter().flatten().find(|entry| entry["id"].as_str() == Some(id.as_str())).cloned().unwrap_or_default(),
+        None => answer,
+    };
+    english(&thing[source.field]).as_str().unwrap_or_default().to_string()
 }
 
 /// The name a journal line gives what a change touched: the one the call gave,
@@ -2527,7 +2553,7 @@ pub async fn handle(headers: HeaderMap, body: axum::body::Bytes) -> Response {
                 },
                 Ok(call) => {
                     let before = match journal_facts(name, &args) {
-                        Some((_, kind)) => name_before_change(kind, &args).await,
+                        Some((verb, kind)) => name_before_change(verb, kind, &args).await,
                         None => String::new(),
                     };
                     match call_route(call).await {
@@ -2740,9 +2766,11 @@ mod tests {
         assert_eq!(change_target("processing", &json!({ "path": "C:/refs/master.wav" }), "", "{}"), "master.wav");
         assert_eq!(change_target("settings", &json!({ "name": "x" }), "", r#"{"title":"y"}"#), "", "settings name nothing");
         assert!(name_source("generation", &json!({ "playlist_id": "p" })).is_none(), "a new song is not named after the playlist it goes into");
-        assert!(name_source("dataset", &json!({ "dataset_id": "d", "song_id": "s" })).is_none(), "nor a dataset after a library song");
-        assert_eq!(name_source("playlist", &json!({ "playlist_id": "p 1" })), Some(("/v1/library/playlists/p%201".to_string(), "name")));
-        assert_eq!(name_source("stems", &json!({ "song_id": "s" })), Some(("/v1/library/songs/s".to_string(), "title")));
+        assert_eq!(name_source("dataset", &json!({ "dataset_id": "d", "song_id": "s" })), Some(NameSource { path: "/v1/training".into(), list: Some(("datasets", "d".into())), field: "name" }), "a dataset by its own name, not a library song's");
+        assert_eq!(name_source("playlist", &json!({ "playlist_id": "p 1" })), Some(NameSource { path: "/v1/library/playlists/p%201".into(), list: None, field: "name" }));
+        assert_eq!(name_source("stems", &json!({ "song_id": "s" })), Some(NameSource { path: "/v1/library/songs/s".into(), list: None, field: "title" }));
+        assert_eq!(name_source("lora", &json!({ "lora_id": "l" })), Some(NameSource { path: "/v1/adapters".into(), list: Some(("installed", "l".into())), field: "name" }), "a LoRA deleted keeps its name");
+        assert_eq!(name_source("training", &json!({ "run_id": "r" })), Some(NameSource { path: "/v1/training".into(), list: Some(("runs", "r".into())), field: "name" }));
     }
 
     #[test]

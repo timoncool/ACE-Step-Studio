@@ -8,6 +8,7 @@ export const ja = {
   news: 'ニュース',
   journal: 'アクティビティ',
   journalEmpty: 'エージェントによる変更とスタジオのメッセージがここに表示されます。',
+  journalUnreadable: 'アクティビティを読み込めませんでした：{error}',
   journalClear: 'クリア',
   journalRemove: 'この行を削除',
   journalAgent: 'エージェント',

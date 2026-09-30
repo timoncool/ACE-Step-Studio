@@ -8,6 +8,7 @@ export const zh = {
     news: '新闻',
     journal: '动态',
     journalEmpty: '代理所做的更改和工作室的消息会显示在这里。',
+    journalUnreadable: '无法读取动态：{error}',
     journalClear: '清空',
     journalRemove: '移除此条',
     journalAgent: '代理',

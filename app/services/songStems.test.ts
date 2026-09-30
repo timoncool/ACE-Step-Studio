@@ -25,6 +25,13 @@ describe('stems folded under their song', () => {
     expect(folded.stemsOf.get('night')).toHaveLength(3);
   });
 
+  it('keeps a stem separated from a stem in sight, with no stem row to fold under', () => {
+    const again = stem('va', 'v', 'vocals');
+    const folded = foldStems([...library, again], [...library, again]);
+    expect(folded.songs.map(entry => entry.id)).toEqual(['night', 'cover', 'va']);
+    expect(folded.stemsOf.has('v')).toBe(false);
+  });
+
   it('shows a stem on its own when its song is not in the list', () => {
     const folded = foldStems([vocals], library);
     expect(folded.songs.map(entry => entry.id)).toEqual(['v']);
