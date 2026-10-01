@@ -33,6 +33,8 @@ mod resources;
 mod chunked;
 mod separation;
 mod midi;
+mod midi_edit;
+mod smf;
 mod sizes;
 pub mod net;
 mod saving;
@@ -805,7 +807,7 @@ pub async fn serve() -> anyhow::Result<()> {
         .route("/v1/midi/remove", post(remove_midi_model))
         .route("/v1/midi/cancel", post(cancel_midi))
         .route("/v1/midi/transcribe", post(start_midi))
-        .route("/v1/library/songs/{id}/midi", get(read_song_midi).delete(delete_song_midi))
+        .route("/v1/library/songs/{id}/midi", get(read_song_midi).put(write_song_midi).delete(delete_song_midi))
         .route("/v1/library/songs/{id}/midi/file", get(song_midi_file))
         .route("/v1/training/datasets/{id}/items/{item}/files", get(dataset_song_files))
         .route("/v1/training/prepare/cancel", post(prepare::cancel))
@@ -6157,6 +6159,38 @@ async fn song_midi_file(State(state): State<AppState>, Path(id): Path<String>) -
         .header(header::CONTENT_DISPOSITION, disposition)
         .body(axum::body::Body::from(bytes))
         .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?)
+}
+
+#[derive(Deserialize)]
+struct MidiUpload {
+    data: String,
+}
+
+/// A .mid from the MIDI editor kept as a library track's MIDI: the file as it came, and the notes the player reads from it.
+async fn write_song_midi(State(state): State<AppState>, Path(id): Path<String>, Json(body): Json<MidiUpload>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    use base64::Engine as _;
+    if state.library.get_song(&id).map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?.is_none() {
+        return Err(api_error(StatusCode::NOT_FOUND, format!("no library track {id}")));
+    }
+    let data = base64::engine::general_purpose::STANDARD.decode(body.data.trim()).map_err(|_| api_error(StatusCode::BAD_REQUEST, "'data' is not base64".into()))?;
+    if data.len() > 8 * 1024 * 1024 {
+        return Err(api_error(StatusCode::PAYLOAD_TOO_LARGE, "that file is larger than 8 MB, far more than the MIDI of any song".into()));
+    }
+    let notes = midi_edit::read(&data).map_err(|error| api_error(StatusCode::BAD_REQUEST, format!("this file could not be read as MIDI: {error}")))?;
+    let file = midi_path(&state, &id);
+    let made_at = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|since| since.as_secs().to_string()).unwrap_or_default();
+    let sidecar = midi::Sidecar { size: "edited".into(), made_at, instruments: midi_edit::instruments(&notes), notes };
+    let sidecar_bytes = serde_json::to_vec(&sidecar).map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    tokio::fs::write(&file, data).await.map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("write {}: {error}", file.display())))?;
+    tokio::fs::write(midi_sidecar(&file), sidecar_bytes).await.map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("write {}: {error}", midi_sidecar(&file).display())))?;
+    Ok(Json(serde_json::json!({
+        "song_id": id,
+        "file": plain_path(&file),
+        "size": sidecar.size,
+        "made_at": sidecar.made_at,
+        "instruments": sidecar.instruments,
+        "notes": sidecar.notes,
+    })))
 }
 
 async fn delete_song_midi(State(state): State<AppState>, Path(id): Path<String>) -> Result<StatusCode, (StatusCode, Json<ApiError>)> {

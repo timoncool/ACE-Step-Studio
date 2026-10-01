@@ -177,13 +177,15 @@ impl Transcriber {
     }
 }
 
-/// One note as the transcriber heard it, in seconds.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// One note in seconds, as the transcriber heard it or the MIDI editor holds it; the transcriber gives no velocity.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Note {
     pub pitch: u8,
     pub start: f64,
     pub end: f64,
     pub instrument: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub velocity: Option<u8>,
 }
 
 /// A transcription at work, or the last one.
@@ -251,6 +253,7 @@ impl Events {
                     start,
                     end: start,
                     instrument: event["instrument"].as_str().unwrap_or("unknown").to_string(),
+                    velocity: None,
                 });
                 if let Some(index) = event["index"].as_i64() {
                     self.open.insert(index, self.notes.len() - 1);

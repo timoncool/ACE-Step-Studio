@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Copy, Download, FileAudio, Loader2, Music, Play, RefreshCw, Scissors, Search, SlidersHorizontal, Wand2 } from 'lucide-react';
+import { Check, Copy, Download, FileAudio, KeyboardMusic, Loader2, Music, Play, RefreshCw, Scissors, Search, SlidersHorizontal, Wand2 } from 'lucide-react';
 import { mapNativeLibrarySong } from '../services/nativeLibrary';
 import type { NativeLibrarySong } from '../types';
 import type { TranslationKey } from '../i18n/translations';
 import { stemOf } from '../services/songStems';
 import { ConfirmDialog } from './ConfirmDialog';
 import { MidiTool } from './midi/MidiTool';
+import { MidiEditor } from './midi/MidiEditor';
 import { useI18n } from '../context/I18nContext';
 import { saveFile } from '../services/saveFile';
 import { DevicePicker } from './DevicePicker';
@@ -65,6 +66,7 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
   const { t } = useI18n();
 
   const [songs, setSongs] = useState<NativeLibrarySong[]>([]);
+  const [midiEditorOpen, setMidiEditorOpen] = useState(false);
   const [songId, setSongId] = useState('');
   const [status, setStatus] = useState<SeparationStatus | null>(null);
   const [stems, setStems] = useState<string[]>([]);
@@ -422,6 +424,22 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
 
         {/* Audio to MIDI, on the track chosen above. */}
         <MidiTool songId={songId} songTitle={songs.find(song => song.id === songId)?.title ?? ''} card={CARD} />
+
+        {/* The MIDI editor on a new song: played in, recorded, drawn. */}
+        <section className={CARD}>
+          <div className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-white">
+            <KeyboardMusic size={17} className="text-pink-500" /> {t('midiEdTitle')}
+          </div>
+          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{t('midiEdIntro')}</p>
+          <button
+            type="button"
+            onClick={() => setMidiEditorOpen(true)}
+            className="mt-3 inline-flex items-center gap-2 rounded-lg border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-700 hover:border-pink-400 hover:text-pink-600 dark:border-white/15 dark:text-zinc-200"
+          >
+            <KeyboardMusic size={13} /> {t('midiEdOpen')}
+          </button>
+          {midiEditorOpen && <MidiEditor source={{ kind: 'new' }} onClose={() => setMidiEditorOpen(false)} />}
+        </section>
 
         {/* The audio editor, on the track chosen above or on any stem it produced. */}
         <section className={CARD}>

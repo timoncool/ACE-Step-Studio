@@ -2,6 +2,18 @@
 
 What changed, newest first. Dates are release dates.
 
+## Unreleased
+
+### Added
+
+- **The MIDI editor.** A piano roll with tracks, instruments and drums (signal, MIT, played
+  through the A320U SoundFont, GPL-2.0) opens in two places: in Studio tools on a new song,
+  played in from a MIDI keyboard or the computer's keys, recorded or drawn; and on a track's
+  MIDI with Edit MIDI, kept on the track in place of the transcription. A new song is saved
+  to the library as a track, its audio rendered through the same SoundFont and its MIDI kept
+  beside it, and To cover keeps the song and opens the create form in cover mode with it as
+  the source track.
+
 ## 2026-09-30 — 3.3.0
 
 ### Added

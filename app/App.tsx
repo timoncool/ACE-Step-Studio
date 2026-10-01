@@ -200,6 +200,14 @@ function AppContent() {
       const song = (event as CustomEvent<Song>).detail;
       if (song) setSongToProcess(song);
     };
+    // A library song as the source of a cover: the create form opens on it in cover mode.
+    const cover = (event: Event) => {
+      const song = (event as CustomEvent<Song>).detail;
+      if (!song) return;
+      setReuseData({ song: { ...song, generationParams: { task_type: 'cover', source_song_id: song.id } }, timestamp: Date.now() });
+      setCurrentView('create');
+      setMobileShowList(false);
+    };
     window.addEventListener('studio:open-stems', open);
     // A page asked for by another page, the LoRA card sending the user to its library.
     const navigate = (event: Event) => {
@@ -208,11 +216,13 @@ function AppContent() {
     };
     window.addEventListener('studio:open-settings', openSettings);
     window.addEventListener('studio:process-song', process);
+    window.addEventListener('studio:cover-song', cover);
     window.addEventListener('studio:navigate', navigate);
     return () => {
       window.removeEventListener('studio:open-stems', open);
       window.removeEventListener('studio:open-settings', openSettings);
       window.removeEventListener('studio:process-song', process);
+      window.removeEventListener('studio:cover-song', cover);
       window.removeEventListener('studio:navigate', navigate);
     };
   }, []);

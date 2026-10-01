@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Download, Loader2, Piano, Play, Square, Trash2 } from 'lucide-react';
+import { Download, Loader2, PencilLine, Piano, Play, Square, Trash2 } from 'lucide-react';
 import { useI18n } from '../../context/I18nContext';
 import { saveFile } from '../../services/saveFile';
 import { apiUrl } from '../../services/apiBase';
+import { MidiEditor } from './MidiEditor';
 import { MidiPlayer, type HeardNote } from './MidiPlayer';
 
 /**
@@ -59,6 +60,7 @@ export const MidiTool: React.FC<{ songId: string; songTitle: string; card: strin
   const [liveNotes, setLiveNotes] = useState<HeardNote[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
   const cardRef = useRef<HTMLElement | null>(null);
 
   const run = status?.run?.song_id === songId ? status.run : null;
@@ -75,6 +77,15 @@ export const MidiTool: React.FC<{ songId: string; songTitle: string; card: strin
   useEffect(() => {
     void loadSongMidi().catch(() => setSongMidi(null));
   }, [loadSongMidi]);
+
+  // the MIDI editor saved this track's MIDI
+  useEffect(() => {
+    const changed = (event: Event) => {
+      if ((event as CustomEvent<{ songId: string }>).detail?.songId === songId) void loadSongMidi().catch(() => setSongMidi(null));
+    };
+    window.addEventListener('studio:midi-changed', changed);
+    return () => window.removeEventListener('studio:midi-changed', changed);
+  }, [songId, loadSongMidi]);
 
   // the state, and while a run of this track is at work, the notes it has heard
   useEffect(() => {
@@ -198,6 +209,13 @@ export const MidiTool: React.FC<{ songId: string; songTitle: string; card: strin
           <>
             <button
               type="button"
+              onClick={() => setEditing(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-700 hover:border-pink-400 hover:text-pink-600 dark:border-white/15 dark:text-zinc-200"
+            >
+              <PencilLine size={13} /> {t('midiEdEdit')}
+            </button>
+            <button
+              type="button"
               onClick={() => void saveFile(`${songTitle || 'track'}.mid`, { url: apiUrl(`/v1/library/songs/${encodeURIComponent(songId)}/midi/file`) })}
               className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-700 hover:border-pink-400 hover:text-pink-600 dark:border-white/15 dark:text-zinc-200"
             >
@@ -238,6 +256,7 @@ export const MidiTool: React.FC<{ songId: string; songTitle: string; card: strin
         <p role="alert" className="mt-3 select-text rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-700 wrap-anywhere dark:text-rose-300">{run?.error || error}</p>
       )}
       <p className="mt-3 text-[11px] leading-4 text-zinc-400">{t('midiLicense')}</p>
+      {editing && <MidiEditor source={{ kind: 'track', songId, title: songTitle }} onClose={() => setEditing(false)} />}
     </section>
   );
 };
