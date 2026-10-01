@@ -1,0 +1,46 @@
+name: CI
+
+# The service's tests on Windows, the studio's own platform, and the interface
+# type-checked, tested and built, on every branch pushed.
+
+on:
+  push:
+    branches-ignore: [main]
+    paths-ignore: ["docs/stars-*.svg"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  service:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: Service tests
+        run: cargo test -p music-server --locked
+
+  interface:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the news page's changelog is read from the history
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Build
+        run: npm run build
+      - name: Types
+        run: npx tsc --noEmit -p .
+      - name: Tests
+        run: npm test
