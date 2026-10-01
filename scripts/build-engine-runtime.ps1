@@ -186,6 +186,9 @@ function Invoke-CustomCudaBuild {
 # CUDA 13 no longer targets and for drivers older than CUDA 13. Device code
 # for every architecture, including Turing and newer for those old drivers.
 function Invoke-Cuda12Build {
+    if ([string]::IsNullOrWhiteSpace($Cuda12Root)) {
+        throw 'The universal CUDA runtime requires a CUDA 12 toolkit. Set -Cuda12Root or CUDA_PATH_V12_9 to its root directory.'
+    }
     $nvcc = Join-Path $Cuda12Root 'bin\nvcc.exe'
     if (-not (Test-Path $nvcc)) { throw "The CUDA 12 backend needs a CUDA 12 toolkit; nvcc.exe is missing under '$Cuda12Root'. Set -Cuda12Root or CUDA_PATH_V12_9." }
     $root = $Cuda12Root.Replace('\', '/')

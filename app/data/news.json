@@ -1,5 +1,27 @@
 [
   {
+    "id": "ace-step-cpp-studio-3-4-0",
+    "date": "2026-10-01",
+    "title": {
+      "en": "ACE-Step Studio 3.4.0",
+      "ru": "ACE-Step Studio 3.4.0",
+      "zh": "ACE-Step Studio 3.4.0",
+      "ja": "ACE-Step Studio 3.4.0",
+      "ko": "ACE-Step Studio 3.4.0"
+    },
+    "body": {
+      "en": "A MIDI editor inside the studio: signal, with a multitrack piano roll, instruments, drums, tempo, MIDI input and recording, and editable chord and section lanes. Open it from Studio tools or Edit MIDI on a track. Save a new song as rendered audio and MIDI in the library; edits to an existing MIDI stay on its track. Everything runs locally, without the editor’s cloud services or analytics.",
+      "ru": "MIDI-редактор прямо в студии: signal с многодорожечным пиано-роллом, инструментами, ударными, темпом, MIDI-вводом и записью, полосами аккордов и секций. Открывается из «Инструментов» или через «Редактировать MIDI» у трека. Новая песня сохраняется в библиотеку со звуком и MIDI; изменения существующего MIDI остаются у его трека. Всё работает локально, без облака и аналитики редактора.",
+      "zh": "工作室内置 MIDI 编辑器 signal：多轨钢琴卷帘、乐器、鼓、速度、MIDI 输入与录制，以及可编辑的和弦和段落栏。从工具页或曲目的 MIDI 编辑入口打开。新歌曲以音频和 MIDI 保存到曲库，已有 MIDI 的编辑保留在原曲目上。编辑器本地运行，无云服务或分析。",
+      "ja": "スタジオ内に signal MIDI エディターを統合しました。マルチトラックのピアノロール、楽器、ドラム、テンポ、MIDI 入力と録音、編集可能なコードとセクションのレーンを備えます。ツールまたは曲の MIDI 編集から開き、新しい曲を音声と MIDI としてライブラリに保存できます。既存 MIDI の編集は元の曲に保存されます。クラウドや解析を使わずローカルで動作します。",
+      "ko": "스튜디오 안에 signal MIDI 편집기를 통합했습니다. 멀티트랙 피아노롤, 악기, 드럼, 템포, MIDI 입력과 녹음, 편집 가능한 코드 및 섹션 레인을 제공합니다. 도구 페이지나 곡의 MIDI 편집에서 열어 새 곡을 오디오와 MIDI로 라이브러리에 저장하고 기존 MIDI 편집은 원래 곡에 보관합니다. 클라우드와 분석 없이 로컬에서 실행됩니다."
+    },
+    "tags": [
+      "MIDI",
+      "signal"
+    ]
+  },
+  {
     "id": "ace-step-studio-3-3-0",
     "date": "2026-09-30",
     "title": {

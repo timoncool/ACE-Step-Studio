@@ -8,7 +8,7 @@
  * answered by that screen through `useBridgeCommand`.
  */
 import { useEffect, useRef } from 'react';
-import { domToPng } from 'modern-screenshot';
+import { captureWindow } from './windowScreenshot';
 import { apiUrl } from './apiBase';
 
 type Handler = (args: Record<string, unknown>) => unknown | Promise<unknown>;
@@ -191,44 +191,13 @@ function watchConsole(): void {
   window.addEventListener('unhandledrejection', (event) => remember('error', ['unhandled rejection', event.reason]));
 }
 
-/**
- * WebGL canvases (MilkDrop) keep no picture between frames, so a copy of the
- * page shows them black. Read in the frame they were drawn in, they are laid
- * over themselves as pictures while the copy is taken.
- */
-function freezeWebGl(): Promise<HTMLImageElement[]> {
-  // the studio's MilkDrop and Winamp's; asking any other canvas for WebGL would give it a context it must not have
-  const canvases = [...document.querySelectorAll<HTMLCanvasElement>('canvas[data-webgl], #webamp .gen-window canvas')].filter(visible);
-  // a hidden window draws no frames, so there is none to read them in
-  if (!canvases.length || document.visibilityState === 'hidden') return Promise.resolve([]);
-  return new Promise((resolve) => {
-    requestAnimationFrame(() => {
-      resolve(canvases.map((canvas) => {
-        const box = canvas.getBoundingClientRect();
-        const image = document.createElement('img');
-        image.src = canvas.toDataURL('image/png');
-        Object.assign(image.style, { position: 'fixed', left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`, zIndex: '2147483647', pointerEvents: 'none' });
-        document.body.appendChild(image);
-        return image;
-      }));
-    });
-  });
-}
-
 const builtIn: Record<string, Handler> = {
   async screenshot(args) {
     // a window that is minimised or covered draws no frames, and the copy waits for one
     if (document.visibilityState === 'hidden') {
       throw new Error("The studio's window is hidden - minimised or covered by other windows - so it draws nothing to copy. Ask the user to bring it to the front, or use ui_read_page, which works either way.");
     }
-    const scale = Math.min(1, Number(args.max_width ?? 1600) / window.innerWidth);
-    const frozen = await freezeWebGl();
-    let data: string;
-    try {
-      data = await domToPng(document.documentElement, { scale, width: window.innerWidth, height: window.innerHeight, backgroundColor: getComputedStyle(document.body).backgroundColor });
-    } finally {
-      frozen.forEach((image) => image.remove());
-    }
+    const data = await captureWindow(Number(args.max_width ?? 1600));
     return { image: data.replace(/^data:image\/png;base64,/, ''), text: `${window.innerWidth}x${window.innerHeight} window` };
   },
   read_page: () => ({ text: readPage() }),

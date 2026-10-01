@@ -57,6 +57,7 @@ try {
     # The engine's checkout and build directories are kept between releases,
     # so Ninja rebuilds only what the pinned commit changed.
     & (Join-Path $PSScriptRoot 'build-engine-runtime.ps1') -OutputDirectory $engineResourceRoot -RuntimeBackend $RuntimeBackend -CudaArchitecture universal -Cuda12Root $Cuda12Root
+    if (-not $?) { throw "The nested build script failed; release packaging stopped." }
     if ($LASTEXITCODE -ne 0) { throw "the engine runtime build failed with exit code $LASTEXITCODE" }
 
     # The VST host follows the trainer's HOT-Step commit; rebuilt only when that moves.
@@ -65,6 +66,7 @@ try {
     $vstStamp = if (Test-Path $vstStampPath) { Get-Content -Raw $vstStampPath | ConvertFrom-Json } else { $null }
     if (-not ($vstStamp -and $vstStamp.commit -eq $trainSource.commit -and (Test-Path (Join-Path $vstResourceRoot 'vst-host.exe')))) {
         & (Join-Path $PSScriptRoot 'build-vst-host.ps1') -OutputDirectory $vstResourceRoot
+        if (-not $?) { throw "The nested build script failed; release packaging stopped." }
         if ($LASTEXITCODE -ne 0) { throw "the VST host build failed with exit code $LASTEXITCODE" }
     }
 
@@ -137,6 +139,10 @@ try {
         (New-Object System.Text.UTF8Encoding($false))
     )
     Get-ChildItem $releaseDir -File | Select-Object Name, Length | Format-Table | Out-Host
+}
+catch {
+    Write-Error $_ -ErrorAction Continue
+    exit 1
 }
 finally {
     Remove-Item -LiteralPath $releaseConfigPath -Force -ErrorAction SilentlyContinue

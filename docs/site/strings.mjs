@@ -66,6 +66,8 @@ export const STRINGS = {
       ['A cover for every track', 'A track without one wears a free CC0 photograph from Wikimedia Commons that fits its style, a pattern in one of 21 styles, or a cover generated through OpenRouter. It stays the same, a stem wears its song’s, and it is written into the MP3.'],
       ['Music videos', 'A visualiser video of any track in 16:9, 9:16 or 1:1 with karaoke lyrics and effects. Its background and centre picture come from the same window as covers: Commons photos and clips, the pattern, generation or your own file - no keys.'],
       ['Activity and a tidy library', 'A log of everything a connected agent changed; likes kept with the song, lists sorted by date, title or length, and stems folded under their song.'],
+      ["Compose and edit MIDI", "The embedded Signal editor has multiple tracks, instruments, drums, MIDI keyboard recording, tempo changes, editable chord symbols and section markers. Save a new composition as MIDI and rendered audio in the library, or update an existing track’s MIDI. SoundFonts are bundled locally; the editor sends no analytics."],
+
     ],
     samplesTitle: 'Songs made with it',
     samplesSub: 'Rendered on a clean install of the released build, as the studio saved them.',
@@ -87,6 +89,7 @@ export const STRINGS = {
       ['13-listen', 'The equalizer with its curve and MilkDrop over the studio, as the song plays.'],
       ['14-winamp', 'The whole window as Winamp 2: equalizer, playlist and MilkDrop, skinned.'],
       ['15-covers', 'A cover for every track: Commons photos for the style, patterns, generation or your own file.'],
+      ["16-midi-editor", "The MIDI editor: tracks and notes with editable chords and section markers."]
     ],
     modelsTitle: 'Models',
     modelsSub: 'A runnable set is the DiT, the planner, the text encoder and the VAE, all in GGUF.',
@@ -172,6 +175,8 @@ export const STRINGS = {
       ['Обложка у каждого трека', 'Трек без своей обложки получает бесплатное фото CC0 с Wikimedia Commons под свой стиль, узор в одном из 21 стиля или обложку, сгенерированную через OpenRouter. Она не меняется, стемы носят обложку песни, и она записывается в MP3.'],
       ['Музыкальные клипы', 'Видео-визуализация любого трека в 16:9, 9:16 или 1:1 с караоке и эффектами. Фон и картинка в центре выбираются в том же окне, что и обложка: фото и ролики с Commons, узор, генерация или свой файл - без ключей.'],
       ['Журнал и порядок в библиотеке', 'Лог всего, что изменил подключённый агент; лайки хранятся в песне, списки сортируются по дате, названию или длине, стемы свёрнуты под своей песней.'],
+      ["Создание и редактирование MIDI", "Встроенный Signal: несколько дорожек, инструменты, ударные, запись с MIDI-клавиатуры, изменение темпа, редактируемые аккорды и секции. Сохраните новую композицию в библиотеку со звуком и MIDI или обновите MIDI существующего трека. SoundFont входят в установку; редактор не отправляет аналитику."],
+
     ],
     samplesTitle: 'Примеры',
     samplesSub: 'Сделаны на чистой установке релизной сборки, как их сохранила студия.',
@@ -193,6 +198,7 @@ export const STRINGS = {
       ['13-listen', 'Эквалайзер с кривой и MilkDrop поверх студии, пока играет песня.'],
       ['14-winamp', 'Всё окно как Winamp 2: эквалайзер, плейлист и MilkDrop в скине.'],
       ['15-covers', 'Обложка для любого трека: фото с Commons под стиль, узоры, генерация или свой файл.'],
+      ["16-midi-editor", "MIDI-СЂРµРґР°РєС‚РѕСЂ: РґРѕСЂРѕР¶РєРё Рё РЅРѕС‚С‹ СЃ СЂРµРґР°РєС‚РёСЂСѓРµРјС‹РјРё Р°РєРєРѕСЂРґР°РјРё Рё СЃРµРєС†РёСЏРјРё."]
     ],
     modelsTitle: 'Модели',
     modelsSub: 'Рабочий набор — это DiT, планировщик, текстовый энкодер и VAE, всё в GGUF.',
@@ -278,6 +284,8 @@ export const STRINGS = {
       ['每首曲目都有封面', '没有封面的曲目会得到符合其风格的 Wikimedia Commons 免费 CC0 照片、21 种样式之一的图案，或通过 OpenRouter 生成的封面。封面保持不变，分轨沿用原曲封面，并写入 MP3。'],
       ['音乐视频', '任意曲目的可视化视频，16:9、9:16 或 1:1，带卡拉 OK 歌词和特效。背景和中间图片与封面用同一个窗口选择：Commons 照片和视频、图案、生成或自己的文件，无需密钥。'],
       ['动态与整洁的曲库', '记录已连接代理所做的一切更改；喜欢随歌曲保存，列表可按日期、标题或时长排序，分轨折叠在原曲之下。'],
+      ["创作和编辑 MIDI", "内置 Signal 编辑器支持多轨、乐器、鼓、MIDI 键盘录音、速度变化、可编辑和弦符号和段落标记。可将新作品的 MIDI 和渲染音频保存到曲库，或更新已有音轨的 MIDI。SoundFont 随应用本地提供，编辑器不发送分析数据。"],
+
     ],
     samplesTitle: '用它做的歌',
     samplesSub: '在发布版全新安装上渲染，按工作室保存的原样。',
@@ -299,6 +307,7 @@ export const STRINGS = {
       ['13-listen', '播放时悬浮在工作室上方的均衡器曲线与 MilkDrop。'],
       ['14-winamp', '整个窗口化身 Winamp 2：均衡器、播放列表和 MilkDrop，带皮肤。'],
       ['15-covers', '为每首曲目选封面：符合风格的 Commons 照片、图案、生成或自己的文件。'],
+      ["16-midi-editor", "MIDI зј–иѕ‘е™Ёпјље¤љиЅЁйџіз¬¦гЂЃеЏЇзј–иѕ‘зљ„е’Њеј¦е’Њж®µиђЅж ‡и®°гЂ‚"]
     ],
     modelsTitle: '模型',
     modelsSub: '可运行的一组模型包括 DiT、规划器、文本编码器和 VAE，均为 GGUF。',
@@ -384,6 +393,8 @@ export const STRINGS = {
       ['すべての曲にジャケット', 'ジャケットのない曲には、スタイルに合う Wikimedia Commons の無料 CC0 写真、21 種類のスタイルの模様、または OpenRouter で生成したジャケットが付きます。変わらず、ステムは元の曲のものを使い、MP3 にも書き込まれます。'],
       ['ミュージックビデオ', '任意の曲のビジュアライザー動画を 16:9、9:16、1:1 で、カラオケ歌詞とエフェクト付きで。背景と中央の画像はジャケットと同じウィンドウで選べます：Commons の写真と動画、模様、生成、手持ちのファイル。キーは不要です。'],
       ['アクティビティと整ったライブラリ', '接続中のエージェントが変更したことをすべて記録。いいねは曲と一緒に保存、一覧は日付・タイトル・長さで並べ替え、ステムは元の曲の下にまとまります。'],
+      ["MIDI の作成と編集", "内蔵 Signal エディターで複数トラック、楽器、ドラム、MIDI キーボード録音、テンポ変更、コード記号とセクションの編集ができます。新しい曲を MIDI とレンダリングした音声でライブラリへ保存し、既存の曲の MIDI を更新できます。SoundFont は同梱され、エディターは解析データを送信しません。"],
+
     ],
     samplesTitle: 'これで作った曲',
     samplesSub: 'リリース版のクリーンインストールで、スタジオが保存したままの形でレンダリング。',
@@ -405,6 +416,7 @@ export const STRINGS = {
       ['13-listen', '再生中、スタジオの上に浮かぶカーブ付きイコライザーと MilkDrop。'],
       ['14-winamp', 'ウィンドウ全体が Winamp 2 に：イコライザー、プレイリスト、MilkDrop をスキン付きで。'],
       ['15-covers', 'どの曲にもジャケット：スタイルに合う Commons の写真、模様、生成、手持ちのファイル。'],
+      ["16-midi-editor", "MIDI г‚Ёгѓ‡г‚Јг‚їгѓјпјљгѓ€гѓ©гѓѓг‚ЇгЃЁйџіз¬¦гЂЃз·Ёй›†гЃ§гЃЌг‚‹г‚ігѓјгѓ‰гЃЁг‚»г‚Їг‚·гѓ§гѓігЂ‚"]
     ],
     modelsTitle: 'モデル',
     modelsSub: '動かせるセットは DiT、プランナー、テキストエンコーダー、VAE で、すべて GGUF です。',
@@ -490,6 +502,8 @@ export const STRINGS = {
       ['모든 트랙에 커버', '커버가 없는 트랙은 스타일에 맞는 Wikimedia Commons의 무료 CC0 사진, 21가지 스타일의 무늬, 또는 OpenRouter로 생성한 커버를 받습니다. 바뀌지 않고, 스템은 원곡의 커버를 쓰며, MP3에도 기록됩니다.'],
       ['뮤직비디오', '어떤 트랙이든 16:9, 9:16, 1:1 비주얼라이저 영상으로, 가라오케 가사와 효과까지. 배경과 가운데 그림은 커버와 같은 창에서 고릅니다: Commons 사진과 영상, 무늬, 생성 또는 내 파일, 키 없이.'],
       ['활동 기록과 정돈된 라이브러리', '연결된 에이전트가 바꾼 모든 것을 기록합니다. 좋아요는 곡과 함께 저장되고, 목록은 날짜·제목·길이로 정렬되며, 스템은 원곡 아래에 접힙니다.'],
+      ["MIDI 작곡과 편집", "내장 Signal 편집기는 여러 트랙, 악기, 드럼, MIDI 키보드 녹음, 템포 변경, 코드 기호와 구간 표시 편집을 지원합니다. 새 곡을 MIDI와 렌더링된 오디오로 라이브러리에 저장하거나 기존 곡의 MIDI를 갱신하세요. SoundFont는 로컬에 포함되며 편집기는 분석 데이터를 보내지 않습니다."],
+
     ],
     samplesTitle: '이것으로 만든 곡',
     samplesSub: '릴리스 빌드의 새 설치에서, 스튜디오가 저장한 그대로 렌더링.',
@@ -511,6 +525,7 @@ export const STRINGS = {
       ['13-listen', '재생 중 스튜디오 위에 뜬 곡선 이퀄라이저와 MilkDrop.'],
       ['14-winamp', '창 전체가 Winamp 2로: 스킨을 입힌 이퀄라이저, 재생 목록, MilkDrop.'],
       ['15-covers', '모든 트랙에 커버: 스타일에 맞는 Commons 사진, 무늬, 생성 또는 내 파일.'],
+      ["16-midi-editor", "MIDI нЋём§‘кё°: нЉёлћ™кіј мќЊн‘њ, нЋём§‘ к°ЂлЉҐн•њ мЅ”л“њм™Ђ кµ¬к°„ н‘њм‹њ."]
     ],
     modelsTitle: '모델',
     modelsSub: '실행 가능한 세트는 DiT, 플래너, 텍스트 인코더, VAE이며 모두 GGUF입니다.',

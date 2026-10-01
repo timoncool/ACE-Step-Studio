@@ -168,7 +168,15 @@ Code, save [docs/mcp-skill.md](docs/mcp-skill.md) as `~/.claude/skills/ace-step-
 - **Likes, sorting and stems in order** — a like is kept with the song for every window and
   agent, every list sorts by date, title or length, and a song's stems fold under it.
 
+## Compose and edit MIDI
+
+The embedded Signal editor has multiple tracks, instruments, drums, MIDI keyboard recording, tempo changes, editable chord symbols and section markers. Save a new composition as MIDI and rendered audio in the library, or update an existing track’s MIDI. SoundFonts are bundled locally; the editor sends no analytics.
+
+A MIDI track can also be sent to cover mode.
+
 ## Screenshots
+
+![The MIDI editor: chords, sections and notes](docs/screenshots/en-16-midi-editor.png)
 
 | | |
 |---|---|
@@ -443,6 +451,8 @@ never part of a release.
 - [Wikimedia Commons](https://commons.wikimedia.org) and the photographers and filmmakers who give their work to it under CC0 or into the public domain, many of them through [Unsplash](https://unsplash.com): the pictures and clips a track and its video can wear. A chosen picture keeps a link to its page.
 - [Florian Körner](https://github.com/FlorianKoerner) for [DiceBear](https://www.dicebear.com) (MIT) and the authors of its CC0 styles, the patterns a track without a cover wears, and the [resvg](https://github.com/linebender/resvg) authors, whose renderer writes them into the track as PNG.
 - [MRafStudio](https://github.com/MRafStudio) for the ideas of [pull request #34](https://github.com/timoncool/YuE2-Studio/pull/34): the Activity log, sorting, likes kept in the library and stems under their song.
+
+- [ryohey](https://github.com/ryohey) for [Signal](https://github.com/ryohey/signal) (MIT), built from [the studio fork](https://github.com/timoncool/signal/tree/studio), and Milton Paredes for the bundled A320U SoundFonts (GPL-2.0). License notices are kept in [licenses](licenses).
 
 ## Support the Author
 
