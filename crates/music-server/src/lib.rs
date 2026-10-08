@@ -6924,6 +6924,12 @@ async fn ace_request_from(state: &AppState, request: &CreateMusicJobRequest) -> 
             fields.insert("lm_adapter_scale".into(), Value::from(scale));
         }
     }
+    let unset = fields.get("vocal_language").and_then(Value::as_str).is_none_or(|language| language.trim().is_empty());
+    if unset {
+        if let Some(language) = fields.get("lyrics").and_then(Value::as_str).and_then(ace::script_language) {
+            fields.insert("vocal_language".into(), Value::from(language));
+        }
+    }
     fields.remove("peak_clip");
     fields.entry("output_format").or_insert(Value::from("flac"));
     let format = fields.get("output_format").and_then(Value::as_str).unwrap_or_default();

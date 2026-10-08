@@ -40,6 +40,38 @@ pub fn needs_source(task: &str) -> bool {
     task != "text2music"
 }
 
+/// The vocal language a lyric's script names, for a request that names none.
+/// The engine forces a given language into its plan and guesses an unset one,
+/// so Cyrillic words left to the guess have been sung in another language.
+/// Latin script names no language.
+pub fn script_language(lyrics: &str) -> Option<&'static str> {
+    let mut inside_tag = false;
+    let (mut cyrillic, mut ukrainian, mut hangul, mut kana, mut han, mut arabic, mut devanagari, mut thai, mut latin) = (0, 0, 0, 0, 0, 0, 0, 0, 0);
+    for character in lyrics.chars() {
+        match character {
+            '[' => inside_tag = true,
+            ']' => inside_tag = false,
+            _ if inside_tag => {}
+            'і' | 'ї' | 'є' | 'ґ' | 'І' | 'Ї' | 'Є' | 'Ґ' => { cyrillic += 1; ukrainian += 1; }
+            '\u{0400}'..='\u{04FF}' => cyrillic += 1,
+            '\u{AC00}'..='\u{D7AF}' | '\u{1100}'..='\u{11FF}' => hangul += 1,
+            '\u{3040}'..='\u{30FF}' => kana += 1,
+            '\u{4E00}'..='\u{9FFF}' => han += 1,
+            '\u{0600}'..='\u{06FF}' => arabic += 1,
+            '\u{0900}'..='\u{097F}' => devanagari += 1,
+            '\u{0E00}'..='\u{0E7F}' => thai += 1,
+            'A'..='Z' | 'a'..='z' | '\u{00C0}'..='\u{024F}' => latin += 1,
+            _ => {}
+        }
+    }
+    let cjk = if kana > 0 { ("ja", kana + han) } else { ("zh", han) };
+    let cyrillic_name = if ukrainian > 0 { "uk" } else { "ru" };
+    let (name, letters) = [(cyrillic_name, cyrillic), ("ko", hangul), cjk, ("ar", arabic), ("hi", devanagari), ("th", thai), ("latin", latin)]
+        .into_iter()
+        .max_by_key(|(_, letters)| *letters)?;
+    (letters >= 8 && name != "latin").then_some(name)
+}
+
 /// Tasks only the base model (and base merges) was trained for.
 pub fn base_model_only(task: &str) -> bool {
     matches!(task, "lego" | "extract" | "complete")
@@ -399,6 +431,17 @@ async fn job_id(response: reqwest::Response) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_lyric_names_its_language_by_its_script() {
+        assert_eq!(script_language("[Verse]\nПыль дороги на сапогах\nИ звезда над головой"), Some("ru"));
+        assert_eq!(script_language("[Verse]\nЇжак іде додому через ліс"), Some("uk"));
+        assert_eq!(script_language("[Chorus]\n사랑해요 오늘 밤 함께 노래해"), Some("ko"));
+        assert_eq!(script_language("[Verse]\n夜空に光る星を見上げて"), Some("ja"));
+        assert_eq!(script_language("[Verse]\n我们一起唱歌到天亮吧朋友"), Some("zh"));
+        assert_eq!(script_language("[Verse]\nWalking down the river in the morning light"), None);
+        assert_eq!(script_language("[Intro]\n[Chorus]"), None);
+    }
     use serde_json::json;
 
     #[test]

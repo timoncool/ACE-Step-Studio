@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { scriptLanguage } from '../services/lyricsLanguage';
 import { libraryChanged, setupStatusChanged, updateLibrarySongs, useActivity, useAssistantStatus, useLibrarySongs, useSetupStatus, type ActivityEntry } from '../services/studioQueries';
 import { mapNativeLibrarySong } from '../services/nativeLibrary';
 import { karaokeReason } from '../services/karaoke';
@@ -246,6 +247,8 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const [lyrics, setLyrics] = useState('');
   const [instrumental, setInstrumental] = useState(false);
   const [language, setLanguage] = useState('en');
+  // a language picked by hand, or brought by a request, is not overruled by the lyric's script
+  const [languageChosen, setLanguageChosen] = useState(false);
   const [gender, setGender] = useState<'' | 'male' | 'female'>('');
   const [genres, setGenres] = useState<string[]>(() => someGenres());
   // What the language model or the assistant replaced, for the undo button.
@@ -381,6 +384,12 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   }, [setup?.engine_ready]);
 
 
+  useEffect(() => {
+    if (languageChosen) return;
+    const named = scriptLanguage(lyrics);
+    if (named) setLanguage(named);
+  }, [lyrics, languageChosen]);
+
   const remember = () => setUndo({ caption, lyrics });
 
   /** Fills the form from an engine request: a stored track's, a file's, the model's plan. */
@@ -398,7 +407,10 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     if ('duration' in settings) setDuration(numberText('duration'));
     if ('keyscale' in settings) setKeyscale(text('keyscale'));
     if ('timesignature' in settings) setTimesignature(text('timesignature'));
-    if ('vocal_language' in settings) setLanguage(text('vocal_language'));
+    if ('vocal_language' in settings) {
+      setLanguage(text('vocal_language'));
+      setLanguageChosen(true);
+    }
     if (!options.keepSource) {
       if (typeof settings.task_type === 'string' && TASKS.includes(settings.task_type as Task)) setTask(settings.task_type as Task);
       if (typeof settings.track === 'string') setTracks(settings.track ? settings.track.split('|').map(part => part.trim().toLowerCase()).filter(Boolean) : []);
@@ -988,7 +1000,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   );
   const languageField = (
     <Field label={tt('aceLanguage')}>
-      <select value={language} onChange={event => setLanguage(event.target.value)} className={CONTROL}>
+      <select value={language} onChange={event => { setLanguage(event.target.value); setLanguageChosen(true); }} className={CONTROL}>
         {LANGUAGES.map(code => <option key={code} value={code}>{code ? tt(`aceLang_${code}`) : tt('aceAuto')}</option>)}
       </select>
     </Field>
