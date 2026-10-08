@@ -291,10 +291,23 @@ function AppContent() {
     return stored ? parseFloat(stored) : 0.8;
   });
   const [playbackRate, setPlaybackRate] = useState(1.0);
-  const [isShuffle, setIsShuffle] = useState(false);
+  const [isShuffle, setIsShuffle] = useState(() => {
+    try { return localStorage.getItem('player.shuffle') === '1'; } catch { return false; }
+  });
   // stop: play this track to its end and stay there, as Winamp's and
   // foobar's "stop after current"; next and previous still move by hand
-  const [repeatMode, setRepeatMode] = useState<'none' | 'all' | 'one' | 'stop'>('all');
+  const [repeatMode, setRepeatMode] = useState<'none' | 'all' | 'one' | 'stop'>(() => {
+    try {
+      const stored = localStorage.getItem('player.repeat');
+      return stored === 'none' || stored === 'one' || stored === 'stop' ? stored : 'all';
+    } catch { return 'all'; }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem('player.repeat', repeatMode);
+      localStorage.setItem('player.shuffle', isShuffle ? '1' : '0');
+    } catch { /* kept until a reload */ }
+  }, [repeatMode, isShuffle]);
   const repeatModeRef = useRef(repeatMode);
   repeatModeRef.current = repeatMode;
 
