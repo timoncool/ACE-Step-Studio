@@ -114,7 +114,7 @@ Code, save [docs/mcp-skill.md](docs/mcp-skill.md) as `~/.claude/skills/ace-step-
 - **200 ready examples** — ACE-Step's own example requests, one click to load.
 - **Every engine setting** — steps, guidance and its eight modes, shift, solver and
   scheduler, the planner's temperature, CFG, top-p and top-k, both seeds, the plan strength
-  (how many DiT steps follow the planner's audio codes), MP3, FLAC or 16/24/32-bit WAV.
+  (how many DiT steps follow the planner's audio codes), lossless FLAC or MP3.
 - **A writing assistant** — a local Gemma model, OpenRouter, or your connected agent writes
   the caption and lyrics from an idea by ACE-Step's official songwriting rules. Lyrics you
   wrote yourself get their section tags with one button, the words exactly as you wrote them.
@@ -150,13 +150,14 @@ Code, save [docs/mcp-skill.md](docs/mcp-skill.md) as `~/.claude/skills/ace-step-
 - **Driven by your agent (MCP)** — Claude Code, Claude Desktop or Cursor do everything the
   studio does, and see and work its window.
 - **A library of plain files** — search, playlists, versions, cover art from prompt
-  templates, MP3s with title, lyrics and cover in their tags. Interface in English, Russian,
+  templates, tracks with title, lyrics and cover in their own tags (Vorbis comments in a FLAC,
+  ID3 in an MP3). Interface in English, Russian,
   Chinese, Japanese and Korean.
 - **A cover for every track** — a track without one wears a free (CC0) Wikimedia Commons
   photograph that fits the genres, moods and instruments of its style, a pattern in one of 21
   DiceBear styles, or a cover OpenRouter generates for every new track. It is chosen by the
-  track's seed, so it stays the same, a stem wears its song's, and it is written into the MP3,
-  so players show it after the download.
+  track's seed, so it stays the same, a stem wears its song's, and it is written into the
+  track's tags, so players show it after the download.
 - **One picture window** — for a cover, and for the background and centre of a music video:
   Commons photographs by search starting from the scenes a style calls up, clips free of
   copyright for a background, the track's pattern in any style, generation through
@@ -441,7 +442,7 @@ never part of a release.
 - [sergree](https://github.com/sergree) for [matchering](https://github.com/sergree/matchering), and [jeankassio](https://github.com/jeankassio) for the vocal naturalizer in [ComfyUI_MusicTools](https://github.com/jeankassio/ComfyUI_MusicTools).
 - The authors of the LoRA in the catalogue, each credited and linked on its card.
 - [fspecii](https://github.com/fspecii/ace-step-ui) for the ACE-Step UI that 1.x grew from.
-- The [LAME](https://lame.sourceforge.io) project for the MP3 encoder.
+- The [LAME](https://lame.sourceforge.io) project for the MP3 encoder, [Xiph.Org](https://xiph.org/flac/) for libFLAC, the FLAC encoder, and [Serial-ATA](https://github.com/Serial-ATA/lofty-rs) for lofty, which writes the tags.
 - [crmne](https://github.com/crmne) for [Spotifast](https://github.com/crmne/spotifast) (MIT): the equalizer solves its band gains as its `eq.rs` does.
 - [Jordan Eldredge](https://github.com/captbaritone) and the Webamp team for [Webamp](https://github.com/captbaritone/webamp) (MIT), which the Winamp mode runs, and for the [Winamp Skin Museum](https://skins.webamp.org). Winamp and its base skin are Nullsoft's.
 - [Jordan Berg](https://github.com/jberg) for [Butterchurn](https://github.com/jberg/butterchurn) and [butterchurn-presets](https://github.com/jberg/butterchurn-presets) (MIT), MilkDrop in the browser. MilkDrop itself is Ryan Geiss's, and each preset is its author's, named in its title.
