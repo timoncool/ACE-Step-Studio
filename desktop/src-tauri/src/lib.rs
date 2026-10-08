@@ -489,6 +489,14 @@ pub fn run() {
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(
+            tauri_plugin_window_state::Builder::new()
+                .with_state_flags(tauri_plugin_window_state::StateFlags::SIZE | tauri_plugin_window_state::StateFlags::POSITION | tauri_plugin_window_state::StateFlags::MAXIMIZED)
+                // an absolute name: the plugin joins it to AppData, which a portable copy never writes
+                .with_filename(studio_data_directory().join("window-state.json").to_string_lossy())
+                .with_filter(|label| label == "main")
+                .build(),
+        )
         .invoke_handler(tauri::generate_handler![open_visualizer_window, set_window_region]);
     if updater_configured {
         builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
