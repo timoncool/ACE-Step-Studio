@@ -286,6 +286,19 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_signal_above_full_scale_is_lowered_into_flac_not_cut() {
+        let n = 4_800;
+        let left: Vec<f32> = (0..n).map(|i| 1.5 * (i as f32 * 0.05).sin()).collect();
+        let audio = audio_post::Stereo { left: left.clone(), right: left.clone(), rate: 48_000 };
+        let decoded = decode_stereo_bytes(audio_post::encode::flac(&audio).unwrap(), "flac").unwrap();
+        let peak = decoded.left.iter().fold(0.0f32, |peak, sample| peak.max(sample.abs()));
+        assert!(peak <= 1.0 && peak > 0.999, "{peak}");
+        for (original, back) in left.iter().zip(&decoded.left) {
+            assert!((original / 1.5 - back).abs() < 2.0 / 8_388_607.0, "{original} {back}");
+        }
+    }
+
+    #[test]
     fn a_flac_decodes_to_the_samples_it_was_made_from() {
         let n = 24_000;
         let left: Vec<f32> = (0..n).map(|i| 0.5 * (i as f32 * 0.031).sin()).collect();

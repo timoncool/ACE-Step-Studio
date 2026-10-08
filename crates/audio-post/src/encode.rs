@@ -86,6 +86,14 @@ pub fn mp3(audio: &Stereo, kbps: u32) -> Result<Vec<u8>> {
     builder.set_quality(Quality::Best).map_err(|error| anyhow!("LAME quality: {error}"))?;
     builder.set_to_write_vbr_tag(false).map_err(|error| anyhow!("LAME tag: {error}"))?;
     let mut encoder = builder.build().map_err(|error| anyhow!("LAME: {error}"))?;
+    let gain = fitting_gain(audio);
+    let fitted;
+    let audio = if gain < 1.0 {
+        fitted = Stereo { left: audio.left.iter().map(|sample| sample * gain).collect(), right: audio.right.iter().map(|sample| sample * gain).collect(), rate: audio.rate };
+        &fitted
+    } else {
+        audio
+    };
 
     const PIECE: usize = 1 << 16;
     let mut out = Vec::with_capacity(audio.frames() * kbps as usize / 8 / audio.rate as usize * 1000 + 8192);
@@ -105,13 +113,22 @@ pub fn mp3(audio: &Stereo, kbps: u32) -> Result<Vec<u8>> {
 /// model's float output with nothing taken away but the rounding below the
 /// 24th bit, about -144 dB. Verify mode decodes every frame as it is written
 /// and compares it with the input, and the file gets its sample count and MD5.
+/// The gain that fits a float signal into an integer format: 1 when its peak
+/// is within full scale, else exactly enough to bring the peak to it. An
+/// integer sample cannot hold more, and cutting the overs would distort.
+pub fn fitting_gain(audio: &Stereo) -> f32 {
+    let peak = audio.left.iter().chain(&audio.right).filter(|sample| sample.is_finite()).fold(0.0f32, |peak, sample| peak.max(sample.abs()));
+    if peak > 1.0 { 1.0 / peak } else { 1.0 }
+}
+
 pub fn flac(audio: &Stereo) -> Result<Vec<u8>> {
     use flac_bound::FlacEncoder;
     use std::sync::atomic::{AtomicU64, Ordering};
     static NEXT: AtomicU64 = AtomicU64::new(0);
     const FULL: f32 = 8_388_607.0;
     let frames = audio.frames();
-    let samples: Vec<i32> = audio.left.iter().zip(&audio.right).flat_map(|(left, right)| [*left, *right]).map(|sample| (sample.clamp(-1.0, 1.0) * FULL).round() as i32).collect();
+    let gain = fitting_gain(audio);
+    let samples: Vec<i32> = audio.left.iter().zip(&audio.right).flat_map(|(left, right)| [*left, *right]).map(|sample| ((sample * gain).clamp(-1.0, 1.0) * FULL).round() as i32).collect();
     // libFLAC writes the header last, so it needs a file it can seek in
     let path = std::env::temp_dir().join(format!("audio-post-{}-{}.flac", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
     let written = (|| -> Result<Vec<u8>> {
