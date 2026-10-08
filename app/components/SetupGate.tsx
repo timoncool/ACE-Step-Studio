@@ -252,9 +252,9 @@ export const OptionalGroup: React.FC<{
     // vocabulary - and only the weights are a choice. The rest carry no VRAM
     // figure, which is how they are told apart here.
     if (engine === 'whisper') return asset.id.startsWith('whisper-') && asset.vram_gb != null;
-    // Parakeet comes in two precisions; the rest of its files are shared, so
+    // Parakeet comes in several variants; the rest of their files come with them, so
     // only the encoders are a choice.
-    if (engine === 'parakeet') return asset.id === 'parakeet-tdt-int8' || asset.id === 'parakeet-tdt-fp32';
+    if (engine === 'parakeet') return asset.id === 'parakeet-tdt-int8' || asset.id === 'parakeet-ultra-int8' || asset.id === 'parakeet-tdt-fp32';
     if (engine === 'open_router') return false;
     return true;
   });
