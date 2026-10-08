@@ -5990,8 +5990,10 @@ async fn install_midi(State(state): State<AppState>, Json(input): Json<MidiSizeR
     }
     let transcriber = state.midi.clone();
     tokio::spawn(async move {
-        if let Err(error) = transcriber.downloader().install_all("midi", &missing).await {
-            eprintln!("[ERROR] midi: download failed: {error:#}");
+        match transcriber.downloader().install_all("midi", &missing).await {
+            Ok(_) if transcriber.tool_installed() => transcriber.remove_older_tools(),
+            Ok(_) => {}
+            Err(error) => eprintln!("[ERROR] midi: download failed: {error:#}"),
         }
     });
     Ok(Json(serde_json::json!({ "started": true, "size": size.id })))
@@ -6083,6 +6085,17 @@ fn midi_stopped(state: &AppState) -> bool {
     state.midi_stop.0.load(std::sync::atomic::Ordering::Relaxed)
 }
 
+/// The device the transcriber computes on, as its `--device` names it: left to it (CUDA) where
+/// the engine runs the CUDA 13 build, else the processor - Pascal and Maxwell have no CUDA 13 code,
+/// AMD and Intel no CUDA, and its Vulkan path writes wrong notes.
+fn midi_device(options: &EngineOptions) -> &'static str {
+    match options.backend {
+        music_engine::server::ComputeBackend::Cpu => "cpu",
+        _ if options.cuda_build() == Some(cuda_build::CudaBuild::Cuda13) => "auto",
+        _ => "cpu",
+    }
+}
+
 /// Fetches what is missing, reads the audio as the transcriber wants it and
 /// runs it, following its notes as they come. Returns how many it heard.
 async fn transcribe_to_midi(state: &AppState, size: &'static midi::Size, audio: &std::path::Path, output: &std::path::Path) -> anyhow::Result<usize> {
@@ -6095,6 +6108,7 @@ async fn transcribe_to_midi(state: &AppState, size: &'static midi::Size, audio: 
         if midi_stopped(state) || !state.midi.missing(size).is_empty() {
             anyhow::bail!("stopped before everything the transcriber needs had arrived");
         }
+        state.midi.remove_older_tools();
     }
 
     // WAV and MP3 go to the transcriber as they are: its own decoder is the
@@ -6124,8 +6138,11 @@ async fn transcribe_to_midi(state: &AppState, size: &'static midi::Size, audio: 
         std::fs::create_dir_all(folder).with_context(|| format!("create {}", folder.display()))?;
     }
     let tool = state.midi.tool();
+    let device = midi_device(&*state.engine_options.read().await);
     let mut command = tokio::process::Command::new(&tool);
     command
+        .arg("--device")
+        .arg(device)
         .arg("--model")
         .arg(state.midi.model_dir(size))
         .arg(if raw.is_some() { "--transcribe-raw" } else { "--transcribe" })
@@ -6206,12 +6223,12 @@ async fn transcribe_to_midi(state: &AppState, size: &'static midi::Size, audio: 
     }
     if !status.success() || !events.finished {
         let _ = std::fs::remove_file(&partial);
-        // Windows' "a DLL was not found": the CUDA 13 runtime it imports
-        if status.code() == Some(-1073741515) {
-            anyhow::bail!("the transcriber could not load the CUDA 13 libraries it needs: it runs on an NVIDIA card from the GTX 16 and RTX 20 series on with driver 580 or newer, once the music engine has started on it and fetched them");
-        }
         let said = said.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).iter().cloned().collect::<Vec<_>>().join("\n");
-        anyhow::bail!("the transcriber stopped with {status}: {said}");
+        // Windows' "a DLL was not found": a transcriber from before its backends were libraries
+        if status.code() == Some(-1073741515) {
+            anyhow::bail!("the transcriber could not load a library it needs; remove Audio to MIDI in Settings - Models and download it again: {said}");
+        }
+        anyhow::bail!("the transcriber stopped with {status} on {device}: {said}");
     }
     std::fs::rename(&partial, output).with_context(|| format!("keep {}", output.display()))?;
     let sidecar = midi::Sidecar { size: size.id.to_string(), made_at: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|since| since.as_secs().to_string()).unwrap_or_default(), instruments: events.instruments(), notes: events.notes.clone() };
