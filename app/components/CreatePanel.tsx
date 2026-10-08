@@ -433,6 +433,8 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     if (typeof settings.caption !== 'string') settings.caption = song.style || '';
     if (typeof settings.lyrics !== 'string') settings.lyrics = song.lyrics || '';
     applyRequest(settings);
+    // the song's fields live on the studio form; the simple one would show none of them
+    setMode('studio');
   }, [initialData, applyRequest]);
 
   const reset = () => {

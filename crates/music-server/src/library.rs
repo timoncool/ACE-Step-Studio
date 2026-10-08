@@ -265,6 +265,17 @@ impl Library {
   self.save_song(&song)?;
   Ok(Some(song))
  }
+ /// The person's own note on a song, kept with it; an empty one is taken away.
+ pub fn set_song_note(&self,id:&str,note:&str)->Result<Option<Song>>{
+  let Some(mut song)=self.get_song(id)? else{return Ok(None)};
+  let mut metadata=match song.metadata.take(){serde_json::Value::Object(map)=>map,_=>serde_json::Map::new()};
+  let note=note.trim();
+  if note.is_empty(){metadata.remove("note");}else{metadata.insert("note".into(),serde_json::Value::String(note.to_string()));}
+  song.metadata=serde_json::Value::Object(metadata);
+  // a note is not an edit of the track: updated_at, which its audio address follows, stays
+  self.save_song(&song)?;
+  Ok(Some(song))
+ }
  /// The liked songs, the latest like first.
  pub fn liked_songs(&self)->Result<Vec<Song>>{
   let liked_at=|song:&Song|song.metadata.get("liked_at").and_then(serde_json::Value::as_str).and_then(|at|at.parse::<u64>().ok()).unwrap_or(0);
@@ -356,7 +367,7 @@ impl Library {
 /// is, and the like belongs to its own route, so an edit carrying an older copy
 /// of it does not undo a like.
 fn merged_metadata(stored:&serde_json::Value,edit:serde_json::Value)->serde_json::Value{
- const OWN_ROUTE:[&str;2]=["liked","liked_at"];
+ const OWN_ROUTE:[&str;3]=["liked","liked_at","note"];
  let mut edit=match edit{serde_json::Value::Object(edit)=>edit,_=>serde_json::Map::new()};
  let nothing=serde_json::Map::new();
  let stored=stored.as_object().unwrap_or(&nothing);

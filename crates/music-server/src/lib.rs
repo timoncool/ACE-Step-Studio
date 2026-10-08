@@ -838,6 +838,7 @@ pub async fn serve() -> anyhow::Result<()> {
         .route("/v1/library/import", post(import_library_audio))
         .route("/v1/library/songs/{id}", get(library_song).put(update_library_song).delete(delete_library_song))
         .route("/v1/library/songs/{id}/liked", axum::routing::put(set_library_song_liked))
+        .route("/v1/library/songs/{id}/note", axum::routing::put(set_library_song_note))
         .route("/v1/library/liked", get(library_liked))
         .route("/v1/journal", get(read_journal).post(write_journal).delete(clear_journal))
         .route("/v1/journal/{id}", axum::routing::delete(remove_journal_entry))
@@ -990,6 +991,21 @@ async fn library_songs(State(state): State<AppState>) -> Result<Json<Vec<library
 #[derive(Deserialize)]
 struct LikeInput {
     liked: bool,
+}
+
+#[derive(Deserialize)]
+struct NoteInput {
+    note: String,
+}
+
+/// The person's own note on a song, kept with it.
+async fn set_library_song_note(State(state): State<AppState>, Path(id): Path<String>, Json(input): Json<NoteInput>) -> Result<Json<library::Song>, (StatusCode, Json<ApiError>)> {
+    state
+        .library
+        .set_song_note(&id, &input.note)
+        .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
+        .map(Json)
+        .ok_or_else(|| api_error(StatusCode::NOT_FOUND, "Song not found".into()))
 }
 
 /// The thumbs-up: set or take back, kept with the song.

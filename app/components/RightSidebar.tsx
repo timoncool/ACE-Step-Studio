@@ -3,8 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useKaraokeStatus } from '../services/studioQueries';
 import { TRACK_ARTIST } from '../services/studio';
 import { Song } from '../types';
-import { Heart, Share2, Play, Pause, MoreHorizontal, X, Copy, Wand2, MoreVertical, Download, Repeat, Video, Music, Link as LinkIcon, Sparkles, Globe, Lock, Trash2, Edit3, Layers, ChevronDown, ClipboardCopy, ImagePlus, Loader2, Mic2, Clapperboard } from 'lucide-react';
-import { mapNativeLibrarySong, updateNativeSong } from '../services/nativeLibrary';
+import { Heart, Share2, Play, Pause, MoreHorizontal, X, Copy, Wand2, MoreVertical, Download, Repeat, Video, Music, Link as LinkIcon, Sparkles, Globe, Lock, Trash2, Edit3, Layers, ChevronDown, ClipboardCopy, Braces, ImagePlus, Loader2, Mic2, Clapperboard } from 'lucide-react';
+import { mapNativeLibrarySong, setNativeSongNote, updateNativeSong } from '../services/nativeLibrary';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
 import { openExternal } from '../services/externalLinks';
@@ -137,6 +137,8 @@ const KaraokeAction: React.FC<{ song: Song; onDone?: (lrc: string) => void }> = 
     );
 };
 
+const PARAM_BUTTON = 'flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-200 dark:bg-white/5 hover:bg-zinc-300 dark:hover:bg-white/10 text-zinc-600 dark:text-zinc-400 text-[11px] font-medium transition-colors';
+
 export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpenCoverRegen, onReuse, onSongUpdate, onNavigateToProfile, isLiked, onToggleLike, onPlay, isPlaying, currentSong }) => {
     const { user } = useAuth();
     const { t, language } = useI18n();
@@ -151,6 +153,9 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
     const [titleDraft, setTitleDraft] = useState('');
     const [titleError, setTitleError] = useState<string | null>(null);
     const [isSavingTitle, setIsSavingTitle] = useState(false);
+    const [noteDraft, setNoteDraft] = useState('');
+    const [noteError, setNoteError] = useState<string | null>(null);
+    const [paramsJsonOpen, setParamsJsonOpen] = useState(false);
 
     useEffect(() => {
         if (song) {
@@ -164,8 +169,22 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
             setIsEditingTitle(false);
             setTitleError(null);
             setIsSavingTitle(false);
+            setNoteDraft(song.note ?? '');
+            setNoteError(null);
+            setParamsJsonOpen(false);
         }
     }, [song?.id]);
+
+    const saveNote = async () => {
+        if (!song || noteDraft.trim() === (song.note ?? '')) return;
+        try {
+            const updated = await setNativeSongNote(song.id, noteDraft);
+            setNoteError(null);
+            onSongUpdate?.({ ...song, note: updated.note });
+        } catch (error) {
+            setNoteError(error instanceof Error ? error.message : String(error));
+        }
+    };
 
     const startTitleEdit = () => {
         if (!song || !isOwner) return;
@@ -605,6 +624,19 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                         </div>
                     </div>
 
+                    <div>
+                        <label className="mb-1 block text-[11px] font-medium text-zinc-500">{t('songNote')}</label>
+                        <textarea
+                            value={noteDraft}
+                            onChange={event => setNoteDraft(event.target.value)}
+                            onBlur={() => void saveNote()}
+                            placeholder={t('songNotePlaceholder')}
+                            rows={2}
+                            className="w-full resize-y rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-pink-500/40 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200"
+                        />
+                        {noteError && <p role="alert" className="mt-1 text-[11px] text-rose-500">{noteError}</p>}
+                    </div>
+
                     {/* Generation parameters, as the engine recorded them. */}
                     {(() => {
                         const p = (song.generationParams || {}) as Record<string, any>;
@@ -674,15 +706,35 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                                             </React.Fragment>
                                         ))}
                                     </div>
-                                    <button
-                                        onClick={async () => {
-                                            await navigator.clipboard.writeText(copyText);
-                                        }}
-                                        className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-200 dark:bg-white/5 hover:bg-zinc-300 dark:hover:bg-white/10 text-zinc-600 dark:text-zinc-400 text-[11px] font-medium transition-colors mt-2"
-                                    >
-                                        <ClipboardCopy size={12} />
-                                        {t('copyParams')}
-                                    </button>
+                                    <div className="mt-2 grid grid-cols-2 gap-1.5">
+                                        <button
+                                            onClick={async () => {
+                                                await navigator.clipboard.writeText(copyText);
+                                            }}
+                                            className={PARAM_BUTTON}
+                                        >
+                                            <ClipboardCopy size={12} />
+                                            {t('copyParams')}
+                                        </button>
+                                        <button onClick={() => onReuse?.(song)} className={PARAM_BUTTON}>
+                                            <Repeat size={12} />
+                                            {t('paramsToForm')}
+                                        </button>
+                                        <button onClick={() => setParamsJsonOpen(open => !open)} className={PARAM_BUTTON}>
+                                            <Braces size={12} />
+                                            {paramsJsonOpen ? t('paramsHideJson') : t('paramsShowJson')}
+                                        </button>
+                                        <button
+                                            onClick={() => void saveFile(`${song.title || 'song'}.json`, { blob: new Blob([JSON.stringify(song.generationParams, null, 2)], { type: 'application/json' }) })}
+                                            className={PARAM_BUTTON}
+                                        >
+                                            <Download size={12} />
+                                            {t('paramsSaveJson')}
+                                        </button>
+                                    </div>
+                                    {paramsJsonOpen && (
+                                        <pre className="mt-2 max-h-72 overflow-auto rounded-lg bg-zinc-100 p-2 text-[10px] leading-4 text-zinc-700 dark:bg-black/30 dark:text-zinc-300">{JSON.stringify(song.generationParams, null, 2)}</pre>
+                                    )}
                                 </div>
                             </details>
                         );
