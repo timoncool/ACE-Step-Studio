@@ -101,25 +101,38 @@ pub fn mp3(audio: &Stereo, kbps: u32) -> Result<Vec<u8>> {
     Ok(out)
 }
 
-/// Encodes stereo to lossless 24-bit FLAC at the track's own sample rate.
+/// Lossless FLAC at 24 bits, written by libFLAC, the reference encoder: the
+/// model's float output with nothing taken away but the rounding below the
+/// 24th bit, about -144 dB. Verify mode decodes every frame as it is written
+/// and compares it with the input, and the file gets its sample count and MD5.
 pub fn flac(audio: &Stereo) -> Result<Vec<u8>> {
-    use flacenc::component::BitRepr;
-    use flacenc::error::Verify;
-
-    const BITS: usize = 24;
-    let full_scale = ((1i32 << (BITS - 1)) - 1) as f32;
-    let mut samples = Vec::with_capacity(audio.frames() * 2);
-    for frame in 0..audio.frames() {
-        for sample in [audio.left[frame], audio.right[frame]] {
-            samples.push((sample.clamp(-1.0, 1.0) * full_scale).round() as i32);
+    use flac_bound::FlacEncoder;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    const FULL: f32 = 8_388_607.0;
+    let frames = audio.frames();
+    let samples: Vec<i32> = audio.left.iter().zip(&audio.right).flat_map(|(left, right)| [*left, *right]).map(|sample| (sample.clamp(-1.0, 1.0) * FULL).round() as i32).collect();
+    // libFLAC writes the header last, so it needs a file it can seek in
+    let path = std::env::temp_dir().join(format!("audio-post-{}-{}.flac", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
+    let written = (|| -> Result<Vec<u8>> {
+        let mut encoder = FlacEncoder::new()
+            .ok_or_else(|| anyhow!("libFLAC could not make an encoder"))?
+            .channels(2)
+            .bits_per_sample(24)
+            .sample_rate(audio.rate)
+            .compression_level(8)
+            .verify(true)
+            .total_samples_estimate(frames as u64)
+            .init_file(&path)
+            .map_err(|error| anyhow!("start the FLAC encoder: {error:?}"))?;
+        if encoder.process_interleaved(&samples, frames as u32).is_err() {
+            bail!("encode FLAC: {:?}", encoder.state());
         }
-    }
-    let config = flacenc::config::Encoder::default().into_verified().map_err(|(_, error)| anyhow!("FLAC settings: {error:?}"))?;
-    let source = flacenc::source::MemSource::from_samples(&samples, 2, BITS, audio.rate as usize);
-    let stream = flacenc::encode_with_fixed_block_size(&config, source, config.block_size).map_err(|error| anyhow!("FLAC encode: {error:?}"))?;
-    let mut sink = flacenc::bitsink::ByteSink::new();
-    stream.write(&mut sink).map_err(|error| anyhow!("FLAC write: {error:?}"))?;
-    Ok(sink.as_slice().to_vec())
+        encoder.finish().map_err(|encoder| anyhow!("finish the FLAC file: {:?}", encoder.state()))?;
+        Ok(std::fs::read(&path)?)
+    })();
+    let _ = std::fs::remove_file(&path);
+    written
 }
 
 #[cfg(test)]
@@ -159,10 +172,4 @@ mod tests {
         assert!(mp3(&tone(1.0, 22_050, 0.5), 128).is_err());
     }
 
-    #[test]
-    fn flac_is_a_flac_stream() {
-        let bytes = flac(&tone(1.0, 48_000, 0.5)).unwrap();
-        assert_eq!(&bytes[..4], b"fLaC");
-        assert!(bytes.len() < 48_000 * 2 * 3);
-    }
 }

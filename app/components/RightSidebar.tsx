@@ -632,7 +632,6 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                             [t('seedShort'), p.seed],
                             [t('outputFormat'), typeof p.output_format === 'string' ? p.output_format.toUpperCase() : undefined],
                             [t('mp3Bitrate'), p.output_format === 'mp3' && p.mp3_bitrate ? `${p.mp3_bitrate} kbps` : undefined],
-                            [t('peakClipLabel'), p.peak_clip],
                             [t('genTime'), song.generationTime ? `${song.generationTime.toFixed(1)}s` : undefined],
                         ];
                         // The LoRA the song was made with, each with its strength per part of the model.

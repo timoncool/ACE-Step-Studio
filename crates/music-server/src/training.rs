@@ -1724,7 +1724,7 @@ mod tests {
         // 128 kbit/s at 44.1 kHz without padding: 144 * 128000 / 44100 = 417 bytes
         frame.resize(417, 0);
         std::fs::write(&path, frame.repeat(20)).unwrap();
-        crate::tagging::write_mp3_tags(&path, &crate::tagging::TrackTags {
+        crate::tagging::write_tags(&path, &crate::tagging::TrackTags {
             title: "Дорога домой".into(),
             artist: "ACE-Step".into(),
             genre: Some("Russian folk rock".into()),

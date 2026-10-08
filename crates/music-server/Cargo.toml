@@ -19,6 +19,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 # The folder picker for "use models I already have", the same crate Dub Studio uses.
 rfd = "0.17"
 base64.workspace = true
+hound = "3.5"
 axum.workspace = true
 fs2.workspace = true
 futures-util.workspace = true
@@ -28,7 +29,7 @@ audio-post = { path = "../audio-post" }
 music-core = { path = "../music-core" }
 music-engine = { path = "../music-engine" }
 flate2.workspace = true
-id3 = "1.17"
+lofty = "0.25.4"
 # The pattern a track without a cover of its own wears (DiceBear, CC0 styles), and
 # the PNG it is written into the track as.
 dicebear-core = "=11.0.0-rc.2"

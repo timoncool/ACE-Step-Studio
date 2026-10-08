@@ -309,9 +309,8 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const [takes, setTakes] = useState('');
   const [randomizeSeed, setRandomizeSeed] = useState(true);
   const [seed, setSeed] = useState('');
-  const [peakClip, setPeakClip] = useState('');
   const [mp3Bitrate, setMp3Bitrate] = useState('320');
-  const [format, setFormat] = useState<AceCreateRequest['output_format']>('mp3');
+  const [format, setFormat] = useState<AceCreateRequest['output_format']>('flac');
   const [models, setModels] = useState<Partial<Record<'synth_model' | 'lm_model' | 'vae', string>>>({});
   const [adapters, setAdapters] = useState<AdapterUse[]>([]);
   const [groups, setGroups] = useState<Record<string, string>>({});
@@ -412,12 +411,12 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
         ['latent_rescale', setLatentRescale], ['lm_temperature', setLmTemperature], ['lm_cfg_scale', setLmCfg], ['lm_top_p', setLmTopP],
         ['lm_top_k', setLmTopK], ['lm_negative_prompt', setLmNegative], ['audio_cover_strength', setCoverStrength],
         ['cover_noise_strength', setCoverNoise], ['repainting_start', setRepaintStart], ['repainting_end', setRepaintEnd],
-        ['peak_clip', setPeakClip], ['mp3_bitrate', setMp3Bitrate], ['cfg_interval_start', setCfgStart], ['cfg_interval_end', setCfgEnd],
+        ['mp3_bitrate', setMp3Bitrate], ['cfg_interval_start', setCfgStart], ['cfg_interval_end', setCfgEnd],
         ['retake_variance', setRetakeVariance], ['retake_seed', setRetakeSeed], ['fade_in', setFadeIn], ['fade_out', setFadeOut],
       ] as const) {
         if (key in settings) (set as (value: string) => void)(text(key));
       }
-      if (typeof settings.output_format === 'string') setFormat(settings.output_format as AceCreateRequest['output_format']);
+      if (settings.output_format === 'mp3' || settings.output_format === 'flac') setFormat(settings.output_format);
       if (typeof settings.use_cot_caption === 'boolean') setCotCaption(settings.use_cot_caption);
       setAdapters(usesFromRequest(settings));
       const groupScales = settings.adapter_group_scales as Record<string, unknown> | undefined;
@@ -449,7 +448,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     setLatentShift(''); setLatentRescale(''); setLmTemperature(''); setLmCfg(''); setLmTopP(''); setLmTopK('');
     setLmNegative(''); setLmSeed(''); setSongs(''); setTakes(''); setSeed(''); setRandomizeSeed(true);
     setCoverStrength(''); setCoverNoise(''); setRepaintStart(''); setRepaintEnd('');
-    setPeakClip(''); setMp3Bitrate('320'); setFormat('mp3'); setModels({});
+    setMp3Bitrate('320'); setFormat('flac'); setModels({});
     setCfgStart(''); setCfgEnd(''); setRetakeVariance(''); setRetakeSeed(''); setFadeIn(''); setFadeOut(''); setBulk('');
   };
 
@@ -497,7 +496,6 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     put('custom_timesteps', customTimesteps.trim());
     put('latent_shift', numberOrUndefined(latentShift));
     put('latent_rescale', numberOrUndefined(latentRescale));
-    put('peak_clip', numberOrUndefined(peakClip));
     put('cfg_interval_start', numberOrUndefined(cfgStart));
     put('cfg_interval_end', numberOrUndefined(cfgEnd));
     const variance = numberOrUndefined(retakeVariance);
@@ -931,7 +929,6 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     cover_prompt: [coverPrompt, setCoverPrompt],
     output_format: [format, value => setFormat(value as AceCreateRequest['output_format'])],
     mp3_bitrate: [mp3Bitrate, setMp3Bitrate],
-    peak_clip: [peakClip, setPeakClip],
   };
   useBridgeCommand('create_get', () => ({
     mode,
@@ -944,7 +941,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   useBridgeCommand('create_set', (args) => {
     const fields = (args.fields && typeof args.fields === 'object' ? args.fields : args) as Record<string, unknown>;
     const extra = ['mode', 'instrumental', 'think', 'tracks', 'randomize_seed', 'adapters'];
-    const choices: Record<string, string[]> = { mode: ['studio', 'simple'], task_type: TASKS, output_format: ['mp3', 'wav16', 'wav24', 'wav32', 'flac'] };
+    const choices: Record<string, string[]> = { mode: ['studio', 'simple'], task_type: TASKS, output_format: ['flac', 'mp3'] };
     const unknown = Object.keys(fields).filter(key => !formFields[key] && !extra.includes(key));
     if (unknown.length) throw new Error(`Unknown fields: ${unknown.join(', ')}. The form has: ${[...Object.keys(formFields), ...extra].join(', ')}.`);
     for (const [key, allowed] of Object.entries(choices)) {
@@ -1505,8 +1502,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
 
                 <div className="border-t border-zinc-100 pt-4 dark:border-white/5">
                   <Stage title={t('stageOutput')} hint={t('stageOutputHint')}>
-                    <SliderRow label={t('peakClipLabel')} value={peakClip} fallback={10} min={0} max={30} step={1} onChange={setPeakClip} />
-                    <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       <Field label={t('mp3Bitrate')}>
                         <select value={mp3Bitrate || '320'} onChange={event => setMp3Bitrate(event.target.value)} disabled={format !== 'mp3'} className={CONTROL}>
                           {['128', '192', '256', '320'].map(rate => <option key={rate} value={rate}>{rate} kbps</option>)}
@@ -1514,15 +1510,12 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
                       </Field>
                       <Field label={t('outputFormat')}>
                         <select value={format} onChange={event => setFormat(event.target.value as AceCreateRequest['output_format'])} className={CONTROL}>
-                          <option value="mp3">MP3</option>
-                          <option value="wav16">WAV16</option>
-                          <option value="wav24">WAV24</option>
-                          <option value="wav32">WAV32</option>
                           <option value="flac">FLAC</option>
+                          <option value="mp3">MP3</option>
                         </select>
                       </Field>
                     </div>
-                    <p className="mt-2 text-[11px] leading-4 text-zinc-500">{t('peakClipHint')}</p>
+                    <p className="mt-2 text-[11px] leading-4 text-zinc-500">{t('outputRawHint')}</p>
                     <div className="mt-3 grid grid-cols-2 gap-2">
                       <Field label={tt('aceFadeIn')}><input value={fadeIn} onChange={event => setFadeIn(event.target.value)} placeholder="0" inputMode="decimal" className={CONTROL} /></Field>
                       <Field label={tt('aceFadeOut')}><input value={fadeOut} onChange={event => setFadeOut(event.target.value)} placeholder="0" inputMode="decimal" className={CONTROL} /></Field>

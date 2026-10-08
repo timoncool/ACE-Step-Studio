@@ -30,7 +30,7 @@ pub const REQUEST_FIELDS: &[&str] = &[
     "scheduler", "guidance", "apg_momentum", "apg_norm_threshold", "cfg_zero_init_steps", "smc_lambda", "smc_k",
     "cfg_mp_iterations", "lm_mode", "output_format", "synth_model", "lm_model", "vae",
     "adapter", "adapter_scale", "lm_adapter", "lm_adapter_scale", "adapters", "adapter_group_scales",
-    "peak_clip", "mp3_bitrate", "cfg_interval_start", "cfg_interval_end", "retake_seed", "retake_variance",
+    "mp3_bitrate", "cfg_interval_start", "cfg_interval_end", "retake_seed", "retake_variance",
 ];
 
 pub const TASKS: &[&str] = &["text2music", "cover", "cover-nofsq", "repaint", "lego", "extract", "complete"];
@@ -123,17 +123,18 @@ pub fn random_seed() -> i64 {
 
 /// The planned requests `/synth` renders: the language model's results, or
 /// the request itself when the model does not plan. Each keeps one seed per
-/// take; the engine counts the takes' seeds up from it.
-pub fn synth_requests(planned: Vec<Value>, encode_here: bool) -> Vec<Value> {
+/// take; the engine counts the takes' seeds up from it. The engine always
+/// hands over its unencoded float output, the model's own rate, precision and
+/// level, so a track is encoded once, by the studio, and nothing changes its loudness.
+pub fn synth_requests(planned: Vec<Value>) -> Vec<Value> {
     planned
         .into_iter()
         .map(|mut request| {
             if let Some(fields) = request.as_object_mut() {
                 fields.remove("lm_batch_size");
-                if encode_here {
-                    fields.insert("output_format".into(), Value::from("wav32"));
-                    fields.remove("mp3_bitrate");
-                }
+                fields.insert("output_format".into(), Value::from("wav32"));
+                fields.remove("mp3_bitrate");
+                fields.remove("peak_clip");
             }
             request
         })

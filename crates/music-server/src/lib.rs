@@ -1744,8 +1744,8 @@ async fn start_processing(
             })?;
             let folder = processing::workspace(&media);
             std::fs::create_dir_all(&folder)?;
-            let path = folder.join(format!("{id}-{}.wav", &run_id[run_id.len() - 8..]));
-            audio_pcm::write_wav24(&path, &audio)?;
+            let path = folder.join(format!("{id}-{}.flac", &run_id[run_id.len() - 8..]));
+            std::fs::write(&path, audio_post::encode::flac(&audio)?).with_context(|| format!("write {}", path.display()))?;
             Ok(path)
         })();
         handle.block_on(async {
@@ -1837,7 +1837,8 @@ async fn keep_processing(
         .as_deref()
         .and_then(|name| processing::workspace_file(&media, name))
         .ok_or_else(|| api_error(StatusCode::NOT_FOUND, "the preview file is gone".into()))?;
-    let filename = format!("{}-v{}-{}.wav", run.song_id, &uuid::Uuid::now_v7().simple().to_string()[..8], run.stages.join("-"));
+    let extension = preview.extension().and_then(|extension| extension.to_str()).unwrap_or("flac").to_owned();
+    let filename = format!("{}-v{}-{}.{extension}", run.song_id, &uuid::Uuid::now_v7().simple().to_string()[..8], run.stages.join("-"));
     let stored = media.join(&filename);
     std::fs::rename(&preview, &stored).map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("store the version: {error}")))?;
     let reference_title = match &run.request.master {
@@ -1859,7 +1860,7 @@ async fn keep_processing(
             lyrics: original.lyrics.clone(),
             metadata: serde_json::json!({
                 "derived": derivation(&original, "processing", settings),
-                "duration_seconds": library::audio_duration_seconds(&audio, "wav", None),
+                "duration_seconds": library::audio_duration_seconds(&audio, &extension, None),
             }),
             generation_settings: Value::Null,
             engine_id: "processing".into(),
@@ -3330,7 +3331,7 @@ async fn tag_stored_song(state: &AppState, song_id: &str) {
     // `audio_path` is a full path, not a filename: resolve it the way playback
     // does, or tagging silently skips every track.
     let Some(audio_path) = state.library.media_path_for_song(&song) else { return };
-    if audio_path.extension().and_then(|value| value.to_str()).map(str::to_lowercase).as_deref() != Some("mp3") {
+    if !tagging::taggable(&audio_path) {
         return;
     }
     let cover_file = state.library.cover_path_for_song(&song).map(|(path, media_type)| (path, media_type.to_string()));
@@ -3348,7 +3349,7 @@ async fn tag_stored_song(state: &AppState, song_id: &str) {
     // reading the cover and rewriting the file are blocking file work
     let written = tokio::task::spawn_blocking(move || {
         let cover = cover_file.and_then(|(path, media_type)| std::fs::read(path).ok().map(|bytes| (media_type, bytes)));
-        tagging::write_mp3_tags(&audio_path, &tagging::TrackTags { cover, ..tags })
+        tagging::write_tags(&audio_path, &tagging::TrackTags { cover, ..tags })
     })
     .await;
     match written {
@@ -3358,11 +3359,10 @@ async fn tag_stored_song(state: &AppState, song_id: &str) {
     }
 }
 
-/// Tracks stored before the studio tagged anything carry no ID3, and a download
+/// Tracks stored before the studio tagged anything carry no tag, and a download
 /// of one lands in a player as an untitled file: each is tagged once, in the
 /// background, when the service starts. Serving a track never writes to it.
 async fn tag_untagged_songs(state: AppState) {
-    use tokio::io::AsyncReadExt;
     let songs = match state.library.list_songs() {
         Ok(songs) => songs,
         Err(error) => {
@@ -3372,15 +3372,11 @@ async fn tag_untagged_songs(state: AppState) {
     };
     for song in songs {
         let Some(path) = state.library.media_path_for_song(&song) else { continue };
-        if !path.extension().is_some_and(|extension| extension.eq_ignore_ascii_case("mp3")) {
+        if !tagging::taggable(&path) {
             continue;
         }
-        // the check is the first three bytes, not the whole file
-        let mut head = [0u8; 3];
-        let untagged = match tokio::fs::File::open(&path).await {
-            Ok(mut file) => file.read_exact(&mut head).await.is_ok() && &head != b"ID3",
-            Err(_) => false,
-        };
+        // reads the tag, not the audio
+        let untagged = matches!(tokio::task::spawn_blocking(move || tagging::is_tagged(&path)).await, Ok(Ok(false)));
         if untagged {
             tag_stored_song(&state, &song.id).await;
         }
@@ -6912,9 +6908,15 @@ async fn ace_request_from(state: &AppState, request: &CreateMusicJobRequest) -> 
             fields.insert("lm_adapter_scale".into(), Value::from(scale));
         }
     }
-    fields.entry("peak_clip").or_insert(Value::from(DEFAULT_PEAK_CLIP));
-    fields.entry("mp3_bitrate").or_insert(Value::from(DEFAULT_MP3_KBPS));
-    fields.entry("output_format").or_insert(Value::from("mp3"));
+    fields.remove("peak_clip");
+    fields.entry("output_format").or_insert(Value::from("flac"));
+    let format = fields.get("output_format").and_then(Value::as_str).unwrap_or_default();
+    validate_output_format(format)?;
+    if format == "mp3" {
+        fields.entry("mp3_bitrate").or_insert(Value::from(DEFAULT_MP3_KBPS));
+    } else {
+        fields.remove("mp3_bitrate");
+    }
     let task = fields.get("task_type").and_then(Value::as_str).unwrap_or("text2music").to_owned();
     if ace::needs_source(&task) && request.source_song_id.is_none() {
         return Err(format!("{task} works on a recording; choose the source track"));
@@ -7148,8 +7150,7 @@ async fn ace_job(state: &AppState, run: AceRun) -> anyhow::Result<Vec<CompletedS
         vec![request.clone()]
     };
 
-    let encode_here = studio_encodes(&request, fades);
-    let requests = ace::synth_requests(planned, encode_here);
+    let requests = ace::synth_requests(planned);
     let mut sources = ace::Sources::default();
     if let Some(id) = &source_song_id {
         let (audio, latent) = song_audio_and_latent(state, id)?;
@@ -7237,38 +7238,36 @@ async fn import_take(
     }
     let mut extension = multipart::audio_extension(&take.audio_type)?;
     let mut audio = take.audio;
-    if studio_encodes(submitted, fades) && extension == "wav" {
-        let format = submitted.get("output_format").and_then(Value::as_str).unwrap_or("mp3").to_owned();
+    // the engine's float output is kept at the level it came: lossless FLAC unless MP3 was asked for
+    if extension == "wav" {
+        let format = output_format(submitted).to_owned();
         let kbps = submitted.get("mp3_bitrate").and_then(Value::as_u64).map_or(DEFAULT_MP3_KBPS, |value| value as u32);
-        let peak_clip = submitted.get("peak_clip").and_then(Value::as_u64).map_or(DEFAULT_PEAK_CLIP, |value| value as u32);
         let target = format.clone();
         audio = tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<u8>> {
-            let mut stereo = audio_pcm::decode_stereo_bytes(audio, "wav")?;
-            // a NaN would become the peak and turn the whole track into silence
+            let mut stereo = audio_pcm::decode_stereo_bytes(audio.clone(), "wav")?;
             let broken = stereo.left.iter().chain(&stereo.right).filter(|sample| !sample.is_finite()).count();
             if broken > 0 {
                 anyhow::bail!("the engine returned {broken} broken samples (NaN or infinity); make the song again");
             }
+            let faded = fades.0 > 0.0 || fades.1 > 0.0;
             audio_post::encode::fade(&mut stereo, fades.0, fades.1);
-            if target == "wav32" {
-                return audio_pcm::wav_bytes(&stereo, "wav32");
-            }
-            audio_post::encode::normalize_peak(&mut stereo, peak_clip);
             match target.as_str() {
                 "mp3" => audio_post::encode::mp3(&stereo, kbps),
-                "flac" => audio_post::encode::flac(&stereo),
-                _ => audio_pcm::wav_bytes(&stereo, &target),
+                "wav32" if faded => audio_pcm::wav_f32_bytes(&stereo),
+                "wav32" => Ok(audio),
+                _ => audio_post::encode::flac(&stereo),
             }
         })
         .await
         .context("the encoder stopped")??;
+        extension = match format.as_str() { "mp3" => "mp3", "wav32" => "wav", _ => "flac" };
         if format == "mp3" {
-            extension = "mp3";
+            // the track says what it is: an MP3 at the rate LAME wrote
             replay["mp3_bitrate"] = Value::from(audio_post::encode::mp3_bitrate(kbps));
-        } else if format == "flac" {
-            extension = "flac";
+        } else if let Some(fields) = replay.as_object_mut() {
+            fields.remove("mp3_bitrate");
         }
-        replay["output_format"] = Value::from(format);
+        replay["output_format"] = Value::from(match format.as_str() { "mp3" => "mp3", "wav32" => "wav32", _ => "flac" });
     }
     if fades.0 > 0.0 || fades.1 > 0.0 {
         replay["fade_in"] = Value::from(fades.0);
@@ -7495,9 +7494,7 @@ fn prepare_replay(mut replay: Value, overrides: &ReplayMusicJobRequest) -> Resul
         object.insert("seed".into(), Value::from(seed));
     }
     if let Some(format) = &overrides.output_format {
-        if !matches!(format.as_str(), "mp3" | "wav16" | "wav24" | "wav32" | "flac") {
-            return Err("output_format must be mp3, wav16, wav24, wav32 or flac".into());
-        }
+        validate_output_format(format)?;
         object.insert("output_format".into(), Value::from(format.clone()));
     }
     if let Some(changes) = &overrides.changes {
@@ -7701,24 +7698,19 @@ fn selected_local_music_engine(configuration: &StudioConfiguration) -> Option<St
 
 /// The bitrate a track is encoded at when the request names none.
 const DEFAULT_MP3_KBPS: u32 = 320;
-/// Samples per million allowed to clip when the level is set, as the engine does.
-const DEFAULT_PEAK_CLIP: u32 = 10;
 
-/// Whether the studio makes this track's MP3 itself; the engine's own default
-/// output is MP3, so a request naming no format counts.
-/// MP3 (LAME) and FLAC are encoded by the studio, not the engine.
-fn studio_encodes_format(settings: &Value) -> bool {
-    settings.get("output_format").and_then(Value::as_str).is_none_or(|format| format == "mp3" || format == "flac")
+/// The format a track is kept in: what was asked for, else lossless FLAC.
+fn output_format(settings: &Value) -> &str {
+    settings.get("output_format").and_then(Value::as_str).unwrap_or("flac")
 }
 
-/// The studio makes the file itself (from the engine's float WAV) for the
-/// formats it encodes, and whenever it puts fades on.
-fn studio_encodes(settings: &Value, fades: (f32, f32)) -> bool {
-    studio_encodes_format(settings) || fades.0 > 0.0 || fades.1 > 0.0
+fn validate_output_format(format: &str) -> Result<(), String> {
+    if matches!(format, "flac" | "mp3" | "wav32") {
+        Ok(())
+    } else {
+        Err("output_format must be one of: flac, mp3, wav32".into())
+    }
 }
-
-
-
 
 
 fn queued_not_configured_job(request: CreateMusicJobRequest, engine_id: String) -> MusicJob {

@@ -49,6 +49,11 @@ pub fn audio_duration_seconds(audio:&[u8],extension:&str,declared_bitrate_kbps:O
    let bitrate=declared_bitrate_kbps.unwrap_or(128) as f64*1000.0;
    (bitrate>0.0).then(||(audio.len() as f64*8.0)/bitrate)
   }
+  "flac"=>{
+   use lofty::file::AudioFile;
+   let file=lofty::flac::FlacFile::read_from(&mut std::io::Cursor::new(audio),lofty::config::ParseOptions::new()).ok()?;
+   Some(file.properties().duration().as_secs_f64())
+  }
   _=>None,
  }
 }

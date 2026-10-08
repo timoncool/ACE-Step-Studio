@@ -1086,7 +1086,7 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "create_form_set",
-                description: "Fill the create page's form in the window, as if typed - the user sees every field change; fields not given stay. fields: mode (simple|studio), title, caption, lyrics, instrumental, vocal_language, bpm, keyscale, timesignature, duration, task_type, source_song_id, reference_song_id, tracks, audio_cover_strength, cover_noise_strength, repainting_start, repainting_end, think, inference_steps, guidance_scale, shift, solver, scheduler, guidance, lm_temperature, lm_cfg_scale, lm_top_p, lm_top_k, lm_seed, lm_batch_size, synth_batch_size, seed, randomize_seed, audio_codes, adapters, cover_prompt, output_format, mp3_bitrate, peak_clip. Use it when the user wants to see and adjust the song before it is made; song_create makes one directly.",
+                description: "Fill the create page's form in the window, as if typed - the user sees every field change; fields not given stay. fields: mode (simple|studio), title, caption, lyrics, instrumental, vocal_language, bpm, keyscale, timesignature, duration, task_type, source_song_id, reference_song_id, tracks, audio_cover_strength, cover_noise_strength, repainting_start, repainting_end, think, inference_steps, guidance_scale, shift, solver, scheduler, guidance, lm_temperature, lm_cfg_scale, lm_top_p, lm_top_k, lm_seed, lm_batch_size, synth_batch_size, seed, randomize_seed, audio_codes, adapters, cover_prompt, output_format, mp3_bitrate. Use it when the user wants to see and adjust the song before it is made; song_create makes one directly.",
                 schema: || object(json!({ "fields": { "type": "object", "description": "field -> value" } }), &["fields"]),
                 call: |args| window("create_set", args, 15),
             },
@@ -1402,9 +1402,8 @@ fn tools() -> &'static [Tool] {
                     "lm_model": { "type": "string" },
                     "adapters": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "scales": { "type": "object", "description": "slot -> strength" } }, "required": ["id"] } },
                     "adapter_group_scales": { "type": "object", "description": "self_attn, cross_attn, mlp, cond_embed, time_embed, proj_in -> strength of every LoRA there" },
-                    "output_format": { "type": "string", "enum": ["mp3", "wav16", "wav24", "wav32", "flac"] },
+                    "output_format": { "type": "string", "enum": ["flac", "mp3"], "description": "how the song is kept: lossless FLAC (default), or MP3 at mp3_bitrate" },
                     "mp3_bitrate": { "type": "integer" },
-                    "peak_clip": { "type": "integer" },
                     "fade_in": { "type": "number" },
                     "fade_out": { "type": "number" },
                     "cover_prompt": { "type": "string", "description": "what the cover should show; drawn only when an image model is set up" }
@@ -1447,7 +1446,7 @@ fn tools() -> &'static [Tool] {
             Tool {
                 name: "song_replay",
                 description: "Render a library song again from its saved audio codes - the same plan, without the language model - with other steps, a new seed, another format, or any other request field in changes (guidance_scale, solver, scheduler, synth_model...).",
-                schema: || object(json!({ "song_id": { "type": "string" }, "steps": { "type": "integer" }, "seed": { "type": "integer" }, "output_format": { "type": "string" }, "changes": { "type": "object", "description": "request field -> value" } }), &["song_id"]),
+                schema: || object(json!({ "song_id": { "type": "string" }, "steps": { "type": "integer" }, "seed": { "type": "integer" }, "output_format": { "type": "string", "enum": ["flac", "mp3"] }, "changes": { "type": "object", "description": "request field -> value" } }), &["song_id"]),
                 call: |args| post("/v1/music/replay".into(), args.clone()),
             },
             // ---------------------------------------------------------------- how to write for the model

@@ -1180,6 +1180,7 @@ export const en = {
     providers: 'Providers',
     durationSeconds: 'Duration, s',
     ditSteps: 'DiT steps',
+    outputRawHint: 'The song is kept as the model made it, at its own level: lossless FLAC, or MP3 if you choose it. Normalisation and mastering are under Process on the track.',
     outputFormat: 'Output format',
     mp3Bitrate: 'MP3 bitrate, kbps',
     ditSeed: 'DiT seed (blank = random)',
