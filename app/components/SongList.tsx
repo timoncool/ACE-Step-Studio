@@ -932,6 +932,7 @@ const SongItem: React.FC<SongItemProps> = ({
                         <span className={song.queuePosition ? 'text-amber-500' : 'text-pink-500'}>
                             {song.queuePosition ? `#${song.queuePosition}` : (t(song.stage as TranslationKey) || song.stage || t('creating') || 'Creating...')}
                         </span>
+                        {!song.queuePosition && song.stageDetail && <span className="text-[10px] text-zinc-500">{song.stageDetail}</span>}
                         {onCancelJob && (
                             <button
                                 onClick={(e) => { e.stopPropagation(); onCancelJob(); }}

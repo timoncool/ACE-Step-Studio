@@ -24,6 +24,8 @@ export interface Song {
   queuePosition?: number; // Position in queue (undefined = actively generating, number = waiting in queue)
   progress?: number;
   stage?: string;
+  /** The running stage's counter, e.g. `57/64 · ~2:50`. */
+  stageDetail?: string;
   generationParams?: any;
   tags: string[];
   audioUrl?: string;
