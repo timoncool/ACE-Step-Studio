@@ -263,8 +263,11 @@ impl AceClient {
         // The engine is on loopback: a connection takes microseconds when it
         // listens. Without a limit a closed port costs Windows two seconds per
         // attempt, and a filtered one twenty, and the status polls pile up.
+        // the engine's server drops a connection idle for 5 s; a pooled one can be
+        // taken as it closes and the request is lost, so every request opens its own
         let http = crate::net::builder()
             .connect_timeout(Duration::from_millis(500))
+            .pool_max_idle_per_host(0)
             .build()
             .expect("the HTTP client builds with a connect timeout");
         Self { base_url, http }
