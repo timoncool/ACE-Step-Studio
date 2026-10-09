@@ -7287,9 +7287,8 @@ async fn import_take(
         let target = format.clone();
         audio = tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<u8>> {
             let mut stereo = audio_pcm::decode_stereo_bytes(audio.clone(), "wav")?;
-            let broken = stereo.left.iter().chain(&stereo.right).filter(|sample| !sample.is_finite()).count();
-            if broken > 0 {
-                anyhow::bail!("the engine returned {broken} broken samples (NaN or infinity); make the song again");
+            if let Some(problem) = audio_pcm::output_problem(&stereo) {
+                anyhow::bail!("The engine returned {problem} instead of a song, so nothing was kept. Make it again; if it repeats, the engine log has the cause.");
             }
             let faded = fades.0 > 0.0 || fades.1 > 0.0;
             audio_post::encode::fade(&mut stereo, fades.0, fades.1);

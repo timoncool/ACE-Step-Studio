@@ -194,6 +194,29 @@ pub fn decode_stereo_bytes(bytes: Vec<u8>, extension: &str) -> Result<audio_post
     Ok(audio_post::Stereo::new(left, right, rate))
 }
 
+/// What is wrong with a track the engine sent, if anything: samples that are
+/// not numbers, silence, or one level held from start to end.
+pub fn output_problem(audio: &audio_post::Stereo) -> Option<&'static str> {
+    let (mut numbers, mut low, mut high) = (true, f32::INFINITY, f32::NEG_INFINITY);
+    for sample in audio.left.iter().chain(&audio.right) {
+        if sample.is_finite() {
+            low = low.min(*sample);
+            high = high.max(*sample);
+        } else {
+            numbers = false;
+        }
+    }
+    if !numbers {
+        Some("samples that are not numbers")
+    } else if low > high || low.abs().max(high.abs()) < 1e-5 {
+        Some("silence")
+    } else if high - low < 1e-6 {
+        Some("one level held from start to end")
+    } else {
+        None
+    }
+}
+
 fn decode_source(source: Box<dyn symphonia::core::io::MediaSource>, extension: Option<&str>) -> Result<(Vec<Vec<f32>>, u32)> {
     let mut planes: Vec<Vec<f32>> = Vec::new();
     let rate = decode_packets(source, extension, |packet| {
@@ -325,6 +348,17 @@ mod tests {
         // 12 kHz is above 16 kHz's Nyquist: it must not fold back to 4 kHz
         let folded = resample(&tone(12_000.0), 44_100, 16_000).unwrap();
         assert!(rms(&folded[1000..15000]) < 0.01, "a tone above the band is filtered out: {}", rms(&folded));
+    }
+
+    #[test]
+    fn a_broken_engine_track_is_named() {
+        let check = |left: Vec<f32>| output_problem(&audio_post::Stereo { right: left.clone(), left, rate: 48_000 });
+        assert_eq!(check((0..4_800).map(|i| 0.3 * (i as f32 * 0.05).sin()).collect()), None);
+        assert_eq!(check(vec![0.0; 4_800]), Some("silence"));
+        assert_eq!(check(vec![-1.0; 4_800]), Some("one level held from start to end"));
+        let mut broken: Vec<f32> = (0..4_800).map(|i| 0.3 * (i as f32 * 0.05).sin()).collect();
+        broken[100] = f32::NAN;
+        assert_eq!(check(broken), Some("samples that are not numbers"));
     }
 
     #[test]
