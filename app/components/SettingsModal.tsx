@@ -1,6 +1,6 @@
 import { StudioFamily } from './StudioFamily';
 import React, { useEffect, useRef, useState } from 'react';
-import { Boxes, Cloud, Cpu, Image as ImageIcon, Info, Monitor, Plug, User as UserIcon, X } from 'lucide-react';
+import { BarChart3, Boxes, Cloud, Cpu, Image as ImageIcon, Info, Monitor, Plug, User as UserIcon, X } from 'lucide-react';
 import { SiGithub } from '@icons-pack/react-simple-icons';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
@@ -10,6 +10,7 @@ import { EngineSettings } from './EngineSettings';
 import { SetupGate } from './SetupGate';
 import { CoverTemplateSettings } from './CoverTemplateSettings';
 import { AgentPanel } from './AgentPanel';
+import { HubSettings } from './HubSettings';
 import { STUDIO, STUDIO_REPO_URL } from '../studio';
 import { isDesktop } from '../services/externalLinks';
 import { onSidebarExtras, setSidebarExtras, sidebarExtras, type SidebarExtras } from '../services/playerPanels';
@@ -27,7 +28,7 @@ import { onSidebarExtras, setSidebarExtras, sidebarExtras, type SidebarExtras } 
 /// The assistant and the karaoke recogniser are not sections of their own: they
 /// are set up where they are installed, on the models page. Having both was one
 /// capability drawn twice, and the two drawings disagreed.
-type SectionId = 'account' | 'models' | 'engine' | 'cloud' | 'agent' | 'covers' | 'interface' | 'about';
+type SectionId = 'account' | 'models' | 'engine' | 'cloud' | 'agent' | 'covers' | 'interface' | 'privacy' | 'about';
 
 const INPUT =
   'w-full rounded-lg border-2 border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-900 outline-hidden focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white';
@@ -80,6 +81,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
     { id: 'agent', label: t('agentSection'), hint: t('agentSectionHint'), icon: <Plug size={16} /> },
     { id: 'covers', label: t('coversSection'), hint: t('coversSectionHint'), icon: <ImageIcon size={16} /> },
     { id: 'interface', label: t('appearance'), hint: t('interfaceSectionHint'), icon: <Monitor size={16} /> },
+    { id: 'privacy', label: t('hubTelemetryTitle'), hint: t('hubSettingsHint'), icon: <BarChart3 size={16} /> },
     { id: 'about', label: t('about'), hint: t('aboutSectionHint'), icon: <Info size={16} /> },
   ];
 
@@ -156,6 +158,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
             {section === 'engine' && <EngineSettings />}
             {section === 'cloud' && <ProviderSettings />}
             {section === 'agent' && <AgentPanel />}
+            {section === 'privacy' && <HubSettings />}
 
             {section === 'interface' && (
               <div className="max-w-lg space-y-6">

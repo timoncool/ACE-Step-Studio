@@ -124,6 +124,8 @@ import { createNativePlaylist, deleteNativeSong, moveStoredLikes, setNativeSongL
 import { foldStems } from './services/songStems';
 import { noteStudioMessage } from './services/journal';
 import { JournalPanel } from './components/JournalPanel';
+import { hubStateChanged, useHubState } from './services/studioQueries';
+import { setTelemetry } from './services/studioHub';
 
 /** Where versions before 3.3 kept the likes, in the window's own storage. */
 const STORED_LIKES_KEY = 'native-liked-song-ids';
@@ -155,7 +157,7 @@ function NativeUnavailableView({ title, detail }: { title: string; detail: strin
 
 function AppContent() {
   // i18n
-  const { t } = useI18n();
+  const { t, language } = useI18n();
 
   // Responsive
   const { isMobile, isDesktop } = useResponsive();
@@ -1277,6 +1279,15 @@ function AppContent() {
     remove: song => songActionsLatest.current.remove(song),
     update: song => songActionsLatest.current.update(song),
   }), []);
+
+  // Anonymous statistics are on by default: the start screen's checkbox decides on a first run, and an install that
+  // updated past that screen keeps the default until it is unchecked in Settings.
+  const hub = useHubState(language);
+  useEffect(() => {
+    const telemetry = hub.data?.telemetry;
+    if (!nativeSetupReady || !telemetry || telemetry.acknowledged || telemetry.disabledByEnv) return;
+    setTelemetry(telemetry.enabled, true).catch((error: Error) => console.warn('[hub] the statistics default was not saved:', error.message)).finally(hubStateChanged);
+  }, [nativeSetupReady, hub.data?.telemetry.acknowledged]);
 
   return (
     <SongActionsProvider value={songActions}>

@@ -3,6 +3,8 @@ import { Newspaper, X, Star, FileText } from 'lucide-react';
 import { SiGithub } from '@icons-pack/react-simple-icons';
 import { useI18n } from '../context/I18nContext';
 import newsData from '../data/news.json';
+import { useHubState } from '../services/studioQueries';
+import type { HubItem } from '../services/studioHub';
 import changelogData from '../data/changelog.json';
 import { STUDIO, STUDIO_REPO_URL } from '../studio';
 
@@ -53,8 +55,21 @@ function withLinks(text: string, key: string): React.ReactNode[] {
   return parts;
 }
 
-/** News text with **bold** words and links. */
+/** News text with **bold** and *italic* words, [named](https://...) links and bare links. */
 function inline(text: string, key: string): React.ReactNode[] {
+  return text.split(/(\[[^\]]+\]\(https:\/\/[^)\s]+\)|\*\*[^*]+\*\*|\*[^*\s][^*]*\*)/).flatMap<React.ReactNode>((piece, index) => {
+    const named = /^\[([^\]]+)\]\((https:\/\/[^)\s]+)\)$/.exec(piece);
+    if (named) {
+      return [<a key={`${key}-a${index}`} href={named[2]} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">{named[1]}</a>];
+    }
+    if (piece.length > 2 && piece.startsWith('*') && piece.endsWith('*') && !piece.startsWith('**')) {
+      return [<em key={`${key}-i${index}`}>{piece.slice(1, -1)}</em>];
+    }
+    return inlineBold(piece, `${key}-${index}`);
+  });
+}
+
+function inlineBold(text: string, key: string): React.ReactNode[] {
   return text.split(/(\*\*[^*]+\*\*)/).flatMap<React.ReactNode>((piece, index) =>
     piece.length > 4 && piece.startsWith('**') && piece.endsWith('**')
       ? [<strong key={`${key}-b${index}`} className="font-semibold text-zinc-800 dark:text-zinc-200">{piece.slice(2, -2)}</strong>]
@@ -200,7 +215,22 @@ export const NewsPage: React.FC = () => {
     }
   });
 
-  const allNews = newsData as NewsItem[];
+  // News from the hub come first: new ones reach every studio without a new release; the bundled ones follow.
+  const hub = useHubState(language);
+  const hubNews: NewsItem[] = (hub.data?.items ?? [])
+    .filter((item: HubItem) => item.kind === 'news')
+    .map((item: HubItem) => ({
+      id: `hub:${item.id}`,
+      date: item.date ?? '',
+      title: Object.fromEntries(Object.entries(item.content).map(([lang, text]) => [lang, text.title])),
+      body: Object.fromEntries(Object.entries(item.content).map(([lang, text]) => [lang, text.body])),
+      links: (item.content[language] ?? item.content.en ?? Object.values(item.content)[0])?.buttons
+        .filter((button) => button.action === 'url' && button.url)
+        .map((button) => ({ label: button.label, url: button.url as string })),
+    }))
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const bundledIds = new Set((newsData as NewsItem[]).map((n) => n.id));
+  const allNews = [...hubNews.filter((n) => !bundledIds.has(n.id.slice(4))), ...(newsData as NewsItem[])];
   const activeNews = allNews.filter(n => !dismissedNews.has(n.id));
   const dismissed = allNews.filter(n => dismissedNews.has(n.id));
 

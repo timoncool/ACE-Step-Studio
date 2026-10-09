@@ -3217,6 +3217,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.0",
+ "studio-hub-client",
  "symphonia",
  "sysinfo",
  "tempfile",
@@ -5268,6 +5269,21 @@ dependencies = [
  "tauri-plugin-updater",
  "tauri-plugin-window-state",
  "tokio",
+]
+
+[[package]]
+name = "studio-hub-client"
+version = "0.1.0"
+source = "git+https://github.com/timoncool/studio-hub-client?rev=e30b051e754adfef5e23d6bd42f3aea1c3d6ea7c#e30b051e754adfef5e23d6bd42f3aea1c3d6ea7c"
+dependencies = [
+ "axum",
+ "chrono",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]

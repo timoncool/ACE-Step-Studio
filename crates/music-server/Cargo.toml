@@ -43,6 +43,8 @@ serde_json.workspace = true
 sha2.workspace = true
 symphonia.workspace = true
 sysinfo.workspace = true
+# Studio Hub: anonymous statistics and the news feed (telemetry only after the start screen showed its choice).
+studio-hub-client = { git = "https://github.com/timoncool/studio-hub-client", rev = "e30b051e754adfef5e23d6bd42f3aea1c3d6ea7c" }
 ort.workspace = true
 realfft = "3.5"
 regex = "1"

@@ -6,6 +6,8 @@ import { RescanButton } from './RescanButton';
 import { DevicePicker, type Device } from './DevicePicker';
 import { AssistantExtras } from './AssistantSettings';
 import { KaraokeExtras } from './KaraokeSettings';
+import { HubTelemetryPreview } from './HubTelemetryPreview';
+import { setTelemetry } from '../services/studioHub';
 import type { TranslationKey } from '../i18n/translations';
 import {
   componentKindLabel,
@@ -772,6 +774,9 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
   // looked untouched: people pressed it again and could not tell which press
   // counted.
   const [starting, setStarting] = useState(false);
+  // The start screen's statistics checkbox: checked, and sent with the first download (it counts as seen).
+  const [telemetryOn, setTelemetryOn] = useState(true);
+  const [telemetryPreview, setTelemetryPreview] = useState(false);
   const download = async () => {
     if (!chosenIds || starting) return;
     setError(null);
@@ -1037,7 +1042,12 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
           ) : (
             <button
               type="button"
-              onClick={() => void download()}
+              onClick={() => {
+                if (mode === 'first-run') {
+                  setTelemetry(telemetryOn, true).catch((failure: Error) => console.warn('[hub] the statistics choice was not saved:', failure.message));
+                }
+                void download();
+              }}
               disabled={starting || !chosenIds || missing.length === 0}
               className="inline-flex items-center gap-2 rounded-xl bg-linear-to-r from-orange-500 to-pink-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -1060,6 +1070,19 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
             </span>
           )}
         </div>
+
+        {mode === 'first-run' && (
+          <div className="mt-4 text-sm text-zinc-600 dark:text-zinc-400">
+            <label className="inline-flex cursor-pointer items-center gap-2">
+              <input type="checkbox" className="h-4 w-4 accent-pink-500" checked={telemetryOn} onChange={(event) => setTelemetryOn(event.target.checked)} />
+              {t('hubTelemetryCheckbox')}
+            </label>
+            <button type="button" onClick={() => setTelemetryPreview(true)} className="ml-2 underline underline-offset-2 hover:text-zinc-900 dark:hover:text-white">
+              {t('hubTelemetryWhat')}
+            </button>
+            {telemetryPreview && <HubTelemetryPreview onClose={() => setTelemetryPreview(false)} />}
+          </div>
+        )}
 
         {/* Everything below is optional, and stays that way. */}
         <div className="mt-8">

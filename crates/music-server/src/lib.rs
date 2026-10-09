@@ -106,6 +106,8 @@ struct AppState {
     assistant_runtime: Arc<assistant_runtime::AssistantRuntime>,
     lyrics_sync: Arc<lyrics_sync::LyricsSync>,
     lyrics_sync_config: Arc<RwLock<lyrics_sync::LyricsSyncConfig>>,
+    /// Studio Hub: anonymous statistics and the news feed; None when its state file could not be read.
+    hub: Option<studio_hub_client::Hub>,
     /// Saved cover looks, filled in from whichever track a cover is for.
     cover_templates: Arc<RwLock<Vec<cover_prompt::CoverTemplate>>>,
     /// The look a new cover starts from, chosen in Settings.
@@ -850,6 +852,7 @@ pub async fn serve() -> anyhow::Result<()> {
         lyrics_sync_config: Arc::new(RwLock::new(
             persisted.as_ref().map(|settings| settings.lyrics_sync.clone()).unwrap_or_default(),
         )),
+        hub: start_hub(),
     };
     processing::clear_workspace(state.library.media_dir());
     state.training.recover();
@@ -1023,6 +1026,7 @@ pub async fn serve() -> anyhow::Result<()> {
             "/v1/music/jobs/{job_id}",
             get(music_job_status).post(cancel_music_job),
         )
+        .merge(state.hub.as_ref().map(studio_hub_client::Hub::router).unwrap_or_default())
         .with_state(state.clone())
         // Covers and imported audio are megabytes, not kilobytes. The default
         // two-megabyte cap rejected a generated cover by dropping the
@@ -4723,6 +4727,62 @@ pub(crate) fn studio_version() -> &'static str {
     STUDIO_VERSION.get().map(String::as_str).unwrap_or(env!("CARGO_PKG_VERSION"))
 }
 
+/// Studio Hub for this studio: statistics only after the start screen showed its checkbox, news through the
+/// studio's own proxy setting. A state file that cannot be read leaves the studio without it, said once.
+fn start_hub() -> Option<studio_hub_client::Hub> {
+    let machine = presets::hardware();
+    let name = machine.gpu_name.to_ascii_lowercase();
+    let vendor = if !machine.has_gpu || name.is_empty() {
+        "none"
+    } else if name.contains("nvidia") || name.contains("geforce") || name.contains("rtx") || name.contains("quadro") {
+        "nvidia"
+    } else if name.contains("amd") || name.contains("radeon") {
+        "amd"
+    } else if name.contains("intel") {
+        "intel"
+    } else if name.contains("apple") {
+        "apple"
+    } else {
+        "other"
+    };
+    let backend = match vendor {
+        "nvidia" => "cuda",
+        "apple" => "metal",
+        "none" => "cpu",
+        _ => "vulkan",
+    };
+    let os_label = format!(
+        "{} {}",
+        sysinfo::System::name().unwrap_or_else(|| std::env::consts::OS.to_string()),
+        sysinfo::System::os_version().unwrap_or_default()
+    )
+    .to_ascii_lowercase();
+    let config = studio_hub_client::HubConfig {
+        app: "ace".into(),
+        version: studio_version().to_string(),
+        data_dir: studio_data_root().unwrap_or_else(|| PathBuf::from(".")),
+        http: net::client(),
+        os_label,
+        gpu: studio_hub_client::Gpu {
+            vendor: vendor.into(),
+            vram_gb: studio_hub_client::Gpu::vram_bucket((machine.total_vram_gb * 1_073_741_824.0) as u64),
+            backend: backend.into(),
+        },
+        ui_lang: "en".into(),
+        urls: Vec::new(),
+    };
+    match studio_hub_client::Hub::new(config) {
+        Ok(hub) => {
+            hub.spawn();
+            Some(hub)
+        }
+        Err(error) => {
+            eprintln!("[ERROR] Studio Hub is off for this run, its state file cannot be read: {error}");
+            None
+        }
+    }
+}
+
 pub fn studio_data_root() -> Option<PathBuf> {
     if let Some(root) = env::var_os("STUDIO_DATA_ROOT") {
         return Some(PathBuf::from(root));
@@ -7275,8 +7335,21 @@ async fn run_ace_job(state: AppState, run: AceRun) {
     })
     .await;
     // however it ended, it is no longer one the studio's closing could cut off
-    let ended = state.jobs.read().await.get(&job_id).map(|job| (job_status_name(&job.status), job.message.clone()));
-    if let Some((status, message)) = ended {
+    let ended = state.jobs.read().await.get(&job_id).map(|job| (job_status_name(&job.status), job.message.clone(), job.songs.len()));
+    if let Some(hub) = &state.hub {
+        match ended.as_ref().map(|(status, _, songs)| (*status, *songs)) {
+            Some(("completed", songs)) => {
+                hub.count("songs", songs.max(1) as u64);
+                if let Some(profile) = state.selected_profile_id.read().await.as_deref() {
+                    hub.used_model(profile);
+                }
+            }
+            Some(("failed", _)) => hub.count("song_failed", 1),
+            Some(("cancelled", _)) => hub.count("song_cancelled", 1),
+            _ => {}
+        }
+    }
+    if let Some((status, message, _)) = ended {
         // a song that reached the library needs no record of its request any more
         let kept = if status == "completed" { state.library.forget_music_job(&job_id) } else { state.library.set_music_job_status(&job_id, status, &message) };
         if let Err(error) = kept {
