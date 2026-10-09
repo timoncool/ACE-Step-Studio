@@ -398,6 +398,7 @@ export const en = {
     dragToMove: 'Drag to move',
     scrollToResize: 'Scroll to resize',
     generationFailed: 'Generation failed. Please try again.',
+    generationStopped: 'Stopped',
     playlistCreated: 'Playlist created successfully!',
     failedToCreatePlaylist: 'Failed to create playlist',
     songAddedToPlaylist: 'Song added to playlist',

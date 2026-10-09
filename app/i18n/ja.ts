@@ -395,6 +395,7 @@ export const ja = {
   dragToMove: 'ドラッグで移動',
   scrollToResize: 'スクロールでサイズ変更',
   generationFailed: '生成に失敗しました。もう一度お試しください。',
+  generationStopped: '停止しました',
   playlistCreated: 'プレイリストを作成しました！',
   failedToCreatePlaylist: 'プレイリストの作成に失敗しました',
   songAddedToPlaylist: 'プレイリストに追加しました',

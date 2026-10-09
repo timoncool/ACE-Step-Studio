@@ -395,6 +395,7 @@ export const ko = {
     dragToMove: '드래그하여 이동',
     scrollToResize: '스크롤하여 크기 조절',
     generationFailed: '생성에 실패했습니다. 다시 시도해주세요.',
+    generationStopped: '중지됨',
     playlistCreated: '재생목록이 생성되었습니다!',
     failedToCreatePlaylist: '재생목록 생성에 실패했습니다',
     songAddedToPlaylist: '재생목록에 추가되었습니다',

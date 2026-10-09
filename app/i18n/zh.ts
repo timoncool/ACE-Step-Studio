@@ -395,6 +395,7 @@ export const zh = {
     dragToMove: '拖动移动',
     scrollToResize: '滚动调整大小',
     generationFailed: '生成失败，请重试。',
+    generationStopped: '已停止',
     playlistCreated: '歌单创建成功！',
     failedToCreatePlaylist: '创建歌单失败',
     songAddedToPlaylist: '已添加到歌单',

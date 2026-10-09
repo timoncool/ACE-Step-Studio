@@ -399,6 +399,7 @@ export const ru = {
     dragToMove: 'Перетащите для перемещения',
     scrollToResize: 'Прокрутка для изменения размера',
     generationFailed: 'Генерация не удалась. Попробуйте ещё раз.',
+    generationStopped: 'Остановлено',
     playlistCreated: 'Плейлист успешно создан!',
     failedToCreatePlaylist: 'Не удалось создать плейлист',
     songAddedToPlaylist: 'Песня добавлена в плейлист',
