@@ -269,6 +269,26 @@ The main, tested path is an NVIDIA card.
 - "Auto" in a device choice takes the card when its runtime is installed, and the processor
   otherwise. The same table is in the studio, under Settings → Models.
 
+## Anonymous statistics and news
+
+The studio asks the author's server for news at start and every six hours. The request carries no id, so news
+arrive whatever you choose below: new items appear on top of the News page, and with no connection the studio shows
+the news of its release.
+
+The setup screen of the first start has a checkbox **Send anonymous usage statistics**, checked by default. The same
+switch is in Settings → Anonymous statistics, next to **What is sent** (the exact report of today) and **New install
+id**. While it is checked, the studio sends once a day:
+
+- a random install id made on this computer, not tied to the hardware or an account; unchecking the box deletes it;
+- the studio and its version, the OS name and version, the window language;
+- the graphics card as vendor, a video memory bucket (up to 8, 12, 16, 24+ GB) and the backend (CUDA, Vulkan or
+  processor);
+- how many songs were made, failed or were cancelled that day, and which model set made them.
+
+Never: lyrics, prompts, audio, file names or paths, anything personal. The server keeps the country Cloudflare
+reports for the connection, not the IP address. `DO_NOT_TRACK=1` or `STUDIO_TELEMETRY=0` in the environment turns
+statistics off entirely: no id exists and nothing is counted.
+
 ## Quick start
 
 1. **Install** — run `ACE-Step.Studio_x.y.z_x64-setup.exe` from the

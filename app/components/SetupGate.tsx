@@ -1074,7 +1074,7 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
         {mode === 'first-run' && (
           <div className="mt-4 text-sm text-zinc-600 dark:text-zinc-400">
             <label className="inline-flex cursor-pointer items-center gap-2">
-              <input type="checkbox" className="h-4 w-4 accent-pink-500" checked={telemetryOn} onChange={(event) => setTelemetryOn(event.target.checked)} />
+              <input type="checkbox" className="h-4 w-4 accent-pink-500" checked={telemetryOn} onChange={(event) => { setTelemetryOn(event.target.checked); setTelemetry(event.target.checked, true).catch((failure: Error) => console.warn('[hub] the statistics choice was not saved:', failure.message)); }} />
               {t('hubTelemetryCheckbox')}
             </label>
             <button type="button" onClick={() => setTelemetryPreview(true)} className="ml-2 underline underline-offset-2 hover:text-zinc-900 dark:hover:text-white">
