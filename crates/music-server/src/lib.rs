@@ -5365,10 +5365,38 @@ async fn karaoke_status(State(state): State<AppState>) -> Json<Value> {
     };
     let set = karaoke_set(name, config.runtime, config.whisper_model.as_deref());
     let mut value = serde_json::to_value(&status).unwrap_or(Value::Null);
+    if let Some(assets) = value.get_mut("assets").and_then(Value::as_array_mut) {
+        for asset in assets {
+            if let Some(bytes) = asset["id"].as_str().and_then(karaoke_variant_bytes) {
+                asset["variant_bytes"] = Value::from(bytes);
+            }
+        }
+    }
     if let Value::Object(ref mut fields) = value {
-        fields.insert("set".into(), set_progress(state.lyrics_sync.downloader(), &set));
+        let mut progress = set_progress(state.lyrics_sync.downloader(), &set);
+        // the chosen model's files are part of this set, so the window adds nothing to it
+        progress["with_model"] = Value::Bool(true);
+        fields.insert("set".into(), progress);
     }
     Json(value)
+}
+
+/// What choosing this recogniser model downloads: its own file and the ones that come with it
+/// (a Parakeet encoder's decoder, vocabulary and, for fp32, its weights; a Whisper model's folder).
+fn karaoke_variant_bytes(id: &str) -> Option<u64> {
+    let files: Vec<&'static lyrics_sync::Asset> = if id.starts_with("parakeet-") {
+        let (ids, _) = lyrics_sync::parakeet_variant(Some(id));
+        if !ids.first().is_some_and(|first| *first == id) {
+            return None;
+        }
+        ids.iter().filter_map(|id| lyrics_sync::asset(id)).collect()
+    } else if let Some(size) = id.strip_prefix("whisper-").filter(|_| lyrics_sync::asset(id).is_some_and(|asset| asset.vram_gb.is_some())) {
+        let prefix = format!("models/whisper/faster-whisper-{size}/");
+        lyrics_sync::ASSETS.iter().filter(|asset| asset.relative_path.starts_with(&prefix)).collect()
+    } else {
+        return None;
+    };
+    Some(files.iter().map(|asset| asset.bytes).sum())
 }
 
 /// Every field optional, so a panel that changes one thing changes one thing.
@@ -8120,6 +8148,16 @@ fn api_error(status: StatusCode, error: String) -> (StatusCode, Json<ApiError>) 
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn a_recogniser_variant_weighs_every_file_it_brings() {
+        let fp32 = karaoke_variant_bytes(lyrics_sync::PARAKEET_FP32).unwrap();
+        assert!(fp32 > 2_000_000_000, "the fp32 graph comes with its 2.4 GB of weights: {fp32}");
+        let ultra = karaoke_variant_bytes(lyrics_sync::PARAKEET_ULTRA).unwrap();
+        assert!(ultra > lyrics_sync::asset(lyrics_sync::PARAKEET_ULTRA).unwrap().bytes);
+        assert!(karaoke_variant_bytes("parakeet-decoder").is_none(), "only an encoder is a choice");
+        assert!(karaoke_variant_bytes("onnxruntime").is_none());
+    }
 
     #[test]
     fn a_failed_job_is_named_by_its_own_fatal_line() {

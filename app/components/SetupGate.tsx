@@ -70,8 +70,10 @@ type Profile = {
 
 type Catalog = { engine_id: string; recommended_profile_id: string; profiles: Profile[]; components: ModelComponent[] };
 
-type OptionalAsset = { id: string; label: string; bytes: number; note: string; installed: boolean; kind: 'model' | 'runtime'; vram_gb?: number | null };
-type SetProgress = { bytes: number; installed_bytes: number; ready: boolean; files: number };
+// variant_bytes: what choosing this model downloads with it (a Parakeet encoder's decoder and weights, a Whisper folder).
+type OptionalAsset = { id: string; label: string; bytes: number; note: string; installed: boolean; kind: 'model' | 'runtime'; vram_gb?: number | null; variant_bytes?: number };
+// with_model: the chosen model's files are already in bytes, as the karaoke set counts them.
+type SetProgress = { bytes: number; installed_bytes: number; ready: boolean; files: number; with_model?: boolean };
 type OptionalStatus = {
   assets: OptionalAsset[];
   /// What the chosen engine is made of, as the server counts it: the panel
@@ -371,10 +373,10 @@ export const OptionalGroup: React.FC<{
               }
               const running = status?.active_download && !status.active_download.done ? status.active_download : null;
               const busy = Boolean(running) || starting;
-              const modelBytes = models.find((asset) => asset.id === chosenModel)?.bytes ?? 0;
+              const chosenAsset = models.find((asset) => asset.id === chosenModel);
+              const modelBytes = status?.set?.with_model ? 0 : chosenAsset?.variant_bytes ?? chosenAsset?.bytes ?? 0;
               const setBytes = (status?.set?.bytes ?? 0) + modelBytes;
-              const haveBytes = (status?.set?.installed_bytes ?? 0)
-                + (models.find((asset) => asset.id === chosenModel)?.installed ? modelBytes : 0);
+              const haveBytes = (status?.set?.installed_bytes ?? 0) + (chosenAsset?.installed ? modelBytes : 0);
               // While a download runs, progress is that download - the server
               // reports a whole set as one figure. Between downloads it is what
               // is on disk out of what this engine needs. Reading only the
@@ -430,7 +432,7 @@ export const OptionalGroup: React.FC<{
                       >
                         {models.map((asset) => (
                           <option key={asset.id} value={asset.id}>
-                            {asset.label}{asset.installed ? ' ✓' : ''} · {bytes(asset.bytes)}
+                            {asset.label}{asset.installed ? ' ✓' : ''} · {bytes(asset.variant_bytes ?? asset.bytes)}
                           </option>
                         ))}
                       </select>
