@@ -1321,6 +1321,7 @@ export const ko = {
     randomPlaceholder: '무작위',
     localGenerationUnavailable: '로컬 생성이 아직 준비되지 않았습니다.',
     downloadProfileFirst: '모델 관리자에서 DiT, 언어 모델, 텍스트 인코더, VAE로 된 전체 세트를 골라 내려받으세요. 저절로 내려받지 않습니다.',
+    ramShort: '이 컴퓨터의 메모리는 {have} GB이고 이 세트에는 여기서 약 {need} GB가 필요합니다. 불러오기가 멈출 수 있으니 더 가벼운 세트를 고르세요.',
     renderCountPrefix: '이 요청이 렌더링할 트랙',
     renderCountSuffix: '각 트랙은 자체 LM 스트림으로 샘플링되고, 각 변형은 동일한 조건 트랙에서 플로 매칭을 다시 실행합니다.',
     peakClipHint: '피크 클립은 (1 − clip/1e6) 백분위로 정규화합니다. 0 이면 비활성화되고 WAV 32비트 부동소수점은 건너뜁니다.',

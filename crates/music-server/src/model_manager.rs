@@ -62,6 +62,8 @@ pub struct Profile {
     pub recommended: bool,
     pub components: Vec<&'static str>,
     pub total_bytes: u64,
+    /// Memory this machine needs for the set: less when its card holds the weights.
+    pub ram_needed_gb: f64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -660,14 +662,26 @@ pub fn profile_matching(component_ids: &[String]) -> Option<&'static str> {
     })
 }
 
+const PROFILE_SETS: [(&str, &str, [&str; 4]); 5] = [
+    ("minimal", "Minimal - 2B turbo Q4_K_M, LM 0.6B (4 GB cards)", ["dit-turbo-q4", "lm-0.6b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"]),
+    ("recommended-light", "Light - XL turbo Q4_K_M, LM 1.7B (8 GB cards)", ["dit-xl-turbo-q4", "lm-1.7b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"]),
+    ("balanced", "Balanced - XL turbo Q6_K, LM 1.7B (10 GB cards)", ["dit-xl-turbo-q6", "lm-1.7b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"]),
+    ("quality-q8", "Quality - XL turbo Q8_0, LM 4B Q8_0 (13 GB cards)", ["dit-xl-turbo-q8", "lm-4b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"]),
+    ("native", "Full native - XL turbo BF16, LM 4B BF16 (24 GB cards)", ["dit-xl-turbo-bf16", "lm-4b-bf16", "te-qwen3-0.6b-bf16", "vae-standard-bf16"]),
+];
+
 fn profiles() -> Vec<Profile> {
-    vec![
-        profile("minimal", "Minimal - 2B turbo Q4_K_M, LM 0.6B (4 GB cards)", &["dit-turbo-q4", "lm-0.6b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"]),
-        profile("recommended-light", "Light - XL turbo Q4_K_M, LM 1.7B (8 GB cards)", &["dit-xl-turbo-q4", "lm-1.7b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"]),
-        profile("balanced", "Balanced - XL turbo Q6_K, LM 1.7B (10 GB cards)", &["dit-xl-turbo-q6", "lm-1.7b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"]),
-        profile("quality-q8", "Quality - XL turbo Q8_0, LM 4B Q8_0 (13 GB cards)", &["dit-xl-turbo-q8", "lm-4b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"]),
-        profile("native", "Full native - XL turbo BF16, LM 4B BF16 (24 GB cards)", &["dit-xl-turbo-bf16", "lm-4b-bf16", "te-qwen3-0.6b-bf16", "vae-standard-bf16"]),
-    ]
+    PROFILE_SETS.iter().map(|(id, label, ids)| profile(id, label, ids)).collect()
+}
+
+/// The bytes of a set's four files, the weights a song is made with.
+pub fn profile_weights_bytes(id: &str) -> u64 {
+    let all = components();
+    PROFILE_SETS
+        .iter()
+        .find(|(profile, _, _)| *profile == id)
+        .map(|(_, _, ids)| ids.iter().filter_map(|id| all.iter().find(|component| component.id == *id)).map(|component| component.bytes).sum())
+        .unwrap_or(0)
 }
 
 pub fn profile_exists(id: &str) -> bool {
@@ -677,7 +691,8 @@ pub fn profile_exists(id: &str) -> bool {
 fn profile(id: &'static str, label: &'static str, ids: &[&'static str]) -> Profile {
     let all = components();
     let recommended = id == recommended_profile();
-    Profile { id, label, backend: ENGINE_ID, installable: true, recommended, components: ids.to_vec(), total_bytes: ids.iter().filter_map(|id| all.iter().find(|component| component.id == *id)).map(|component| component.bytes).sum() }
+    let ram_needed_gb = crate::presets::ram_needed_gb(id, profile_weights_bytes(id), crate::presets::hardware().total_vram_gb);
+    Profile { id, label, backend: ENGINE_ID, installable: true, recommended, components: ids.to_vec(), total_bytes: ids.iter().filter_map(|id| all.iter().find(|component| component.id == *id)).map(|component| component.bytes).sum(), ram_needed_gb }
 }
 
 fn components() -> Vec<Component> {

@@ -1321,6 +1321,7 @@ export const ja = {
     randomPlaceholder: 'ランダム',
     localGenerationUnavailable: 'ローカル生成はまだ利用できません。',
     downloadProfileFirst: 'モデルマネージャーで DiT・言語モデル・テキストエンコーダー・VAE の完全なセットを選んでダウンロードしてください。自動ではダウンロードされません。',
+    ramShort: 'このコンピューターのメモリは {have} GB、このセットにはここで約 {need} GB 必要です。読み込みが止まる場合があります。軽いセットを選んでください。',
     renderCountPrefix: 'このリクエストで生成される数',
     renderCountSuffix: '各曲は独自の LM ストリームでサンプリングされ、各バリエーションは同じ条件トラックでフローマッチングを再実行します。',
     peakClipHint: 'ピーククリップは (1 − clip/1e6) パーセンタイルで正規化します。0 で無効、WAV 32bit float では適用されません。',

@@ -1326,6 +1326,7 @@ export const en = {
     randomPlaceholder: 'Random',
     localGenerationUnavailable: 'Local generation is not available yet.',
     downloadProfileFirst: 'Choose and download a complete set - DiT, language model, text encoder and VAE - in the model manager. Nothing downloads by itself.',
+    ramShort: 'This computer has {have} GB of memory and this set needs about {need} GB here: loading may stall. Pick a lighter set.',
     renderCountPrefix: 'This request renders',
     renderCountSuffix: 'each song samples its own LM stream, each variation re-runs flow matching on the same condition track.',
     peakClipHint: 'Peak clip normalises to the (1 - clip/1e6) percentile; 0 disables clipping and WAV 32-bit float skips it entirely.',

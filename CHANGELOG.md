@@ -24,6 +24,9 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- The recommended model set fits the computer's memory as well as the card, and a set that needs
+  more memory than the computer has says so on the start screen; full BF16 weights are no longer
+  recommended, Q8 is near lossless at half the size (as in YuE2 Studio).
 - Lyrics in Cyrillic, Korean, Japanese, Chinese, Arabic, Hindi or Thai script set the vocal
   language when none is chosen: Russian lyrics were sung in a language nobody asked for.
 - ACE-Step's output above full scale (up to +3.8 dBFS) was cut flat by the encoder; it is

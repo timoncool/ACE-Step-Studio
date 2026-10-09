@@ -1321,6 +1321,7 @@ export const zh = {
     randomPlaceholder: '随机',
     localGenerationUnavailable: '本地生成尚不可用。',
     downloadProfileFirst: '请在模型管理器中选择并下载完整组合：DiT、语言模型、文本编码器和 VAE。不会自动下载任何内容。',
+    ramShort: '这台电脑内存 {have} GB，此套模型在这里约需 {need} GB：加载可能卡住。请选择更轻的套装。',
     renderCountPrefix: '本次请求将渲染',
     renderCountSuffix: '每首曲目使用各自的 LM 流，每个变体在相同条件轨道上重新运行流匹配。',
     peakClipHint: '峰值限制按 (1 − clip/1e6) 百分位归一化；0 表示不限制，WAV 32 位浮点会完全跳过。',

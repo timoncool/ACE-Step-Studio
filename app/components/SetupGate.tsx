@@ -43,7 +43,7 @@ type SetupStatus = {
   ready: boolean;
   selected_profile_id?: string | null;
   selected_component_ids?: string[] | null;
-  hardware?: { gpuName?: string; totalVramGb?: number; recommended?: string; reason?: string };
+  hardware?: { gpuName?: string; totalVramGb?: number; totalRamGb?: number; recommended?: string; reason?: string };
   engine_ready: boolean;
   engine_id: string;
   first_run: boolean;
@@ -63,6 +63,7 @@ type Profile = {
   recommended: boolean;
   components: string[];
   total_bytes: number;
+  ram_needed_gb: number;
 };
 
 type Catalog = { engine_id: string; recommended_profile_id: string; profiles: Profile[]; components: ModelComponent[] };
@@ -902,6 +903,11 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
                           <span className="ml-auto shrink-0 text-xs tabular-nums text-zinc-500">{bytes(profile.total_bytes)}</span>
                         </div>
                         <p className="mt-1 text-[11px] leading-5 text-zinc-500 dark:text-zinc-400">{parts.join(' · ')}</p>
+                        {status?.hardware?.totalRamGb !== undefined && profile.ram_needed_gb > status.hardware.totalRamGb && (
+                          <p className="mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-300">
+                            {t('ramShort').replace('{have}', status.hardware.totalRamGb.toFixed(0)).replace('{need}', String(Math.ceil(profile.ram_needed_gb)))}
+                          </p>
+                        )}
                         <div className="mt-1 flex items-center justify-between gap-2">
                           <p className={`text-[11px] font-medium ${missingHere.length === 0 ? 'text-emerald-600 dark:text-emerald-300' : 'text-zinc-500'}`}>
                             {missingHere.length === 0
