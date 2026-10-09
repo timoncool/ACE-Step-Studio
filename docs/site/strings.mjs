@@ -93,7 +93,8 @@ export const STRINGS = {
       ['13-listen', 'The equalizer with its curve and MilkDrop over the studio, as the song plays.'],
       ['14-winamp', 'The whole window as Winamp 2: equalizer, playlist and MilkDrop, skinned.'],
       ['15-covers', 'A cover for every track: Commons photos for the style, patterns, generation or your own file.'],
-      ["16-midi-editor", "The MIDI editor: tracks and notes with editable chords and section markers."]
+      ["16-midi-editor", "The MIDI editor: tracks and notes with editable chords and section markers."],
+      ["17-melodic-variation", "Melodic variation: a penalty on the audio codes the language model repeated lately keeps a melody from looping, counted by presence, frequency or DRY over a window you set."]
     ],
     modelsTitle: 'Models',
     modelsSub: 'A runnable set is the DiT, the planner, the text encoder and the VAE, all in GGUF.',
@@ -206,7 +207,8 @@ export const STRINGS = {
       ['13-listen', 'Эквалайзер с кривой и MilkDrop поверх студии, пока играет песня.'],
       ['14-winamp', 'Всё окно как Winamp 2: эквалайзер, плейлист и MilkDrop в скине.'],
       ['15-covers', 'Обложка для любого трека: фото с Commons под стиль, узоры, генерация или свой файл.'],
-      ["16-midi-editor", "MIDI-СЂРµРґР°РєС‚РѕСЂ: РґРѕСЂРѕР¶РєРё Рё РЅРѕС‚С‹ СЃ СЂРµРґР°РєС‚РёСЂСѓРµРјС‹РјРё Р°РєРєРѕСЂРґР°РјРё Рё СЃРµРєС†РёСЏРјРё."]
+      ["16-midi-editor", "MIDI-СЂРµРґР°РєС‚РѕСЂ: РґРѕСЂРѕР¶РєРё Рё РЅРѕС‚С‹ СЃ СЂРµРґР°РєС‚РёСЂСѓРµРјС‹РјРё Р°РєРєРѕСЂРґР°РјРё Рё СЃРµРєС†РёСЏРјРё."],
+      ["17-melodic-variation", "Мелодическая вариативность: штраф на недавно повторённые аудиокоды языковой модели не даёт мелодии зацикливаться — по присутствию, частоте или DRY в заданном окне."]
     ],
     modelsTitle: 'Модели',
     modelsSub: 'Рабочий набор — это DiT, планировщик, текстовый энкодер и VAE, всё в GGUF.',
@@ -319,7 +321,8 @@ export const STRINGS = {
       ['13-listen', '播放时悬浮在工作室上方的均衡器曲线与 MilkDrop。'],
       ['14-winamp', '整个窗口化身 Winamp 2：均衡器、播放列表和 MilkDrop，带皮肤。'],
       ['15-covers', '为每首曲目选封面：符合风格的 Commons 照片、图案、生成或自己的文件。'],
-      ["16-midi-editor", "MIDI зј–иѕ‘е™Ёпјље¤љиЅЁйџіз¬¦гЂЃеЏЇзј–иѕ‘зљ„е’Њеј¦е’Њж®µиђЅж ‡и®°гЂ‚"]
+      ["16-midi-editor", "MIDI зј–иѕ‘е™Ёпјље¤љиЅЁйџіз¬¦гЂЃеЏЇзј–иѕ‘зљ„е’Њеј¦е’Њж®µиђЅж ‡и®°гЂ‚"],
+      ["17-melodic-variation", "旋律变化：对语言模型近期重复的音频码施加惩罚，防止旋律循环；可按出现、频率或 DRY 在设定的窗口内计算。"]
     ],
     modelsTitle: '模型',
     modelsSub: '可运行的一组模型包括 DiT、规划器、文本编码器和 VAE，均为 GGUF。',
@@ -432,7 +435,8 @@ export const STRINGS = {
       ['13-listen', '再生中、スタジオの上に浮かぶカーブ付きイコライザーと MilkDrop。'],
       ['14-winamp', 'ウィンドウ全体が Winamp 2 に：イコライザー、プレイリスト、MilkDrop をスキン付きで。'],
       ['15-covers', 'どの曲にもジャケット：スタイルに合う Commons の写真、模様、生成、手持ちのファイル。'],
-      ["16-midi-editor", "MIDI г‚Ёгѓ‡г‚Јг‚їгѓјпјљгѓ€гѓ©гѓѓг‚ЇгЃЁйџіз¬¦гЂЃз·Ёй›†гЃ§гЃЌг‚‹г‚ігѓјгѓ‰гЃЁг‚»г‚Їг‚·гѓ§гѓігЂ‚"]
+      ["16-midi-editor", "MIDI г‚Ёгѓ‡г‚Јг‚їгѓјпјљгѓ€гѓ©гѓѓг‚ЇгЃЁйџіз¬¦гЂЃз·Ёй›†гЃ§гЃЌг‚‹г‚ігѓјгѓ‰гЃЁг‚»г‚Їг‚·гѓ§гѓігЂ‚"],
+      ["17-melodic-variation", "メロディの変化：言語モデルが最近繰り返したオーディオコードにペナルティをかけ、メロディのループを防ぎます。出現・頻度・DRY と窓の長さを選べます。"]
     ],
     modelsTitle: 'モデル',
     modelsSub: '動かせるセットは DiT、プランナー、テキストエンコーダー、VAE で、すべて GGUF です。',
@@ -545,7 +549,8 @@ export const STRINGS = {
       ['13-listen', '재생 중 스튜디오 위에 뜬 곡선 이퀄라이저와 MilkDrop.'],
       ['14-winamp', '창 전체가 Winamp 2로: 스킨을 입힌 이퀄라이저, 재생 목록, MilkDrop.'],
       ['15-covers', '모든 트랙에 커버: 스타일에 맞는 Commons 사진, 무늬, 생성 또는 내 파일.'],
-      ["16-midi-editor", "MIDI нЋём§‘кё°: нЉёлћ™кіј мќЊн‘њ, нЋём§‘ к°ЂлЉҐн•њ мЅ”л“њм™Ђ кµ¬к°„ н‘њм‹њ."]
+      ["16-midi-editor", "MIDI нЋём§‘кё°: нЉёлћ™кіј мќЊн‘њ, нЋём§‘ к°ЂлЉҐн•њ мЅ”л“њм™Ђ кµ¬к°„ н‘њм‹њ."],
+      ["17-melodic-variation", "멜로디 다양성: 언어 모델이 최근 반복한 오디오 코드에 페널티를 주어 멜로디 반복을 막습니다. 출현·빈도·DRY와 창 길이를 고릅니다."]
     ],
     modelsTitle: '모델',
     modelsSub: '실행 가능한 세트는 DiT, 플래너, 텍스트 인코더, VAE이며 모두 GGUF입니다.',

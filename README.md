@@ -186,6 +186,8 @@ A MIDI track can also be sent to cover mode.
 
 ![The MIDI editor: chords, sections and notes](docs/screenshots/en-16-midi-editor.png)
 
+![Melodic variation: a penalty on the codes the language model repeated lately](docs/screenshots/en-17-melodic-variation.png)
+
 | | |
 |---|---|
 | ![The equalizer and MilkDrop](docs/screenshots/en-13-listen.png) | ![The Winamp mode](docs/screenshots/en-14-winamp.png) |
