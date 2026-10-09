@@ -13,6 +13,10 @@ What changed, newest first. Dates are release dates.
 - **Parakeet Ultra int8** for karaoke: Moondream's fine-tune of Parakeet, quantized, a recogniser
   of its own beside v3, which stays as it was.
 - The window keeps its size, place and maximised state; the player its repeat and shuffle.
+- **macOS and Linux builds**, as in YuE2 Studio: Apple Silicon with the engine and Audio to
+  MIDI on Metal, data in Application Support (after stalexxx's port); Linux x86-64 as a .deb
+  and an AppImage with the engine on Vulkan, the graphics card named and child processes
+  ending with the studio (after SkySlider's fork). Built by hand from a workflow of their own.
 
 ### Fixed
 

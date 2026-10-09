@@ -33,6 +33,19 @@ fn source() -> &'static Source {
 /// The name every release folder of the transcriber starts with.
 const TOOL_FOLDER: &str = "music-midi";
 
+/// The transcriber that ships inside the macOS app bundle
+/// (`Contents/Resources/resources/music-midi/music-midi`); the downloadable
+/// archive is a Windows build.
+fn bundled_tool() -> Option<PathBuf> {
+    if !cfg!(target_os = "macos") {
+        return None;
+    }
+    let executable = std::env::current_exe().ok()?;
+    let contents = executable.parent()?.parent()?;
+    let tool = contents.join("Resources").join("resources").join(TOOL_FOLDER).join(TOOL_FOLDER);
+    tool.is_file().then_some(tool)
+}
+
 /// The folder a release's archive unpacks into, its tag: a newer release is a
 /// folder of its own, so an older transcriber on disk is never taken for it.
 fn tool_folder() -> &'static str {
@@ -135,7 +148,10 @@ impl Transcriber {
 
     /// `STUDIO_MIDI_BIN` in a developer build, else the one the archive unpacked.
     pub fn tool(&self) -> PathBuf {
-        std::env::var_os("STUDIO_MIDI_BIN").map(PathBuf::from).unwrap_or_else(|| self.downloader.runtime_dir(tool_folder()).join(&source().shipped_as))
+        std::env::var_os("STUDIO_MIDI_BIN")
+            .map(PathBuf::from)
+            .or_else(bundled_tool)
+            .unwrap_or_else(|| self.downloader.runtime_dir(tool_folder()).join(&source().shipped_as))
     }
 
     /// The transcribers of earlier releases beside the current one; nothing runs them any more.
@@ -168,7 +184,8 @@ impl Transcriber {
     /// What is still missing before a size can transcribe.
     pub fn missing(&self, size: &'static Size) -> Vec<&'static Asset> {
         let mut assets = Vec::new();
-        if !self.tool_installed() {
+        // The archive is a Windows build; elsewhere the tool ships with the app.
+        if cfg!(windows) && !self.tool_installed() {
             assets.push(tool_asset());
         }
         assets.extend(weight_assets(size).iter().filter(|asset| !self.downloader.is_installed(asset)));

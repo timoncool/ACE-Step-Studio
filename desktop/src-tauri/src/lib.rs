@@ -37,8 +37,10 @@ fn studio_data_directory() -> PathBuf {
     // in F:\AI, not in their profile on C:. Only when the install directory
     // cannot be written to - Program Files, a read-only share - does the studio
     // fall back to AppData, because then it has nowhere else to go.
+    // On macOS the executable sits inside a signed .app bundle that must not
+    // be written to, so an installation always uses Application Support.
     let beside_the_executable = executable_directory().join("data");
-    if directory_is_writable(&beside_the_executable) {
+    if !cfg!(target_os = "macos") && directory_is_writable(&beside_the_executable) {
         return beside_the_executable;
     }
 
@@ -49,7 +51,14 @@ fn studio_data_directory() -> PathBuf {
         }
     }
 
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(home) = std::env::var_os("HOME") {
+            return PathBuf::from(home).join("Library").join("Application Support").join(&studio().name);
+        }
+    }
+
+    #[cfg(all(not(windows), not(target_os = "macos")))]
     {
         if let Some(root) = std::env::var_os("XDG_DATA_HOME") {
             return PathBuf::from(root).join(&studio().slug);

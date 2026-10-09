@@ -508,6 +508,7 @@ mod media_tests {
     use super::*;
 
     #[test]
+    #[cfg(windows)]
     fn a_library_whose_folder_moved_still_finds_its_songs() {
         let root = std::env::temp_dir().join(format!("library-moved-{}", uuid::Uuid::now_v7().simple()));
         let db = Library::open_at(root.join("library.sqlite"), root.join("media")).unwrap();

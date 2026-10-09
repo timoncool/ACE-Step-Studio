@@ -8,5 +8,7 @@
   "server": "ace-server",
   "port": 8089,
   "tools": [],
-  "worktree": "ace-engine"
+  "worktree": "ace-engine",
+  "macos_build": "scripts/build-engine-runtime.sh",
+  "linux_build": "scripts/build-engine-runtime-linux.sh"
 }

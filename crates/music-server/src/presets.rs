@@ -75,7 +75,7 @@ fn probe() -> &'static Hardware {
         let mut system = System::new();
         system.refresh_memory();
         let total_ram_gb = system.total_memory() as f64 / 1_000_000_000.0;
-        let (gpu_name, total_vram_gb) = nvidia_smi().unwrap_or_else(|| ("No NVIDIA GPU detected".into(), 0.0));
+        let (gpu_name, total_vram_gb) = nvidia_smi().or_else(other_card).unwrap_or_else(|| ("No NVIDIA GPU detected".into(), 0.0));
         let has_gpu = total_vram_gb > 0.0;
         let (recommended, reason) = recommend_for_hardware(&gpu_name, total_vram_gb);
         Hardware { gpu_name, total_vram_gb, total_ram_gb, has_gpu, recommended, reason }
@@ -162,6 +162,20 @@ fn nvidia_smi() -> Option<(String, f64)> {
     Some((name.trim().into(), memory.trim().parse::<f64>().ok()? / 1024.0))
 }
 
+/// The card that sizes the recommendation when there is no NVIDIA one: on
+/// Windows none, the sets are sized to CUDA there; elsewhere the engine runs
+/// on Metal (Apple Silicon, the unified memory) or Vulkan, and the adapter
+/// says how much memory it has.
+#[cfg(windows)]
+fn other_card() -> Option<(String, f64)> {
+    None
+}
+
+#[cfg(not(windows))]
+fn other_card() -> Option<(String, f64)> {
+    display_adapter()
+}
+
 
 /// A graphics card of any make - the ONNX parts reach one through DirectML
 /// where CUDA does not run - as the display adapter with the most dedicated
@@ -187,13 +201,124 @@ fn display_adapter() -> Option<(String, f64)> {
     best_adapter(&query("DriverDesc")?, &query("HardwareInformation.qwMemorySize")?)
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
 fn display_adapter() -> Option<(String, f64)> {
-    None
+    // Apple Silicon has one GPU per machine and no separate VRAM: its memory
+    // is the system's (unified), so the whole RAM is what a model set has to
+    // share with the rest of the machine. The chip name is the only identity
+    // macOS reports for it.
+    let output = Command::new("system_profiler").args(["-json", "SPDisplaysDataType"]).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let chip = apple_chip(&String::from_utf8_lossy(&output.stdout))?;
+    let ram = Command::new("sysctl").args(["-n", "hw.memsize"]).output().ok().and_then(|output| {
+        std::str::from_utf8(&output.stdout).ok().and_then(|value| value.trim().parse::<u64>().ok())
+    })?;
+    Some((chip, ram as f64 / 1_000_000_000.0))
+}
+
+/// The chip name from `system_profiler -json SPDisplaysDataType`: the value of
+/// `"sppci_model" : "Apple M2 Max"`.
+#[cfg(any(target_os = "macos", test))]
+fn apple_chip(profile: &str) -> Option<String> {
+    let after_key = profile.split("\"sppci_model\"").nth(1)?;
+    let name = after_key.split('"').nth(1)?;
+    name.starts_with("Apple ").then(|| name.to_string())
+}
+
+/// Linux has no registry to read the adapter from, so the card is named from
+/// its PCI identity instead. An unnamed card would leave the ONNX parts and
+/// the writing assistant on the processor on a machine whose GPU works.
+#[cfg(not(any(windows, target_os = "macos")))]
+fn display_adapter() -> Option<(String, f64)> {
+    let card = linux_card()?;
+    let name = linux_card_name(&card.vendor_id, &card.device_id);
+    Some((name, card.vram_gb))
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
+struct LinuxCard {
+    vendor_id: String,
+    device_id: String,
+    vram_gb: f64,
+}
+
+/// The first DRM card that is a PCI device, with the dedicated memory it
+/// reports. Only the AMD driver publishes `mem_info_vram_total`; where it is
+/// absent the size stays 0.0, which recommends no local set rather than
+/// guessing at one that may not fit.
+#[cfg(not(any(windows, target_os = "macos")))]
+fn linux_card() -> Option<LinuxCard> {
+    let mut cards: Vec<std::path::PathBuf> = std::fs::read_dir("/sys/class/drm")
+        .ok()?
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with("card") && name[4..].chars().all(|c| c.is_ascii_digit()))
+        })
+        .collect();
+    cards.sort();
+    cards.into_iter().find_map(|path| {
+        let device = path.join("device");
+        let read = |name: &str| -> Option<String> {
+            std::fs::read_to_string(device.join(name)).ok().map(|value| value.trim().to_owned())
+        };
+        let vendor_id = read("vendor")?;
+        let device_id = read("device").unwrap_or_default();
+        let vram_gb = read("mem_info_vram_total")
+            .and_then(|bytes| bytes.parse::<f64>().ok())
+            .map_or(0.0, |bytes| bytes / 1024.0 / 1024.0 / 1024.0);
+        Some(LinuxCard { vendor_id, device_id, vram_gb })
+    })
+}
+
+/// `lspci` names the card as a person would; without it the vendor still names
+/// it well enough to reach the GPU. `8086` is Intel, `1002` and `1022` AMD.
+#[cfg(not(any(windows, target_os = "macos")))]
+fn linux_card_name(vendor_id: &str, device_id: &str) -> String {
+    let vendor = match vendor_id.trim_start_matches("0x").to_ascii_lowercase().as_str() {
+        "8086" => "Intel",
+        "1002" | "1022" => "AMD",
+        "10de" => "NVIDIA",
+        _ => "PCI",
+    };
+    lspci_name(device_id).unwrap_or_else(|| format!("{vendor} display adapter ({vendor_id}:{device_id})"))
+}
+
+/// The `lspci` line for this PCI device, trimmed to the adapter's own name.
+#[cfg(not(any(windows, target_os = "macos")))]
+fn lspci_name(device_id: &str) -> Option<String> {
+    let output = Command::new("lspci").args(["-nn"]).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    parse_lspci_name(&String::from_utf8_lossy(&output.stdout), device_id)
+}
+
+/// Pulls the adapter's own name out of an `lspci -nn` listing. The line is
+/// found by the bracketed device id, which `lspci` writes as `[vendor:device]`
+/// in lowercase, so the `:` keeps a class code like `[0300]` from matching.
+/// The class prefix sits before the first `: ` and the ids after the first
+/// ` [`, so both are dropped.
+#[cfg(not(any(windows, target_os = "macos")))]
+fn parse_lspci_name(listing: &str, device_id: &str) -> Option<String> {
+    let id = device_id.trim_start_matches("0x").to_ascii_lowercase();
+    if id.is_empty() {
+        return None;
+    }
+    let needle = format!(":{id}]");
+    let line = listing.lines().find(|line| line.to_ascii_lowercase().contains(&needle))?;
+    let after_class = line.split_once(": ")?.1;
+    let name = after_class.split_once(" [").map_or(after_class, |(name, _)| name).trim();
+    (!name.is_empty()).then(|| name.to_owned())
 }
 
 /// Joins `reg query /s` listings of the adapter names and memory sizes by
 /// their subkey and keeps the adapter with the most memory.
+#[cfg(windows)]
 fn best_adapter(names: &str, sizes: &str) -> Option<(String, f64)> {
     fn values(listing: &str) -> Vec<(String, String)> {
         let mut key = String::new();
@@ -278,6 +403,7 @@ mod tests {
     }
 
 
+    #[cfg(windows)]
     #[test]
     fn the_adapter_with_the_most_memory_wins_and_basic_display_never_does() {
         let names = "\r\nHKEY_LOCAL_MACHINE\\X\\0000\r\n    DriverDesc    REG_SZ    AMD Radeon RX 7800 XT\r\n\r\nHKEY_LOCAL_MACHINE\\X\\0001\r\n    DriverDesc    REG_SZ    Intel(R) UHD Graphics 770\r\n\r\nHKEY_LOCAL_MACHINE\\X\\0002\r\n    DriverDesc    REG_SZ    Microsoft Basic Display Adapter\r\n";
@@ -285,5 +411,39 @@ mod tests {
         let (name, vram) = best_adapter(names, sizes).unwrap();
         assert_eq!(name, "AMD Radeon RX 7800 XT");
         assert_eq!(vram, 16.0);
+    }
+
+    #[test]
+    fn the_apple_chip_is_read_from_the_system_profiler_json() {
+        let profile = r#"{ "SPDisplaysDataType" : [ { "_name" : "Apple M2 Max", "sppci_cores" : "30", "sppci_model" : "Apple M2 Max" } ] }"#;
+        assert_eq!(apple_chip(profile).as_deref(), Some("Apple M2 Max"));
+        assert_eq!(apple_chip(r#"{ "sppci_model" : "AMD Radeon Pro" }"#), None);
+        assert_eq!(apple_chip("{}"), None);
+    }
+
+    #[cfg(not(any(windows, target_os = "macos")))]
+    #[test]
+    fn a_linux_card_is_named_from_its_vendor_when_lspci_is_silent() {
+        let name = linux_card_name("0x8086", "0xffff");
+        assert!(name.starts_with("Intel"), "got {name}");
+        assert!(name.contains("0x8086"), "the ids stay visible: {name}");
+        assert_eq!(linux_card_name("0x1002", "0xffff").split(' ').next(), Some("AMD"));
+        assert_eq!(linux_card_name("0x10de", "0xffff").split(' ').next(), Some("NVIDIA"));
+        assert_eq!(linux_card_name("0x1234", "0xffff").split(' ').next(), Some("PCI"));
+        assert_eq!(linux_card_name("8086", "ffff").split(' ').next(), Some("Intel"));
+    }
+
+    #[cfg(not(any(windows, target_os = "macos")))]
+    #[test]
+    fn an_lspci_line_keeps_the_adapter_name_and_drops_the_class_and_ids() {
+        let listing = concat!(
+            "00:1f.3 Audio device [0403]: Intel Corporation Device [8086:7f50]\n",
+            "04:00.0 VGA compatible controller [0300]: Intel Corporation Battlemage G21 [Arc B580] [8086:e20b]\n",
+        );
+        assert_eq!(parse_lspci_name(listing, "0xe20b").as_deref(), Some("Intel Corporation Battlemage G21"));
+        assert_eq!(parse_lspci_name(listing, "0x7f50").as_deref(), Some("Intel Corporation Device"));
+        assert_eq!(parse_lspci_name(listing, "0x0300"), None);
+        assert_eq!(parse_lspci_name(listing, "0x1234"), None);
+        assert_eq!(parse_lspci_name(listing, "0x"), None);
     }
 }

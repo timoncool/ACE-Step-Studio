@@ -453,23 +453,41 @@ impl EngineOptions {
         if self.backend != ComputeBackend::Auto {
             return vec![self.backend];
         }
-        let mut chain = Vec::new();
-        if cuda_build::current().is_some() {
-            chain.push(ComputeBackend::Cuda);
+        // Off Windows the engine is a single native build whose ggml loads its
+        // own best device - Metal on Apple Silicon, Vulkan in the Linux
+        // package - so Auto asks the engine to choose (no GGML_BACKEND is set)
+        // and only falls back to the processor if that start fails.
+        #[cfg(not(windows))]
+        {
+            let mut chain = vec![ComputeBackend::Auto];
+            chain.retain(|device| !failed.contains(device));
+            chain.push(ComputeBackend::Cpu);
+            chain
         }
-        if !cuda_build::nvidia_card() {
-            chain.push(ComputeBackend::Vulkan);
+        #[cfg(windows)]
+        {
+            let mut chain = Vec::new();
+            if cuda_build::current().is_some() {
+                chain.push(ComputeBackend::Cuda);
+            }
+            if !cuda_build::nvidia_card() {
+                chain.push(ComputeBackend::Vulkan);
+            }
+            chain.retain(|device| !failed.contains(device));
+            chain.push(ComputeBackend::Cpu);
+            chain
         }
-        chain.retain(|device| !failed.contains(device));
-        chain.push(ComputeBackend::Cpu);
-        chain
     }
 
     /// The CUDA build the engine will compute on, and so the cuBLAS it needs:
     /// chosen outright, or left to ggml on an NVIDIA card one of the builds
-    /// runs on. None on Vulkan and the processor.
+    /// runs on. None on Vulkan and the processor, and off Windows, where the
+    /// engine is built without CUDA and NVIDIA's libraries are Windows ones.
     fn cuda_build(&self) -> Option<cuda_build::CudaBuild> {
         use music_engine::server::ComputeBackend;
+        if !cfg!(windows) {
+            return None;
+        }
         match self.backend {
             ComputeBackend::Cuda | ComputeBackend::Auto => cuda_build::current(),
             ComputeBackend::Vulkan | ComputeBackend::Cpu => None,
@@ -4191,7 +4209,19 @@ fn engine_bundle_root() -> PathBuf {
     env::var_os("STUDIO_ENGINE_ROOT")
         .map(PathBuf::from)
         .or_else(|| env::var_os("STUDIO_ENGINE_BIN").map(PathBuf::from).and_then(|path| path.parent().map(std::path::Path::to_path_buf)))
-        .or_else(|| std::env::current_exe().ok().and_then(|path| path.parent().map(|parent| parent.join("resources").join("engine"))))
+        .or_else(|| std::env::current_exe().ok().and_then(|path| path.parent().map(|parent| parent.join("resources").join("engine"))).map(|beside| {
+            // In a macOS app bundle the executable is Contents/MacOS/<name> and
+            // bundled resources are in Contents/Resources.
+            let in_bundle = beside.ancestors().nth(3).map(|contents| contents.join("Resources").join("resources").join("engine"));
+            // A Linux package puts the executable in usr/bin and the resources
+            // in usr/lib/<product name>, the AppImage under its own usr.
+            let in_package = beside.ancestors().nth(3).map(|usr| usr.join("lib").join(&music_core::studio().name).join("resources").join("engine"));
+            match (in_bundle, in_package) {
+                (Some(path), _) if cfg!(target_os = "macos") && path.is_dir() => path,
+                (_, Some(path)) if cfg!(target_os = "linux") && !beside.is_dir() && path.is_dir() => path,
+                _ => beside,
+            }
+        }))
         .unwrap_or_else(|| PathBuf::from("resources/engine"))
 }
 
@@ -6091,6 +6121,10 @@ fn midi_stopped(state: &AppState) -> bool {
 /// the engine runs the CUDA 13 build, else the processor - Pascal and Maxwell have no CUDA 13 code,
 /// AMD and Intel no CUDA, and its Vulkan path writes wrong notes.
 fn midi_device(options: &EngineOptions) -> &'static str {
+    // the macOS build carries Metal alone, which its own choice finds
+    if cfg!(target_os = "macos") {
+        return if options.backend == music_engine::server::ComputeBackend::Cpu { "cpu" } else { "auto" };
+    }
     match options.backend {
         music_engine::server::ComputeBackend::Cpu => "cpu",
         _ if options.cuda_build() == Some(cuda_build::CudaBuild::Cuda13) => "auto",
@@ -6157,12 +6191,11 @@ async fn transcribe_to_midi(state: &AppState, size: &'static midi::Size, audio: 
         .stderr(std::process::Stdio::piped())
         .kill_on_drop(true);
     // the CUDA runtime it imports lives beside the engine, as for the trainer
-    let mut path = std::ffi::OsString::from(engine_bundle_root().as_os_str());
-    if let Some(existing) = std::env::var_os("PATH") {
-        path.push(";");
-        path.push(existing);
+    let mut paths = vec![engine_bundle_root()];
+    paths.extend(std::env::var_os("PATH").iter().flat_map(std::env::split_paths));
+    if let Ok(path) = std::env::join_paths(paths) {
+        command.env("PATH", path);
     }
-    command.env("PATH", path);
     #[cfg(windows)]
     command.creation_flags(0x0800_0000);
     let mut child = command.spawn().with_context(|| format!("start {}", tool.display()))?;
@@ -7915,7 +7948,14 @@ mod tests {
             assert_eq!(options.device_chain(&[device]), vec![device]);
         }
         let auto = EngineOptions::default();
-        assert_eq!(auto.device_chain(&[ComputeBackend::Cuda, ComputeBackend::Vulkan]), vec![ComputeBackend::Cpu]);
+        // Off Windows the chain starts from Auto itself, the engine's own best
+        // device, so only a Windows chain loses entries to CUDA and Vulkan.
+        let chain = auto.device_chain(&[ComputeBackend::Cuda, ComputeBackend::Vulkan]);
+        if cfg!(windows) {
+            assert_eq!(chain, vec![ComputeBackend::Cpu]);
+        } else {
+            assert_eq!(chain, vec![ComputeBackend::Auto, ComputeBackend::Cpu]);
+        }
         assert_eq!(auto.device_chain(&[]).last(), Some(&ComputeBackend::Cpu));
     }
 

@@ -1,0 +1,124 @@
+name: macOS and Linux builds
+
+# The studio for Apple Silicon (Metal) and Linux x86-64 (Vulkan), built from
+# the pinned engines, started by hand. With a tag the builds are attached to
+# that release.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to attach the builds to; empty builds only"
+        required: false
+
+concurrency:
+  group: unix-builds-${{ github.ref }}-${{ inputs.tag }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  # the repository pins the Windows toolchain for the release machine
+  RUSTUP_TOOLCHAIN: stable
+  CARGO_TERM_COLOR: never
+
+jobs:
+  macos:
+    runs-on: macos-14
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the news page's changelog is read from the history
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            desktop/src-tauri -> target
+      - name: Tools
+        run: brew list ninja >/dev/null 2>&1 || brew install ninja
+      - name: Build
+        run: bash scripts/build-release-macos.sh
+      - name: Engine starts
+        run: |
+          set -e
+          engine=desktop/src-tauri/resources/engine/ace-server
+          "$engine" --help 2>&1 | head -n 5
+          midi=desktop/src-tauri/resources/music-midi/music-midi
+          "$midi" --help 2>&1 | head -n 5 || true
+      - name: Collect
+        id: collect
+        run: |
+          set -e
+          mkdir -p out
+          dmg="$(find desktop/src-tauri/target/release/bundle/dmg -name '*.dmg' | head -n 1)"
+          version="$(node -p "require('./desktop/src-tauri/tauri.conf.json').version")"
+          cp "$dmg" "out/ACE-Step-Studio-${version}-macos-arm64.dmg"
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ace-step-studio-macos-arm64
+          path: out/*
+      - name: Attach to the release
+        if: ${{ inputs.tag != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ inputs.tag }}" out/* --clobber
+
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            desktop/src-tauri -> target
+      - name: Packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config cmake ninja-build nasm autoconf automake libtool \
+            libssl-dev libasound2-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
+            patchelf file libfuse2t64 \
+            libvulkan-dev glslc spirv-headers
+      - name: Build
+        run: bash scripts/build-release-linux.sh
+      - name: Engine starts
+        run: |
+          set -e
+          engine=desktop/src-tauri/resources/engine/ace-server
+          readelf -d "$engine" | grep -iE 'runpath|rpath'
+          ldd "$engine" | grep -i 'not found' && exit 1 || true
+          "$engine" --help 2>&1 | head -n 5
+      - name: Collect
+        run: |
+          set -e
+          mkdir -p out
+          version="$(node -p "require('./desktop/src-tauri/tauri.conf.json').version")"
+          deb="$(find desktop/src-tauri/target/release/bundle/deb -name '*.deb' | head -n 1)"
+          appimage="$(find desktop/src-tauri/target/release/bundle/appimage -name '*.AppImage' | head -n 1)"
+          cp "$deb" "out/ACE-Step-Studio-${version}-linux-amd64.deb"
+          cp "$appimage" "out/ACE-Step-Studio-${version}-linux-x86_64.AppImage"
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ace-step-studio-linux-x64
+          path: out/*
+      - name: Attach to the release
+        if: ${{ inputs.tag != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ inputs.tag }}" out/* --clobber

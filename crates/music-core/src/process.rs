@@ -9,6 +9,12 @@
 //! `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. Every child spawned into it dies when
 //! the last handle to the job closes, which the system does for us when this
 //! process ends, however it ends.
+//!
+//! Linux has no job objects. There the answer is `PR_SET_PDEATHSIG`, set in the
+//! forked child before it execs; see `ensure_dies_with_parent` below, which the
+//! engine and the assistant sidecar call on their spawn. This module's `adopt`
+//! therefore does nothing off Windows - it is the spawn-side hook, not this
+//! one, that keeps a Linux engine from being orphaned.
 
 use std::process::Child;
 
@@ -32,6 +38,49 @@ pub fn adopt(child: &Child) {
 
 #[cfg(not(windows))]
 pub fn adopt(_child: &Child) {}
+
+/// Wires up the spawn so the child cannot outlive this process.
+///
+/// Call this on the `Command` immediately before `spawn`. On Linux it is the
+/// only thing standing between a hard-killed studio and an engine left
+/// holding the graphics card and the engine port - which then blocks the next
+/// start with a bind failure that looks like a completely different problem.
+///
+/// A no-op elsewhere: on Windows `adopt` above covers the same ground with a
+/// job object after the child exists; macOS has no parent-death signal.
+pub fn ensure_dies_with_parent(command: &mut std::process::Command) {
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::process::CommandExt;
+
+        let parent = std::process::id() as libc::pid_t;
+        // `PR_SET_PDEATHSIG` is per-thread and cleared across a successful
+        // `execve`, so it has to be set in the forked child, which is what
+        // `pre_exec` brackets. Everything inside is async-signal-safe.
+        unsafe {
+            command.pre_exec(move || {
+                // SIGKILL rather than SIGTERM: a model server holds no unsaved
+                // state, and a signal it may handle slowly (the engine ignores
+                // SIGTERM mid-inference) would leave exactly the orphan this
+                // exists to prevent.
+                if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL) != 0 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                // The parent may have died between fork and the call above, in
+                // which case the signal will never come. Noticing turns a quiet
+                // orphan into a failed start the supervisor can retry.
+                if libc::getppid() != parent {
+                    return Err(std::io::Error::other("the studio exited while the child was starting"));
+                }
+                Ok(())
+            });
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = command;
+    }
+}
 
 /// One job for the whole process, created the first time a child needs it.
 #[cfg(windows)]
