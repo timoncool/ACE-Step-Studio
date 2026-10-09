@@ -168,6 +168,13 @@ Code, save [docs/mcp-skill.md](docs/mcp-skill.md) as `~/.claude/skills/ace-step-
   message the studio shows.
 - **Likes, sorting and stems in order** — a like is kept with the song for every window and
   agent, every list sorts by date, title or length, and a song's stems fold under it.
+- **Melodic variation** — under the language model's settings, a penalty on the audio codes it
+  repeated lately, counted by presence, by frequency or DRY, keeps a melody from looping; 1.00 is off.
+- **Around every song** — a note of your own on each song, its parameters sent back to the form,
+  shown as JSON or saved to a file; the engine's stage, step and time left on the card while it
+  renders; video export from 1080p to 240p with AAC from 128 to 320 kbps; quitting while a song is
+  made asks first, and a song the studio was closed on starts again; karaoke can recognise words
+  with Parakeet Ultra int8, Moondream's fine-tune of Parakeet.
 
 ## Compose and edit MIDI
 
