@@ -50,7 +50,14 @@ interface VisualizerConfig {
   visualizerScale: number; // 0.3-2.0
   lyricsX: number;     // 0-100%
   lyricsY: number;     // 0-100%
+  /** The exported picture's short side, in pixels; the frame is drawn at 1080 and scaled to it. */
+  outputSize: number;
+  /** The exported sound's AAC bitrate, kbps. */
+  audioBitrate: number;
 }
+
+const OUTPUT_SIZES = [1080, 720, 480, 360, 240] as const;
+const AUDIO_BITRATES = [128, 192, 256, 320] as const;
 
 interface EffectConfig {
   shake: boolean;
@@ -216,6 +223,8 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
     visualizerScale: 1.0,
     lyricsX: 50,
     lyricsY: 10,
+    outputSize: 1080,
+    audioBitrate: 192,
   });
 
   const [effects, setEffects] = useState<EffectConfig>({
@@ -683,47 +692,39 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
     }
   };
 
-  const analyzeAudioOffline = async (audioBuffer: AudioBuffer, fps: number): Promise<Uint8Array[]> => {
-    const duration = audioBuffer.duration;
-    const totalFrames = Math.ceil(duration * fps);
-    const samplesPerFrame = Math.floor(audioBuffer.sampleRate / fps);
-    const fftSize = 2048;
-    const frequencyBinCount = fftSize / 2;
-
-    // Get raw audio data from first channel
-    const channelData = audioBuffer.getChannelData(0);
-    const frequencyDataFrames: Uint8Array[] = [];
-    const smoothing = 0.8; // Match AnalyserNode default smoothingTimeConstant
-    let prevFrame = new Float32Array(frequencyBinCount);
-
+  const analyzeAudioOffline = async (audioBuffer: AudioBuffer, fps: number): Promise<{ frequency: Uint8Array[]; waveform: Uint8Array[] }> => {
+    // The preview's own analyser, run through the song offline and read at every frame,
+    // so the export draws the same spectrum and waveform the preview shows.
+    // the analyser hears a mono downmix, so one rendered channel is all it needs
+    const offline = new OfflineAudioContext(1, audioBuffer.length, audioBuffer.sampleRate);
+    const source = offline.createBufferSource();
+    source.buffer = audioBuffer;
+    const analyser = offline.createAnalyser();
+    analyser.fftSize = 2048;
+    source.connect(analyser);
+    analyser.connect(offline.destination);
+    const quantum = 128 / audioBuffer.sampleRate;
+    const totalFrames = Math.ceil(audioBuffer.duration * fps);
+    const frequency: Uint8Array[] = [];
+    const waveform: Uint8Array[] = [];
+    let last = -1;
     for (let frame = 0; frame < totalFrames; frame++) {
-      const startSample = frame * samplesPerFrame;
-      const endSample = Math.min(startSample + fftSize, channelData.length);
-
-      const frameData = new Uint8Array(frequencyBinCount);
-      const rawFrame = new Float32Array(frequencyBinCount);
-
-      for (let bin = 0; bin < frequencyBinCount; bin++) {
-        let sum = 0;
-        const binSize = Math.max(1, Math.floor((endSample - startSample) / frequencyBinCount));
-        const binStart = startSample + bin * binSize;
-        const binEnd = Math.min(binStart + binSize, endSample);
-
-        for (let i = binStart; i < binEnd && i < channelData.length; i++) {
-          sum += Math.abs(channelData[i]);
-        }
-
-        const avg = binSize > 0 ? sum / binSize : 0;
-        // Apply exponential smoothing like AnalyserNode
-        rawFrame[bin] = smoothing * prevFrame[bin] + (1 - smoothing) * avg;
-        frameData[bin] = Math.min(255, Math.floor(rawFrame[bin] * 512));
-      }
-
-      prevFrame = rawFrame;
-      frequencyDataFrames.push(frameData);
+      const at = Math.floor(Math.max(frame / fps, quantum) / quantum) * quantum;
+      if (at <= last || at >= audioBuffer.duration) continue;
+      last = at;
+      void offline.suspend(at).then(() => {
+        const spectrum = new Uint8Array(analyser.frequencyBinCount);
+        const wave = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(spectrum);
+        analyser.getByteTimeDomainData(wave);
+        frequency[frame] = spectrum;
+        waveform[frame] = wave;
+        return offline.resume();
+      });
     }
-
-    return frequencyDataFrames;
+    source.start(0);
+    await offline.startRendering();
+    return { frequency, waveform };
   };
 
   const loadImageAsDataUrl = async (url: string): Promise<string | null> => {
@@ -758,6 +759,16 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
     const width = canvas.width;
     const height = canvas.height;
     const currentConfig = configRef.current;
+    // even sides, as H.264 wants them
+    const factor = Math.min(1, (currentConfig.outputSize || 1080) / Math.min(width, height));
+    const outWidth = Math.round((width * factor) / 2) * 2;
+    const outHeight = Math.round((height * factor) / 2) * 2;
+    const output = factor < 1 ? document.createElement('canvas') : canvas;
+    output.width = outWidth;
+    output.height = outHeight;
+    const outputContext = output === canvas ? null : output.getContext('2d');
+    if (outputContext) outputContext.imageSmoothingQuality = 'high';
+    const audioBitrate = `${currentConfig.audioBitrate || 192}k`;
     const centerX = (currentConfig.visualizerX / 100) * width;
     const centerY = (currentConfig.visualizerY / 100) * height;
 
@@ -825,7 +836,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
     setExportProgress(10);
 
     // Analyze audio to get frequency data for each frame
-    const frequencyDataFrames = await analyzeAudioOffline(audioBuffer, fps);
+    const analysed = await analyzeAudioOffline(audioBuffer, fps);
 
     setExportProgress(15);
 
@@ -835,20 +846,15 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
     const currentTexts = textLayersRef.current;
     const capturedFrames: string[] = [];
     // One GPU encoder for the whole export, or none and the JPEG path below.
-    const hardware: HardwareEncoder | null = await createHardwareEncoder({ width, height, fps }).catch(() => null);
+    const hardware: HardwareEncoder | null = await createHardwareEncoder({ width: outWidth, height: outHeight, fps }).catch(() => null);
 
     for (let frameIndex = 0; frameIndex < totalFrames; frameIndex++) {
       const time = frameIndex / fps;
-      const dataArray = frequencyDataFrames[frameIndex] || new Uint8Array(1024);
-
-      // Create time domain data (simple sine wave approximation based on bass)
-      const timeDomain = new Uint8Array(1024);
-      let bassSum = 0;
-      for (let i = 0; i < 20; i++) bassSum += dataArray[i];
-      const bassLevel = bassSum / 20 / 255;
-      for (let i = 0; i < timeDomain.length; i++) {
-        timeDomain[i] = 128 + Math.sin(i * 0.1 + time * 10) * 64 * bassLevel;
-      }
+      // a frame between two analysed ones (fps above the audio's block rate) shows the one before it
+      let analysedFrame = frameIndex;
+      while (analysedFrame > 0 && !analysed.frequency[analysedFrame]) analysedFrame--;
+      const dataArray = analysed.frequency[analysedFrame] || new Uint8Array(1024);
+      const timeDomain = analysed.waveform[analysedFrame] || new Uint8Array(1024).fill(128);
 
       // Calculate bass and pulse
       let bass = 0;
@@ -868,16 +874,20 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
       if (bgVideo) {
         // Seek video to current frame time (loop if video is shorter)
         const videoTime = time % (bgVideo.duration || 1);
-        bgVideo.currentTime = videoTime;
-        // Wait for seek to complete
-        await new Promise<void>((resolve) => {
-          const onSeeked = () => {
-            bgVideo!.removeEventListener('seeked', onSeeked);
+        // The frame is drawn only once the clip shows it: a seek far from a keyframe decodes for
+        // longer than a frame lasts, and drawing before it ends repeats the old picture.
+        await new Promise<void>((resolve, reject) => {
+          const done = () => {
+            clearTimeout(timer);
+            bgVideo!.removeEventListener('seeked', done);
             resolve();
           };
-          bgVideo!.addEventListener('seeked', onSeeked);
-          // Fallback timeout in case seeked never fires
-          setTimeout(resolve, 50);
+          const timer = setTimeout(() => {
+            bgVideo!.removeEventListener('seeked', done);
+            reject(new Error(`the background video did not reach ${videoTime.toFixed(2)} s`));
+          }, 10_000);
+          bgVideo!.addEventListener('seeked', done);
+          bgVideo!.currentTime = videoTime;
         });
         bgSource = bgVideo;
       }
@@ -1199,10 +1209,11 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
 
       // Straight to the GPU encoder when the machine has one; the JPEG round
       // trip below is the fallback, and it is what made this slow.
+      if (outputContext) outputContext.drawImage(canvas, 0, 0, outWidth, outHeight);
       if (hardware) {
-        await hardware.encode(canvas, frameIndex);
+        await hardware.encode(output, frameIndex);
       } else {
-        const frameData = canvas.toDataURL('image/jpeg', 0.85);
+        const frameData = output.toDataURL('image/jpeg', 0.85);
         capturedFrames.push(frameData.split(',')[1]);
       }
 
@@ -1267,7 +1278,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
         '-i', 'video.mp4',
         '-i', `audio.${audioExtension}`,
         // The picture is already H.264: copy it rather than encode it twice.
-        '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-shortest',
+        '-c:v', 'copy', '-c:a', 'aac', '-b:a', audioBitrate, '-shortest',
         '-movflags', '+faststart',
         'out.mp4',
       ]);
@@ -1308,7 +1319,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
       '-i', 'frame%06d.jpg',
       ...(audioSource ? ['-i', `audio.${audioExtension}`] : []),
       '-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p',
-      ...(audioSource ? ['-c:a', 'aac', '-b:a', '192k', '-shortest'] : []),
+      ...(audioSource ? ['-c:a', 'aac', '-b:a', audioBitrate, '-shortest'] : []),
       '-movflags', '+faststart',
       'out.mp4',
     ];
@@ -2199,6 +2210,8 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
     known(nextIntensities, intensities, 'intensities');
     if (nextConfig?.preset !== undefined && !PRESETS.some(preset => preset.id === nextConfig.preset)) throw new Error(`Presets: ${PRESETS.map(preset => preset.id).join(', ')}.`);
     if (nextConfig?.aspectRatio !== undefined && !(String(nextConfig.aspectRatio) in RESOLUTIONS)) throw new Error(`Aspect ratios: ${Object.keys(RESOLUTIONS).join(', ')}.`);
+    if (nextConfig?.outputSize !== undefined && !(OUTPUT_SIZES as readonly number[]).includes(Number(nextConfig.outputSize))) throw new Error(`Output sizes: ${OUTPUT_SIZES.join(', ')}.`);
+    if (nextConfig?.audioBitrate !== undefined && !(AUDIO_BITRATES as readonly number[]).includes(Number(nextConfig.audioBitrate))) throw new Error(`Audio bitrates: ${AUDIO_BITRATES.join(', ')} kbps.`);
     if (nextConfig) setConfig(current => ({ ...current, ...nextConfig }));
     if (nextEffects) setEffects(current => ({ ...current, ...nextEffects }));
     if (nextIntensities) setIntensities(current => ({ ...current, ...nextIntensities }));
@@ -2422,6 +2435,35 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                     </button>
                                 ))}
                             </div>
+                         </div>
+
+                         {/* Exported picture size and sound */}
+                         <div className="space-y-3">
+                            <label className="text-xs font-bold text-zinc-500 uppercase">{t('videoOutputSize')}</label>
+                            <div className="grid grid-cols-5 gap-2">
+                                {OUTPUT_SIZES.map(size => (
+                                    <button
+                                        key={size}
+                                        onClick={() => setConfig({...config, outputSize: size})}
+                                        className={`px-2 py-2 rounded-lg text-xs font-medium border transition-colors ${config.outputSize === size ? 'bg-pink-600 border-pink-600 text-white' : 'border-white/10 text-zinc-400 hover:border-white/20'}`}
+                                    >
+                                        {size}p
+                                    </button>
+                                ))}
+                            </div>
+                            <label className="text-xs font-bold text-zinc-500 uppercase">{t('videoAudioBitrate')}</label>
+                            <div className="grid grid-cols-4 gap-2">
+                                {AUDIO_BITRATES.map(kbps => (
+                                    <button
+                                        key={kbps}
+                                        onClick={() => setConfig({...config, audioBitrate: kbps})}
+                                        className={`px-2 py-2 rounded-lg text-xs font-medium border transition-colors ${config.audioBitrate === kbps ? 'bg-pink-600 border-pink-600 text-white' : 'border-white/10 text-zinc-400 hover:border-white/20'}`}
+                                    >
+                                        {kbps} kbps
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-[11px] leading-4 text-zinc-500">{t('videoOutputHint')}</p>
                          </div>
 
                          {/* Background */}

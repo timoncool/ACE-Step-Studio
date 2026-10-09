@@ -102,6 +102,8 @@ export const ProcessingModal: React.FC<ProcessingModalProps> = ({ song, onClose,
   const [vstPick, setVstPick] = useState('');
   const [scanning, setScanning] = useState(false);
   const [masterOn, setMasterOn] = useState(false);
+  const [normalizeOn, setNormalizeOn] = useState(false);
+  const [peakClip, setPeakClip] = useState(10);
   const [referenceMode, setReferenceMode] = useState<'library' | 'file'>('library');
   const [referenceSong, setReferenceSong] = useState<LibraryEntry | null>(null);
   const [upload, setUpload] = useState<{ upload_id: string; name: string } | null>(null);
@@ -211,7 +213,7 @@ export const ProcessingModal: React.FC<ProcessingModalProps> = ({ song, onClose,
     : upload && { type: 'upload', upload_id: upload.upload_id };
   const referenceTitle = referenceMode === 'library' ? referenceSong?.title : upload?.name;
   const vstReady = vstChain.some(slot => slot.enabled);
-  const nothing = !denoiseOn && !lifterOn && !naturalizeOn && !(vstOn && vstReady) && !masterOn;
+  const nothing = !denoiseOn && !lifterOn && !naturalizeOn && !(vstOn && vstReady) && !masterOn && !normalizeOn;
   const ready = !nothing && (!masterOn || Boolean(reference));
 
   const uploadReference = async (file: File | undefined) => {
@@ -242,6 +244,7 @@ export const ProcessingModal: React.FC<ProcessingModalProps> = ({ song, onClose,
     if (naturalizeOn) request.naturalize = { amount: naturalizeAmount };
     if (vstOn && vstReady) request.vst = vstChain;
     if (masterOn && reference) request.master = reference;
+    if (normalizeOn) request.normalize = { peak_clip: peakClip };
     try {
       const response = await fetch(`/v1/library/songs/${encodeURIComponent(song.id)}/process`, {
         method: 'POST',
@@ -269,6 +272,7 @@ export const ProcessingModal: React.FC<ProcessingModalProps> = ({ song, onClose,
     if (naturalizeOn) parts.push(`${t('processNaturalize')} ${naturalizeAmount.toFixed(2)}`);
     if (vstOn && vstReady) parts.push(`VST (${vstChain.filter(slot => slot.enabled).map(slot => slot.name).join(', ')})`);
     if (masterOn) parts.push(referenceTitle ? `${t('processStage_master')} · ${referenceTitle}` : t('processStage_master'));
+    if (normalizeOn) parts.push(`${t('processStage_normalize')} ${peakClip}`);
     // a processed version processed again carries its whole chain
     const earlier = activeVersionLabel(song);
     return [earlier, parts.join(' + ')].filter(Boolean).join(' → ');
@@ -445,6 +449,10 @@ export const ProcessingModal: React.FC<ProcessingModalProps> = ({ song, onClose,
                     {!reference && <p className="text-[11px] text-amber-600 dark:text-amber-300">{t('processReferenceNone')}</p>}
                   </div>
                 )}
+              </section>
+              <section className={CARD}>
+                <Toggle checked={normalizeOn} onChange={setNormalizeOn} label={t('processNormalize')} hint={t('processNormalizeHint')} />
+                {normalizeOn && <Slider label={t('peakClipLabel')} value={peakClip} min={0} max={30} step={1} onChange={setPeakClip} />}
               </section>
             </fieldset>
           )}

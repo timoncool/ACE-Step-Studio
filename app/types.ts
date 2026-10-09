@@ -24,11 +24,15 @@ export interface Song {
   queuePosition?: number; // Position in queue (undefined = actively generating, number = waiting in queue)
   progress?: number;
   stage?: string;
+  /** The running stage's counter, e.g. `57/64 · ~2:50`. */
+  stageDetail?: string;
   generationParams?: any;
   tags: string[];
   audioUrl?: string;
   /** The thumbs-up, kept with the song in the library. */
   liked?: boolean;
+  /** The person's own note on the song, kept in the library. */
+  note?: string;
   /** When it was liked: the liked list is read from the latest. */
   likedAt?: Date;
   isPublic?: boolean;
@@ -111,6 +115,11 @@ export interface AceCreateRequest {
   lm_cfg_scale?: number;
   lm_top_p?: number;
   lm_top_k?: number;
+  lm_rep_penalty?: number;
+  lm_rep_mode?: 'presence' | 'frequency' | 'dry';
+  lm_rep_window?: number;
+  lm_dry_base?: number;
+  lm_dry_min_len?: number;
   lm_negative_prompt?: string;
   audio_codes?: string;
   inference_steps?: number;
@@ -138,8 +147,7 @@ export interface AceCreateRequest {
   synth_model?: string;
   lm_model?: string;
   vae?: string;
-  peak_clip?: number;
-  output_format: 'mp3' | 'wav16' | 'wav24' | 'wav32' | 'flac';
+  output_format: 'flac' | 'mp3';
   mp3_bitrate?: number;
   adapter_group_scales?: Record<string, number>;
   /** Studio fields, never sent to the engine as such. */

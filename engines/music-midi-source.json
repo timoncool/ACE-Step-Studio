@@ -5,8 +5,9 @@
   "source_dir": "engine",
   "target": "ace-midi",
   "shipped_as": "music-midi.exe",
-  "release_tag": "music-midi-3e7a0778",
-  "asset": "music-midi-cuda-windows-x64.zip",
-  "bytes": 126196178,
+  "macos_build": "scripts/build-midi-runtime.sh",
+  "release_tag": "music-midi-3e7a0778-r2",
+  "asset": "music-midi-windows-x64.zip",
+  "bytes": 126180169,
   "cuda_architectures": "75-real;80-real;86-real;89-real;90-real;120a-real;120-virtual"
 }

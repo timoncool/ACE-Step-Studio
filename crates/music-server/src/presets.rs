@@ -75,9 +75,9 @@ fn probe() -> &'static Hardware {
         let mut system = System::new();
         system.refresh_memory();
         let total_ram_gb = system.total_memory() as f64 / 1_000_000_000.0;
-        let (gpu_name, total_vram_gb) = nvidia_smi().unwrap_or_else(|| ("No NVIDIA GPU detected".into(), 0.0));
+        let (gpu_name, total_vram_gb) = nvidia_smi().or_else(other_card).unwrap_or_else(|| ("No NVIDIA GPU detected".into(), 0.0));
         let has_gpu = total_vram_gb > 0.0;
-        let (recommended, reason) = recommend_for_hardware(&gpu_name, total_vram_gb);
+        let (recommended, reason) = recommend_for_hardware(&gpu_name, total_vram_gb, total_ram_gb, crate::model_manager::profile_weights_bytes);
         Hardware { gpu_name, total_vram_gb, total_ram_gb, has_gpu, recommended, reason }
     })
 }
@@ -86,26 +86,50 @@ pub fn hardware() -> Hardware {
     probe().clone()
 }
 
-/// VRAM tiers follow the weights of each complete four-component set plus room
-/// for activations: the thresholds are the presets' own `min_vram_gb`.
-fn recommend_for_hardware(gpu_name: &str, total_vram_gb: f64) -> (&'static str, String) {
-    // The smallest set runs on Vulkan or the processor, where the engine
-    // goes on its own when CUDA cannot hold it; cloud music stays a choice.
-    if total_vram_gb <= 0.0 {
-        return (
-            "native-minimal",
-            "No NVIDIA VRAM was detected; the smallest set runs on Vulkan or the processor.".into(),
-        );
+/// The unquantised set stays in the list for whoever picks it; the studio never recommends full weights,
+/// Q8_0 is near lossless at half the memory.
+const FULL_WEIGHTS_PRESET: &str = "native-full";
+
+/// What the system, the window and the service hold beside the models.
+const SYSTEM_RAM_GB: f64 = 4.0;
+/// A set read from disk passes through memory even when its weights end on the card.
+const LOADING_RAM_GB: f64 = 2.0;
+/// The compute buffers of the longest songs, when they live in RAM.
+const WORK_RAM_GB: f64 = 2.0;
+
+/// Memory a set needs on this machine. On a card its preset fits, the weights
+/// live in video memory; on Vulkan over shared memory or on the processor
+/// they live in RAM with the buffers.
+pub fn ram_needed_gb(profile: &str, weights_bytes: u64, total_vram_gb: f64) -> f64 {
+    // Apple Silicon's video memory is the system's own, so weights "on the card" still take the RAM
+    let on_card = !cfg!(target_os = "macos") && PRESETS.iter().any(|preset| preset.profile_id == Some(profile) && total_vram_gb >= preset.min_vram_gb);
+    if on_card {
+        SYSTEM_RAM_GB + LOADING_RAM_GB
+    } else {
+        weights_bytes as f64 / 1_000_000_000.0 + WORK_RAM_GB + SYSTEM_RAM_GB
     }
+}
+
+/// The largest set the card and the memory both hold; full weights are never
+/// the answer. Without a card for any set, the smallest runs on Vulkan or the
+/// processor, where the engine goes on its own when CUDA cannot hold it; cloud
+/// music stays a choice.
+fn recommend_for_hardware(gpu_name: &str, total_vram_gb: f64, total_ram_gb: f64, weights_bytes: impl Fn(&str) -> u64) -> (&'static str, String) {
+    let fits = |id: &str| total_ram_gb >= ram_needed_gb(id, weights_bytes(id), total_vram_gb);
     let preset = PRESETS
         .iter()
-        .filter(|preset| preset.profile_id.is_some() && !preset.provider_mode)
-        .find(|preset| total_vram_gb >= preset.min_vram_gb);
+        .filter(|preset| !preset.provider_mode && preset.id != FULL_WEIGHTS_PRESET)
+        .filter_map(|preset| preset.profile_id.map(|profile| (preset, profile)))
+        .find(|(preset, profile)| total_vram_gb > 0.0 && total_vram_gb >= preset.min_vram_gb && fits(profile));
     match preset {
-        Some(preset) => (preset.id, format!("{gpu_name} with {total_vram_gb:.1} GB VRAM matches {}", preset.title)),
+        Some((preset, _)) => (preset.id, format!("{gpu_name} with {total_vram_gb:.1} GB VRAM and {total_ram_gb:.0} GB of memory matches {}", preset.title)),
+        None if total_vram_gb <= 0.0 => (
+            "native-minimal",
+            "No NVIDIA VRAM was detected; the smallest set runs on Vulkan or the processor.".into(),
+        ),
         None => (
             "native-minimal",
-            format!("{gpu_name} with {total_vram_gb:.1} GB VRAM holds no set; the smallest runs on the processor instead"),
+            format!("{gpu_name} with {total_vram_gb:.1} GB VRAM and {total_ram_gb:.0} GB of memory holds no set on the card; the smallest runs on the processor instead"),
         ),
     }
 }
@@ -162,6 +186,20 @@ fn nvidia_smi() -> Option<(String, f64)> {
     Some((name.trim().into(), memory.trim().parse::<f64>().ok()? / 1024.0))
 }
 
+/// The card that sizes the recommendation when there is no NVIDIA one: on
+/// Windows none, the sets are sized to CUDA there; elsewhere the engine runs
+/// on Metal (Apple Silicon, the unified memory) or Vulkan, and the adapter
+/// says how much memory it has.
+#[cfg(windows)]
+fn other_card() -> Option<(String, f64)> {
+    None
+}
+
+#[cfg(not(windows))]
+fn other_card() -> Option<(String, f64)> {
+    display_adapter()
+}
+
 
 /// A graphics card of any make - the ONNX parts reach one through DirectML
 /// where CUDA does not run - as the display adapter with the most dedicated
@@ -187,13 +225,124 @@ fn display_adapter() -> Option<(String, f64)> {
     best_adapter(&query("DriverDesc")?, &query("HardwareInformation.qwMemorySize")?)
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
 fn display_adapter() -> Option<(String, f64)> {
-    None
+    // Apple Silicon has one GPU per machine and no separate VRAM: its memory
+    // is the system's (unified), so the whole RAM is what a model set has to
+    // share with the rest of the machine. The chip name is the only identity
+    // macOS reports for it.
+    let output = Command::new("system_profiler").args(["-json", "SPDisplaysDataType"]).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let chip = apple_chip(&String::from_utf8_lossy(&output.stdout))?;
+    let ram = Command::new("sysctl").args(["-n", "hw.memsize"]).output().ok().and_then(|output| {
+        std::str::from_utf8(&output.stdout).ok().and_then(|value| value.trim().parse::<u64>().ok())
+    })?;
+    Some((chip, ram as f64 / 1_000_000_000.0))
+}
+
+/// The chip name from `system_profiler -json SPDisplaysDataType`: the value of
+/// `"sppci_model" : "Apple M2 Max"`.
+#[cfg(any(target_os = "macos", test))]
+fn apple_chip(profile: &str) -> Option<String> {
+    let after_key = profile.split("\"sppci_model\"").nth(1)?;
+    let name = after_key.split('"').nth(1)?;
+    name.starts_with("Apple ").then(|| name.to_string())
+}
+
+/// Linux has no registry to read the adapter from, so the card is named from
+/// its PCI identity instead. An unnamed card would leave the ONNX parts and
+/// the writing assistant on the processor on a machine whose GPU works.
+#[cfg(not(any(windows, target_os = "macos")))]
+fn display_adapter() -> Option<(String, f64)> {
+    let card = linux_card()?;
+    let name = linux_card_name(&card.vendor_id, &card.device_id);
+    Some((name, card.vram_gb))
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
+struct LinuxCard {
+    vendor_id: String,
+    device_id: String,
+    vram_gb: f64,
+}
+
+/// The first DRM card that is a PCI device, with the dedicated memory it
+/// reports. Only the AMD driver publishes `mem_info_vram_total`; where it is
+/// absent the size stays 0.0, which recommends no local set rather than
+/// guessing at one that may not fit.
+#[cfg(not(any(windows, target_os = "macos")))]
+fn linux_card() -> Option<LinuxCard> {
+    let mut cards: Vec<std::path::PathBuf> = std::fs::read_dir("/sys/class/drm")
+        .ok()?
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with("card") && name[4..].chars().all(|c| c.is_ascii_digit()))
+        })
+        .collect();
+    cards.sort();
+    cards.into_iter().find_map(|path| {
+        let device = path.join("device");
+        let read = |name: &str| -> Option<String> {
+            std::fs::read_to_string(device.join(name)).ok().map(|value| value.trim().to_owned())
+        };
+        let vendor_id = read("vendor")?;
+        let device_id = read("device").unwrap_or_default();
+        let vram_gb = read("mem_info_vram_total")
+            .and_then(|bytes| bytes.parse::<f64>().ok())
+            .map_or(0.0, |bytes| bytes / 1024.0 / 1024.0 / 1024.0);
+        Some(LinuxCard { vendor_id, device_id, vram_gb })
+    })
+}
+
+/// `lspci` names the card as a person would; without it the vendor still names
+/// it well enough to reach the GPU. `8086` is Intel, `1002` and `1022` AMD.
+#[cfg(not(any(windows, target_os = "macos")))]
+fn linux_card_name(vendor_id: &str, device_id: &str) -> String {
+    let vendor = match vendor_id.trim_start_matches("0x").to_ascii_lowercase().as_str() {
+        "8086" => "Intel",
+        "1002" | "1022" => "AMD",
+        "10de" => "NVIDIA",
+        _ => "PCI",
+    };
+    lspci_name(device_id).unwrap_or_else(|| format!("{vendor} display adapter ({vendor_id}:{device_id})"))
+}
+
+/// The `lspci` line for this PCI device, trimmed to the adapter's own name.
+#[cfg(not(any(windows, target_os = "macos")))]
+fn lspci_name(device_id: &str) -> Option<String> {
+    let output = Command::new("lspci").args(["-nn"]).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    parse_lspci_name(&String::from_utf8_lossy(&output.stdout), device_id)
+}
+
+/// Pulls the adapter's own name out of an `lspci -nn` listing. The line is
+/// found by the bracketed device id, which `lspci` writes as `[vendor:device]`
+/// in lowercase, so the `:` keeps a class code like `[0300]` from matching.
+/// The class prefix sits before the first `: ` and the ids after the first
+/// ` [`, so both are dropped.
+#[cfg(not(any(windows, target_os = "macos")))]
+fn parse_lspci_name(listing: &str, device_id: &str) -> Option<String> {
+    let id = device_id.trim_start_matches("0x").to_ascii_lowercase();
+    if id.is_empty() {
+        return None;
+    }
+    let needle = format!(":{id}]");
+    let line = listing.lines().find(|line| line.to_ascii_lowercase().contains(&needle))?;
+    let after_class = line.split_once(": ")?.1;
+    let name = after_class.split_once(" [").map_or(after_class, |(name, _)| name).trim();
+    (!name.is_empty()).then(|| name.to_owned())
 }
 
 /// Joins `reg query /s` listings of the adapter names and memory sizes by
 /// their subkey and keeps the adapter with the most memory.
+#[cfg(windows)]
 fn best_adapter(names: &str, sizes: &str) -> Option<(String, f64)> {
     fn values(listing: &str) -> Vec<(String, String)> {
         let mut key = String::new();
@@ -258,26 +407,41 @@ mod tests {
         assert_eq!(serde_json::to_value(&configuration).unwrap(), before);
     }
 
+    fn recommend(gpu: &str, vram: f64) -> &'static str {
+        recommend_for_hardware(gpu, vram, 64.0, crate::model_manager::profile_weights_bytes).0
+    }
+
     #[test]
     fn recommendation_matches_named_cards_and_vram_tiers() {
-        assert_eq!(recommend_for_hardware("NVIDIA GeForce RTX 5090", 31.8).0, "native-full");
-        assert_eq!(recommend_for_hardware("NVIDIA GeForce RTX 4090", 23.99).0, "native-full");
-        assert_eq!(recommend_for_hardware("RTX 4080", 15.9).0, "native-quality");
-        assert_eq!(recommend_for_hardware("RTX 4070", 11.9).0, "native-balanced");
-        assert_eq!(recommend_for_hardware("RTX 4060", 8.0).0, "native-efficient");
-        assert_eq!(recommend_for_hardware("GTX 1660", 6.0).0, "native-minimal");
-        assert_eq!(recommend_for_hardware("GT 1030", 2.0).0, "native-minimal");
-        assert_eq!(recommend_for_hardware("No NVIDIA GPU detected", 0.0).0, "native-minimal");
+        // full weights are never recommended, even on a card they fit
+        assert_eq!(recommend("NVIDIA GeForce RTX 5090", 31.8), "native-quality");
+        assert_eq!(recommend("NVIDIA GeForce RTX 4090", 23.99), "native-quality");
+        assert_eq!(recommend("RTX 4080", 15.9), "native-quality");
+        assert_eq!(recommend("RTX 4070", 11.9), "native-balanced");
+        assert_eq!(recommend("RTX 4060", 8.0), "native-efficient");
+        assert_eq!(recommend("GTX 1660", 6.0), "native-minimal");
+        assert_eq!(recommend("GT 1030", 2.0), "native-minimal");
+        assert_eq!(recommend("No NVIDIA GPU detected", 0.0), "native-minimal");
     }
 
     #[test]
     fn every_local_tier_installs_a_profile() {
         for vram in [5.0, 8.0, 10.0, 16.0, 24.0, 32.0] {
-            assert!(crate::model_manager::profile_exists(profile_for_preset(recommend_for_hardware("NVIDIA test card", vram).0)));
+            assert!(crate::model_manager::profile_exists(profile_for_preset(recommend("NVIDIA test card", vram))));
         }
     }
 
+    #[test]
+    fn a_set_needs_the_memory_too() {
+        let weights = crate::model_manager::profile_weights_bytes;
+        assert_eq!(ram_needed_gb("quality-q8", weights("quality-q8"), 16.0), 6.0);
+        assert!(ram_needed_gb("quality-q8", weights("quality-q8"), 8.0) > 16.0);
+        // a 16 GB card in a machine with 5 GB of memory falls to the smallest set
+        assert_eq!(recommend_for_hardware("RTX 4080", 16.0, 5.0, weights).0, "native-minimal");
+        assert_eq!(recommend_for_hardware("RTX 4080", 16.0, 8.0, weights).0, "native-quality");
+    }
 
+    #[cfg(windows)]
     #[test]
     fn the_adapter_with_the_most_memory_wins_and_basic_display_never_does() {
         let names = "\r\nHKEY_LOCAL_MACHINE\\X\\0000\r\n    DriverDesc    REG_SZ    AMD Radeon RX 7800 XT\r\n\r\nHKEY_LOCAL_MACHINE\\X\\0001\r\n    DriverDesc    REG_SZ    Intel(R) UHD Graphics 770\r\n\r\nHKEY_LOCAL_MACHINE\\X\\0002\r\n    DriverDesc    REG_SZ    Microsoft Basic Display Adapter\r\n";
@@ -285,5 +449,39 @@ mod tests {
         let (name, vram) = best_adapter(names, sizes).unwrap();
         assert_eq!(name, "AMD Radeon RX 7800 XT");
         assert_eq!(vram, 16.0);
+    }
+
+    #[test]
+    fn the_apple_chip_is_read_from_the_system_profiler_json() {
+        let profile = r#"{ "SPDisplaysDataType" : [ { "_name" : "Apple M2 Max", "sppci_cores" : "30", "sppci_model" : "Apple M2 Max" } ] }"#;
+        assert_eq!(apple_chip(profile).as_deref(), Some("Apple M2 Max"));
+        assert_eq!(apple_chip(r#"{ "sppci_model" : "AMD Radeon Pro" }"#), None);
+        assert_eq!(apple_chip("{}"), None);
+    }
+
+    #[cfg(not(any(windows, target_os = "macos")))]
+    #[test]
+    fn a_linux_card_is_named_from_its_vendor_when_lspci_is_silent() {
+        let name = linux_card_name("0x8086", "0xffff");
+        assert!(name.starts_with("Intel"), "got {name}");
+        assert!(name.contains("0x8086"), "the ids stay visible: {name}");
+        assert_eq!(linux_card_name("0x1002", "0xffff").split(' ').next(), Some("AMD"));
+        assert_eq!(linux_card_name("0x10de", "0xffff").split(' ').next(), Some("NVIDIA"));
+        assert_eq!(linux_card_name("0x1234", "0xffff").split(' ').next(), Some("PCI"));
+        assert_eq!(linux_card_name("8086", "ffff").split(' ').next(), Some("Intel"));
+    }
+
+    #[cfg(not(any(windows, target_os = "macos")))]
+    #[test]
+    fn an_lspci_line_keeps_the_adapter_name_and_drops_the_class_and_ids() {
+        let listing = concat!(
+            "00:1f.3 Audio device [0403]: Intel Corporation Device [8086:7f50]\n",
+            "04:00.0 VGA compatible controller [0300]: Intel Corporation Battlemage G21 [Arc B580] [8086:e20b]\n",
+        );
+        assert_eq!(parse_lspci_name(listing, "0xe20b").as_deref(), Some("Intel Corporation Battlemage G21"));
+        assert_eq!(parse_lspci_name(listing, "0x7f50").as_deref(), Some("Intel Corporation Device"));
+        assert_eq!(parse_lspci_name(listing, "0x0300"), None);
+        assert_eq!(parse_lspci_name(listing, "0x1234"), None);
+        assert_eq!(parse_lspci_name(listing, "0x"), None);
     }
 }

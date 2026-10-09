@@ -114,7 +114,7 @@ Code, save [docs/mcp-skill.md](docs/mcp-skill.md) as `~/.claude/skills/ace-step-
 - **200 ready examples** — ACE-Step's own example requests, one click to load.
 - **Every engine setting** — steps, guidance and its eight modes, shift, solver and
   scheduler, the planner's temperature, CFG, top-p and top-k, both seeds, the plan strength
-  (how many DiT steps follow the planner's audio codes), MP3, FLAC or 16/24/32-bit WAV.
+  (how many DiT steps follow the planner's audio codes), lossless FLAC or MP3.
 - **A writing assistant** — a local Gemma model, OpenRouter, or your connected agent writes
   the caption and lyrics from an idea by ACE-Step's official songwriting rules. Lyrics you
   wrote yourself get their section tags with one button, the words exactly as you wrote them.
@@ -150,13 +150,14 @@ Code, save [docs/mcp-skill.md](docs/mcp-skill.md) as `~/.claude/skills/ace-step-
 - **Driven by your agent (MCP)** — Claude Code, Claude Desktop or Cursor do everything the
   studio does, and see and work its window.
 - **A library of plain files** — search, playlists, versions, cover art from prompt
-  templates, MP3s with title, lyrics and cover in their tags. Interface in English, Russian,
+  templates, tracks with title, lyrics and cover in their own tags (Vorbis comments in a FLAC,
+  ID3 in an MP3). Interface in English, Russian,
   Chinese, Japanese and Korean.
 - **A cover for every track** — a track without one wears a free (CC0) Wikimedia Commons
   photograph that fits the genres, moods and instruments of its style, a pattern in one of 21
   DiceBear styles, or a cover OpenRouter generates for every new track. It is chosen by the
-  track's seed, so it stays the same, a stem wears its song's, and it is written into the MP3,
-  so players show it after the download.
+  track's seed, so it stays the same, a stem wears its song's, and it is written into the
+  track's tags, so players show it after the download.
 - **One picture window** — for a cover, and for the background and centre of a music video:
   Commons photographs by search starting from the scenes a style calls up, clips free of
   copyright for a background, the track's pattern in any style, generation through
@@ -167,6 +168,13 @@ Code, save [docs/mcp-skill.md](docs/mcp-skill.md) as `~/.claude/skills/ace-step-
   message the studio shows.
 - **Likes, sorting and stems in order** — a like is kept with the song for every window and
   agent, every list sorts by date, title or length, and a song's stems fold under it.
+- **Melodic variation** — under the language model's settings, a penalty on the audio codes it
+  repeated lately, counted by presence, by frequency or DRY, keeps a melody from looping; 1.00 is off.
+- **Around every song** — a note of your own on each song, its parameters sent back to the form,
+  shown as JSON or saved to a file; the engine's stage, step and time left on the card while it
+  renders; video export from 1080p to 240p with AAC from 128 to 320 kbps; quitting while a song is
+  made asks first, and a song the studio was closed on starts again; karaoke can recognise words
+  with Parakeet Ultra int8, Moondream's fine-tune of Parakeet.
 
 ## Compose and edit MIDI
 
@@ -177,6 +185,8 @@ A MIDI track can also be sent to cover mode.
 ## Screenshots
 
 ![The MIDI editor: chords, sections and notes](docs/screenshots/en-16-midi-editor.png)
+
+![Melodic variation: a penalty on the codes the language model repeated lately](docs/screenshots/en-17-melodic-variation.png)
 
 | | |
 |---|---|
@@ -267,6 +277,26 @@ The main, tested path is an NVIDIA card.
   inside Windows.
 - "Auto" in a device choice takes the card when its runtime is installed, and the processor
   otherwise. The same table is in the studio, under Settings → Models.
+
+## Anonymous statistics and news
+
+The studio asks the author's server for news at start and every six hours. The request carries no id, so news
+arrive whatever you choose below: new items appear on top of the News page, and with no connection the studio shows
+the news of its release.
+
+The setup screen of the first start has a checkbox **Send anonymous usage statistics**, checked by default. The same
+switch is in Settings → Anonymous statistics, next to **What is sent** (the exact report of today) and **New install
+id**. While it is checked, the studio sends once a day:
+
+- a random install id made on this computer, not tied to the hardware or an account; unchecking the box deletes it;
+- the studio and its version, the OS name and version, the window language;
+- the graphics card as vendor, a video memory bucket (up to 8, 12, 16, 24+ GB) and the backend (CUDA, Vulkan or
+  processor);
+- how many songs were made, failed or were cancelled that day, and which model set made them.
+
+Never: lyrics, prompts, audio, file names or paths, anything personal. The server keeps the country Cloudflare
+reports for the connection, not the IP address. `DO_NOT_TRACK=1` or `STUDIO_TELEMETRY=0` in the environment turns
+statistics off entirely: no id exists and nothing is counted.
 
 ## Quick start
 
@@ -416,6 +446,35 @@ and the signed `latest.json` for the updater; it reads the signing key from
 `TAURI_SIGNING_PRIVATE_KEY` or `%USERPROFILE%\.tauri\ace-step-studio.key`. Model weights are
 never part of a release.
 
+### macOS and Linux
+
+The studio also builds for Apple Silicon (Metal) and Linux x86-64 (Vulkan). The
+`macOS and Linux builds` workflow (`.github/workflows/release-unix.yml`) is started by hand,
+optionally with a release tag to attach the builds to; it makes the .dmg, the .deb and the
+AppImage with the scripts below.
+
+On macOS (Xcode command line tools and CMake), the engine is built from the pinned commit with
+Metal, and again whenever `engines/engine-source.json` moves to a new commit:
+
+```bash
+scripts/build-engine-runtime.sh ~/ace-engine           # builds the pinned commit with Metal
+STUDIO_ENGINE_ROOT=~/ace-engine cargo run -p music-server
+scripts/build-release-macos.sh                         # the .dmg, engine and Audio to MIDI inside
+```
+
+Audio to MIDI is Windows-only as a download; on macOS `scripts/build-midi-runtime.sh <dir>`
+builds HOT-Step's `ace-midi` with Metal (point `STUDIO_MIDI_BIN` at the resulting `music-midi`;
+the dmg bundles it).
+
+On Linux (CMake, Ninja, the Vulkan headers and `glslc`), `scripts/build-engine-runtime-linux.sh <dir>`
+builds `ace-server` with Vulkan and a processor build of ggml for every CPU generation, its
+libraries found beside it; `scripts/build-release-linux.sh` makes the .deb and the AppImage.
+
+`STUDIO_ENGINE_ROOT` (or `STUDIO_ENGINE_BIN`, the path of `ace-server` itself) tells the studio
+where the engine is. `Auto` lets the engine choose its device, Metal on a Mac and Vulkan on
+Linux, and falls back to the processor. On macOS the studio keeps its data in
+`~/Library/Application Support/ACE-Step Studio`.
+
 ## Other Projects by [@timoncool](https://github.com/timoncool)
 
 | Project | Description |
@@ -441,7 +500,7 @@ never part of a release.
 - [sergree](https://github.com/sergree) for [matchering](https://github.com/sergree/matchering), and [jeankassio](https://github.com/jeankassio) for the vocal naturalizer in [ComfyUI_MusicTools](https://github.com/jeankassio/ComfyUI_MusicTools).
 - The authors of the LoRA in the catalogue, each credited and linked on its card.
 - [fspecii](https://github.com/fspecii/ace-step-ui) for the ACE-Step UI that 1.x grew from.
-- The [LAME](https://lame.sourceforge.io) project for the MP3 encoder.
+- The [LAME](https://lame.sourceforge.io) project for the MP3 encoder, [Xiph.Org](https://xiph.org/flac/) for libFLAC, the FLAC encoder, and [Serial-ATA](https://github.com/Serial-ATA/lofty-rs) for lofty, which writes the tags.
 - [crmne](https://github.com/crmne) for [Spotifast](https://github.com/crmne/spotifast) (MIT): the equalizer solves its band gains as its `eq.rs` does.
 - [Jordan Eldredge](https://github.com/captbaritone) and the Webamp team for [Webamp](https://github.com/captbaritone/webamp) (MIT), which the Winamp mode runs, and for the [Winamp Skin Museum](https://skins.webamp.org). Winamp and its base skin are Nullsoft's.
 - [Jordan Berg](https://github.com/jberg) for [Butterchurn](https://github.com/jberg/butterchurn) and [butterchurn-presets](https://github.com/jberg/butterchurn-presets) (MIT), MilkDrop in the browser. MilkDrop itself is Ryan Geiss's, and each preset is its author's, named in its title.
@@ -451,6 +510,7 @@ never part of a release.
 - [Wikimedia Commons](https://commons.wikimedia.org) and the photographers and filmmakers who give their work to it under CC0 or into the public domain, many of them through [Unsplash](https://unsplash.com): the pictures and clips a track and its video can wear. A chosen picture keeps a link to its page.
 - [Florian Körner](https://github.com/FlorianKoerner) for [DiceBear](https://www.dicebear.com) (MIT) and the authors of its CC0 styles, the patterns a track without a cover wears, and the [resvg](https://github.com/linebender/resvg) authors, whose renderer writes them into the track as PNG.
 - [MRafStudio](https://github.com/MRafStudio) for the ideas of [pull request #34](https://github.com/timoncool/YuE2-Studio/pull/34): the Activity log, sorting, likes kept in the library and stems under their song.
+- [stalexxx](https://github.com/stalexxx) for the macOS port of [YuE2 Studio pull request #51](https://github.com/timoncool/YuE2-Studio/pull/51), the service on macOS with Metal that this studio follows, and [SkySlider](https://github.com/SkySlider) for the Linux pieces from SkySlider's fork of YuE2 Studio: adapter detection and the parent-death signal.
 
 - [ryohey](https://github.com/ryohey) for [Signal](https://github.com/ryohey/signal) (MIT), built from [the studio fork](https://github.com/timoncool/signal/tree/studio), and Milton Paredes for the bundled A320U SoundFonts (GPL-2.0). License notices are kept in [licenses](licenses).
 

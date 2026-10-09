@@ -3,10 +3,12 @@
   "repository": "https://github.com/timoncool/acestep.cpp.git",
   "branch": "studio",
   "upstream": "https://github.com/ServeurpersoCom/acestep.cpp.git",
-  "commit": "d35485c1ec0c9e68ec1a6fea95d1c28e91ce53f5",
+  "commit": "090b652c69b2dee34e99c97691e7441bf02897db",
   "license": "MIT",
   "server": "ace-server",
   "port": 8089,
   "tools": [],
-  "worktree": "ace-engine"
+  "worktree": "ace-engine",
+  "macos_build": "scripts/build-engine-runtime.sh",
+  "linux_build": "scripts/build-engine-runtime-linux.sh"
 }

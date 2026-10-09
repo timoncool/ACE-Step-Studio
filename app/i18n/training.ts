@@ -355,7 +355,7 @@ const ru: TrainingStrings = {
   trainingResume_no_state: 'Продолжать не с чего: тренер сохраняет состояние только когда прогон доходит до конца, а не при остановке.',
   trainingResume_no_run: 'Прогона больше нет.',
   trainingStep: 'Шаг',
-  trainingLoss: 'Ошибка',
+  trainingLoss: 'Потери',
   trainingLeft: 'осталось',
   trainingCheckpoints: 'Чекпоинты',
   trainingToLora: 'В LoRA',

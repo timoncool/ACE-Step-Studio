@@ -83,6 +83,7 @@ export function mapNativeLibrarySong(song: NativeLibrarySong): Song {
     createdAt: nativeDate(song.created_at),
     madeByJob: stringMetadata(metadata, 'job_id'),
     liked: metadata.liked === true,
+    note: stringMetadata(metadata, 'note'),
     likedAt: metadata.liked === true && typeof metadata.liked_at === 'string' ? nativeDate(metadata.liked_at) : undefined,
     tags,
     derived: (() => {
@@ -203,6 +204,17 @@ export async function setNativeSongLiked(id: string, liked: boolean): Promise<So
     body: JSON.stringify({ liked }),
   });
   if (!response.ok) throw new Error(`Native like failed (${response.status})`);
+  return mapNativeLibrarySong(await response.json() as NativeLibrarySong);
+}
+
+/** The person's note on a song, kept in the library; empty takes it away. */
+export async function setNativeSongNote(id: string, note: string): Promise<Song> {
+  const response = await fetch(`/v1/library/songs/${encodeURIComponent(id)}/note`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ note }),
+  });
+  if (!response.ok) throw new Error(`Saving the note failed (${response.status})`);
   return mapNativeLibrarySong(await response.json() as NativeLibrarySong);
 }
 

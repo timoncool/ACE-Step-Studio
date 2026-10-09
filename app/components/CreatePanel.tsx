@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { scriptLanguage } from '../services/lyricsLanguage';
 import { libraryChanged, setupStatusChanged, updateLibrarySongs, useActivity, useAssistantStatus, useLibrarySongs, useSetupStatus, type ActivityEntry } from '../services/studioQueries';
 import { mapNativeLibrarySong } from '../services/nativeLibrary';
 import { karaokeReason } from '../services/karaoke';
@@ -69,6 +70,7 @@ const baseOnly = (task: Task) => task === 'lego' || task === 'extract' || task =
 
 const TRACKS = ['vocals', 'backing_vocals', 'drums', 'bass', 'guitar', 'keyboard', 'percussion', 'strings', 'synth', 'fx', 'brass', 'woodwinds'];
 const GUIDANCE = ['apg', 'adg', 'cfg_pp', 'dynamic_cfg', 'rescaled_cfg', 'cfg_zero_star', 'smc_cfg', 'cfg_mp'];
+const REP_MODES = ['presence', 'frequency', 'dry'];
 const LANGUAGES = ['', 'en', 'ru', 'zh', 'ja', 'ko', 'es', 'fr', 'de', 'it', 'pt', 'ar', 'hi', 'tr', 'pl', 'uk', 'nl', 'sv', 'vi', 'th', 'id', 'unknown'];
 const KEYS = ['', ...['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].flatMap(note => [`${note} major`, `${note} minor`])];
 const TIME_SIGNATURES = ['', '2', '3', '4', '6'];
@@ -246,6 +248,8 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const [lyrics, setLyrics] = useState('');
   const [instrumental, setInstrumental] = useState(false);
   const [language, setLanguage] = useState('en');
+  // a language picked by hand, or brought by a request, is not overruled by the lyric's script
+  const [languageChosen, setLanguageChosen] = useState(false);
   const [gender, setGender] = useState<'' | 'male' | 'female'>('');
   const [genres, setGenres] = useState<string[]>(() => someGenres());
   // What the language model or the assistant replaced, for the undo button.
@@ -275,6 +279,11 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const [lmCfg, setLmCfg] = useState('');
   const [lmTopP, setLmTopP] = useState('');
   const [lmTopK, setLmTopK] = useState('');
+  const [repPenalty, setRepPenalty] = useState('');
+  const [repMode, setRepMode] = useState('');
+  const [repWindow, setRepWindow] = useState('');
+  const [dryBase, setDryBase] = useState('');
+  const [dryMinLen, setDryMinLen] = useState('');
   const [lmNegative, setLmNegative] = useState('');
   const [lmSeed, setLmSeed] = useState('');
   const [songs, setSongs] = useState('');
@@ -309,9 +318,8 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const [takes, setTakes] = useState('');
   const [randomizeSeed, setRandomizeSeed] = useState(true);
   const [seed, setSeed] = useState('');
-  const [peakClip, setPeakClip] = useState('');
   const [mp3Bitrate, setMp3Bitrate] = useState('320');
-  const [format, setFormat] = useState<AceCreateRequest['output_format']>('mp3');
+  const [format, setFormat] = useState<AceCreateRequest['output_format']>('flac');
   const [models, setModels] = useState<Partial<Record<'synth_model' | 'lm_model' | 'vae', string>>>({});
   const [adapters, setAdapters] = useState<AdapterUse[]>([]);
   const [groups, setGroups] = useState<Record<string, string>>({});
@@ -382,6 +390,12 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   }, [setup?.engine_ready]);
 
 
+  useEffect(() => {
+    if (languageChosen) return;
+    const named = scriptLanguage(lyrics);
+    if (named) setLanguage(named);
+  }, [lyrics, languageChosen]);
+
   const remember = () => setUndo({ caption, lyrics });
 
   /** Fills the form from an engine request: a stored track's, a file's, the model's plan. */
@@ -399,7 +413,10 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     if ('duration' in settings) setDuration(numberText('duration'));
     if ('keyscale' in settings) setKeyscale(text('keyscale'));
     if ('timesignature' in settings) setTimesignature(text('timesignature'));
-    if ('vocal_language' in settings) setLanguage(text('vocal_language'));
+    if ('vocal_language' in settings) {
+      setLanguage(text('vocal_language'));
+      setLanguageChosen(true);
+    }
     if (!options.keepSource) {
       if (typeof settings.task_type === 'string' && TASKS.includes(settings.task_type as Task)) setTask(settings.task_type as Task);
       if (typeof settings.track === 'string') setTracks(settings.track ? settings.track.split('|').map(part => part.trim().toLowerCase()).filter(Boolean) : []);
@@ -410,14 +427,15 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
         ['guidance', setGuidanceMode], ['apg_momentum', setApgMomentum], ['apg_norm_threshold', setApgNorm], ['dcw_mode', setDcwMode],
         ['dcw_scaler', setDcwScaler], ['dcw_high_scaler', setDcwHigh], ['custom_timesteps', setCustomTimesteps], ['latent_shift', setLatentShift],
         ['latent_rescale', setLatentRescale], ['lm_temperature', setLmTemperature], ['lm_cfg_scale', setLmCfg], ['lm_top_p', setLmTopP],
-        ['lm_top_k', setLmTopK], ['lm_negative_prompt', setLmNegative], ['audio_cover_strength', setCoverStrength],
+        ['lm_top_k', setLmTopK], ['lm_rep_penalty', setRepPenalty], ['lm_rep_mode', setRepMode], ['lm_rep_window', setRepWindow],
+        ['lm_dry_base', setDryBase], ['lm_dry_min_len', setDryMinLen], ['lm_negative_prompt', setLmNegative], ['audio_cover_strength', setCoverStrength],
         ['cover_noise_strength', setCoverNoise], ['repainting_start', setRepaintStart], ['repainting_end', setRepaintEnd],
-        ['peak_clip', setPeakClip], ['mp3_bitrate', setMp3Bitrate], ['cfg_interval_start', setCfgStart], ['cfg_interval_end', setCfgEnd],
+        ['mp3_bitrate', setMp3Bitrate], ['cfg_interval_start', setCfgStart], ['cfg_interval_end', setCfgEnd],
         ['retake_variance', setRetakeVariance], ['retake_seed', setRetakeSeed], ['fade_in', setFadeIn], ['fade_out', setFadeOut],
       ] as const) {
         if (key in settings) (set as (value: string) => void)(text(key));
       }
-      if (typeof settings.output_format === 'string') setFormat(settings.output_format as AceCreateRequest['output_format']);
+      if (settings.output_format === 'mp3' || settings.output_format === 'flac') setFormat(settings.output_format);
       if (typeof settings.use_cot_caption === 'boolean') setCotCaption(settings.use_cot_caption);
       setAdapters(usesFromRequest(settings));
       const groupScales = settings.adapter_group_scales as Record<string, unknown> | undefined;
@@ -434,6 +452,8 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     if (typeof settings.caption !== 'string') settings.caption = song.style || '';
     if (typeof settings.lyrics !== 'string') settings.lyrics = song.lyrics || '';
     applyRequest(settings);
+    // the song's fields live on the studio form; the simple one would show none of them
+    setMode('studio');
   }, [initialData, applyRequest]);
 
   const reset = () => {
@@ -446,10 +466,10 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const resetParameters = () => {
     setSteps(''); setGuidance(''); setShift(''); setSolver(''); setScheduler(''); setGuidanceMode('');
     setApgMomentum(''); setApgNorm(''); setDcwMode(''); setDcwScaler(''); setDcwHigh(''); setCustomTimesteps('');
-    setLatentShift(''); setLatentRescale(''); setLmTemperature(''); setLmCfg(''); setLmTopP(''); setLmTopK('');
+    setLatentShift(''); setLatentRescale(''); setLmTemperature(''); setLmCfg(''); setLmTopP(''); setLmTopK(''); setRepPenalty(''); setRepMode(''); setRepWindow(''); setDryBase(''); setDryMinLen('');
     setLmNegative(''); setLmSeed(''); setSongs(''); setTakes(''); setSeed(''); setRandomizeSeed(true);
     setCoverStrength(''); setCoverNoise(''); setRepaintStart(''); setRepaintEnd('');
-    setPeakClip(''); setMp3Bitrate('320'); setFormat('mp3'); setModels({});
+    setMp3Bitrate('320'); setFormat('flac'); setModels({});
     setCfgStart(''); setCfgEnd(''); setRetakeVariance(''); setRetakeSeed(''); setFadeIn(''); setFadeOut(''); setBulk('');
   };
 
@@ -486,6 +506,16 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     put('lm_cfg_scale', numberOrUndefined(lmCfg));
     put('lm_top_p', numberOrUndefined(lmTopP));
     put('lm_top_k', numberOrUndefined(lmTopK));
+    const penalty = numberOrUndefined(repPenalty);
+    if (penalty && penalty > 1) {
+      put('lm_rep_penalty', penalty);
+      put('lm_rep_mode', repMode);
+      put('lm_rep_window', numberOrUndefined(repWindow));
+      if (repMode === 'dry') {
+        put('lm_dry_base', numberOrUndefined(dryBase));
+        put('lm_dry_min_len', numberOrUndefined(dryMinLen));
+      }
+    }
     put('lm_negative_prompt', lmNegative.trim());
     put('audio_codes', audioCodes.trim());
     put('guidance', guidanceMode);
@@ -497,7 +527,6 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     put('custom_timesteps', customTimesteps.trim());
     put('latent_shift', numberOrUndefined(latentShift));
     put('latent_rescale', numberOrUndefined(latentRescale));
-    put('peak_clip', numberOrUndefined(peakClip));
     put('cfg_interval_start', numberOrUndefined(cfgStart));
     put('cfg_interval_end', numberOrUndefined(cfgEnd));
     const variance = numberOrUndefined(retakeVariance);
@@ -923,6 +952,11 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     lm_cfg_scale: [lmCfg, setLmCfg],
     lm_top_p: [lmTopP, setLmTopP],
     lm_top_k: [lmTopK, setLmTopK],
+    lm_rep_penalty: [repPenalty, setRepPenalty],
+    lm_rep_mode: [repMode, setRepMode],
+    lm_rep_window: [repWindow, setRepWindow],
+    lm_dry_base: [dryBase, setDryBase],
+    lm_dry_min_len: [dryMinLen, setDryMinLen],
     lm_seed: [lmSeed, setLmSeed],
     lm_batch_size: [songs, setSongs],
     synth_batch_size: [takes, setTakes],
@@ -931,7 +965,6 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     cover_prompt: [coverPrompt, setCoverPrompt],
     output_format: [format, value => setFormat(value as AceCreateRequest['output_format'])],
     mp3_bitrate: [mp3Bitrate, setMp3Bitrate],
-    peak_clip: [peakClip, setPeakClip],
   };
   useBridgeCommand('create_get', () => ({
     mode,
@@ -944,7 +977,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   useBridgeCommand('create_set', (args) => {
     const fields = (args.fields && typeof args.fields === 'object' ? args.fields : args) as Record<string, unknown>;
     const extra = ['mode', 'instrumental', 'think', 'tracks', 'randomize_seed', 'adapters'];
-    const choices: Record<string, string[]> = { mode: ['studio', 'simple'], task_type: TASKS, output_format: ['mp3', 'wav16', 'wav24', 'wav32', 'flac'] };
+    const choices: Record<string, string[]> = { mode: ['studio', 'simple'], task_type: TASKS, output_format: ['flac', 'mp3'] };
     const unknown = Object.keys(fields).filter(key => !formFields[key] && !extra.includes(key));
     if (unknown.length) throw new Error(`Unknown fields: ${unknown.join(', ')}. The form has: ${[...Object.keys(formFields), ...extra].join(', ')}.`);
     for (const [key, allowed] of Object.entries(choices)) {
@@ -989,7 +1022,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   );
   const languageField = (
     <Field label={tt('aceLanguage')}>
-      <select value={language} onChange={event => setLanguage(event.target.value)} className={CONTROL}>
+      <select value={language} onChange={event => { setLanguage(event.target.value); setLanguageChosen(true); }} className={CONTROL}>
         {LANGUAGES.map(code => <option key={code} value={code}>{code ? tt(`aceLang_${code}`) : tt('aceAuto')}</option>)}
       </select>
     </Field>
@@ -1421,6 +1454,26 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
                     <SliderRow label={t('cfgScale')} value={lmCfg} fallback={2} min={1} max={4} step={0.1} onChange={setLmCfg} />
                     <SliderRow label="Top-P" value={lmTopP} fallback={0.9} min={0} max={1} step={0.01} onChange={setLmTopP} />
                     <SliderRow label={t('topK')} value={lmTopK} fallback={0} min={0} max={200} step={1} onChange={setLmTopK} />
+                    <SliderRow label={tt('aceRepPenalty')} value={repPenalty} fallback={1} min={1} max={1.5} step={0.01} onChange={setRepPenalty} />
+                    <p className="-mt-1 text-[11px] leading-4 text-zinc-500">{tt('aceRepPenaltyHint')}</p>
+                    {(numberOrUndefined(repPenalty) ?? 1) > 1 && (
+                      <>
+                        <Field label={tt('aceRepMode')}>
+                          <select value={repMode || 'presence'} onChange={event => setRepMode(event.target.value)} className={CONTROL}>
+                            {REP_MODES.map(value => <option key={value} value={value}>{tt(`aceRepMode_${value}`)}</option>)}
+                          </select>
+                        </Field>
+                        <p className="-mt-1 text-[11px] leading-4 text-zinc-500">{tt(`aceRepModeHint_${repMode || 'presence'}`)}</p>
+                        <SliderRow label={tt('aceRepWindow')} value={repWindow} fallback={64} min={8} max={256} step={8}
+                          suffix={` · ${((numberOrUndefined(repWindow) ?? 64) / 5).toFixed(1)} ${tt('aceSecondsShort')}`} onChange={setRepWindow} />
+                        {repMode === 'dry' && (
+                          <div className="grid grid-cols-2 gap-2">
+                            <SliderRow label={tt('aceDryBase')} value={dryBase} fallback={1.75} min={1.05} max={4} step={0.05} onChange={setDryBase} />
+                            <SliderRow label={tt('aceDryMinLen')} value={dryMinLen} fallback={3} min={2} max={32} step={1} onChange={setDryMinLen} />
+                          </div>
+                        )}
+                      </>
+                    )}
                     <Field label={tt('aceNegative')}><input value={lmNegative} onChange={event => setLmNegative(event.target.value)} className={CONTROL} /></Field>
                     <Field label={t('lmSeedShort')}><input value={lmSeed} onChange={event => setLmSeed(event.target.value)} placeholder={tt('aceRandom')} inputMode="numeric" className={CONTROL} /></Field>
                     <Field label={tt('aceCodes')} hint={tt('aceCodesHint')}>
@@ -1505,8 +1558,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
 
                 <div className="border-t border-zinc-100 pt-4 dark:border-white/5">
                   <Stage title={t('stageOutput')} hint={t('stageOutputHint')}>
-                    <SliderRow label={t('peakClipLabel')} value={peakClip} fallback={10} min={0} max={30} step={1} onChange={setPeakClip} />
-                    <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       <Field label={t('mp3Bitrate')}>
                         <select value={mp3Bitrate || '320'} onChange={event => setMp3Bitrate(event.target.value)} disabled={format !== 'mp3'} className={CONTROL}>
                           {['128', '192', '256', '320'].map(rate => <option key={rate} value={rate}>{rate} kbps</option>)}
@@ -1514,15 +1566,12 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
                       </Field>
                       <Field label={t('outputFormat')}>
                         <select value={format} onChange={event => setFormat(event.target.value as AceCreateRequest['output_format'])} className={CONTROL}>
-                          <option value="mp3">MP3</option>
-                          <option value="wav16">WAV16</option>
-                          <option value="wav24">WAV24</option>
-                          <option value="wav32">WAV32</option>
                           <option value="flac">FLAC</option>
+                          <option value="mp3">MP3</option>
                         </select>
                       </Field>
                     </div>
-                    <p className="mt-2 text-[11px] leading-4 text-zinc-500">{t('peakClipHint')}</p>
+                    <p className="mt-2 text-[11px] leading-4 text-zinc-500">{t('outputRawHint')}</p>
                     <div className="mt-3 grid grid-cols-2 gap-2">
                       <Field label={tt('aceFadeIn')}><input value={fadeIn} onChange={event => setFadeIn(event.target.value)} placeholder="0" inputMode="decimal" className={CONTROL} /></Field>
                       <Field label={tt('aceFadeOut')}><input value={fadeOut} onChange={event => setFadeOut(event.target.value)} placeholder="0" inputMode="decimal" className={CONTROL} /></Field>

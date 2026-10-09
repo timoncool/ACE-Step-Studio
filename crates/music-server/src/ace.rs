@@ -22,6 +22,7 @@ pub const REQUEST_FIELDS: &[&str] = &[
     "caption", "lyrics", "bpm", "duration", "keyscale", "timesignature", "vocal_language",
     "lm_batch_size", "synth_batch_size", "seed", "lm_seed",
     "lm_temperature", "lm_cfg_scale", "lm_top_p", "lm_top_k", "lm_negative_prompt", "use_cot_caption",
+    "lm_rep_penalty", "lm_rep_window", "lm_rep_mode", "lm_dry_base", "lm_dry_min_len",
     "audio_codes", "inference_steps", "guidance_scale", "shift",
     "dcw_scaler", "dcw_high_scaler", "dcw_mode",
     "audio_cover_strength", "cover_noise_strength", "repainting_start", "repainting_end",
@@ -30,7 +31,7 @@ pub const REQUEST_FIELDS: &[&str] = &[
     "scheduler", "guidance", "apg_momentum", "apg_norm_threshold", "cfg_zero_init_steps", "smc_lambda", "smc_k",
     "cfg_mp_iterations", "lm_mode", "output_format", "synth_model", "lm_model", "vae",
     "adapter", "adapter_scale", "lm_adapter", "lm_adapter_scale", "adapters", "adapter_group_scales",
-    "peak_clip", "mp3_bitrate", "cfg_interval_start", "cfg_interval_end", "retake_seed", "retake_variance",
+    "mp3_bitrate", "cfg_interval_start", "cfg_interval_end", "retake_seed", "retake_variance",
 ];
 
 pub const TASKS: &[&str] = &["text2music", "cover", "cover-nofsq", "repaint", "lego", "extract", "complete"];
@@ -38,6 +39,57 @@ pub const TASKS: &[&str] = &["text2music", "cover", "cover-nofsq", "repaint", "l
 /// Tasks that work on a source recording.
 pub fn needs_source(task: &str) -> bool {
     task != "text2music"
+}
+
+/// The vocal language a lyric's script names, for a request that names none.
+/// The engine forces a given language into its plan and guesses an unset one,
+/// so Cyrillic words left to the guess have been sung in another language.
+/// Latin script names no language. Cyrillic names Russian or Ukrainian only
+/// when its letters say so: letters neither has (Belarusian ў, Serbian and
+/// Macedonian ђ ћ џ ј љ њ ѓ ќ ѕ, Kazakh ә қ ң ғ ү ұ һ ө), or ъ without ы, э
+/// and ё as Bulgarian writes, leave the language to the engine.
+pub fn script_language(lyrics: &str) -> Option<&'static str> {
+    let mut inside_tag = false;
+    let (mut cyrillic, mut ukrainian, mut russian, mut hard_sign, mut other_cyrillic) = (0, 0, 0, 0, 0);
+    let (mut hangul, mut kana, mut han, mut arabic, mut devanagari, mut thai, mut latin) = (0, 0, 0, 0, 0, 0, 0);
+    for character in lyrics.chars() {
+        let lower = character.to_lowercase().next().unwrap_or(character);
+        match character {
+            '[' => inside_tag = true,
+            ']' => inside_tag = false,
+            _ if inside_tag => {}
+            '\u{0400}'..='\u{04FF}' => {
+                cyrillic += 1;
+                match lower {
+                    'ї' | 'є' | 'ґ' | 'і' => ukrainian += 1,
+                    'ы' | 'э' | 'ё' => russian += 1,
+                    'ъ' => hard_sign += 1,
+                    'ў' | 'ђ' | 'ћ' | 'џ' | 'ј' | 'љ' | 'њ' | 'ѓ' | 'ќ' | 'ѕ' | 'ә' | 'қ' | 'ң' | 'ғ' | 'ү' | 'ұ' | 'һ' | 'ө' => other_cyrillic += 1,
+                    _ => {}
+                }
+            }
+            '\u{AC00}'..='\u{D7AF}' | '\u{1100}'..='\u{11FF}' => hangul += 1,
+            '\u{3040}'..='\u{30FF}' => kana += 1,
+            '\u{4E00}'..='\u{9FFF}' => han += 1,
+            '\u{0600}'..='\u{06FF}' => arabic += 1,
+            '\u{0900}'..='\u{097F}' => devanagari += 1,
+            '\u{0E00}'..='\u{0E7F}' => thai += 1,
+            'A'..='Z' | 'a'..='z' | '\u{00C0}'..='\u{024F}' => latin += 1,
+            _ => {}
+        }
+    }
+    let cyrillic_name = if other_cyrillic > 0 || (russian == 0 && ukrainian == 0 && hard_sign > 0) {
+        "unknown-cyrillic"
+    } else if ukrainian > 0 {
+        "uk"
+    } else {
+        "ru"
+    };
+    let cjk = if kana > 0 { ("ja", kana + han) } else { ("zh", han) };
+    let (name, letters) = [(cyrillic_name, cyrillic), ("ko", hangul), cjk, ("ar", arabic), ("hi", devanagari), ("th", thai), ("latin", latin)]
+        .into_iter()
+        .max_by_key(|(_, letters)| *letters)?;
+    (letters >= 8 && name != "latin" && name != "unknown-cyrillic").then_some(name)
 }
 
 /// Tasks only the base model (and base merges) was trained for.
@@ -58,6 +110,9 @@ pub const SOLVERS: &[&str] = &[
 
 pub const SCHEDULERS: &[&str] =
     &["linear", "ddim_uniform", "sgm_uniform", "bong_tangent", "linear_quadratic", "cosine", "power", "beta57"];
+
+/// How the language model's repetition penalty counts a repeat.
+pub const REP_MODES: &[&str] = &["presence", "frequency", "dry"];
 
 pub const GUIDANCE: &[&str] = &["apg", "cfg_pp", "dynamic_cfg", "rescaled_cfg", "cfg_zero_star", "smc_cfg", "cfg_mp", "adg"];
 
@@ -91,7 +146,7 @@ pub fn prepare(input: &Value) -> Result<Value> {
             bail!("{task} needs the instrument track to work on");
         }
     }
-    for (key, allowed) in [("solver", SOLVERS), ("guidance", GUIDANCE)] {
+    for (key, allowed) in [("solver", SOLVERS), ("guidance", GUIDANCE), ("lm_rep_mode", REP_MODES)] {
         if let Some(value) = out.get(key).and_then(Value::as_str) {
             if !allowed.contains(&value) {
                 bail!("{key} must be one of {}", allowed.join(", "));
@@ -123,17 +178,18 @@ pub fn random_seed() -> i64 {
 
 /// The planned requests `/synth` renders: the language model's results, or
 /// the request itself when the model does not plan. Each keeps one seed per
-/// take; the engine counts the takes' seeds up from it.
-pub fn synth_requests(planned: Vec<Value>, encode_here: bool) -> Vec<Value> {
+/// take; the engine counts the takes' seeds up from it. The engine always
+/// hands over its unencoded float output, the model's own rate, precision and
+/// level, so a track is encoded once, by the studio, and nothing changes its loudness.
+pub fn synth_requests(planned: Vec<Value>) -> Vec<Value> {
     planned
         .into_iter()
         .map(|mut request| {
             if let Some(fields) = request.as_object_mut() {
                 fields.remove("lm_batch_size");
-                if encode_here {
-                    fields.insert("output_format".into(), Value::from("wav32"));
-                    fields.remove("mp3_bitrate");
-                }
+                fields.insert("output_format".into(), Value::from("wav32"));
+                fields.remove("mp3_bitrate");
+                fields.remove("peak_clip");
             }
             request
         })
@@ -230,8 +286,11 @@ impl AceClient {
         // The engine is on loopback: a connection takes microseconds when it
         // listens. Without a limit a closed port costs Windows two seconds per
         // attempt, and a filtered one twenty, and the status polls pile up.
+        // the engine's server drops a connection idle for 5 s; a pooled one can be
+        // taken as it closes and the request is lost, so every request opens its own
         let http = crate::net::builder()
             .connect_timeout(Duration::from_millis(500))
+            .pool_max_idle_per_host(0)
             .build()
             .expect("the HTTP client builds with a connect timeout");
         Self { base_url, http }
@@ -338,19 +397,6 @@ impl AceClient {
         Ok(())
     }
 
-    /// Waits for a job to end: Ok when done, an error naming how it ended
-    /// otherwise.
-    pub async fn wait(&self, job: &str) -> Result<()> {
-        loop {
-            match self.status(job).await?.as_str() {
-                "done" => return Ok(()),
-                "failed" => bail!("the engine failed this job; its log says why"),
-                "cancelled" => bail!("cancelled"),
-                _ => tokio::time::sleep(Duration::from_millis(400)).await,
-            }
-        }
-    }
-
     pub async fn result(&self, job: &str) -> Result<(String, Vec<u8>)> {
         let response = self.send(self.http.get(self.url("/job")).query(&[("id", job), ("result", "1")]), true).await?;
         let status = response.status();
@@ -398,6 +444,23 @@ async fn job_id(response: reqwest::Response) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_lyric_names_its_language_by_its_script() {
+        assert_eq!(script_language("[Verse]\nПыль дороги на сапогах\nИ звезда над головой"), Some("ru"));
+        assert_eq!(script_language("[Verse]\nЇжак іде додому через ліс"), Some("uk"));
+        assert_eq!(script_language("[Chorus]\n사랑해요 오늘 밤 함께 노래해"), Some("ko"));
+        assert_eq!(script_language("[Verse]\n夜空に光る星を見上げて"), Some("ja"));
+        assert_eq!(script_language("[Verse]\n我们一起唱歌到天亮吧朋友"), Some("zh"));
+        assert_eq!(script_language("[Verse]\nWalking down the river in the morning light"), None);
+        assert_eq!(script_language("[Intro]\n[Chorus]"), None);
+        // Cyrillic that is neither Russian nor Ukrainian is left to the engine
+        assert_eq!(script_language("[Verse]\nЂурђевдан је, а ја нисам с оном коју волим"), None, "Serbian");
+        assert_eq!(script_language("[Verse]\nМенің елім, менің жерім, әнім қалқып"), None, "Kazakh");
+        assert_eq!(script_language("[Verse]\nЎсё жыццё я шукаю цябе ў зорках"), None, "Belarusian");
+        assert_eq!(script_language("[Verse]\nТъжна песен пея аз за тъмната нощ"), None, "Bulgarian");
+        assert_eq!(script_language("[Verse]\nЯ люблю тебя, весна, ты мой свет"), Some("ru"), "Russian without its own letters is still Russian");
+    }
     use serde_json::json;
 
     #[test]
@@ -412,6 +475,8 @@ mod tests {
         assert!(prepare(&json!({ "caption": "x", "lm_batch_size": 3, "synth_batch_size": 4 })).is_err());
         assert!(prepare(&json!({ "caption": "x", "solver": "made_up" })).is_err());
         assert!(prepare(&json!({ "caption": "x", "scheduler": "power:3" })).is_ok());
+        assert!(prepare(&json!({ "caption": "x", "lm_rep_penalty": 1.1, "lm_rep_mode": "dry", "lm_rep_window": 64 })).is_ok());
+        assert!(prepare(&json!({ "caption": "x", "lm_rep_mode": "made_up" })).is_err());
     }
 
     #[test]

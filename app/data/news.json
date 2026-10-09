@@ -1,5 +1,41 @@
 [
   {
+    "id": "ace-step-studio-3-5-0",
+    "date": "2026-10-09",
+    "title": {
+      "en": "ACE-Step Studio 3.5.0",
+      "ru": "ACE-Step Studio 3.5.0",
+      "zh": "ACE-Step Studio 3.5.0",
+      "ja": "ACE-Step Studio 3.5.0",
+      "ko": "ACE-Step Studio 3.5.0"
+    },
+    "body": {
+      "en": "A song is kept as the model made it: lossless FLAC by default, written by libFLAC, MP3 when you choose it, and nothing changes its level on the way; Normalise is now a stage under Process. ACE-Step's peaks above full scale are no longer cut flat. FLAC files carry the title, lyrics and cover like MP3s.\n\nEvery song takes a note, and its parameters go to the form, to JSON on screen or to a file. Lyrics in a non-Latin script set the vocal language, so Russian lyrics are sung in Russian. The song card shows the engine's stage, its step and the time left. Video export takes a frame size and an audio bitrate. Karaoke can recognise words with Parakeet Ultra int8, Moondream's fine-tune, as a choice beside v3.\n\nAudio to MIDI runs on every card: CUDA where the engine runs CUDA 13, the processor elsewhere. The MIDI editor keeps notes in place in files from Reaper. The window keeps its size and place, the player its repeat and shuffle. The engine follows acestep.cpp of 8 October, the trainer HOT-Step, about 14% faster per step.\n\nAnonymous statistics: the start screen and Settings - Anonymous statistics have a checkbox, on by default, with which the studio sends once a day how many songs were made and with which model set, its version, the OS and the class of the graphics card - never lyrics, prompts, audio or file names; What is sent shows today's report exactly. News from the author now arrive without an update and appear at the top of this page.",
+      "ru": "Песня сохраняется такой, какой её сделала модель: по умолчанию FLAC без потерь (кодирует libFLAC), MP3 — если выбрать, и громкость по дороге никто не трогает; нормализация теперь стадия в «Обработке». Пики ACE-Step выше 0 dBFS больше не срезаются. В FLAC пишутся название, текст и обложка, как в MP3.\n\nК каждой песне можно написать заметку, а её параметры передать в форму, показать как JSON или сохранить файлом. Текст не латиницей сам задаёт язык вокала — русский текст поётся по-русски. Карточка песни показывает этап движка, шаг и сколько осталось. Экспорт видео — с размером кадра и битрейтом звука. Караоке может распознавать слова Parakeet Ultra int8 (дообученная Moondream модель) — отдельным вариантом рядом с v3.\n\nMIDI из аудио работает на любой карте: CUDA там, где движок идёт на CUDA 13, иначе процессор. Редактор MIDI не сдвигает ноты в файлах из Reaper. Окно помнит размер и место, плеер — повтор и перемешивание. Движок обновлён до acestep.cpp от 8 октября, тренер — по HOT-Step, примерно на 14% быстрее за шаг.\n\nАнонимная статистика: на стартовом экране и в «Настройках → Анонимная статистика» есть галочка (по умолчанию включена) — раз в день студия отправляет, сколько песен сделано и каким набором моделей, свою версию, ОС и класс видеокарты; ни текстов, ни промптов, ни звука, ни имён файлов. «Что отправляется» показывает сегодняшний отчёт как есть. Новости от автора теперь приходят без обновления и встают в начало этой страницы.",
+      "zh": "歌曲按模型生成的原样保存：默认无损 FLAC（由 libFLAC 编码），可选 MP3，过程中不改变音量；标准化现在是“处理”中的一个阶段。ACE-Step 超过满刻度的峰值不再被削平。FLAC 文件与 MP3 一样写入标题、歌词和封面。\n\n每首歌可写备注，其参数可送入表单、显示为 JSON 或保存为文件。非拉丁文字的歌词会自动设定演唱语言，俄语歌词就用俄语演唱。歌曲卡片显示引擎阶段、步数和剩余时间。视频导出可选画面尺寸和音频码率。卡拉 OK 可用 Parakeet Ultra int8（Moondream 微调版）识别歌词，作为 v3 之外的独立选项。\n\n音频转 MIDI 适用于所有显卡：引擎运行 CUDA 13 时使用 CUDA，其他情况使用处理器。MIDI 编辑器不再错位 Reaper 文件中的音符。窗口记住大小和位置，播放器记住循环和随机。引擎更新到 10 月 8 日的 acestep.cpp，训练器随 HOT-Step 更新，每步约快 14%。\n\n匿名统计：开始界面和“设置 → 匿名统计”中有一个默认勾选的复选框，工作室每天发送一次生成了多少首歌、用的哪套模型、版本、操作系统和显卡档次——绝不发送歌词、提示词、音频或文件名；“发送的内容”原样显示今天的报告。作者的新闻现在无需更新即可送达，并显示在本页顶部。",
+      "ja": "曲はモデルが作ったまま保存されます：既定はロスレス FLAC（libFLAC でエンコード）、選べば MP3、途中で音量は変えません。ノーマライズは「処理」のステージになりました。ACE-Step のフルスケールを超えるピークが平らに削られなくなりました。FLAC にも MP3 と同じくタイトル、歌詞、カバーが入ります。\n\n曲ごとにメモを書け、パラメーターはフォームへ送る、JSON で表示する、ファイルに保存することができます。ラテン文字以外の歌詞はボーカル言語を自動で設定し、ロシア語の歌詞はロシア語で歌われます。曲のカードにエンジンの段階、ステップ、残り時間を表示。動画の書き出しはフレームサイズと音声ビットレートを選べます。カラオケは Parakeet Ultra int8（Moondream のファインチューン）で歌詞を認識でき、v3 とは別の選択肢です。\n\n音声から MIDI はすべてのカードで動作：エンジンが CUDA 13 で動く環境では CUDA、それ以外は CPU。MIDI エディターは Reaper のファイルでノートがずれなくなりました。ウィンドウはサイズと位置を、プレーヤーはリピートとシャッフルを記憶します。エンジンは 10 月 8 日の acestep.cpp、トレーナーは HOT-Step に合わせて 1 ステップ約 14% 高速になりました。\n\n匿名の統計：開始画面と「設定 → 匿名の統計」に既定でオンのチェックボックスがあり、スタジオは1日1回、作った曲の数と使ったモデルセット、バージョン、OS、グラフィックカードのクラスを送信します。歌詞・プロンプト・音声・ファイル名は送りません。「送信される内容」で今日のレポートをそのまま確認できます。作者からのニュースはアップデートなしで届き、このページの一番上に表示されます。",
+      "ko": "노래는 모델이 만든 그대로 저장됩니다: 기본은 무손실 FLAC(libFLAC 인코딩), 선택하면 MP3이며, 도중에 음량을 바꾸지 않습니다. 노멀라이즈는 이제 '처리'의 단계입니다. ACE-Step의 풀스케일을 넘는 피크가 더 이상 깎이지 않습니다. FLAC에도 MP3처럼 제목, 가사, 커버가 들어갑니다.\n\n곡마다 메모를 남길 수 있고, 파라미터를 폼으로 보내거나 JSON으로 보거나 파일로 저장할 수 있습니다. 라틴 문자가 아닌 가사는 보컬 언어를 자동으로 정해 러시아어 가사는 러시아어로 불립니다. 곡 카드에 엔진 단계, 스텝, 남은 시간을 표시합니다. 영상 내보내기에서 프레임 크기와 오디오 비트레이트를 고를 수 있습니다. 노래방은 Parakeet Ultra int8(Moondream 파인튜닝)로 가사를 인식할 수 있으며 v3와 별도의 선택지입니다.\n\n오디오를 MIDI로 변환은 모든 그래픽카드에서 동작합니다: 엔진이 CUDA 13으로 실행되면 CUDA, 그 외에는 CPU. MIDI 편집기가 Reaper 파일의 음표를 밀지 않습니다. 창은 크기와 위치를, 플레이어는 반복과 셔플을 기억합니다. 엔진은 10월 8일 acestep.cpp로, 트레이너는 HOT-Step에 맞춰 스텝당 약 14% 빨라졌습니다.\n\n익명 통계: 시작 화면과 '설정 → 익명 통계'에 기본으로 켜진 체크박스가 있어, 스튜디오가 하루 한 번 만든 곡 수와 사용한 모델 세트, 버전, OS, 그래픽카드 등급을 보냅니다. 가사, 프롬프트, 오디오, 파일 이름은 보내지 않습니다. '보내는 내용'에서 오늘 보고서를 그대로 볼 수 있습니다. 작가의 소식은 이제 업데이트 없이 도착해 이 페이지 맨 위에 표시됩니다."
+    },
+    "tags": [
+      "ACE-Step",
+      "3.5.0"
+    ],
+    "links": [
+      {
+        "label": "YuE2 Studio",
+        "url": "https://timoncool.github.io/YuE2-Studio/"
+      },
+      {
+        "label": "MiniMax Music3 Studio",
+        "url": "https://timoncool.github.io/MiniMax-Music3-Studio/"
+      },
+      {
+        "label": "ACE-Step Studio",
+        "url": "https://timoncool.github.io/ACE-Step-Studio/"
+      }
+    ]
+  },
+  {
     "id": "ace-step-cpp-studio-3-4-0",
     "date": "2026-10-01",
     "title": {

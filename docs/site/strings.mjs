@@ -68,6 +68,10 @@ export const STRINGS = {
       ['Activity and a tidy library', 'A log of everything a connected agent changed; likes kept with the song, lists sorted by date, title or length, and stems folded under their song.'],
       ["Compose and edit MIDI", "The embedded Signal editor has multiple tracks, instruments, drums, MIDI keyboard recording, tempo changes, editable chord symbols and section markers. Save a new composition as MIDI and rendered audio in the library, or update an existing track’s MIDI. SoundFonts are bundled locally; the editor sends no analytics."],
 
+      ["Melodic variation", "A penalty on the audio codes the language model repeated lately, counted by presence, by frequency or DRY, keeps a melody from looping."],
+      ["Quitting asks first", "Quitting while a song is made asks first and stops it if you agree; a song the studio was closed on starts again."],
+      ["macOS and Linux (experimental)", "Apple Silicon on Metal and Linux x86-64 on Vulkan, built from the same engine; not tested on real machines yet, fixes from their users are welcome."],
+      ["Statistics only if you agree", "A checkbox on the start screen and in Settings sends counts, never lyrics, prompts or audio; What is sent shows the report. News from the author arrive without an update."],
     ],
     samplesTitle: 'Songs made with it',
     samplesSub: 'Rendered on a clean install of the released build, as the studio saved them.',
@@ -89,7 +93,8 @@ export const STRINGS = {
       ['13-listen', 'The equalizer with its curve and MilkDrop over the studio, as the song plays.'],
       ['14-winamp', 'The whole window as Winamp 2: equalizer, playlist and MilkDrop, skinned.'],
       ['15-covers', 'A cover for every track: Commons photos for the style, patterns, generation or your own file.'],
-      ["16-midi-editor", "The MIDI editor: tracks and notes with editable chords and section markers."]
+      ["16-midi-editor", "The MIDI editor: tracks and notes with editable chords and section markers."],
+      ["17-melodic-variation", "Melodic variation: a penalty on the audio codes the language model repeated lately keeps a melody from looping, counted by presence, frequency or DRY over a window you set."]
     ],
     modelsTitle: 'Models',
     modelsSub: 'A runnable set is the DiT, the planner, the text encoder and the VAE, all in GGUF.',
@@ -177,6 +182,10 @@ export const STRINGS = {
       ['Журнал и порядок в библиотеке', 'Лог всего, что изменил подключённый агент; лайки хранятся в песне, списки сортируются по дате, названию или длине, стемы свёрнуты под своей песней.'],
       ["Создание и редактирование MIDI", "Встроенный Signal: несколько дорожек, инструменты, ударные, запись с MIDI-клавиатуры, изменение темпа, редактируемые аккорды и секции. Сохраните новую композицию в библиотеку со звуком и MIDI или обновите MIDI существующего трека. SoundFont входят в установку; редактор не отправляет аналитику."],
 
+      ["Мелодическое разнообразие", "Штраф на недавно повторённые аудиокоды языковой модели — по присутствию, по частоте или DRY — не даёт мелодии зацикливаться."],
+      ["Выход с вопросом", "Выход во время генерации сначала спрашивает и останавливает песню, если согласиться; песня, на которой студию закрыли, запускается снова."],
+      ["macOS и Linux (экспериментально)", "Apple Silicon на Metal и Linux x86-64 на Vulkan из того же движка; на живых машинах ещё не проверено, правки от пользователей очень ждём."],
+      ["Статистика только с согласия", "Галочка на стартовом экране и в Настройках отправляет только счётчики, никаких текстов, промптов и звука; «Что отправляется» показывает отчёт. Новости от автора приходят без обновления."],
     ],
     samplesTitle: 'Примеры',
     samplesSub: 'Сделаны на чистой установке релизной сборки, как их сохранила студия.',
@@ -198,7 +207,8 @@ export const STRINGS = {
       ['13-listen', 'Эквалайзер с кривой и MilkDrop поверх студии, пока играет песня.'],
       ['14-winamp', 'Всё окно как Winamp 2: эквалайзер, плейлист и MilkDrop в скине.'],
       ['15-covers', 'Обложка для любого трека: фото с Commons под стиль, узоры, генерация или свой файл.'],
-      ["16-midi-editor", "MIDI-СЂРµРґР°РєС‚РѕСЂ: РґРѕСЂРѕР¶РєРё Рё РЅРѕС‚С‹ СЃ СЂРµРґР°РєС‚РёСЂСѓРµРјС‹РјРё Р°РєРєРѕСЂРґР°РјРё Рё СЃРµРєС†РёСЏРјРё."]
+      ["16-midi-editor", "MIDI-СЂРµРґР°РєС‚РѕСЂ: РґРѕСЂРѕР¶РєРё Рё РЅРѕС‚С‹ СЃ СЂРµРґР°РєС‚РёСЂСѓРµРјС‹РјРё Р°РєРєРѕСЂРґР°РјРё Рё СЃРµРєС†РёСЏРјРё."],
+      ["17-melodic-variation", "Мелодическая вариативность: штраф на недавно повторённые аудиокоды языковой модели не даёт мелодии зацикливаться — по присутствию, частоте или DRY в заданном окне."]
     ],
     modelsTitle: 'Модели',
     modelsSub: 'Рабочий набор — это DiT, планировщик, текстовый энкодер и VAE, всё в GGUF.',
@@ -286,6 +296,10 @@ export const STRINGS = {
       ['动态与整洁的曲库', '记录已连接代理所做的一切更改；喜欢随歌曲保存，列表可按日期、标题或时长排序，分轨折叠在原曲之下。'],
       ["创作和编辑 MIDI", "内置 Signal 编辑器支持多轨、乐器、鼓、MIDI 键盘录音、速度变化、可编辑和弦符号和段落标记。可将新作品的 MIDI 和渲染音频保存到曲库，或更新已有音轨的 MIDI。SoundFont 随应用本地提供，编辑器不发送分析数据。"],
 
+      ["旋律变化", "对语言模型近期重复的音频码施加惩罚（按出现、频率或 DRY 计算），防止旋律循环。"],
+      ["退出前先询问", "生成歌曲时退出会先询问，同意后停止；工作室关闭时中断的歌曲会重新开始。"],
+      ["macOS 与 Linux（实验性）", "Apple Silicon 上用 Metal，Linux x86-64 上用 Vulkan，来自同一引擎；尚未在真实机器上测试，欢迎用户提交修复。"],
+      ["统计只在你同意时", "开始界面和设置中的复选框只发送计数，绝不发送歌词、提示词或音频；“发送的内容”显示报告。作者的新闻无需更新即可送达。"],
     ],
     samplesTitle: '用它做的歌',
     samplesSub: '在发布版全新安装上渲染，按工作室保存的原样。',
@@ -307,7 +321,8 @@ export const STRINGS = {
       ['13-listen', '播放时悬浮在工作室上方的均衡器曲线与 MilkDrop。'],
       ['14-winamp', '整个窗口化身 Winamp 2：均衡器、播放列表和 MilkDrop，带皮肤。'],
       ['15-covers', '为每首曲目选封面：符合风格的 Commons 照片、图案、生成或自己的文件。'],
-      ["16-midi-editor", "MIDI зј–иѕ‘е™Ёпјље¤љиЅЁйџіз¬¦гЂЃеЏЇзј–иѕ‘зљ„е’Њеј¦е’Њж®µиђЅж ‡и®°гЂ‚"]
+      ["16-midi-editor", "MIDI зј–иѕ‘е™Ёпјље¤љиЅЁйџіз¬¦гЂЃеЏЇзј–иѕ‘зљ„е’Њеј¦е’Њж®µиђЅж ‡и®°гЂ‚"],
+      ["17-melodic-variation", "旋律变化：对语言模型近期重复的音频码施加惩罚，防止旋律循环；可按出现、频率或 DRY 在设定的窗口内计算。"]
     ],
     modelsTitle: '模型',
     modelsSub: '可运行的一组模型包括 DiT、规划器、文本编码器和 VAE，均为 GGUF。',
@@ -395,6 +410,10 @@ export const STRINGS = {
       ['アクティビティと整ったライブラリ', '接続中のエージェントが変更したことをすべて記録。いいねは曲と一緒に保存、一覧は日付・タイトル・長さで並べ替え、ステムは元の曲の下にまとまります。'],
       ["MIDI の作成と編集", "内蔵 Signal エディターで複数トラック、楽器、ドラム、MIDI キーボード録音、テンポ変更、コード記号とセクションの編集ができます。新しい曲を MIDI とレンダリングした音声でライブラリへ保存し、既存の曲の MIDI を更新できます。SoundFont は同梱され、エディターは解析データを送信しません。"],
 
+      ["メロディの変化", "言語モデルが最近繰り返したオーディオコードにペナルティ（出現・頻度・DRY）をかけ、メロディのループを防ぎます。"],
+      ["終了前に確認", "曲の生成中に終了すると先に確認し、同意すれば停止します。閉じたときに中断した曲は再び始まります。"],
+      ["macOS と Linux（実験的）", "Apple Silicon は Metal、Linux x86-64 は Vulkan で同じエンジンから。実機ではまだ未検証で、ユーザーからの修正を歓迎します。"],
+      ["統計は同意したときだけ", "開始画面と設定のチェックボックスはカウントだけを送り、歌詞・プロンプト・音声は送りません。「送信される内容」でレポートを確認できます。作者のニュースはアップデートなしで届きます。"],
     ],
     samplesTitle: 'これで作った曲',
     samplesSub: 'リリース版のクリーンインストールで、スタジオが保存したままの形でレンダリング。',
@@ -416,7 +435,8 @@ export const STRINGS = {
       ['13-listen', '再生中、スタジオの上に浮かぶカーブ付きイコライザーと MilkDrop。'],
       ['14-winamp', 'ウィンドウ全体が Winamp 2 に：イコライザー、プレイリスト、MilkDrop をスキン付きで。'],
       ['15-covers', 'どの曲にもジャケット：スタイルに合う Commons の写真、模様、生成、手持ちのファイル。'],
-      ["16-midi-editor", "MIDI г‚Ёгѓ‡г‚Јг‚їгѓјпјљгѓ€гѓ©гѓѓг‚ЇгЃЁйџіз¬¦гЂЃз·Ёй›†гЃ§гЃЌг‚‹г‚ігѓјгѓ‰гЃЁг‚»г‚Їг‚·гѓ§гѓігЂ‚"]
+      ["16-midi-editor", "MIDI г‚Ёгѓ‡г‚Јг‚їгѓјпјљгѓ€гѓ©гѓѓг‚ЇгЃЁйџіз¬¦гЂЃз·Ёй›†гЃ§гЃЌг‚‹г‚ігѓјгѓ‰гЃЁг‚»г‚Їг‚·гѓ§гѓігЂ‚"],
+      ["17-melodic-variation", "メロディの変化：言語モデルが最近繰り返したオーディオコードにペナルティをかけ、メロディのループを防ぎます。出現・頻度・DRY と窓の長さを選べます。"]
     ],
     modelsTitle: 'モデル',
     modelsSub: '動かせるセットは DiT、プランナー、テキストエンコーダー、VAE で、すべて GGUF です。',
@@ -504,6 +524,10 @@ export const STRINGS = {
       ['활동 기록과 정돈된 라이브러리', '연결된 에이전트가 바꾼 모든 것을 기록합니다. 좋아요는 곡과 함께 저장되고, 목록은 날짜·제목·길이로 정렬되며, 스템은 원곡 아래에 접힙니다.'],
       ["MIDI 작곡과 편집", "내장 Signal 편집기는 여러 트랙, 악기, 드럼, MIDI 키보드 녹음, 템포 변경, 코드 기호와 구간 표시 편집을 지원합니다. 새 곡을 MIDI와 렌더링된 오디오로 라이브러리에 저장하거나 기존 곡의 MIDI를 갱신하세요. SoundFont는 로컬에 포함되며 편집기는 분석 데이터를 보내지 않습니다."],
 
+      ["멜로디 다양성", "언어 모델이 최근 반복한 오디오 코드에 페널티(출현·빈도·DRY)를 주어 멜로디가 반복되지 않게 합니다."],
+      ["종료 전에 확인", "곡을 만드는 중에 종료하면 먼저 묻고, 동의하면 멈춥니다. 스튜디오가 닫히며 끊긴 곡은 다시 시작됩니다."],
+      ["macOS와 Linux (실험적)", "Apple Silicon은 Metal, Linux x86-64는 Vulkan으로 같은 엔진에서 빌드합니다. 실제 기기에서는 아직 검증되지 않았으며 사용자의 수정을 환영합니다."],
+      ["동의할 때만 통계", "시작 화면과 설정의 체크박스는 개수만 보내고 가사·프롬프트·오디오는 보내지 않습니다. '보내는 내용'에서 보고서를 볼 수 있습니다. 작가의 소식은 업데이트 없이 도착합니다."],
     ],
     samplesTitle: '이것으로 만든 곡',
     samplesSub: '릴리스 빌드의 새 설치에서, 스튜디오가 저장한 그대로 렌더링.',
@@ -525,7 +549,8 @@ export const STRINGS = {
       ['13-listen', '재생 중 스튜디오 위에 뜬 곡선 이퀄라이저와 MilkDrop.'],
       ['14-winamp', '창 전체가 Winamp 2로: 스킨을 입힌 이퀄라이저, 재생 목록, MilkDrop.'],
       ['15-covers', '모든 트랙에 커버: 스타일에 맞는 Commons 사진, 무늬, 생성 또는 내 파일.'],
-      ["16-midi-editor", "MIDI нЋём§‘кё°: нЉёлћ™кіј мќЊн‘њ, нЋём§‘ к°ЂлЉҐн•њ мЅ”л“њм™Ђ кµ¬к°„ н‘њм‹њ."]
+      ["16-midi-editor", "MIDI нЋём§‘кё°: нЉёлћ™кіј мќЊн‘њ, нЋём§‘ к°ЂлЉҐн•њ мЅ”л“њм™Ђ кµ¬к°„ н‘њм‹њ."],
+      ["17-melodic-variation", "멜로디 다양성: 언어 모델이 최근 반복한 오디오 코드에 페널티를 주어 멜로디 반복을 막습니다. 출현·빈도·DRY와 창 길이를 고릅니다."]
     ],
     modelsTitle: '모델',
     modelsSub: '실행 가능한 세트는 DiT, 플래너, 텍스트 인코더, VAE이며 모두 GGUF입니다.',

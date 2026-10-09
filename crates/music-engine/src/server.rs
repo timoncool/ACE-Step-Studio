@@ -459,8 +459,13 @@ fn configure_child_process(command: &mut Command) {
     command.creation_flags(CREATE_NEW_PROCESS_GROUP);
 }
 
+/// Off Windows the engine is bound to the studio's lifetime here, before the
+/// exec: Linux does it with `PR_SET_PDEATHSIG`, as the job object `adopt`
+/// assigns does on Windows.
 #[cfg(not(windows))]
-fn configure_child_process(_command: &mut Command) {}
+fn configure_child_process(command: &mut Command) {
+    music_core::process::ensure_dies_with_parent(command);
+}
 
 #[cfg(windows)]
 fn request_graceful_shutdown(child: &Child) -> Result<()> {

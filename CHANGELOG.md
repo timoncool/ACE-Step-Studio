@@ -2,6 +2,70 @@
 
 What changed, newest first. Dates are release dates.
 
+## 2026-10-09 — 3.5.0
+
+### Added
+
+- **Anonymous statistics and news from the hub.** The start screen and Settings - Anonymous statistics have
+  a checkbox, on by default, with which the studio sends once a day how many songs were made, failed or
+  were cancelled, the model set used, its version, the OS and the class of the graphics card - never lyrics,
+  prompts, audio or file names; What is sent shows the report, and DO_NOT_TRACK=1 or STUDIO_TELEMETRY=0
+  turns it off entirely. News from the author arrive without an update, on top of the bundled ones.
+- **Quitting asks first while a song is being made**, and stops it if you agree; a song the
+  studio was closed on is started again at the next start (up to three times), and one you stopped
+  stays stopped (as in YuE2 Studio).
+- **A note on every song** (#25), **its parameters to the form** (#26) and **as JSON**, shown
+  and saved to a file (#27). Reusing a song opens the studio form, where its fields are.
+- **Engine progress on the card**: the stage, its step counter and the time left.
+- **Video export settings**: frame size from 1080p to 240p and AAC from 128 to 320 kbps.
+- **Parakeet Ultra int8** for karaoke: Moondream's fine-tune of Parakeet, quantized, a recogniser
+  of its own beside v3, which stays as it was.
+- The window keeps its size, place and maximised state; the player its repeat and shuffle.
+- **macOS and Linux builds**, as in YuE2 Studio: Apple Silicon with the engine and Audio to
+  MIDI on Metal, data in Application Support (after stalexxx's port); Linux x86-64 as a .deb
+  and an AppImage with the engine on Vulkan, the graphics card named and child processes
+  ending with the studio (after SkySlider's fork). Built by hand from a workflow of their own.
+- **Melodic variation** under the language model's settings: a penalty on the audio codes it
+  repeated lately, against a melody stuck in a loop, counted by presence, by frequency or DRY
+  (only codes that would extend a word-for-word repeat), over a window of recent codes; 1.00
+  is off. After HOT-Step CPP. Agents set it with `lm_rep_penalty` and its companions.
+
+### Fixed
+
+- A song the engine fails names the engine's own reason from its log instead of a generic line.
+- Cyrillic lyrics in Serbian, Macedonian, Belarusian, Kazakh or Bulgarian are no longer forced to
+  Russian; the engine picks their language.
+- A FLAC or MP3 song no longer copies the whole engine track in memory on import; the video export
+  renders one channel for its analyser, as the other studios do.
+- The recommended model set fits the computer's memory as well as the card, and a set that needs
+  more memory than the computer has says so on the start screen; full BF16 weights are no longer
+  recommended, Q8 is near lossless at half the size (as in YuE2 Studio).
+- Lyrics in Cyrillic, Korean, Japanese, Chinese, Arabic, Hindi or Thai script set the vocal
+  language when none is chosen: Russian lyrics were sung in a language nobody asked for.
+- ACE-Step's output above full scale (up to +3.8 dBFS) was cut flat by the encoder; it is
+  lowered into FLAC and MP3 as a whole.
+- Audio to MIDI no longer needs CUDA 13: it runs on CUDA where the engine does and on the
+  processor elsewhere (Pascal, AMD, Intel); the new package is fetched once into a folder of its
+  own.
+- The MIDI editor keeps notes in place after an unknown meta event (files from Reaper).
+- The exported video's visualizer moves as in the player; its background no longer freezes on
+  zoom and pan.
+- Updating a LoRA from the catalogue left its old weights beside the new ones, and the engine
+  refused the pair.
+- Training shows the loss as loss.
+
+### Changed
+
+- **A song is kept as the model made it.** The engine hands over its float output and the
+  studio encodes it once, changing nothing on the way: lossless 24-bit FLAC by default, written
+  by libFLAC 1.5.0, the reference encoder; MP3 by LAME when chosen. Generation no longer
+  normalises the peak: Normalise is a stage under Process, after mastering. A float above full
+  scale is lowered into FLAC and MP3 as a whole rather than cut.
+- **Tags in every kept format** (lofty): title, artist, genre, tempo, lyrics and cover go into
+  a FLAC's Vorbis comments and picture block as into an MP3's ID3v2.4.
+- **Engine: acestep.cpp of 8 October** (ggml 0.26).
+- **Trainer: HOT-Step of 7 October**, about 14% faster per step with identical weights.
+
 ## 2026-10-01 — 3.4.0
 
 ### Added

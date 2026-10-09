@@ -30,8 +30,28 @@ fn source() -> &'static Source {
     SOURCE.get_or_init(|| serde_json::from_str(include_str!("../../../engines/music-midi-source.json")).expect("engines/music-midi-source.json is valid"))
 }
 
-/// The folder the transcriber's archive unpacks into.
+/// The name every release folder of the transcriber starts with.
 const TOOL_FOLDER: &str = "music-midi";
+
+/// The transcriber that ships inside the macOS app bundle
+/// (`Contents/Resources/resources/music-midi/music-midi`); the downloadable
+/// archive is a Windows build.
+fn bundled_tool() -> Option<PathBuf> {
+    if !cfg!(target_os = "macos") {
+        return None;
+    }
+    let executable = std::env::current_exe().ok()?;
+    let contents = executable.parent()?.parent()?;
+    let tool = contents.join("Resources").join("resources").join(TOOL_FOLDER).join(TOOL_FOLDER);
+    tool.is_file().then_some(tool)
+}
+
+/// The folder a release's archive unpacks into, its tag: a newer release is a
+/// folder of its own, so an older transcriber on disk is never taken for it.
+fn tool_folder() -> &'static str {
+    static FOLDER: OnceLock<&'static str> = OnceLock::new();
+    FOLDER.get_or_init(|| leak(source().release_tag.clone()))
+}
 
 /// One size of the model.
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -76,7 +96,7 @@ pub fn tool_asset() -> &'static Asset {
             url: leak(format!("https://github.com/timoncool/YuE2-Studio/releases/download/{}/{}", source.release_tag, source.asset)),
             relative_path: leak(source.asset.clone()),
             bytes: source.bytes,
-            unzip_into: Some(TOOL_FOLDER),
+            unzip_into: Some(tool_folder()),
             marker: leak(source.shipped_as.clone()),
             pick: &[],
             vram_gb: None,
@@ -128,7 +148,25 @@ impl Transcriber {
 
     /// `STUDIO_MIDI_BIN` in a developer build, else the one the archive unpacked.
     pub fn tool(&self) -> PathBuf {
-        std::env::var_os("STUDIO_MIDI_BIN").map(PathBuf::from).unwrap_or_else(|| self.downloader.runtime_dir(TOOL_FOLDER).join(&source().shipped_as))
+        std::env::var_os("STUDIO_MIDI_BIN")
+            .map(PathBuf::from)
+            .or_else(bundled_tool)
+            .unwrap_or_else(|| self.downloader.runtime_dir(tool_folder()).join(&source().shipped_as))
+    }
+
+    /// The transcribers of earlier releases beside the current one; nothing runs them any more.
+    pub fn remove_older_tools(&self) {
+        let current = self.downloader.runtime_dir(tool_folder());
+        let Some(runtime) = current.parent() else { return };
+        let Ok(entries) = std::fs::read_dir(runtime) else { return };
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with(TOOL_FOLDER) && entry.path() != current && entry.path().is_dir() {
+                if let Err(error) = std::fs::remove_dir_all(entry.path()) {
+                    eprintln!("[ERROR] could not remove the older transcriber {}: {error}", entry.path().display());
+                }
+            }
+        }
     }
 
     pub fn tool_installed(&self) -> bool {
@@ -146,7 +184,8 @@ impl Transcriber {
     /// What is still missing before a size can transcribe.
     pub fn missing(&self, size: &'static Size) -> Vec<&'static Asset> {
         let mut assets = Vec::new();
-        if !self.tool_installed() {
+        // The archive is a Windows build; elsewhere the tool ships with the app.
+        if cfg!(windows) && !self.tool_installed() {
             assets.push(tool_asset());
         }
         assets.extend(weight_assets(size).iter().filter(|asset| !self.downloader.is_installed(asset)));

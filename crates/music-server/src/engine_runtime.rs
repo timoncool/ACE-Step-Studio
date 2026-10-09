@@ -116,12 +116,21 @@ impl EngineRuntime {
     /// The Visual C++ runtime ships inside the engine bundle, app-local as
     /// Microsoft permits, so the studio never installs anything into the
     /// system. A machine that has it on its search path is fine either way.
+    #[cfg(windows)]
     pub fn vc_runtime_missing(&self) -> Vec<&'static str> {
         VC_RUNTIME_LIBRARIES
             .iter()
             .copied()
             .filter(|library| !self.downloader.root().join(library).is_file() && !is_on_the_search_path(library))
             .collect()
+    }
+
+    /// Off Windows the engine is built against the platform's own runtime
+    /// (libc++ and the system libraries), which is always present: nothing to
+    /// check, nothing to fetch.
+    #[cfg(not(windows))]
+    pub fn vc_runtime_missing(&self) -> Vec<&'static str> {
+        Vec::new()
     }
 
     /// What is still missing, so a caller can report the size before starting.

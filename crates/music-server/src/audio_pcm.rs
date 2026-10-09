@@ -5,7 +5,6 @@
 //! the local runtime needs no Python and no ffmpeg on the user's machine.
 
 use std::fs::File;
-use std::io::{BufWriter, Write};
 use std::path::Path;
 
 use anyhow::{bail, Context, Result};
@@ -67,94 +66,42 @@ pub fn decode_stereo(input: &Path) -> Result<audio_post::Stereo> {
     Ok(audio_post::Stereo::new(left, right, rate))
 }
 
-/// Stereo as a WAV file in memory: wav16, wav24 (PCM) or wav32 (IEEE float).
-pub fn wav_bytes(audio: &audio_post::Stereo, format: &str) -> Result<Vec<u8>> {
-    let (bits, tag): (u16, u16) = match format {
-        "wav16" => (16, 1),
-        "wav24" => (24, 1),
-        "wav32" => (32, 3),
-        other => bail!("{other} is not a WAV format"),
-    };
-    let frames = audio.frames();
-    let block = 2 * (bits / 8);
-    let data_bytes = (frames * block as usize) as u32;
-    let mut out = Vec::with_capacity(44 + data_bytes as usize);
-    out.extend_from_slice(b"RIFF");
-    out.extend_from_slice(&(36 + data_bytes).to_le_bytes());
-    out.extend_from_slice(b"WAVEfmt ");
-    out.extend_from_slice(&16u32.to_le_bytes());
-    out.extend_from_slice(&tag.to_le_bytes());
-    out.extend_from_slice(&2u16.to_le_bytes());
-    out.extend_from_slice(&audio.rate.to_le_bytes());
-    out.extend_from_slice(&(audio.rate * block as u32).to_le_bytes());
-    out.extend_from_slice(&block.to_le_bytes());
-    out.extend_from_slice(&bits.to_le_bytes());
-    out.extend_from_slice(b"data");
-    out.extend_from_slice(&data_bytes.to_le_bytes());
-    for frame in 0..frames {
-        for sample in [audio.left[frame], audio.right[frame]] {
-            match bits {
-                16 => out.extend_from_slice(&((sample.clamp(-1.0, 1.0) * 32767.0).round() as i16).to_le_bytes()),
-                24 => out.extend_from_slice(&((sample.clamp(-1.0, 1.0) * 8_388_607.0).round() as i32).to_le_bytes()[..3]),
-                _ => out.extend_from_slice(&sample.to_le_bytes()),
-            }
-        }
+/// Stereo as a 32-bit IEEE float WAV in memory, at its own rate and unclipped.
+pub fn wav_f32_bytes(audio: &audio_post::Stereo) -> Result<Vec<u8>> {
+    let spec = hound::WavSpec { channels: 2, sample_rate: audio.rate, bits_per_sample: 32, sample_format: hound::SampleFormat::Float };
+    let mut bytes = std::io::Cursor::new(Vec::new());
+    let mut out = hound::WavWriter::new(&mut bytes, spec)?;
+    for frame in 0..audio.frames() {
+        out.write_sample(audio.left[frame])?;
+        out.write_sample(audio.right[frame])?;
     }
-    Ok(out)
+    out.finalize().context("finish writing the WAV")?;
+    Ok(bytes.into_inner())
 }
 
-/// Writes stereo as 24-bit PCM WAV, the studio's lossless format.
+/// Writes stereo as 24-bit PCM WAV, samples past full scale clipped there.
 pub fn write_wav24(path: &Path, audio: &audio_post::Stereo) -> Result<()> {
-    let file = File::create(path).with_context(|| format!("create {}", path.display()))?;
-    let mut out = BufWriter::new(file);
-    let frames = audio.frames();
-    let data_bytes = (frames * 2 * 3) as u32;
-    out.write_all(b"RIFF")?;
-    out.write_all(&(36 + data_bytes).to_le_bytes())?;
-    out.write_all(b"WAVEfmt ")?;
-    out.write_all(&16u32.to_le_bytes())?;
-    out.write_all(&1u16.to_le_bytes())?; // PCM
-    out.write_all(&2u16.to_le_bytes())?; // stereo
-    out.write_all(&audio.rate.to_le_bytes())?;
-    out.write_all(&(audio.rate * 2 * 3).to_le_bytes())?; // byte rate
-    out.write_all(&6u16.to_le_bytes())?; // block align
-    out.write_all(&24u16.to_le_bytes())?; // bits per sample
-    out.write_all(b"data")?;
-    out.write_all(&data_bytes.to_le_bytes())?;
     const FULL: f32 = 8_388_607.0;
-    for frame in 0..frames {
+    let spec = hound::WavSpec { channels: 2, sample_rate: audio.rate, bits_per_sample: 24, sample_format: hound::SampleFormat::Int };
+    let mut out = hound::WavWriter::create(path, spec).with_context(|| format!("create {}", path.display()))?;
+    for frame in 0..audio.frames() {
         for sample in [audio.left[frame], audio.right[frame]] {
-            let value = (sample.clamp(-1.0, 1.0) * FULL).round() as i32;
-            out.write_all(&value.to_le_bytes()[..3])?;
+            out.write_sample((sample.clamp(-1.0, 1.0) * FULL).round() as i32)?;
         }
     }
-    out.flush().context("finish writing the WAV")?;
+    out.finalize().context("finish writing the WAV")?;
     Ok(())
 }
 
 /// Writes stereo as 32-bit IEEE float WAV, at its own rate and unclipped.
 pub fn write_wav_f32(path: &Path, audio: &audio_post::Stereo) -> Result<()> {
-    let file = File::create(path).with_context(|| format!("create {}", path.display()))?;
-    let mut out = BufWriter::new(file);
-    let frames = audio.frames();
-    let data_bytes = (frames * 2 * 4) as u32;
-    out.write_all(b"RIFF")?;
-    out.write_all(&(36 + data_bytes).to_le_bytes())?;
-    out.write_all(b"WAVEfmt ")?;
-    out.write_all(&16u32.to_le_bytes())?;
-    out.write_all(&3u16.to_le_bytes())?; // IEEE float
-    out.write_all(&2u16.to_le_bytes())?; // stereo
-    out.write_all(&audio.rate.to_le_bytes())?;
-    out.write_all(&(audio.rate * 2 * 4).to_le_bytes())?; // byte rate
-    out.write_all(&8u16.to_le_bytes())?; // block align
-    out.write_all(&32u16.to_le_bytes())?; // bits per sample
-    out.write_all(b"data")?;
-    out.write_all(&data_bytes.to_le_bytes())?;
-    for frame in 0..frames {
-        out.write_all(&audio.left[frame].to_le_bytes())?;
-        out.write_all(&audio.right[frame].to_le_bytes())?;
+    let spec = hound::WavSpec { channels: 2, sample_rate: audio.rate, bits_per_sample: 32, sample_format: hound::SampleFormat::Float };
+    let mut out = hound::WavWriter::create(path, spec).with_context(|| format!("create {}", path.display()))?;
+    for frame in 0..audio.frames() {
+        out.write_sample(audio.left[frame])?;
+        out.write_sample(audio.right[frame])?;
     }
-    out.flush().context("finish writing the WAV")?;
+    out.finalize().context("finish writing the WAV")?;
     Ok(())
 }
 
@@ -247,6 +194,29 @@ pub fn decode_stereo_bytes(bytes: Vec<u8>, extension: &str) -> Result<audio_post
     Ok(audio_post::Stereo::new(left, right, rate))
 }
 
+/// What is wrong with a track the engine sent, if anything: samples that are
+/// not numbers, silence, or one level held from start to end.
+pub fn output_problem(audio: &audio_post::Stereo) -> Option<&'static str> {
+    let (mut numbers, mut low, mut high) = (true, f32::INFINITY, f32::NEG_INFINITY);
+    for sample in audio.left.iter().chain(&audio.right) {
+        if sample.is_finite() {
+            low = low.min(*sample);
+            high = high.max(*sample);
+        } else {
+            numbers = false;
+        }
+    }
+    if !numbers {
+        Some("samples that are not numbers")
+    } else if low > high || low.abs().max(high.abs()) < 1e-5 {
+        Some("silence")
+    } else if high - low < 1e-6 {
+        Some("one level held from start to end")
+    } else {
+        None
+    }
+}
+
 fn decode_source(source: Box<dyn symphonia::core::io::MediaSource>, extension: Option<&str>) -> Result<(Vec<Vec<f32>>, u32)> {
     let mut planes: Vec<Vec<f32>> = Vec::new();
     let rate = decode_packets(source, extension, |packet| {
@@ -325,33 +295,48 @@ fn resample(samples: &[f32], from: u32, to: u32) -> Result<Vec<f32>> {
 }
 
 fn write_wav(path: &Path, samples: &[f32]) -> Result<()> {
-    let file = File::create(path).with_context(|| format!("create {}", path.display()))?;
-    let mut out = BufWriter::new(file);
-    let data_bytes = (samples.len() * 2) as u32;
-
-    out.write_all(b"RIFF")?;
-    out.write_all(&(36 + data_bytes).to_le_bytes())?;
-    out.write_all(b"WAVEfmt ")?;
-    out.write_all(&16u32.to_le_bytes())?;
-    out.write_all(&1u16.to_le_bytes())?; // PCM
-    out.write_all(&1u16.to_le_bytes())?; // mono
-    out.write_all(&TARGET_RATE.to_le_bytes())?;
-    out.write_all(&(TARGET_RATE * 2).to_le_bytes())?; // byte rate
-    out.write_all(&2u16.to_le_bytes())?; // block align
-    out.write_all(&16u16.to_le_bytes())?; // bits per sample
-    out.write_all(b"data")?;
-    out.write_all(&data_bytes.to_le_bytes())?;
+    let spec = hound::WavSpec { channels: 1, sample_rate: TARGET_RATE, bits_per_sample: 16, sample_format: hound::SampleFormat::Int };
+    let mut out = hound::WavWriter::create(path, spec).with_context(|| format!("create {}", path.display()))?;
     for sample in samples {
-        let clamped = (sample.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
-        out.write_all(&clamped.to_le_bytes())?;
+        out.write_sample((sample.clamp(-1.0, 1.0) * i16::MAX as f32) as i16)?;
     }
-    out.flush().context("finish writing the decoded WAV")?;
+    out.finalize().context("finish writing the decoded WAV")?;
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_signal_above_full_scale_is_lowered_into_flac_not_cut() {
+        let n = 4_800;
+        let left: Vec<f32> = (0..n).map(|i| 1.5 * (i as f32 * 0.05).sin()).collect();
+        let audio = audio_post::Stereo { left: left.clone(), right: left.clone(), rate: 48_000 };
+        let decoded = decode_stereo_bytes(audio_post::encode::flac(&audio).unwrap(), "flac").unwrap();
+        let peak = decoded.left.iter().fold(0.0f32, |peak, sample| peak.max(sample.abs()));
+        assert!(peak <= 1.0 && peak > 0.999, "{peak}");
+        for (original, back) in left.iter().zip(&decoded.left) {
+            assert!((original / 1.5 - back).abs() < 2.0 / 8_388_607.0, "{original} {back}");
+        }
+    }
+
+    #[test]
+    fn a_flac_decodes_to_the_samples_it_was_made_from() {
+        let n = 24_000;
+        let left: Vec<f32> = (0..n).map(|i| 0.5 * (i as f32 * 0.031).sin()).collect();
+        let right: Vec<f32> = (0..n).map(|i| 0.25 * (i as f32 * 0.017).cos()).collect();
+        let audio = audio_post::Stereo { left: left.clone(), right: right.clone(), rate: 48_000 };
+        let encoded = audio_post::encode::flac(&audio).unwrap();
+        assert_eq!(&encoded[..4], b"fLaC");
+        assert!((crate::library::audio_duration_seconds(&encoded, "flac", None).unwrap() - 0.5).abs() < 1e-9);
+        let decoded = decode_stereo_bytes(encoded, "flac").unwrap();
+        assert_eq!(decoded.rate, 48_000);
+        assert_eq!(decoded.left.len(), n);
+        for (original, back) in left.iter().chain(&right).zip(decoded.left.iter().chain(&decoded.right)) {
+            assert!((original - back).abs() < 2.0 / 8_388_607.0, "{original} {back}");
+        }
+    }
 
     #[test]
     fn resampling_keeps_the_band_and_drops_what_lies_above_it() {
@@ -363,6 +348,17 @@ mod tests {
         // 12 kHz is above 16 kHz's Nyquist: it must not fold back to 4 kHz
         let folded = resample(&tone(12_000.0), 44_100, 16_000).unwrap();
         assert!(rms(&folded[1000..15000]) < 0.01, "a tone above the band is filtered out: {}", rms(&folded));
+    }
+
+    #[test]
+    fn a_broken_engine_track_is_named() {
+        let check = |left: Vec<f32>| output_problem(&audio_post::Stereo { right: left.clone(), left, rate: 48_000 });
+        assert_eq!(check((0..4_800).map(|i| 0.3 * (i as f32 * 0.05).sin()).collect()), None);
+        assert_eq!(check(vec![0.0; 4_800]), Some("silence"));
+        assert_eq!(check(vec![-1.0; 4_800]), Some("one level held from start to end"));
+        let mut broken: Vec<f32> = (0..4_800).map(|i| 0.3 * (i as f32 * 0.05).sin()).collect();
+        broken[100] = f32::NAN;
+        assert_eq!(check(broken), Some("samples that are not numbers"));
     }
 
     #[test]

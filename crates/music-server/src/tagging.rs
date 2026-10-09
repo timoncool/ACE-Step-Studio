@@ -1,18 +1,24 @@
-//! ID3 tags on the MP3s the studio writes.
+//! Tags on the tracks the studio writes.
 //!
 //! The engine returns bare audio: no title, no artist, no cover, no lyrics. A
 //! file like that lands in a player as "instrumental-04" with a blank square,
 //! which is the wrong answer for a track that has all of those things stored
 //! next to it. ACE-Step Studio tagged its exports, and so does this one.
 //!
-//! Only MP3 is tagged - WAV has no equivalent container the studio writes, and
-//! a malformed chunk is worse than none. Tagging never fails a request: if a
-//! tag cannot be written the audio is still the audio, and the caller says so
-//! in the log rather than losing the track.
+//! Tags go in each format's own place, written by lofty: ID3v2.4 on an MP3,
+//! Vorbis comments with a picture block on a FLAC, RIFF INFO and an id3 chunk
+//! on a WAV. Tagging never fails a
+//! request: if a tag cannot be written the audio is still the audio, and the
+//! caller says so in the log rather than losing the track.
 
 use std::path::Path;
 
-use id3::{frame, Tag, TagLike, Version};
+use lofty::config::{ParseOptions, WriteOptions};
+use lofty::file::{FileType, TaggedFileExt};
+use lofty::picture::{MimeType, Picture, PictureType};
+use lofty::prelude::{Accessor, ItemKey, TagExt};
+use lofty::probe::Probe;
+use lofty::tag::Tag;
 
 /// What a player should show for one track.
 #[derive(Debug, Clone, Default)]
@@ -29,9 +35,32 @@ pub struct TrackTags {
     pub cover: Option<(String, Vec<u8>)>,
 }
 
-/// Writes the tags onto an MP3 in place, replacing whatever was there.
-pub fn write_mp3_tags(path: &Path, tags: &TrackTags) -> anyhow::Result<()> {
-    let mut tag = Tag::new();
+/// The formats the studio tags: the ones its tracks are kept in.
+pub fn taggable(path: &Path) -> bool {
+    matches!(FileType::from_path(path), Some(FileType::Mpeg | FileType::Flac | FileType::Wav))
+}
+
+/// Whether the file's own tag names the track. A FLAC always has a comment
+/// block, holding at least the encoder's name, so a block alone is not a tag.
+pub fn is_tagged(path: &Path) -> anyhow::Result<bool> {
+    let file = Probe::open(path)?.options(ParseOptions::new().read_properties(false)).read()?;
+    Ok(file.primary_tag().is_some_and(|tag| tag.title().is_some()))
+}
+
+/// The tempo field of a tag: ID3 keeps a whole number in TBPM, Vorbis comments a BPM.
+fn bpm_key(tag_type: lofty::tag::TagType) -> ItemKey {
+    if tag_type == lofty::tag::TagType::Id3v2 { ItemKey::IntegerBpm } else { ItemKey::Bpm }
+}
+
+/// The lyrics field of a tag: ID3's USLT frame, Vorbis comments' LYRICS.
+fn lyrics_key(tag_type: lofty::tag::TagType) -> ItemKey {
+    if tag_type == lofty::tag::TagType::Id3v2 { ItemKey::UnsyncLyrics } else { ItemKey::Lyrics }
+}
+
+/// Writes the tags onto an MP3, a FLAC or a WAV in place, replacing the tag that was there.
+pub fn write_tags(path: &Path, tags: &TrackTags) -> anyhow::Result<()> {
+    let file_type = FileType::from_path(path).ok_or_else(|| anyhow::anyhow!("{} is not an audio file the studio tags", path.display()))?;
+    let mut tag = Tag::new(file_type.primary_tag_type());
     tag.set_title(tags.title.clone());
     if !tags.album.is_empty() {
         tag.set_album(tags.album.clone());
@@ -40,29 +69,30 @@ pub fn write_mp3_tags(path: &Path, tags: &TrackTags) -> anyhow::Result<()> {
         tag.set_artist(tags.artist.clone());
     }
     if let Some(genre) = tags.genre.as_deref().filter(|value| !value.trim().is_empty()) {
-        tag.set_genre(genre);
+        tag.set_genre(genre.to_string());
     }
     if let Some(bpm) = tags.bpm {
-        tag.set_text("TBPM", bpm.to_string());
+        tag.insert_text(bpm_key(tag.tag_type()), bpm.to_string());
     }
     if let Some(lyrics) = tags.lyrics.as_deref().filter(|value| !value.trim().is_empty()) {
-        tag.add_frame(frame::Lyrics {
-            lang: "eng".to_string(),
-            description: String::new(),
-            text: lyrics.to_string(),
-        });
+        tag.insert_text(lyrics_key(tag.tag_type()), lyrics.to_string());
     }
     if let Some((media_type, image)) = tags.cover.as_ref() {
-        tag.add_frame(frame::Picture {
-            mime_type: media_type.clone(),
-            picture_type: frame::PictureType::CoverFront,
-            description: "Cover".to_string(),
-            data: image.clone(),
-        });
+        tag.push_picture(
+            Picture::unchecked(image.clone())
+                .pic_type(PictureType::CoverFront)
+                .mime_type(MimeType::from_str(media_type))
+                .description("Cover")
+                .build(),
+        );
     }
-    // 2.4 is what players have read for twenty years, and what the id3 crate
-    // writes without the v2.3 text-encoding caveats.
-    tag.write_to_path(path, Version::Id3v24)?;
+    tag.save_to_path(path, WriteOptions::default())?;
+    if file_type == FileType::Wav {
+        // RIFF INFO is what most readers of a WAV look at; the id3 chunk holds the lyrics and cover
+        let mut info = tag;
+        info.re_map(lofty::tag::TagType::RiffInfo);
+        info.save_to_path(path, WriteOptions::default())?;
+    }
     Ok(())
 }
 
@@ -150,52 +180,74 @@ fn sensible(bpm: &u32) -> bool {
 mod tests {
     use super::*;
 
-    fn sample_mp3() -> Vec<u8> {
-        // One silent MPEG-1 Layer III frame: enough for a tag writer to work on.
-        let mut frame = vec![0xFF, 0xFB, 0x90, 0x64];
-        frame.resize(418, 0);
-        frame
+    fn sample(extension: &str) -> std::path::PathBuf {
+        let path = std::env::temp_dir().join(format!("studio-tag-{}.{extension}", uuid::Uuid::now_v7()));
+        let silence = audio_post::Stereo { left: vec![0.0; 4800], right: vec![0.0; 4800], rate: 48_000 };
+        match extension {
+            "mp3" => std::fs::write(&path, audio_post::encode::mp3(&silence, 320).unwrap()).unwrap(),
+            "flac" => std::fs::write(&path, audio_post::encode::flac(&silence).unwrap()).unwrap(),
+            _ => crate::audio_pcm::write_wav_f32(&path, &silence).unwrap(),
+        }
+        path
+    }
+
+    /// A 1x1 PNG.
+    fn png() -> Vec<u8> {
+        vec![0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4, 0x89, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x44, 0x41, 0x54, 0x78, 0xda, 0x63, 0x64, 0x60, 0xf8, 0x5f, 0x0f, 0x00, 0x02, 0x87, 0x01, 0x80, 0xeb, 0x47, 0xba, 0x92, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82]
     }
 
     #[test]
-    fn a_written_tag_reads_back() {
-        let path = std::env::temp_dir().join(format!("studio-tag-{}.mp3", uuid::Uuid::now_v7()));
-        std::fs::write(&path, sample_mp3()).unwrap();
+    fn a_written_tag_reads_back_from_every_kept_format() {
+        for extension in ["mp3", "flac", "wav"] {
+            let path = sample(extension);
+            assert!(taggable(&path));
+            assert!(!is_tagged(&path).unwrap());
+            let tags = TrackTags {
+                title: "Неон".into(),
+                album: "Studio".into(),
+                artist: "Local Studio".into(),
+                genre: Some("Synth-pop".into()),
+                lyrics: Some("Неон дрожит над мокрым городом".into()),
+                bpm: Some(96),
+                cover: Some(("image/png".into(), png())),
+            };
+            write_tags(&path, &tags).unwrap();
 
-        let tags = TrackTags {
-            title: "Неон".into(),
-            album: "Studio".into(),
-            artist: "Local Studio".into(),
-            genre: Some("Synth-pop".into()),
-            lyrics: Some("Неон дрожит над мокрым городом".into()),
-            bpm: Some(96),
-            cover: Some(("image/png".into(), vec![0x89, b'P', b'N', b'G', 1, 2, 3])),
-        };
-        write_mp3_tags(&path, &tags).unwrap();
-
-        let read = Tag::read_from_path(&path).unwrap();
-        assert_eq!(read.title(), Some("Неон"));
-        assert_eq!(read.album(), Some("Studio"));
-        assert_eq!(read.artist(), Some("Local Studio"));
-        assert_eq!(read.genre(), Some("Synth-pop"));
-        assert_eq!(read.get("TBPM").and_then(|frame| frame.content().text()), Some("96"));
-        assert_eq!(read.lyrics().next().map(|entry| entry.text.as_str()), Some("Неон дрожит над мокрым городом"));
-        assert_eq!(read.pictures().next().map(|picture| picture.mime_type.as_str()), Some("image/png"));
-
-        let _ = std::fs::remove_file(path);
+            assert!(is_tagged(&path).unwrap());
+            let file = lofty::read_from_path(&path).unwrap();
+            let read = file.primary_tag().unwrap();
+            assert_eq!(read.title().as_deref(), Some("Неон"), "{extension}");
+            assert_eq!(read.album().as_deref(), Some("Studio"));
+            assert_eq!(read.artist().as_deref(), Some("Local Studio"));
+            assert_eq!(read.genre().as_deref(), Some("Synth-pop"));
+            assert_eq!(read.get_string(bpm_key(read.tag_type())), Some("96"), "{extension}");
+            assert_eq!(read.get_string(lyrics_key(read.tag_type())), Some("Неон дрожит над мокрым городом"), "{extension}");
+            assert_eq!(read.pictures().first().map(|picture| (picture.pic_type(), picture.mime_type().cloned())), Some((PictureType::CoverFront, Some(MimeType::Png))));
+            // Symphonia streams a WAV and reads only the INFO ahead of its data
+            if extension != "wav" {
+                let imported = crate::audio_pcm::tags(&path);
+                assert_eq!(imported.title, "Неон", "{extension}");
+                assert_eq!(imported.artist, "Local Studio");
+                assert_eq!(imported.lyrics, "Неон дрожит над мокрым городом");
+            }
+            let _ = std::fs::remove_file(path);
+        }
     }
 
     #[test]
     fn rewriting_replaces_rather_than_stacks() {
-        let path = std::env::temp_dir().join(format!("studio-tag-{}.mp3", uuid::Uuid::now_v7()));
-        std::fs::write(&path, sample_mp3()).unwrap();
+        for extension in ["mp3", "flac", "wav"] {
+            let path = sample(extension);
+            write_tags(&path, &TrackTags { title: "First".into(), cover: Some(("image/png".into(), png())), ..TrackTags::default() }).unwrap();
+            write_tags(&path, &TrackTags { title: "Second".into(), cover: Some(("image/png".into(), png())), ..TrackTags::default() }).unwrap();
 
-        write_mp3_tags(&path, &TrackTags { title: "First".into(), ..TrackTags::default() }).unwrap();
-        write_mp3_tags(&path, &TrackTags { title: "Second".into(), ..TrackTags::default() }).unwrap();
-
-        let read = Tag::read_from_path(&path).unwrap();
-        assert_eq!(read.title(), Some("Second"));
-        let _ = std::fs::remove_file(path);
+            let file = lofty::read_from_path(&path).unwrap();
+            let read = file.primary_tag().unwrap();
+            assert_eq!(read.title().as_deref(), Some("Second"), "{extension}");
+            assert_eq!(read.get_strings(ItemKey::TrackTitle).count(), 1);
+            assert_eq!(read.pictures().len(), 1);
+            let _ = std::fs::remove_file(path);
+        }
     }
 
     #[test]

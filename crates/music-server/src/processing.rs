@@ -1,6 +1,7 @@
 //! Processing a finished track: noise reduction, the Spectral Lifter, vocal
-//! naturalising, the user's own VST3 plugins and mastering to a reference, in
-//! that order.
+//! naturalising, the user's own VST3 plugins, mastering to a reference and
+//! peak normalisation, in that order. A song comes out of the engine as the
+//! model made it; anything that changes its level happens here, by choice.
 //!
 //! A run never touches the track. It leaves a preview beside the library, to be
 //! heard against the original and then kept as a version or thrown away; a kept
@@ -28,6 +29,20 @@ pub struct ProcessRequest {
     pub vst: Option<Vec<crate::vst::VstSlot>>,
     #[serde(default)]
     pub master: Option<MasterSource>,
+    #[serde(default)]
+    pub normalize: Option<NormalizeSettings>,
+}
+
+/// Peak normalisation: the level all but `peak_clip` samples per million stay
+/// under becomes full scale, and those few are clipped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NormalizeSettings {
+    #[serde(default = "default_peak_clip")]
+    pub peak_clip: u32,
+}
+
+fn default_peak_clip() -> u32 {
+    10
 }
 
 /// The reference a track is mastered to: another song of the library, or a
@@ -56,6 +71,9 @@ impl ProcessRequest {
         }
         if self.master.is_some() {
             stages.push("master");
+        }
+        if self.normalize.is_some() {
+            stages.push("normalize");
         }
         stages
     }
@@ -152,6 +170,10 @@ pub fn run(
         let reference = crate::audio_pcm::decode_stereo(reference)?;
         audio = mastering::master(&audio, &reference, &mastering::MasteringConfig::default())?;
     }
+    if let Some(settings) = &request.normalize {
+        on_stage("normalize");
+        audio_post::encode::normalize_peak(&mut audio, settings.peak_clip);
+    }
     Ok(audio)
 }
 
@@ -187,6 +209,9 @@ mod tests {
         let chain = |enabled| serde_json::json!([{ "path": "C:/x.vst3", "name": "X", "enabled": enabled }]);
         let on: ProcessRequest = serde_json::from_value(serde_json::json!({ "vst": chain(true), "master": { "type": "upload", "upload_id": "u" } })).unwrap();
         assert_eq!(on.stages(), vec!["vst", "master"]);
+        let level: ProcessRequest = serde_json::from_value(serde_json::json!({ "denoise": {}, "normalize": {} })).unwrap();
+        assert_eq!(level.stages(), vec!["denoise", "normalize"]);
+        assert_eq!(level.normalize, Some(NormalizeSettings { peak_clip: 10 }));
         let off: ProcessRequest = serde_json::from_value(serde_json::json!({ "vst": chain(false) })).unwrap();
         assert!(off.stages().is_empty());
     }

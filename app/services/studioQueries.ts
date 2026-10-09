@@ -215,3 +215,18 @@ if (typeof window !== 'undefined') {
     libraryBurst = window.setTimeout(libraryChanged, 200);
   });
 }
+
+const hubStateKey = ['hub-state'] as const;
+
+/** The hub notices that fit now and the telemetry choice; the service refreshes the feed itself every six hours. */
+export function useHubState(lang: string) {
+  return useQuery({
+    queryKey: [...hubStateKey, lang],
+    queryFn: () => readJson<import('./studioHub').HubState>(`/v1/hub/state?lang=${encodeURIComponent(lang)}`),
+    refetchInterval: 60_000,
+  });
+}
+
+export function hubStateChanged(): void {
+  void queryClient.invalidateQueries({ queryKey: hubStateKey });
+}

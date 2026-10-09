@@ -810,8 +810,13 @@ fn hide_console(command: &mut Command) {
     command.creation_flags(CREATE_NO_WINDOW);
 }
 
+/// Off Windows the sidecar needs the same lifetime binding the engine gets,
+/// or a studio that is killed rather than closed leaves a `llama-server`
+/// holding the card.
 #[cfg(not(windows))]
-fn hide_console(_command: &mut Command) {}
+fn hide_console(command: &mut Command) {
+    music_core::process::ensure_dies_with_parent(command);
+}
 
 #[cfg(test)]
 mod tests {
