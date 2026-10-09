@@ -6,6 +6,9 @@ What changed, newest first. Dates are release dates.
 
 ### Added
 
+- **Quitting asks first while a song is being made**, and stops it if you agree; a song the
+  studio was closed on is started again at the next start (up to three times), and one you stopped
+  stays stopped (as in YuE2 Studio).
 - **A note on every song** (#25), **its parameters to the form** (#26) and **as JSON**, shown
   and saved to a file (#27). Reusing a song opens the studio form, where its fields are.
 - **Engine progress on the card**: the stage, its step counter and the time left.

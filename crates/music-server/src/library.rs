@@ -115,7 +115,7 @@ impl Library {
     /// service was started outside the desktop shell, so the same install
     /// showed two different libraries depending on how it was launched.
     pub fn open_default()->Result<Self>{let root=crate::studio_data_root().unwrap_or_else(||env::current_dir().unwrap_or_else(|_|PathBuf::from(".")).join("data"));Self::open_at(root.join("library.sqlite"),root.join("media"))}
- pub fn open_at(db_path:PathBuf,media_dir:PathBuf)->Result<Self>{if let Some(p)=db_path.parent(){fs::create_dir_all(p)?};let c=Connection::open(db_path)?;c.execute_batch("PRAGMA foreign_keys=ON; CREATE TABLE IF NOT EXISTS songs(id TEXT PRIMARY KEY,title TEXT NOT NULL,audio_path TEXT,caption TEXT NOT NULL,lyrics TEXT NOT NULL,metadata_json TEXT NOT NULL,generation_settings_json TEXT NOT NULL,engine_id TEXT NOT NULL,profile_id TEXT,replay_request_json TEXT,audio_codes_json TEXT,source TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL); CREATE TABLE IF NOT EXISTS playlists(id TEXT PRIMARY KEY,name TEXT NOT NULL,description TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL); CREATE TABLE IF NOT EXISTS playlist_songs(playlist_id TEXT NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,song_id TEXT NOT NULL REFERENCES songs(id) ON DELETE CASCADE,position INTEGER NOT NULL,PRIMARY KEY(playlist_id,song_id)); CREATE TABLE IF NOT EXISTS journal(id INTEGER PRIMARY KEY AUTOINCREMENT,at TEXT NOT NULL,source TEXT NOT NULL,tone TEXT NOT NULL DEFAULT '',verb TEXT NOT NULL DEFAULT '',kind TEXT NOT NULL DEFAULT '',target TEXT NOT NULL DEFAULT '',text TEXT NOT NULL DEFAULT '');")?;Ok(Self{connection:Arc::new(Mutex::new(c)),media_dir})}
+ pub fn open_at(db_path:PathBuf,media_dir:PathBuf)->Result<Self>{if let Some(p)=db_path.parent(){fs::create_dir_all(p)?};let c=Connection::open(db_path)?;c.execute_batch("PRAGMA foreign_keys=ON; CREATE TABLE IF NOT EXISTS songs(id TEXT PRIMARY KEY,title TEXT NOT NULL,audio_path TEXT,caption TEXT NOT NULL,lyrics TEXT NOT NULL,metadata_json TEXT NOT NULL,generation_settings_json TEXT NOT NULL,engine_id TEXT NOT NULL,profile_id TEXT,replay_request_json TEXT,audio_codes_json TEXT,source TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL); CREATE TABLE IF NOT EXISTS playlists(id TEXT PRIMARY KEY,name TEXT NOT NULL,description TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL); CREATE TABLE IF NOT EXISTS playlist_songs(playlist_id TEXT NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,song_id TEXT NOT NULL REFERENCES songs(id) ON DELETE CASCADE,position INTEGER NOT NULL,PRIMARY KEY(playlist_id,song_id)); CREATE TABLE IF NOT EXISTS music_jobs(id TEXT PRIMARY KEY,submitted_at INTEGER NOT NULL,engine_id TEXT NOT NULL,title TEXT,caption TEXT NOT NULL,lyrics TEXT NOT NULL,duration_seconds REAL NOT NULL,playlist_id TEXT,generation_settings_json TEXT NOT NULL,request_json TEXT NOT NULL,status TEXT NOT NULL,message TEXT NOT NULL DEFAULT '',attempt INTEGER NOT NULL DEFAULT 0,resumed_as TEXT); CREATE TABLE IF NOT EXISTS journal(id INTEGER PRIMARY KEY AUTOINCREMENT,at TEXT NOT NULL,source TEXT NOT NULL,tone TEXT NOT NULL DEFAULT '',verb TEXT NOT NULL DEFAULT '',kind TEXT NOT NULL DEFAULT '',target TEXT NOT NULL DEFAULT '',text TEXT NOT NULL DEFAULT '');")?;Ok(Self{connection:Arc::new(Mutex::new(c)),media_dir})}
  pub fn list_songs(&self)->Result<Vec<Song>>{let c=self.connection.lock().unwrap();let mut s=c.prepare("SELECT id,title,audio_path,caption,lyrics,metadata_json,generation_settings_json,engine_id,profile_id,replay_request_json,audio_codes_json,source,created_at,updated_at FROM songs ORDER BY created_at DESC, id DESC")?;Ok(s.query_map([],row_song)?.collect::<rusqlite::Result<_>>()?)}
  pub fn get_song(&self,id:&str)->Result<Option<Song>>{let c=self.connection.lock().unwrap();Ok(c.query_row("SELECT id,title,audio_path,caption,lyrics,metadata_json,generation_settings_json,engine_id,profile_id,replay_request_json,audio_codes_json,source,created_at,updated_at FROM songs WHERE id=?",[id],row_song).optional()?)}
  pub fn create_song(&self,input:SongInput)->Result<Song>{let now=now();let song=Song{id:uuid::Uuid::now_v7().to_string(),title:input.title,audio_path:input.audio_path,caption:input.caption,lyrics:input.lyrics,metadata:input.metadata,generation_settings:input.generation_settings,engine_id:input.engine_id,profile_id:input.profile_id,replay_request:input.replay_request,audio_codes:input.audio_codes,source:input.source,created_at:now.clone(),updated_at:now};self.save_song(&song)?;Ok(song)}
@@ -521,5 +521,139 @@ mod media_tests {
         fs::write(root.join("outside.mp3"), b"ID3").unwrap();
         assert!(db.resolve_media(&root.join("outside.mp3").to_string_lossy()).is_none());
         let _ = fs::remove_dir_all(root);
+    }
+}
+
+/// A song's generation as it was asked for, kept from the moment the engine
+/// takes it. A job that is still `queued` or `running` when the studio opens
+/// was cut off by it closing.
+#[derive(Debug, Clone)]
+pub struct StoredJob {
+    pub id: String,
+    pub submitted_at: u64,
+    pub engine_id: String,
+    pub title: Option<String>,
+    pub caption: String,
+    pub lyrics: String,
+    pub duration_seconds: f64,
+    pub playlist_id: Option<String>,
+    pub generation_settings: serde_json::Value,
+    /// The request as it was sent, to make the song again.
+    pub request: serde_json::Value,
+    pub status: String,
+    pub message: String,
+    /// How many times it has been started again after being cut off.
+    pub attempt: u32,
+    /// The job that took its place when it was started again.
+    pub resumed_as: Option<String>,
+}
+
+const STORED_JOB_COLUMNS: &str = "id,submitted_at,engine_id,title,caption,lyrics,duration_seconds,playlist_id,generation_settings_json,request_json,status,message,attempt,resumed_as";
+
+impl Library {
+    pub fn save_music_job(&self, job: &StoredJob) -> Result<()> {
+        let connection = self.connection.lock().unwrap();
+        connection.execute(
+            &format!("INSERT OR REPLACE INTO music_jobs({STORED_JOB_COLUMNS}) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)"),
+            params![job.id, job.submitted_at as i64, job.engine_id, job.title, job.caption, job.lyrics, job.duration_seconds, job.playlist_id, job.generation_settings.to_string(), job.request.to_string(), job.status, job.message, job.attempt, job.resumed_as],
+        )?;
+        Ok(())
+    }
+
+    pub fn set_music_job_status(&self, id: &str, status: &str, message: &str) -> Result<()> {
+        self.connection.lock().unwrap().execute("UPDATE music_jobs SET status=?1,message=?2 WHERE id=?3", params![status, message, id])?;
+        Ok(())
+    }
+
+    pub fn forget_music_job(&self, id: &str) -> Result<()> {
+        self.connection.lock().unwrap().execute("DELETE FROM music_jobs WHERE id=?1", params![id])?;
+        Ok(())
+    }
+
+    /// Records that a cut-off job was started again as another.
+    pub fn cancel_cut_off_music_job(&self, id: &str, resumed_as: Option<&str>, message: &str) -> Result<()> {
+        self.connection.lock().unwrap().execute("UPDATE music_jobs SET status='cancelled',resumed_as=?1,message=?2 WHERE id=?3", params![resumed_as, message, id])?;
+        Ok(())
+    }
+
+    /// Jobs the studio's last run did not see to the end, oldest first.
+    pub fn unfinished_music_jobs(&self) -> Result<Vec<StoredJob>> {
+        let connection = self.connection.lock().unwrap();
+        let mut statement = connection.prepare(&format!("SELECT {STORED_JOB_COLUMNS} FROM music_jobs WHERE status IN ('queued','running') ORDER BY submitted_at, id"))?;
+        let jobs = statement.query_map([], stored_job_row)?;
+        Ok(jobs.collect::<rusqlite::Result<_>>()?)
+    }
+
+    /// The newest jobs that ended without a result, failed or stopped.
+    pub fn ended_music_jobs(&self, limit: usize) -> Result<Vec<StoredJob>> {
+        let connection = self.connection.lock().unwrap();
+        let mut statement = connection.prepare(&format!("SELECT {STORED_JOB_COLUMNS} FROM music_jobs WHERE status IN ('failed','cancelled') ORDER BY submitted_at DESC, id LIMIT ?1"))?;
+        let jobs = statement.query_map([limit as i64], stored_job_row)?;
+        Ok(jobs.collect::<rusqlite::Result<_>>()?)
+    }
+}
+
+fn stored_job_row(row: &rusqlite::Row) -> rusqlite::Result<StoredJob> {
+    Ok(StoredJob {
+        id: row.get(0)?,
+        submitted_at: row.get::<_, i64>(1)? as u64,
+        engine_id: row.get(2)?,
+        title: row.get(3)?,
+        caption: row.get(4)?,
+        lyrics: row.get(5)?,
+        duration_seconds: row.get(6)?,
+        playlist_id: row.get(7)?,
+        generation_settings: json(row.get::<_, String>(8)?),
+        request: json(row.get::<_, String>(9)?),
+        status: row.get(10)?,
+        message: row.get(11)?,
+        attempt: row.get(12)?,
+        resumed_as: row.get(13)?,
+    })
+}
+
+#[cfg(test)]
+mod stored_job_tests {
+    use super::*;
+
+    fn stored(id: &str, status: &str, at: u64) -> StoredJob {
+        StoredJob {
+            id: id.into(),
+            submitted_at: at,
+            engine_id: "acestep-cpp".into(),
+            title: Some("t".into()),
+            caption: "c".into(),
+            lyrics: "l".into(),
+            duration_seconds: 20.0,
+            playlist_id: None,
+            generation_settings: serde_json::json!({ "steps": 30 }),
+            request: serde_json::json!({ "caption": "c" }),
+            status: status.into(),
+            message: String::new(),
+            attempt: 0,
+            resumed_as: None,
+        }
+    }
+
+    #[test]
+    fn a_job_the_studio_closed_on_is_found_once_and_oldest_first() {
+        let folder = tempfile::tempdir().unwrap();
+        let library = Library::open_at(folder.path().join("library.sqlite"), folder.path().join("media")).unwrap();
+        library.save_music_job(&stored("newer", "running", 20)).unwrap();
+        library.save_music_job(&stored("older", "queued", 10)).unwrap();
+        library.save_music_job(&stored("finished", "queued", 5)).unwrap();
+        library.set_music_job_status("finished", "failed", "the engine stopped").unwrap();
+
+        let reopened = Library::open_at(folder.path().join("library.sqlite"), folder.path().join("media")).unwrap();
+        let ids: Vec<String> = reopened.unfinished_music_jobs().unwrap().into_iter().map(|job| job.id).collect();
+        assert_eq!(ids, ["older", "newer"]);
+        assert_eq!(reopened.unfinished_music_jobs().unwrap()[0].request, serde_json::json!({ "caption": "c" }));
+        assert_eq!(reopened.ended_music_jobs(10).unwrap()[0].message, "the engine stopped");
+
+        reopened.cancel_cut_off_music_job("older", Some("again"), "started again").unwrap();
+        let ids: Vec<String> = reopened.unfinished_music_jobs().unwrap().into_iter().map(|job| job.id).collect();
+        assert_eq!(ids, ["newer"]);
+        reopened.forget_music_job("newer").unwrap();
+        assert!(reopened.unfinished_music_jobs().unwrap().is_empty());
     }
 }

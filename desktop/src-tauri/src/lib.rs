@@ -225,6 +225,56 @@ fn start_service() -> Result<(), String> {
     }
 }
 
+/// One request to the studio's own service: its body; `Err(true)` when it took
+/// the request and gave nothing readable back, `Err(false)` when nothing listens.
+fn service_call(method: &str, path: &str) -> Result<String, bool> {
+    use std::io::{Read, Write};
+    let address = SocketAddrV4::new(Ipv4Addr::LOCALHOST, server_port());
+    let Ok(mut stream) = TcpStream::connect_timeout(&address.into(), Duration::from_millis(500)) else {
+        return Err(false);
+    };
+    let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
+    let request = format!("{method} {path} HTTP/1.0\r\nHost: 127.0.0.1:{}\r\nContent-Length: 0\r\n\r\n", server_port());
+    let mut response = String::new();
+    if stream.write_all(request.as_bytes()).is_err() || stream.read_to_string(&mut response).is_err() {
+        return Err(true);
+    }
+    response.split("\r\n\r\n").nth(1).map(str::to_owned).ok_or(true)
+}
+
+/// The songs queued or being made, by job id; `None` when the service could not say.
+fn songs_in_progress() -> Option<Vec<String>> {
+    match service_call("GET", "/v1/music/jobs") {
+        Ok(body) => serde_json::from_str::<Vec<serde_json::Value>>(&body)
+            .ok()
+            .map(|jobs| jobs.iter().filter_map(|job| job.get("id").and_then(serde_json::Value::as_str).map(str::to_owned)).collect()),
+        Err(false) => Some(Vec::new()),
+        Err(true) => None,
+    }
+}
+
+/// Quit, asking first only when a song is being generated. A song the person
+/// agreed to stop is stopped before the studio goes, so the next start does
+/// not make it again as one the studio was cut off on.
+fn confirm_quit(app: &tauri::AppHandle) {
+    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+    let running = songs_in_progress();
+    let quit = running.as_ref().is_some_and(Vec::is_empty)
+        || app
+            .dialog()
+            .message("A song is being generated. Quit ACE-Step Studio and stop it?")
+            .title("Quit ACE-Step Studio")
+            .kind(MessageDialogKind::Warning)
+            .buttons(MessageDialogButtons::OkCancelCustom("Quit".into(), "Cancel".into()))
+            .blocking_show();
+    if quit {
+        for id in running.unwrap_or_default() {
+            let _ = service_call("POST", &format!("/v1/music/jobs/{id}"));
+        }
+        app.exit(0);
+    }
+}
+
 fn spawn_update_check(app: tauri::AppHandle, portable: bool) {
     use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
     use tauri_plugin_updater::UpdaterExt;
@@ -560,6 +610,34 @@ pub fn run() {
             };
 
             window.build()?;
+            // The stock Quit item terminates the app, closing the window
+            // before anything can ask. Cmd+Q is a menu item of our own that
+            // asks first; the window stays up until the answer.
+            #[cfg(target_os = "macos")]
+            {
+                use tauri::menu::{Menu, MenuItem, MenuItemKind};
+                let menu = Menu::default(app.handle())?;
+                for item in menu.items()? {
+                    if let MenuItemKind::Submenu(submenu) = item {
+                        for entry in submenu.items()? {
+                            if let MenuItemKind::Predefined(predefined) = &entry {
+                                if predefined.text()?.starts_with("Quit") {
+                                    submenu.remove(predefined)?;
+                                    submenu.append(&MenuItem::with_id(app.handle(), "quit-confirm", "Quit ACE-Step Studio", true, Some("CmdOrCtrl+Q"))?)?;
+                                }
+                            }
+                        }
+                    }
+                }
+                app.set_menu(menu)?;
+                app.on_menu_event(|app, event| {
+                    if event.id().as_ref() != "quit-confirm" {
+                        return;
+                    }
+                    let app = app.clone();
+                    std::thread::spawn(move || confirm_quit(&app));
+                });
+            }
             if updater_configured {
                 spawn_update_check(app.handle().clone(), is_portable());
             }
@@ -592,7 +670,29 @@ pub fn run() {
             }
             Ok(())
         })
-        .run(context)
-        .expect("error while running the studio");
+        .build(context)
+        .expect("error while building ACE-Step Studio")
+        .run(|app, event| {
+            // Quitting stops a song that is being generated, so ask first, but
+            // only then. Closing the main window quits the studio on every
+            // platform; Cmd+Q and the Dock reach it as an exit request with no
+            // code. An exit the app requests itself carries a code and goes
+            // through.
+            match &event {
+                // the service is asked off the event loop: it can take seconds to answer
+                tauri::RunEvent::WindowEvent { label, event: tauri::WindowEvent::CloseRequested { api, .. }, .. } if label == "main" => {
+                    api.prevent_close();
+                    let app = app.clone();
+                    std::thread::spawn(move || confirm_quit(&app));
+                }
+                #[cfg(target_os = "macos")]
+                tauri::RunEvent::ExitRequested { code: None, api, .. } => {
+                    api.prevent_exit();
+                    let app = app.clone();
+                    std::thread::spawn(move || confirm_quit(&app));
+                }
+                _ => {}
+            }
+        });
 }
 
