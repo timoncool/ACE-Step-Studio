@@ -660,6 +660,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                             [`LM ${tt('aceTemperature')}`, p.lm_temperature],
                             [`LM ${t('cfgScale')}`, typeof p.lm_cfg_scale === 'number' ? p.lm_cfg_scale : undefined],
                             [t('topK'), p.lm_top_k],
+                            [tt('aceRepPenalty'), typeof p.lm_rep_penalty === 'number' && p.lm_rep_penalty > 1 ? `${p.lm_rep_penalty} · ${tt(`aceRepMode_${p.lm_rep_mode ?? 'presence'}`)} · ${p.lm_rep_window ?? 64}` : undefined],
                             [t('lmSeedShort'), p.lm_seed],
                             [t('seedShort'), p.seed],
                             [t('outputFormat'), typeof p.output_format === 'string' ? p.output_format.toUpperCase() : undefined],

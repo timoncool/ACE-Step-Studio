@@ -70,6 +70,7 @@ const baseOnly = (task: Task) => task === 'lego' || task === 'extract' || task =
 
 const TRACKS = ['vocals', 'backing_vocals', 'drums', 'bass', 'guitar', 'keyboard', 'percussion', 'strings', 'synth', 'fx', 'brass', 'woodwinds'];
 const GUIDANCE = ['apg', 'adg', 'cfg_pp', 'dynamic_cfg', 'rescaled_cfg', 'cfg_zero_star', 'smc_cfg', 'cfg_mp'];
+const REP_MODES = ['presence', 'frequency', 'dry'];
 const LANGUAGES = ['', 'en', 'ru', 'zh', 'ja', 'ko', 'es', 'fr', 'de', 'it', 'pt', 'ar', 'hi', 'tr', 'pl', 'uk', 'nl', 'sv', 'vi', 'th', 'id', 'unknown'];
 const KEYS = ['', ...['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].flatMap(note => [`${note} major`, `${note} minor`])];
 const TIME_SIGNATURES = ['', '2', '3', '4', '6'];
@@ -278,6 +279,11 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const [lmCfg, setLmCfg] = useState('');
   const [lmTopP, setLmTopP] = useState('');
   const [lmTopK, setLmTopK] = useState('');
+  const [repPenalty, setRepPenalty] = useState('');
+  const [repMode, setRepMode] = useState('');
+  const [repWindow, setRepWindow] = useState('');
+  const [dryBase, setDryBase] = useState('');
+  const [dryMinLen, setDryMinLen] = useState('');
   const [lmNegative, setLmNegative] = useState('');
   const [lmSeed, setLmSeed] = useState('');
   const [songs, setSongs] = useState('');
@@ -421,7 +427,8 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
         ['guidance', setGuidanceMode], ['apg_momentum', setApgMomentum], ['apg_norm_threshold', setApgNorm], ['dcw_mode', setDcwMode],
         ['dcw_scaler', setDcwScaler], ['dcw_high_scaler', setDcwHigh], ['custom_timesteps', setCustomTimesteps], ['latent_shift', setLatentShift],
         ['latent_rescale', setLatentRescale], ['lm_temperature', setLmTemperature], ['lm_cfg_scale', setLmCfg], ['lm_top_p', setLmTopP],
-        ['lm_top_k', setLmTopK], ['lm_negative_prompt', setLmNegative], ['audio_cover_strength', setCoverStrength],
+        ['lm_top_k', setLmTopK], ['lm_rep_penalty', setRepPenalty], ['lm_rep_mode', setRepMode], ['lm_rep_window', setRepWindow],
+        ['lm_dry_base', setDryBase], ['lm_dry_min_len', setDryMinLen], ['lm_negative_prompt', setLmNegative], ['audio_cover_strength', setCoverStrength],
         ['cover_noise_strength', setCoverNoise], ['repainting_start', setRepaintStart], ['repainting_end', setRepaintEnd],
         ['mp3_bitrate', setMp3Bitrate], ['cfg_interval_start', setCfgStart], ['cfg_interval_end', setCfgEnd],
         ['retake_variance', setRetakeVariance], ['retake_seed', setRetakeSeed], ['fade_in', setFadeIn], ['fade_out', setFadeOut],
@@ -459,7 +466,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const resetParameters = () => {
     setSteps(''); setGuidance(''); setShift(''); setSolver(''); setScheduler(''); setGuidanceMode('');
     setApgMomentum(''); setApgNorm(''); setDcwMode(''); setDcwScaler(''); setDcwHigh(''); setCustomTimesteps('');
-    setLatentShift(''); setLatentRescale(''); setLmTemperature(''); setLmCfg(''); setLmTopP(''); setLmTopK('');
+    setLatentShift(''); setLatentRescale(''); setLmTemperature(''); setLmCfg(''); setLmTopP(''); setLmTopK(''); setRepPenalty(''); setRepMode(''); setRepWindow(''); setDryBase(''); setDryMinLen('');
     setLmNegative(''); setLmSeed(''); setSongs(''); setTakes(''); setSeed(''); setRandomizeSeed(true);
     setCoverStrength(''); setCoverNoise(''); setRepaintStart(''); setRepaintEnd('');
     setMp3Bitrate('320'); setFormat('flac'); setModels({});
@@ -499,6 +506,16 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     put('lm_cfg_scale', numberOrUndefined(lmCfg));
     put('lm_top_p', numberOrUndefined(lmTopP));
     put('lm_top_k', numberOrUndefined(lmTopK));
+    const penalty = numberOrUndefined(repPenalty);
+    if (penalty && penalty > 1) {
+      put('lm_rep_penalty', penalty);
+      put('lm_rep_mode', repMode);
+      put('lm_rep_window', numberOrUndefined(repWindow));
+      if (repMode === 'dry') {
+        put('lm_dry_base', numberOrUndefined(dryBase));
+        put('lm_dry_min_len', numberOrUndefined(dryMinLen));
+      }
+    }
     put('lm_negative_prompt', lmNegative.trim());
     put('audio_codes', audioCodes.trim());
     put('guidance', guidanceMode);
@@ -935,6 +952,11 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     lm_cfg_scale: [lmCfg, setLmCfg],
     lm_top_p: [lmTopP, setLmTopP],
     lm_top_k: [lmTopK, setLmTopK],
+    lm_rep_penalty: [repPenalty, setRepPenalty],
+    lm_rep_mode: [repMode, setRepMode],
+    lm_rep_window: [repWindow, setRepWindow],
+    lm_dry_base: [dryBase, setDryBase],
+    lm_dry_min_len: [dryMinLen, setDryMinLen],
     lm_seed: [lmSeed, setLmSeed],
     lm_batch_size: [songs, setSongs],
     synth_batch_size: [takes, setTakes],
@@ -1432,6 +1454,26 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
                     <SliderRow label={t('cfgScale')} value={lmCfg} fallback={2} min={1} max={4} step={0.1} onChange={setLmCfg} />
                     <SliderRow label="Top-P" value={lmTopP} fallback={0.9} min={0} max={1} step={0.01} onChange={setLmTopP} />
                     <SliderRow label={t('topK')} value={lmTopK} fallback={0} min={0} max={200} step={1} onChange={setLmTopK} />
+                    <SliderRow label={tt('aceRepPenalty')} value={repPenalty} fallback={1} min={1} max={1.5} step={0.01} onChange={setRepPenalty} />
+                    <p className="-mt-1 text-[11px] leading-4 text-zinc-500">{tt('aceRepPenaltyHint')}</p>
+                    {(numberOrUndefined(repPenalty) ?? 1) > 1 && (
+                      <>
+                        <Field label={tt('aceRepMode')}>
+                          <select value={repMode || 'presence'} onChange={event => setRepMode(event.target.value)} className={CONTROL}>
+                            {REP_MODES.map(value => <option key={value} value={value}>{tt(`aceRepMode_${value}`)}</option>)}
+                          </select>
+                        </Field>
+                        <p className="-mt-1 text-[11px] leading-4 text-zinc-500">{tt(`aceRepModeHint_${repMode || 'presence'}`)}</p>
+                        <SliderRow label={tt('aceRepWindow')} value={repWindow} fallback={64} min={8} max={256} step={8}
+                          suffix={` · ${((numberOrUndefined(repWindow) ?? 64) / 5).toFixed(1)} ${tt('aceSecondsShort')}`} onChange={setRepWindow} />
+                        {repMode === 'dry' && (
+                          <div className="grid grid-cols-2 gap-2">
+                            <SliderRow label={tt('aceDryBase')} value={dryBase} fallback={1.75} min={1.05} max={4} step={0.05} onChange={setDryBase} />
+                            <SliderRow label={tt('aceDryMinLen')} value={dryMinLen} fallback={3} min={2} max={32} step={1} onChange={setDryMinLen} />
+                          </div>
+                        )}
+                      </>
+                    )}
                     <Field label={tt('aceNegative')}><input value={lmNegative} onChange={event => setLmNegative(event.target.value)} className={CONTROL} /></Field>
                     <Field label={t('lmSeedShort')}><input value={lmSeed} onChange={event => setLmSeed(event.target.value)} placeholder={tt('aceRandom')} inputMode="numeric" className={CONTROL} /></Field>
                     <Field label={tt('aceCodes')} hint={tt('aceCodesHint')}>

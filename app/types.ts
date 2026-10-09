@@ -115,6 +115,11 @@ export interface AceCreateRequest {
   lm_cfg_scale?: number;
   lm_top_p?: number;
   lm_top_k?: number;
+  lm_rep_penalty?: number;
+  lm_rep_mode?: 'presence' | 'frequency' | 'dry';
+  lm_rep_window?: number;
+  lm_dry_base?: number;
+  lm_dry_min_len?: number;
   lm_negative_prompt?: string;
   audio_codes?: string;
   inference_steps?: number;

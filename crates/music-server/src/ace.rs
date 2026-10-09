@@ -22,6 +22,7 @@ pub const REQUEST_FIELDS: &[&str] = &[
     "caption", "lyrics", "bpm", "duration", "keyscale", "timesignature", "vocal_language",
     "lm_batch_size", "synth_batch_size", "seed", "lm_seed",
     "lm_temperature", "lm_cfg_scale", "lm_top_p", "lm_top_k", "lm_negative_prompt", "use_cot_caption",
+    "lm_rep_penalty", "lm_rep_window", "lm_rep_mode", "lm_dry_base", "lm_dry_min_len",
     "audio_codes", "inference_steps", "guidance_scale", "shift",
     "dcw_scaler", "dcw_high_scaler", "dcw_mode",
     "audio_cover_strength", "cover_noise_strength", "repainting_start", "repainting_end",
@@ -91,6 +92,9 @@ pub const SOLVERS: &[&str] = &[
 pub const SCHEDULERS: &[&str] =
     &["linear", "ddim_uniform", "sgm_uniform", "bong_tangent", "linear_quadratic", "cosine", "power", "beta57"];
 
+/// How the language model's repetition penalty counts a repeat.
+pub const REP_MODES: &[&str] = &["presence", "frequency", "dry"];
+
 pub const GUIDANCE: &[&str] = &["apg", "cfg_pp", "dynamic_cfg", "rescaled_cfg", "cfg_zero_star", "smc_cfg", "cfg_mp", "adg"];
 
 /// The engine's largest batch: every take of one synthesis job together.
@@ -123,7 +127,7 @@ pub fn prepare(input: &Value) -> Result<Value> {
             bail!("{task} needs the instrument track to work on");
         }
     }
-    for (key, allowed) in [("solver", SOLVERS), ("guidance", GUIDANCE)] {
+    for (key, allowed) in [("solver", SOLVERS), ("guidance", GUIDANCE), ("lm_rep_mode", REP_MODES)] {
         if let Some(value) = out.get(key).and_then(Value::as_str) {
             if !allowed.contains(&value) {
                 bail!("{key} must be one of {}", allowed.join(", "));
@@ -459,6 +463,8 @@ mod tests {
         assert!(prepare(&json!({ "caption": "x", "lm_batch_size": 3, "synth_batch_size": 4 })).is_err());
         assert!(prepare(&json!({ "caption": "x", "solver": "made_up" })).is_err());
         assert!(prepare(&json!({ "caption": "x", "scheduler": "power:3" })).is_ok());
+        assert!(prepare(&json!({ "caption": "x", "lm_rep_penalty": 1.1, "lm_rep_mode": "dry", "lm_rep_window": 64 })).is_ok());
+        assert!(prepare(&json!({ "caption": "x", "lm_rep_mode": "made_up" })).is_err());
     }
 
     #[test]

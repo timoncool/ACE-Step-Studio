@@ -17,6 +17,10 @@ What changed, newest first. Dates are release dates.
   MIDI on Metal, data in Application Support (after stalexxx's port); Linux x86-64 as a .deb
   and an AppImage with the engine on Vulkan, the graphics card named and child processes
   ending with the studio (after SkySlider's fork). Built by hand from a workflow of their own.
+- **Melodic variation** under the language model's settings: a penalty on the audio codes it
+  repeated lately, against a melody stuck in a loop, counted by presence, by frequency or DRY
+  (only codes that would extend a word-for-word repeat), over a window of recent codes; 1.00
+  is off. After HOT-Step CPP. Agents set it with `lm_rep_penalty` and its companions.
 
 ### Fixed
 
