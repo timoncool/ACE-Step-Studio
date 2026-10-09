@@ -6,6 +6,11 @@ What changed, newest first. Dates are release dates.
 
 ### Added
 
+- **Anonymous statistics and news from the hub.** The start screen and Settings - Anonymous statistics have
+  a checkbox, on by default, with which the studio sends once a day how many songs were made, failed or
+  were cancelled, the model set used, its version, the OS and the class of the graphics card - never lyrics,
+  prompts, audio or file names; What is sent shows the report, and DO_NOT_TRACK=1 or STUDIO_TELEMETRY=0
+  turns it off entirely. News from the author arrive without an update, on top of the bundled ones.
 - **Quitting asks first while a song is being made**, and stops it if you agree; a song the
   studio was closed on is started again at the next start (up to three times), and one you stopped
   stays stopped (as in YuE2 Studio).
