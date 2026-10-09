@@ -10,11 +10,13 @@ export const HubSettings: React.FC = () => {
   const hub = useHubState(language);
   const [preview, setPreview] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const telemetry = hub.data?.telemetry;
   const run = (action: () => Promise<unknown>) => {
     setBusy(true);
+    setError(null);
     action()
-      .catch((error: Error) => console.warn('[hub]', error.message))
+      .catch((failure: Error) => setError(failure.message))
       .finally(() => {
         setBusy(false);
         hubStateChanged();
@@ -47,6 +49,7 @@ export const HubSettings: React.FC = () => {
         </p>
         <button type="button" disabled={busy} onClick={() => run(refreshHub)} className="rounded-lg bg-zinc-100 px-3 py-1.5 font-medium hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15">{t('hubFeedRefresh')}</button>
       </section>
+      {error && <p role="alert" className="text-xs text-red-600 dark:text-red-400">{error}</p>}
       {preview && <HubTelemetryPreview onClose={() => setPreview(false)} />}
     </div>
   );

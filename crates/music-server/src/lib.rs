@@ -4745,11 +4745,14 @@ fn start_hub() -> Option<studio_hub_client::Hub> {
     } else {
         "other"
     };
-    let backend = match vendor {
-        "nvidia" => "cuda",
-        "apple" => "metal",
-        "none" => "cpu",
-        _ => "vulkan",
+    let backend = if cfg!(windows) && cuda_build::current().is_some() {
+        "cuda"
+    } else if cfg!(target_os = "macos") {
+        "metal"
+    } else if vendor == "none" {
+        "cpu"
+    } else {
+        "vulkan"
     };
     let os_label = format!(
         "{} {}",
@@ -7335,21 +7338,24 @@ async fn run_ace_job(state: AppState, run: AceRun) {
     })
     .await;
     // however it ended, it is no longer one the studio's closing could cut off
-    let ended = state.jobs.read().await.get(&job_id).map(|job| (job_status_name(&job.status), job.message.clone(), job.songs.len()));
+    let ended = state.jobs.read().await.get(&job_id).map(|job| {
+        let profiles: Vec<String> = job.songs.iter().filter_map(|made| made.song.profile_id.clone()).collect();
+        (job_status_name(&job.status), job.message.clone(), job.songs.len(), profiles)
+    });
     if let Some(hub) = &state.hub {
-        match ended.as_ref().map(|(status, _, songs)| (*status, *songs)) {
-            Some(("completed", songs)) => {
-                hub.count("songs", songs.max(1) as u64);
-                if let Some(profile) = state.selected_profile_id.read().await.as_deref() {
+        match ended.as_ref().map(|(status, _, songs, profiles)| (*status, *songs, profiles)) {
+            Some(("completed", songs, profiles)) if songs > 0 => {
+                hub.count("songs", songs as u64);
+                for profile in profiles {
                     hub.used_model(profile);
                 }
             }
-            Some(("failed", _)) => hub.count("song_failed", 1),
-            Some(("cancelled", _)) => hub.count("song_cancelled", 1),
+            Some(("failed", _, _)) => hub.count("song_failed", 1),
+            Some(("cancelled", _, _)) => hub.count("song_cancelled", 1),
             _ => {}
         }
     }
-    if let Some((status, message, _)) = ended {
+    if let Some((status, message, _, _)) = ended {
         // a song that reached the library needs no record of its request any more
         let kept = if status == "completed" { state.library.forget_music_job(&job_id) } else { state.library.set_music_job_status(&job_id, status, &message) };
         if let Err(error) = kept {

@@ -101,7 +101,8 @@ const WORK_RAM_GB: f64 = 2.0;
 /// live in video memory; on Vulkan over shared memory or on the processor
 /// they live in RAM with the buffers.
 pub fn ram_needed_gb(profile: &str, weights_bytes: u64, total_vram_gb: f64) -> f64 {
-    let on_card = PRESETS.iter().any(|preset| preset.profile_id == Some(profile) && total_vram_gb >= preset.min_vram_gb);
+    // Apple Silicon's video memory is the system's own, so weights "on the card" still take the RAM
+    let on_card = !cfg!(target_os = "macos") && PRESETS.iter().any(|preset| preset.profile_id == Some(profile) && total_vram_gb >= preset.min_vram_gb);
     if on_card {
         SYSTEM_RAM_GB + LOADING_RAM_GB
     } else {
