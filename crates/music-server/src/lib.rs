@@ -3908,16 +3908,21 @@ async fn update_configuration(
         match selection.capability {
             Capability::SpeechToText => {
                 let mut sync = state.lyrics_sync_config.write().await;
+                let installed_parakeet = state.lyrics_sync.installed_parakeet();
                 sync.provider = match selection.mode {
                     ExecutionMode::OpenRouter => lyrics_sync::AsrProvider::OpenRouter,
                     ExecutionMode::Local => match selection.local_engine.as_deref() {
                         Some("whisper") => lyrics_sync::AsrProvider::Whisper,
                         Some("parakeet") => lyrics_sync::AsrProvider::Parakeet,
-                        _ if state.lyrics_sync.parakeet_any_ready() => lyrics_sync::AsrProvider::Parakeet,
+                        _ if installed_parakeet.is_some() => lyrics_sync::AsrProvider::Parakeet,
                         _ if state.lyrics_sync.whisper_binary().is_some() => lyrics_sync::AsrProvider::Whisper,
                         _ => sync.provider,
                     },
                 };
+                // picked because some Parakeet is there: the one named must be that one
+                if sync.provider == lyrics_sync::AsrProvider::Parakeet && selection.local_engine.is_none() && !state.lyrics_sync.parakeet_ready(sync.whisper_model.as_deref()) {
+                    sync.whisper_model = installed_parakeet.map(String::from);
+                }
                 if selection.mode == ExecutionMode::OpenRouter {
                     sync.openrouter_model = selection.cloud_model.clone();
                 }
@@ -5217,13 +5222,7 @@ fn karaoke_set(name: &str, device: lyrics_sync::OnnxFlavour, whisper_model: Opti
             wanted.extend(card_assets(device).iter().map(|id| id.to_string()));
             // The precision is chosen the same way a Whisper model is: through
             // the dropdown, which names one of the encoders.
-            if whisper_model == Some(lyrics_sync::PARAKEET_ULTRA) {
-                wanted.extend(lyrics_sync::PARAKEET_ULTRA_ASSET_IDS.map(String::from));
-            } else if whisper_model.is_some_and(|id| id.contains("fp32")) {
-                wanted.extend(lyrics_sync::PARAKEET_FP32_ASSET_IDS.map(String::from));
-            } else {
-                wanted.extend(lyrics_sync::PARAKEET_ASSET_IDS.map(String::from));
-            }
+            wanted.extend(lyrics_sync::parakeet_variant(whisper_model).0.iter().map(|id| id.to_string()));
         }
         "whisper" => {
             // One binary whichever device is chosen; the card needs CUDA 11's

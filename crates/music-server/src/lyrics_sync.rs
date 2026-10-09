@@ -678,6 +678,32 @@ pub const ASSETS: &[Asset] = &[
         note: "Token table.",
     },
     Asset {
+        id: "parakeet-fp32-decoder",
+        label: "Parakeet decoder (fp32)",
+        kind: AssetKind::Model,
+        url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/decoder_joint-model.onnx",
+        relative_path: "models/parakeet-fp32/decoder_joint-model.onnx",
+        bytes: 72_520_893,
+        unzip_into: None,
+        marker: "",
+        pick: &[],
+        vram_gb: None,
+        note: "The decoder of the full-precision encoder, beside it.",
+    },
+    Asset {
+        id: "parakeet-fp32-vocab",
+        label: "Parakeet vocabulary (fp32 folder)",
+        kind: AssetKind::Model,
+        url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/vocab.txt",
+        relative_path: "models/parakeet-fp32/vocab.txt",
+        bytes: 93_939,
+        unzip_into: None,
+        marker: "",
+        pick: &[],
+        vram_gb: None,
+        note: "Token table.",
+    },
+    Asset {
         id: "onnxruntime-cuda",
         label: "ONNX Runtime 1.30.0 · CUDA",
         kind: AssetKind::Runtime,
@@ -952,16 +978,10 @@ fn preload(_library: &Path) {}
 pub const PARAKEET_ASSET_IDS: [&str; 5] =
     ["parakeet-tdt-int8", "parakeet-decoder", "parakeet-features", "parakeet-vocab", "parakeet-config"];
 
-/// The same recogniser at full precision. The encoder is a graph plus a
-/// separate weights file; everything else is shared with the int8 set.
-pub const PARAKEET_FP32_ASSET_IDS: [&str; 6] = [
-    "parakeet-tdt-fp32",
-    "parakeet-tdt-fp32-weights",
-    "parakeet-decoder",
-    "parakeet-features",
-    "parakeet-vocab",
-    "parakeet-config",
-];
+/// The same recogniser at full precision, in a folder of its own: the encoder
+/// is a graph plus a separate weights file, beside its own decoder and vocabulary.
+pub const PARAKEET_FP32: &str = "parakeet-tdt-fp32";
+pub const PARAKEET_FP32_ASSET_IDS: [&str; 4] = ["parakeet-tdt-fp32", "parakeet-tdt-fp32-weights", "parakeet-fp32-decoder", "parakeet-fp32-vocab"];
 
 /// Parakeet Ultra, a variant of its own in a folder of its own: choosing it
 /// leaves the v3 files where they are.
@@ -970,7 +990,11 @@ pub const PARAKEET_ULTRA_ASSET_IDS: [&str; 3] = ["parakeet-ultra-int8", "parakee
 
 /// The files and the folder of the Parakeet the dropdown names.
 pub fn parakeet_variant(model: Option<&str>) -> (&'static [&'static str], &'static str) {
-    if model == Some(PARAKEET_ULTRA) { (&PARAKEET_ULTRA_ASSET_IDS, "parakeet-ultra") } else { (&PARAKEET_ASSET_IDS, "parakeet") }
+    match model {
+        Some(PARAKEET_ULTRA) => (&PARAKEET_ULTRA_ASSET_IDS, "parakeet-ultra"),
+        Some(PARAKEET_FP32) => (&PARAKEET_FP32_ASSET_IDS, "parakeet-fp32"),
+        _ => (&PARAKEET_ASSET_IDS, "parakeet"),
+    }
 }
 
 pub fn asset(id: &str) -> Option<&'static Asset> {
@@ -1054,7 +1078,13 @@ impl LyricsSync {
 
     /// Any Parakeet whole on disk, whichever variant.
     pub fn parakeet_any_ready(&self) -> bool {
-        self.parakeet_ready(None) || self.parakeet_ready(Some(PARAKEET_ULTRA))
+        self.installed_parakeet().is_some()
+    }
+
+    /// A Parakeet whole on disk, the v3 int8 first: the dropdown id to choose when
+    /// the one chosen is not there.
+    pub fn installed_parakeet(&self) -> Option<&'static str> {
+        ["parakeet-tdt-int8", PARAKEET_ULTRA, PARAKEET_FP32].into_iter().find(|model| self.parakeet_ready(Some(model)))
     }
 
     pub fn parakeet_dir(&self, model: Option<&str>) -> PathBuf {
