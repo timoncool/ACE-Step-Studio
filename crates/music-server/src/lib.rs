@@ -7190,8 +7190,32 @@ where
     if job_cancelled(state, job_id).await {
         let _ = state.music_server.cancel(&engine_job).await;
     }
-    state.music_server.wait(&engine_job).await?;
+    wait_engine(state, &engine_job).await?;
     Ok(engine_job)
+}
+
+/// Waits for an engine job to end: Ok when done; a failed job is named by its
+/// own FATAL line in the engine's log, the one thing the person can act on.
+async fn wait_engine(state: &AppState, job: &str) -> anyhow::Result<()> {
+    loop {
+        match state.music_server.status(job).await?.as_str() {
+            "done" => return Ok(()),
+            "failed" => {
+                let reason = state.engine_log.lines().and_then(|lines| last_fatal(&lines, job));
+                anyhow::bail!(reason.unwrap_or_else(|| "the engine failed this job and its log names no cause".into()))
+            }
+            "cancelled" => anyhow::bail!("cancelled"),
+            _ => tokio::time::sleep(std::time::Duration::from_millis(400)).await,
+        }
+    }
+}
+
+/// What the engine said when it gave a job up: the last FATAL line after the
+/// job's own start, without the stage tag.
+fn last_fatal(lines: &[String], job: &str) -> Option<String> {
+    let start = format!("Job {job}");
+    let from = lines.iter().rposition(|line| line.contains(&start))?;
+    lines[from..].iter().rev().find_map(|line| line.split_once("FATAL:").map(|(_, why)| why.trim().to_string())).filter(|why| !why.is_empty())
 }
 
 async fn run_ace_job(state: AppState, run: AceRun) {
@@ -7473,16 +7497,18 @@ async fn import_take(
         let kbps = submitted.get("mp3_bitrate").and_then(Value::as_u64).map_or(DEFAULT_MP3_KBPS, |value| value as u32);
         let target = format.clone();
         audio = tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<u8>> {
-            let mut stereo = audio_pcm::decode_stereo_bytes(audio.clone(), "wav")?;
+            let faded = fades.0 > 0.0 || fades.1 > 0.0;
+            // only an unfaded wav32 keeps the engine's own bytes, so only it needs them twice
+            let (decoded, kept) = if target == "wav32" && !faded { (audio.clone(), Some(audio)) } else { (audio, None) };
+            let mut stereo = audio_pcm::decode_stereo_bytes(decoded, "wav")?;
             if let Some(problem) = audio_pcm::output_problem(&stereo) {
                 anyhow::bail!("The engine returned {problem} instead of a song, so nothing was kept. Make it again; if it repeats, the engine log has the cause.");
             }
-            let faded = fades.0 > 0.0 || fades.1 > 0.0;
             audio_post::encode::fade(&mut stereo, fades.0, fades.1);
-            match target.as_str() {
-                "mp3" => audio_post::encode::mp3(&stereo, kbps),
-                "wav32" if faded => audio_pcm::wav_f32_bytes(&stereo),
-                "wav32" => Ok(audio),
+            match (target.as_str(), kept) {
+                ("mp3", _) => audio_post::encode::mp3(&stereo, kbps),
+                ("wav32", Some(original)) => Ok(original),
+                ("wav32", None) => audio_pcm::wav_f32_bytes(&stereo),
                 _ => audio_post::encode::flac(&stereo),
             }
         })
@@ -7604,7 +7630,7 @@ async fn ace_plan(State(state): State<AppState>, Json(input): Json<PlanRequest>)
     let request = Value::Object(request);
     let _using = state.engine_use.read().await;
     let job = state.music_server.submit_lm(std::slice::from_ref(&request)).await.map_err(|error| api_error(StatusCode::SERVICE_UNAVAILABLE, error.to_string()))?;
-    state.music_server.wait(&job).await.map_err(|error| api_error(StatusCode::BAD_GATEWAY, error.to_string()))?;
+    wait_engine(&state, &job).await.map_err(|error| api_error(StatusCode::BAD_GATEWAY, error.to_string()))?;
     let planned = state.music_server.lm_result(&job).await.map_err(|error| api_error(StatusCode::BAD_GATEWAY, error.to_string()))?;
     Ok(Json(serde_json::json!({ "plan": planned.into_iter().next() })))
 }
@@ -7625,7 +7651,7 @@ async fn ace_understand(State(state): State<AppState>, Json(input): Json<Underst
     let lm_model = Some(serde_json::json!({ "lm_model": files.lm_model }));
     let _using = state.engine_use.read().await;
     let job = state.music_server.submit_understand(audio, lm_model).await.map_err(|error| api_error(StatusCode::SERVICE_UNAVAILABLE, error.to_string()))?;
-    state.music_server.wait(&job).await.map_err(|error| api_error(StatusCode::BAD_GATEWAY, error.to_string()))?;
+    wait_engine(&state, &job).await.map_err(|error| api_error(StatusCode::BAD_GATEWAY, error.to_string()))?;
     let (content_type, body) = state.music_server.result(&job).await.map_err(|error| api_error(StatusCode::BAD_GATEWAY, error.to_string()))?;
     let heard = ace::understood(&content_type, &body).map_err(|error| api_error(StatusCode::BAD_GATEWAY, error.to_string()))?;
     Ok(Json(serde_json::json!({ "request": heard })))
@@ -8015,6 +8041,14 @@ fn api_error(status: StatusCode, error: String) -> (StatusCode, Json<ApiError>) 
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn a_failed_job_is_named_by_its_own_fatal_line() {
+        let lines: Vec<String> = ["[Server] FATAL: an earlier job's reason", "[Server] Job 7 created (1 requests)", "[DiT] step 3/8", "[Server] FATAL: synth load failed", "[Server] job failed"].iter().map(|line| line.to_string()).collect();
+        assert_eq!(last_fatal(&lines, "7").as_deref(), Some("synth load failed"));
+        assert_eq!(last_fatal(&lines, "8"), None, "a job the log never started has no reason in it");
+    }
+
     use super::*;
 
     #[test]

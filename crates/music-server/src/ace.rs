@@ -44,17 +44,30 @@ pub fn needs_source(task: &str) -> bool {
 /// The vocal language a lyric's script names, for a request that names none.
 /// The engine forces a given language into its plan and guesses an unset one,
 /// so Cyrillic words left to the guess have been sung in another language.
-/// Latin script names no language.
+/// Latin script names no language. Cyrillic names Russian or Ukrainian only
+/// when its letters say so: letters neither has (Belarusian ў, Serbian and
+/// Macedonian ђ ћ џ ј љ њ ѓ ќ ѕ, Kazakh ә қ ң ғ ү ұ һ ө), or ъ without ы, э
+/// and ё as Bulgarian writes, leave the language to the engine.
 pub fn script_language(lyrics: &str) -> Option<&'static str> {
     let mut inside_tag = false;
-    let (mut cyrillic, mut ukrainian, mut hangul, mut kana, mut han, mut arabic, mut devanagari, mut thai, mut latin) = (0, 0, 0, 0, 0, 0, 0, 0, 0);
+    let (mut cyrillic, mut ukrainian, mut russian, mut hard_sign, mut other_cyrillic) = (0, 0, 0, 0, 0);
+    let (mut hangul, mut kana, mut han, mut arabic, mut devanagari, mut thai, mut latin) = (0, 0, 0, 0, 0, 0, 0);
     for character in lyrics.chars() {
+        let lower = character.to_lowercase().next().unwrap_or(character);
         match character {
             '[' => inside_tag = true,
             ']' => inside_tag = false,
             _ if inside_tag => {}
-            'і' | 'ї' | 'є' | 'ґ' | 'І' | 'Ї' | 'Є' | 'Ґ' => { cyrillic += 1; ukrainian += 1; }
-            '\u{0400}'..='\u{04FF}' => cyrillic += 1,
+            '\u{0400}'..='\u{04FF}' => {
+                cyrillic += 1;
+                match lower {
+                    'ї' | 'є' | 'ґ' | 'і' => ukrainian += 1,
+                    'ы' | 'э' | 'ё' => russian += 1,
+                    'ъ' => hard_sign += 1,
+                    'ў' | 'ђ' | 'ћ' | 'џ' | 'ј' | 'љ' | 'њ' | 'ѓ' | 'ќ' | 'ѕ' | 'ә' | 'қ' | 'ң' | 'ғ' | 'ү' | 'ұ' | 'һ' | 'ө' => other_cyrillic += 1,
+                    _ => {}
+                }
+            }
             '\u{AC00}'..='\u{D7AF}' | '\u{1100}'..='\u{11FF}' => hangul += 1,
             '\u{3040}'..='\u{30FF}' => kana += 1,
             '\u{4E00}'..='\u{9FFF}' => han += 1,
@@ -65,12 +78,18 @@ pub fn script_language(lyrics: &str) -> Option<&'static str> {
             _ => {}
         }
     }
+    let cyrillic_name = if other_cyrillic > 0 || (russian == 0 && ukrainian == 0 && hard_sign > 0) {
+        "unknown-cyrillic"
+    } else if ukrainian > 0 {
+        "uk"
+    } else {
+        "ru"
+    };
     let cjk = if kana > 0 { ("ja", kana + han) } else { ("zh", han) };
-    let cyrillic_name = if ukrainian > 0 { "uk" } else { "ru" };
     let (name, letters) = [(cyrillic_name, cyrillic), ("ko", hangul), cjk, ("ar", arabic), ("hi", devanagari), ("th", thai), ("latin", latin)]
         .into_iter()
         .max_by_key(|(_, letters)| *letters)?;
-    (letters >= 8 && name != "latin").then_some(name)
+    (letters >= 8 && name != "latin" && name != "unknown-cyrillic").then_some(name)
 }
 
 /// Tasks only the base model (and base merges) was trained for.
@@ -378,19 +397,6 @@ impl AceClient {
         Ok(())
     }
 
-    /// Waits for a job to end: Ok when done, an error naming how it ended
-    /// otherwise.
-    pub async fn wait(&self, job: &str) -> Result<()> {
-        loop {
-            match self.status(job).await?.as_str() {
-                "done" => return Ok(()),
-                "failed" => bail!("the engine failed this job; its log says why"),
-                "cancelled" => bail!("cancelled"),
-                _ => tokio::time::sleep(Duration::from_millis(400)).await,
-            }
-        }
-    }
-
     pub async fn result(&self, job: &str) -> Result<(String, Vec<u8>)> {
         let response = self.send(self.http.get(self.url("/job")).query(&[("id", job), ("result", "1")]), true).await?;
         let status = response.status();
@@ -448,6 +454,12 @@ mod tests {
         assert_eq!(script_language("[Verse]\n我们一起唱歌到天亮吧朋友"), Some("zh"));
         assert_eq!(script_language("[Verse]\nWalking down the river in the morning light"), None);
         assert_eq!(script_language("[Intro]\n[Chorus]"), None);
+        // Cyrillic that is neither Russian nor Ukrainian is left to the engine
+        assert_eq!(script_language("[Verse]\nЂурђевдан је, а ја нисам с оном коју волим"), None, "Serbian");
+        assert_eq!(script_language("[Verse]\nМенің елім, менің жерім, әнім қалқып"), None, "Kazakh");
+        assert_eq!(script_language("[Verse]\nЎсё жыццё я шукаю цябе ў зорках"), None, "Belarusian");
+        assert_eq!(script_language("[Verse]\nТъжна песен пея аз за тъмната нощ"), None, "Bulgarian");
+        assert_eq!(script_language("[Verse]\nЯ люблю тебя, весна, ты мой свет"), Some("ru"), "Russian without its own letters is still Russian");
     }
     use serde_json::json;
 

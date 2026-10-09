@@ -27,6 +27,11 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- A song the engine fails names the engine's own reason from its log instead of a generic line.
+- Cyrillic lyrics in Serbian, Macedonian, Belarusian, Kazakh or Bulgarian are no longer forced to
+  Russian; the engine picks their language.
+- A FLAC or MP3 song no longer copies the whole engine track in memory on import; the video export
+  renders one channel for its analyser, as the other studios do.
 - The recommended model set fits the computer's memory as well as the card, and a set that needs
   more memory than the computer has says so on the start screen; full BF16 weights are no longer
   recommended, Q8 is near lossless at half the size (as in YuE2 Studio).

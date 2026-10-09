@@ -695,7 +695,8 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
   const analyzeAudioOffline = async (audioBuffer: AudioBuffer, fps: number): Promise<{ frequency: Uint8Array[]; waveform: Uint8Array[] }> => {
     // The preview's own analyser, run through the song offline and read at every frame,
     // so the export draws the same spectrum and waveform the preview shows.
-    const offline = new OfflineAudioContext(audioBuffer.numberOfChannels, audioBuffer.length, audioBuffer.sampleRate);
+    // the analyser hears a mono downmix, so one rendered channel is all it needs
+    const offline = new OfflineAudioContext(1, audioBuffer.length, audioBuffer.sampleRate);
     const source = offline.createBufferSource();
     source.buffer = audioBuffer;
     const analyser = offline.createAnalyser();
