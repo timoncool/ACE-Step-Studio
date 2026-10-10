@@ -29,3 +29,9 @@ tokio = { version = "1", features = ["rt-multi-thread"] }
 # The desktop shell is deliberately isolated from the engine workspace. Its
 # release cadence and Tauri dependency graph must not modify native engines.
 [workspace]
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
