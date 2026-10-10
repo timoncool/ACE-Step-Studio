@@ -295,6 +295,11 @@ fn confirm_quit(app: &tauri::AppHandle) {
 /// next start does not make it again as one the studio was cut off on; the
 /// day's statistics leave now rather than at the next start.
 fn quit_now(app: &tauri::AppHandle, running: Vec<String>) {
+    use tauri::Manager;
+    // the person is done with the window; what follows can take seconds on a slow network
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.hide();
+    }
     let running = if running.is_empty() { songs_in_progress(Duration::from_secs(15)).unwrap_or_default() } else { running };
     for id in running {
         let _ = service_call("POST", &format!("/v1/music/jobs/{id}"), Duration::from_secs(5));

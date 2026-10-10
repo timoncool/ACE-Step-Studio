@@ -2,6 +2,25 @@
 
 What changed, newest first. Dates are release dates.
 
+## 2026-10-10 — 3.5.2
+
+### Added
+
+- **News strips.** Short notes from the author appear as a strip across the top of the window, in the
+  window's language, with a link and a close button; the first one is about Dub Studio, the video dubbing
+  studio. A closed strip does not come back.
+
+### Fixed
+
+- **Quitting and updating ask in the studio's own language.** The question about quitting while a song is
+  being made and the update offer are now part of the window, in its language and look, instead of English
+  system dialogs. Closing the window a second time still quits if the window stopped answering.
+- **The day's statistics leave when the studio closes** instead of at its next start.
+- **A model set put together by hand is counted as it was when the song started**, not as it was when the
+  song ended.
+- **Linux builds are marked experimental** in the README, with an invitation to Linux users to polish them
+  and send pull requests.
+
 ## 2026-10-10 — 3.5.1
 
 ### Fixed
