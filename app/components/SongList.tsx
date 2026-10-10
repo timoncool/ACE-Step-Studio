@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Song } from '../types';
-import { Play, MoreHorizontal, Heart, ListPlus, Pause, Search, Filter, Check, Globe, Lock, Loader2, ThumbsUp, Share2, Video, Info, Clock, Timer, ImagePlus, Pencil, Clapperboard, ListMusic } from 'lucide-react';
+import { Play, MoreHorizontal, Heart, ListPlus, Pause, Search, Filter, Check, Globe, Lock, Loader2, Share2, Video, Info, Clock, Timer, ImagePlus, Pencil, Clapperboard, ListMusic } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
 import type { TranslationKey } from '../i18n/translations';
@@ -144,7 +144,7 @@ export const SongList: React.FC<SongListProps> = ({
     const filterRef = useRef<HTMLDivElement>(null);
 
     const FILTERS: { id: FilterType; label: string; icon: React.ReactNode }[] = [
-        { id: 'liked', label: t('liked'), icon: <ThumbsUp size={16} /> },
+        { id: 'liked', label: t('liked'), icon: <Heart size={16} /> },
         { id: 'public', label: t('public'), icon: <Globe size={16} /> },
         { id: 'private', label: t('private'), icon: <Lock size={16} /> },
         { id: 'generating', label: t('generatingStatus'), icon: <Loader2 size={16} /> }
@@ -856,7 +856,7 @@ const SongItem: React.FC<SongItemProps> = ({
                             {...named(t('like'))}
                             aria-pressed={isLiked}
                         >
-                            <ThumbsUp size={16} fill={isLiked ? "currentColor" : "none"} />
+                            <Heart size={16} fill={isLiked ? "currentColor" : "none"} />
                             {(song.likeCount || 0) > 0 && (
                                 <span className="text-xs font-bold">{song.likeCount}</span>
                             )}

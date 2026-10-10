@@ -5274,10 +5274,11 @@ dependencies = [
 [[package]]
 name = "studio-hub-client"
 version = "0.1.0"
-source = "git+https://github.com/timoncool/studio-hub-client?rev=d1593c6f34122549429b8a10916d28b9918bce11#d1593c6f34122549429b8a10916d28b9918bce11"
+source = "git+https://github.com/timoncool/studio-hub-client?rev=c972d81bbf5129a30cd90f9b6ba98553a594c247#c972d81bbf5129a30cd90f9b6ba98553a594c247"
 dependencies = [
  "axum",
  "chrono",
+ "regex",
  "reqwest",
  "serde",
  "serde_json",
@@ -5992,7 +5993,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",

@@ -227,13 +227,13 @@ fn start_service() -> Result<(), String> {
 
 /// One request to the studio's own service: its body; `Err(true)` when it took
 /// the request and gave nothing readable back, `Err(false)` when nothing listens.
-fn service_call(method: &str, path: &str) -> Result<String, bool> {
+fn service_call(method: &str, path: &str, wait: Duration) -> Result<String, bool> {
     use std::io::{Read, Write};
     let address = SocketAddrV4::new(Ipv4Addr::LOCALHOST, server_port());
     let Ok(mut stream) = TcpStream::connect_timeout(&address.into(), Duration::from_millis(500)) else {
         return Err(false);
     };
-    let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
+    let _ = stream.set_read_timeout(Some(wait));
     let request = format!("{method} {path} HTTP/1.0\r\nHost: 127.0.0.1:{}\r\nContent-Length: 0\r\n\r\n", server_port());
     let mut response = String::new();
     if stream.write_all(request.as_bytes()).is_err() || stream.read_to_string(&mut response).is_err() {
@@ -242,9 +242,9 @@ fn service_call(method: &str, path: &str) -> Result<String, bool> {
     response.split("\r\n\r\n").nth(1).map(str::to_owned).ok_or(true)
 }
 
-/// The songs queued or being made, by job id; `None` when the service could not say.
-fn songs_in_progress() -> Option<Vec<String>> {
-    match service_call("GET", "/v1/music/jobs") {
+/// The songs queued or being made, by job id; `None` when the service could not say in `wait`.
+fn songs_in_progress(wait: Duration) -> Option<Vec<String>> {
+    match service_call("GET", "/v1/music/jobs", wait) {
         Ok(body) => serde_json::from_str::<Vec<serde_json::Value>>(&body)
             .ok()
             .map(|jobs| jobs.iter().filter_map(|job| job.get("id").and_then(serde_json::Value::as_str).map(str::to_owned)).collect()),
@@ -258,7 +258,7 @@ fn songs_in_progress() -> Option<Vec<String>> {
 /// not make it again as one the studio was cut off on.
 fn confirm_quit(app: &tauri::AppHandle) {
     use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
-    let running = songs_in_progress();
+    let running = songs_in_progress(Duration::from_secs(2));
     let quit = running.as_ref().is_some_and(Vec::is_empty)
         || app
             .dialog()
@@ -268,8 +268,9 @@ fn confirm_quit(app: &tauri::AppHandle) {
             .buttons(MessageDialogButtons::OkCancelCustom("Quit".into(), "Cancel".into()))
             .blocking_show();
     if quit {
-        for id in running.unwrap_or_default() {
-            let _ = service_call("POST", &format!("/v1/music/jobs/{id}"));
+        // a service too slow to list them before the question gets longer now, or the songs would start again next time
+        for id in running.or_else(|| songs_in_progress(Duration::from_secs(15))).unwrap_or_default() {
+            let _ = service_call("POST", &format!("/v1/music/jobs/{id}"), Duration::from_secs(5));
         }
         app.exit(0);
     }

@@ -7371,15 +7371,25 @@ async fn run_ace_job(state: AppState, run: AceRun) {
         (job_status_name(&job.status), job.message.clone(), job.songs.len(), profiles)
     });
     if let Some(hub) = &state.hub {
-        match ended.as_ref().map(|(status, _, songs, profiles)| (*status, *songs, profiles)) {
-            Some(("completed", songs, profiles)) if songs > 0 => {
-                hub.count("songs", songs as u64);
+        match ended.as_ref() {
+            Some(("completed", _, songs, profiles)) if *songs > 0 => {
+                hub.count("songs", *songs as u64);
                 for profile in profiles {
                     hub.used_model(profile);
                 }
+                // a set put together by hand has no name: its parts say what it was
+                let set = profiles.first().cloned();
+                let parts = match &set {
+                    Some(id) => model_manager::profile_components(id),
+                    None => state.selected_component_ids.read().await.clone().unwrap_or_default(),
+                };
+                hub.used_models(set.as_deref(), &parts, *songs as u64);
             }
-            Some(("failed", _, _)) => hub.count("song_failed", 1),
-            Some(("cancelled", _, _)) => hub.count("song_cancelled", 1),
+            Some(("failed", message, _, _)) => {
+                hub.count("song_failed", 1);
+                hub.failed("song", message);
+            }
+            Some(("cancelled", _, _, _)) => hub.count("song_cancelled", 1),
             _ => {}
         }
     }

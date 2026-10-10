@@ -833,6 +833,14 @@ function AppContent() {
   // while the Winamp mode is on, Winamp is the player the agent drives
   const inWinamp = async (change: Record<string, unknown>) => ({ text: `Winamp: ${await winampControl()!.set(change)}` });
   useBridgeCommand('player_play', ({ song_id, song_ids, stem }) => {
+    // the player is the person's: what they are listening to is never switched or paused by an agent
+    const winamp = winampControl()?.state();
+    const listeningTo = winamp
+      ? (winamp.playing ? ((winamp.song as { title?: string } | null)?.title ?? '') : null)
+      : (currentSong && isPlaying ? currentSong.title : null);
+    if (listeningTo !== null) {
+      return { text: `The person is listening${listeningTo ? ` to ${listeningTo}` : ''}; the player was left as it is. Do not start songs while they listen.` };
+    }
     if (Array.isArray(song_ids) && song_ids.length) {
       // a list of songs becomes the queue, played from its first
       const list = song_ids.map((id) => songById(id)).filter((song) => song.audioUrl);
