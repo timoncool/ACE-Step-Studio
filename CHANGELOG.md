@@ -6,6 +6,10 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- An agent's Play no longer takes over the player while you listen: a song you are playing is neither
+  switched nor paused, and the agent is told you are listening.
+- Quitting while the service is slow to answer stops the songs being made as asked, instead of letting
+  them start again at the next launch.
 - A like is a heart everywhere: the song list and its Liked filter showed a thumbs-up while the
   player and the side panel showed a heart.
 - On the start screen the statistics checkbox, its label and What is sent stand on one line in one
