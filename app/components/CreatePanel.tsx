@@ -435,6 +435,12 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       ] as const) {
         if (key in settings) (set as (value: string) => void)(text(key));
       }
+      // the song's own seeds, kept: the random switch would throw the sound seed away
+      if ('lm_seed' in settings) setLmSeed(text('lm_seed'));
+      if ('seed' in settings) {
+        setSeed(text('seed'));
+        setRandomizeSeed(text('seed') === '');
+      }
       if (settings.output_format === 'mp3' || settings.output_format === 'flac' || settings.output_format === 'wav32') setFormat(settings.output_format);
       if (typeof settings.use_cot_caption === 'boolean') setCotCaption(settings.use_cot_caption);
       setAdapters(usesFromRequest(settings));

@@ -15,6 +15,8 @@ What changed, newest first. Dates are release dates.
 - **Audio to MIDI keeps the size you pick.** The models page put the choice back to medium while a download ran,
   so small and large looked impossible to get; the largest size downloaded is now the one offered first, on the
   models page and on the tools page.
+- **Send to the form keeps the song's seeds.** The sound seed and the planner seed came to the form empty, so the
+  same song could not be made again; both come along now and the random switch is turned off.
 - **Linux packages run on Ubuntu 22.04** and other systems with glibc 2.35 or newer; they needed 2.38.
 
 ## 2026-10-10 — 3.5.2
