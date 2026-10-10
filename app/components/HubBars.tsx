@@ -39,7 +39,7 @@ export const HubBars: React.FC<Props> = ({ items, elapsed, view, closed, onClose
   };
 
   return (
-    <div role="region" aria-label={t('hubNoticesRegion')} className="shrink-0">
+    <div role="region" aria-label={t('hubNoticesRegion')} className="ml-[72px] shrink-0 md:ml-0">
       {visible.map((item, index) => {
         const theme = stackTheme(item.theme, index);
         const content = hubText(item, language);
