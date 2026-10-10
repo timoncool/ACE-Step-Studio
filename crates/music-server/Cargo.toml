@@ -44,7 +44,7 @@ sha2.workspace = true
 symphonia.workspace = true
 sysinfo.workspace = true
 # Studio Hub: anonymous statistics and the news feed (telemetry only after the start screen showed its choice).
-studio-hub-client = { git = "https://github.com/timoncool/studio-hub-client", rev = "d1593c6f34122549429b8a10916d28b9918bce11" }
+studio-hub-client = { git = "https://github.com/timoncool/studio-hub-client", rev = "3496ded7399709cd64d13f17824089b8aef2569b" }
 ort.workspace = true
 realfft = "3.5"
 regex = "1"

@@ -286,13 +286,17 @@ the news of its release.
 
 The setup screen of the first start has a checkbox **Send anonymous usage statistics**, checked by default. The same
 switch is in Settings → Anonymous statistics, next to **What is sent** (the exact report of today) and **New install
-id**. While it is checked, the studio sends once a day:
+id**. While it is checked, the studio sends a day's report a minute after start and every six hours after (a later
+report of the same day replaces the earlier one):
 
 - a random install id made on this computer, not tied to the hardware or an account; unchecking the box deletes it;
 - the studio and its version, the OS name and version, the window language;
 - the graphics card as vendor, a video memory bucket (up to 8, 12, 16, 24+ GB) and the backend (CUDA, Vulkan or
   processor);
-- how many songs were made, failed or were cancelled that day, and which model set made them.
+- how many songs were made, failed or were cancelled that day, and the model sets they were made on: a ready-made
+  set by name with its parts, one put together by hand by its parts, each with its number of songs;
+- why a song failed, as one line with paths, names, links and anything in quotes removed on this computer before it
+  leaves; the server keeps these reasons 30 days.
 
 Never: lyrics, prompts, audio, file names or paths, anything personal. The server keeps the country Cloudflare
 reports for the connection, not the IP address. `DO_NOT_TRACK=1` or `STUDIO_TELEMETRY=0` in the environment turns

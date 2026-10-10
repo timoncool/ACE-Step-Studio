@@ -6,6 +6,9 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- **Statistics name the model set in full.** A set put together by hand is reported by its parts, and a day
+  on several sets reports each with its number of songs; a failed song reports its reason, with paths, names,
+  links and quoted text cut out on this computer before it leaves.
 - An agent's Play no longer takes over the player while you listen: a song you are playing is neither
   switched nor paused, and the agent is told you are listening.
 - Quitting while the service is slow to answer stops the songs being made as asked, instead of letting
