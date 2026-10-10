@@ -309,6 +309,20 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_flac_song_becomes_the_16k_mono_wav_the_captioner_reads() {
+        let dir = tempfile::tempdir().unwrap();
+        let tone: Vec<f32> = (0..48_000).map(|i| 0.5 * (i as f32 * 2.0 * std::f32::consts::PI * 440.0 / 48_000.0).sin()).collect();
+        let song = dir.path().join("song.flac");
+        std::fs::write(&song, audio_post::encode::flac(&audio_post::Stereo { left: tone.clone(), right: tone, rate: 48_000 }).unwrap()).unwrap();
+        let wav = dir.path().join("song.wav");
+        write_wav16k_mono(&song, &wav).unwrap();
+        let reader = hound::WavReader::open(&wav).unwrap();
+        let spec = reader.spec();
+        assert_eq!((spec.channels, spec.sample_rate), (1, 16_000));
+        assert!((reader.len() as i64 - 16_000).abs() < 64, "{} samples for one second", reader.len());
+    }
+
+    #[test]
     fn a_signal_above_full_scale_is_lowered_into_flac_not_cut() {
         let n = 4_800;
         let left: Vec<f32> = (0..n).map(|i| 1.5 * (i as f32 * 0.05).sin()).collect();
