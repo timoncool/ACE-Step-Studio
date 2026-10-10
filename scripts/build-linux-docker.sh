@@ -12,7 +12,7 @@ if [ "${1:-}" = "--inside" ]; then
   apt-get update -q >/dev/null
   apt-get install -y -q --no-install-recommends build-essential pkg-config cmake ninja-build nasm autoconf automake libtool \
     curl ca-certificates git unzip xz-utils libssl-dev libasound2-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
-    librsvg2-dev patchelf file libfuse2 libvulkan-dev glslc spirv-headers >/dev/null
+    librsvg2-dev patchelf file libfuse2 libvulkan-dev >/dev/null
   if [ ! -x /cache/node/bin/node ]; then
     echo "[..] node 22"
     v=$(curl -s https://nodejs.org/dist/latest-v22.x/ | grep -o 'node-v22[0-9.]*-linux-x64.tar.xz' | head -1)
@@ -22,6 +22,14 @@ if [ "${1:-}" = "--inside" ]; then
     echo "[..] rust stable"
     curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable >/dev/null
   fi
+  # Ubuntu 22.04 has no glslc and older Vulkan headers than the engine's ggml wants: LunarG's SDK has both
+  vulkan=1.4.363.0
+  if [ ! -x /cache/vulkansdk-$vulkan/x86_64/bin/glslc ]; then
+    echo "[..] Vulkan SDK $vulkan"
+    mkdir -p /cache/vulkansdk-$vulkan
+    curl -sSfL "https://sdk.lunarg.com/sdk/download/$vulkan/linux/vulkansdk-linux-x86_64-$vulkan.tar.xz" | tar -xJ -C /cache/vulkansdk-$vulkan --strip-components=1
+  fi
+  export VULKAN_SDK=/cache/vulkansdk-$vulkan/x86_64 PATH=/cache/vulkansdk-$vulkan/x86_64/bin:$PATH
   echo "[..] source $(git -c safe.directory=/src -C /src rev-parse --short HEAD)"
   rm -rf /cache/src && mkdir -p /cache/src
   git -c safe.directory=/src -C /src archive HEAD | tar -x -C /cache/src

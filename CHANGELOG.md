@@ -2,6 +2,21 @@
 
 What changed, newest first. Dates are release dates.
 
+## 2026-10-10 — 3.5.3
+
+### Fixed
+
+- **Works offline.** With the computer offline the window held every read and change until a network came back:
+  a song stood at its last stage although it was made, and a song deleted came back when Wi-Fi was turned on.
+  The window talks to the studio on this computer and no longer waits for a network.
+- **Describe by ear hears FLAC songs.** Since songs are kept as FLAC the captioner refused them; they are handed
+  to it as WAV.
+- **WAV (32-bit float)** is offered again beside FLAC and MP3, in the form and in Re-render.
+- **Audio to MIDI keeps the size you pick.** The models page put the choice back to medium while a download ran,
+  so small and large looked impossible to get; the largest size downloaded is now the one offered first, on the
+  models page and on the tools page.
+- **Linux packages run on Ubuntu 22.04** and other systems with glibc 2.35 or newer; they needed 2.38.
+
 ## 2026-10-10 — 3.5.2
 
 ### Added
