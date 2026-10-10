@@ -1,5 +1,5 @@
 #!/bin/bash
-# The Linux x86-64 .deb and AppImage, built on this machine in an Ubuntu 24.04 container (Docker under WSL on
+# The Linux x86-64 .deb and AppImage, built on this machine in an Ubuntu 22.04 container (glibc 2.35, so they run there and on anything newer; Docker under WSL on
 # Windows) from the committed HEAD. Only the .dmg is built on GitHub (release-unix.yml): there is no Mac here.
 #   scripts/build-linux-docker.sh <output folder> [cache folder]
 # The cache keeps Rust, Node, the cargo target and the engine build between runs.
@@ -12,7 +12,7 @@ if [ "${1:-}" = "--inside" ]; then
   apt-get update -q >/dev/null
   apt-get install -y -q --no-install-recommends build-essential pkg-config cmake ninja-build nasm autoconf automake libtool \
     curl ca-certificates git unzip xz-utils libssl-dev libasound2-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
-    librsvg2-dev patchelf file libfuse2t64 libvulkan-dev glslc spirv-headers >/dev/null
+    librsvg2-dev patchelf file libfuse2 libvulkan-dev glslc spirv-headers >/dev/null
   if [ ! -x /cache/node/bin/node ]; then
     echo "[..] node 22"
     v=$(curl -s https://nodejs.org/dist/latest-v22.x/ | grep -o 'node-v22[0-9.]*-linux-x64.tar.xz' | head -1)
@@ -44,8 +44,8 @@ if [ "${1:-}" = "--inside" ]; then
 fi
 
 out="${1:?output folder}"
-cache="${2:-$HOME/ace-linux-cache}"
+cache="${2:-$HOME/ace-linux2204-cache}"
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 mkdir -p "$out" "$cache"
 cp "$repo/scripts/build-linux-docker.sh" "$out/.build-linux-docker.sh"
-docker run --rm -v "$repo:/src:ro" -v "$(cd "$out" && pwd):/out" -v "$cache:/cache" ubuntu:24.04 bash /out/.build-linux-docker.sh --inside
+docker run --rm -v "$repo:/src:ro" -v "$(cd "$out" && pwd):/out" -v "$cache:/cache" ubuntu:22.04 bash /out/.build-linux-docker.sh --inside

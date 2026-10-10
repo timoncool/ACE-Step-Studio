@@ -1185,7 +1185,7 @@ export const ja = {
     providers: 'プロバイダー',
     durationSeconds: '長さ（秒）',
     ditSteps: 'DiT ステップ',
-    outputRawHint: '曲はモデルが作ったまま、音量も変えずに保存されます：ロスレス FLAC、または選べば MP3。ノーマライズとマスタリングはトラックの「処理」で行います。',
+    outputRawHint: '曲はモデルが作ったまま、音量も変えずに保存されます：ロスレス FLAC、または選べば MP3 か WAV（32-bit float）。ノーマライズとマスタリングはトラックの「処理」で行います。',
     outputFormat: '出力形式',
     mp3Bitrate: 'MP3 ビットレート (kbps)',
     ditSeed: 'DiT シード（空=ランダム）',

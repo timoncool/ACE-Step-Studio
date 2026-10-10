@@ -82,7 +82,20 @@ pub fn hear_batch(
     let prose_prompt = work.path().join("prompt.prose.txt");
     std::fs::write(&prose_prompt, PROSE_PROMPT)?;
     let list = work.path().join("songs.tsv");
-    let listing: Vec<String> = audio.iter().enumerate().map(|(index, path)| format!("{}\t{}", path.display(), work.path().join(format!("{index}.txt")).display())).collect();
+    // ace-caption reads WAV and MP3 only and wants ffmpeg for the rest; a song kept as FLAC goes in as the
+    // 16 kHz mono WAV it would have made of it
+    let mut inputs = Vec::with_capacity(audio.len());
+    for (index, path) in audio.iter().enumerate() {
+        let readable = path.extension().and_then(|extension| extension.to_str()).is_some_and(|extension| extension.eq_ignore_ascii_case("wav") || extension.eq_ignore_ascii_case("mp3"));
+        if readable {
+            inputs.push(path.clone());
+        } else {
+            let wav = work.path().join(format!("{index}.source.wav"));
+            crate::audio_pcm::write_wav16k_mono(path, &wav).with_context(|| format!("decode {} for the captioner", path.display()))?;
+            inputs.push(wav);
+        }
+    }
+    let listing: Vec<String> = inputs.iter().enumerate().map(|(index, path)| format!("{}\t{}", path.display(), work.path().join(format!("{index}.txt")).display())).collect();
     std::fs::write(&list, listing.join("\n"))?;
 
     let mut command = Command::new(exe);

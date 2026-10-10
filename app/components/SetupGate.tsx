@@ -164,6 +164,7 @@ export const OptionalGroup: React.FC<{
   // The saved choice is read once: every later status is about downloads, and
   // taking its provider again undid a choice the user had just made.
   const choiceRead = useRef(false);
+  const modelRead = useRef(false);
   const load = useCallback(async () => {
     const response = await fetch(statusUrl);
     if (response.ok) {
@@ -175,7 +176,11 @@ export const OptionalGroup: React.FC<{
       }
       if (body.runtime) setDevice(body.runtime);
       if (body.whisper_model) setModel(body.whisper_model);
-      if (body.chosen_model) setModel(body.chosen_model);
+      // read once like the provider: the polls of a running download put the pick back to what is installed
+      if (!modelRead.current && body.chosen_model) {
+        modelRead.current = true;
+        setModel(body.chosen_model);
+      }
       if (body.settings?.runtime) setDevice(body.settings.runtime);
     }
   }, [statusUrl, engines]);

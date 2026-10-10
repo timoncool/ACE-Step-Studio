@@ -435,7 +435,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       ] as const) {
         if (key in settings) (set as (value: string) => void)(text(key));
       }
-      if (settings.output_format === 'mp3' || settings.output_format === 'flac') setFormat(settings.output_format);
+      if (settings.output_format === 'mp3' || settings.output_format === 'flac' || settings.output_format === 'wav32') setFormat(settings.output_format);
       if (typeof settings.use_cot_caption === 'boolean') setCotCaption(settings.use_cot_caption);
       setAdapters(usesFromRequest(settings));
       const groupScales = settings.adapter_group_scales as Record<string, unknown> | undefined;
@@ -977,7 +977,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   useBridgeCommand('create_set', (args) => {
     const fields = (args.fields && typeof args.fields === 'object' ? args.fields : args) as Record<string, unknown>;
     const extra = ['mode', 'instrumental', 'think', 'tracks', 'randomize_seed', 'adapters'];
-    const choices: Record<string, string[]> = { mode: ['studio', 'simple'], task_type: TASKS, output_format: ['flac', 'mp3'] };
+    const choices: Record<string, string[]> = { mode: ['studio', 'simple'], task_type: TASKS, output_format: ['flac', 'mp3', 'wav32'] };
     const unknown = Object.keys(fields).filter(key => !formFields[key] && !extra.includes(key));
     if (unknown.length) throw new Error(`Unknown fields: ${unknown.join(', ')}. The form has: ${[...Object.keys(formFields), ...extra].join(', ')}.`);
     for (const [key, allowed] of Object.entries(choices)) {
@@ -1568,6 +1568,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
                         <select value={format} onChange={event => setFormat(event.target.value as AceCreateRequest['output_format'])} className={CONTROL}>
                           <option value="flac">FLAC</option>
                           <option value="mp3">MP3</option>
+                          <option value="wav32">WAV (32-bit float)</option>
                         </select>
                       </Field>
                     </div>

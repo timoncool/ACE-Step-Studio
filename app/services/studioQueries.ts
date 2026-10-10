@@ -14,7 +14,10 @@ export const queryClient = new QueryClient({
       // the service is on this computer: a failed read is shown, not retried in a loop
       retry: false,
       refetchOnWindowFocus: false,
+      // and it answers with the computer offline, when the default mode would hold every read until a network comes back
+      networkMode: 'always',
     },
+    mutations: { networkMode: 'always' },
   },
 });
 

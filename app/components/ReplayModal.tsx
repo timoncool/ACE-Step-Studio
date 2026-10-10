@@ -39,7 +39,7 @@ export const ReplayModal: React.FC<ReplayModalProps> = ({ song, clientRef, onClo
   const [seed, setSeed] = useState<string>(typeof settings.seed === 'number' ? String(settings.seed) : '');
   const [variations, setVariations] = useState<number>(1);
   const [bitrate, setBitrate] = useState<number>(numberOr('mp3_bitrate', 320));
-  const [format, setFormat] = useState<'flac' | 'mp3'>(settings.output_format === 'mp3' ? 'mp3' : 'flac');
+  const [format, setFormat] = useState<'flac' | 'mp3' | 'wav32'>(settings.output_format === 'mp3' || settings.output_format === 'wav32' ? settings.output_format : 'flac');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -120,6 +120,7 @@ export const ReplayModal: React.FC<ReplayModalProps> = ({ song, clientRef, onClo
               <select value={format} onChange={event => setFormat(event.target.value as typeof format)} className={CONTROL}>
                 <option value="flac">FLAC</option>
                 <option value="mp3">MP3</option>
+                <option value="wav32">WAV (32-bit float)</option>
               </select>
             </label>
             <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300">

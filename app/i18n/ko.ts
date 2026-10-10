@@ -1185,7 +1185,7 @@ export const ko = {
     providers: '제공자',
     durationSeconds: '길이(초)',
     ditSteps: 'DiT 스텝',
-    outputRawHint: '곡은 모델이 만든 그대로, 음량 변경 없이 저장됩니다: 무손실 FLAC 또는 선택 시 MP3. 노멀라이즈와 마스터링은 트랙의 \'처리\'에서 합니다.',
+    outputRawHint: '곡은 모델이 만든 그대로, 음량 변경 없이 저장됩니다: 무손실 FLAC, 또는 선택 시 MP3나 WAV(32-bit float). 노멀라이즈와 마스터링은 트랙의 \'처리\'에서 합니다.',
     outputFormat: '출력 형식',
     mp3Bitrate: 'MP3 비트레이트(kbps)',
     ditSeed: 'DiT 시드(비우면 랜덤)',
