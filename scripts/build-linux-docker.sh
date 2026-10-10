@@ -32,7 +32,9 @@ if [ "${1:-}" = "--inside" ]; then
   bash scripts/build-release-linux.sh > /out/build.log 2>&1 || { echo "[ERROR] build failed"; tail -40 /out/build.log; exit 1; }
   engine=desktop/src-tauri/resources/engine/ace-server
   if ldd "$engine" | grep -i 'not found'; then echo "[ERROR] the engine misses libraries"; exit 1; fi
-  "$engine" --help > /dev/null 2>&1 || { echo "[ERROR] the engine does not start"; exit 1; }
+  # the engine answers --help with its usage and a non-zero code
+  "$engine" --help > /tmp/engine-help.txt 2>&1 || true
+  grep -q 'Usage' /tmp/engine-help.txt || { echo "[ERROR] the engine does not start"; head -5 /tmp/engine-help.txt; exit 1; }
   version="$(node -p "require('./desktop/src-tauri/tauri.conf.json').version")"
   cp "$(find /cache/target/release/bundle/deb -name '*.deb' | head -n 1)" "/out/ACE-Step-Studio-${version}-linux-amd64.deb"
   cp "$(find /cache/target/release/bundle/appimage -name '*.AppImage' | head -n 1)" "/out/ACE-Step-Studio-${version}-linux-x86_64.AppImage"
