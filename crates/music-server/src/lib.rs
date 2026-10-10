@@ -7376,6 +7376,7 @@ async fn run_ace_job(state: AppState, run: AceRun) {
         match ended.as_ref() {
             Some(("completed", _, songs, profiles)) if *songs > 0 => {
                 hub.count("songs", *songs as u64);
+                hub.count("song_done", 1);
                 for profile in profiles {
                     hub.used_model(profile);
                 }

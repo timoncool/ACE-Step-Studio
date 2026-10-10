@@ -18,6 +18,8 @@ What changed, newest first. Dates are release dates.
 - **The day's statistics leave when the studio closes** instead of at its next start.
 - **A model set put together by hand is counted as it was when the song started**, not as it was when the
   song ended.
+- **Statistics count finished songs by job** as well as by song, so the share of failed songs compares
+  like with like.
 - **Linux builds are marked experimental** in the README, with an invitation to Linux users to polish them
   and send pull requests.
 
