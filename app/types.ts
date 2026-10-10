@@ -147,7 +147,7 @@ export interface AceCreateRequest {
   synth_model?: string;
   lm_model?: string;
   vae?: string;
-  output_format: 'flac' | 'mp3';
+  output_format: 'flac' | 'mp3' | 'wav32';
   mp3_bitrate?: number;
   adapter_group_scales?: Record<string, number>;
   /** Studio fields, never sent to the engine as such. */

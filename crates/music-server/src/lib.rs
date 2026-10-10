@@ -2308,12 +2308,12 @@ async fn midi_runtime(State(state): State<AppState>) -> Json<Value> {
             "kind": "model",
         })
     }));
-    let installed_size = midi::SIZES.iter().find(|size| state.midi.model_installed(size));
+    let installed_size = midi::SIZES.iter().rev().find(|size| state.midi.model_installed(size));
     Json(serde_json::json!({
         "assets": assets,
         "set": { "bytes": tool.bytes, "installed_bytes": if tool_installed { tool.bytes } else { 0 }, "ready": tool_installed && installed_size.is_some(), "files": 1 },
         "active_download": state.midi.downloader().active().await,
-        "chosen_model": installed_size.map_or(midi::DEFAULT_SIZE, |size| size.id),
+        "chosen_model": preferred_midi_size(&state),
     }))
 }
 
@@ -6200,6 +6200,11 @@ fn midi_sidecar(midi: &std::path::Path) -> PathBuf {
     PathBuf::from(format!("{}.json", midi.display()))
 }
 
+/// The size offered first: the largest one downloaded, as the one picked for its quality, else the default.
+fn preferred_midi_size(state: &AppState) -> &'static str {
+    midi::SIZES.iter().rev().find(|size| state.midi.model_installed(size)).map_or(midi::DEFAULT_SIZE, |size| size.id)
+}
+
 fn midi_size(asked: Option<&str>) -> Result<&'static midi::Size, (StatusCode, Json<ApiError>)> {
     let id = asked.map(str::trim).filter(|id| !id.is_empty()).unwrap_or(midi::DEFAULT_SIZE);
     midi::size(id).ok_or_else(|| api_error(StatusCode::BAD_REQUEST, format!("no model size {id}; the sizes are small, medium and large")))
@@ -6220,7 +6225,7 @@ async fn midi_status(State(state): State<AppState>) -> Json<Value> {
     Json(serde_json::json!({
         "tool_installed": state.midi.tool_installed(),
         "sizes": sizes,
-        "default_size": midi::DEFAULT_SIZE,
+        "default_size": preferred_midi_size(&state),
         "download": state.midi.downloader().active().await,
         "run": run,
         "license": "MuScriptor by Kyutai & Mirelo (arXiv:2607.08168): code MIT, weights CC BY-NC 4.0 - non-commercial use. Native port: HOT-Step-CPP ace-midi.",
@@ -6290,7 +6295,7 @@ async fn start_midi(State(state): State<AppState>, Json(input): Json<MidiRequest
     if state.midi_run.read().await.as_ref().is_some_and(|run| !run.done) {
         return Err(api_error(StatusCode::CONFLICT, "a track is already being turned into MIDI".into()));
     }
-    let size = midi_size(input.size.as_deref())?;
+    let size = midi_size(input.size.as_deref().or(Some(preferred_midi_size(&state))))?;
     let (song_id, title, audio, output) = match (input.song_id.filter(|id| !id.trim().is_empty()), input.path.filter(|path| !path.trim().is_empty())) {
         (Some(id), _) => {
             let song = state

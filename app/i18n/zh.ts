@@ -1185,7 +1185,7 @@ export const zh = {
     providers: '提供方',
     durationSeconds: '时长（秒）',
     ditSteps: 'DiT 步数',
-    outputRawHint: '歌曲按模型生成的原样、原有音量保存：无损 FLAC，或选择 MP3。标准化与母带处理在曲目的“处理”中。',
+    outputRawHint: '歌曲按模型生成的原样、原有音量保存：无损 FLAC，或选择 MP3 或 WAV（32 位浮点）。标准化与母带处理在曲目的“处理”中。',
     outputFormat: '输出格式',
     mp3Bitrate: 'MP3 码率 (kbps)',
     ditSeed: 'DiT 种子（留空为随机）',

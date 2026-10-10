@@ -436,7 +436,7 @@ never part of a release.
 
 ### macOS and Linux
 
-Linux packages are built on the release machine in an Ubuntu 24.04 container (Docker, under WSL on
+Linux packages are built on the release machine in an Ubuntu 22.04 container (glibc 2.35; Docker, under WSL on
 Windows): `scripts/build-linux-docker.sh <output folder>` builds the committed HEAD with
 `scripts/build-release-linux.sh` and checks that the engine starts. Only the .dmg is built on GitHub, by
 the `macOS build` workflow (`.github/workflows/release-unix.yml`, started by hand, optionally with a
