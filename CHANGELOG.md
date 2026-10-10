@@ -2,6 +2,17 @@
 
 What changed, newest first. Dates are release dates.
 
+## 2026-10-10 — 3.5.1
+
+### Fixed
+
+- A like is a heart everywhere: the song list and its Liked filter showed a thumbs-up while the
+  player and the side panel showed a heart.
+- On the start screen the statistics checkbox, its label and What is sent stand on one line in one
+  colour; the link sat lower than the label and in another colour.
+- The notes of 3.4.0 and 3.5.0 in News are laid out like the earlier ones: a summary line, then each
+  change as a point with its name in bold.
+
 ## 2026-10-09 — 3.5.0
 
 ### Added
