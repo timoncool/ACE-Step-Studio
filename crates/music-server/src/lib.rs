@@ -7311,6 +7311,8 @@ fn last_fatal(lines: &[String], job: &str) -> Option<String> {
 
 async fn run_ace_job(state: AppState, run: AceRun) {
     let job_id = run.job_id.clone();
+    // the parts as they were when the song started: the person may switch sets while it is made
+    let parts_at_start = state.selected_component_ids.read().await.clone().unwrap_or_default();
     let outcome = {
         let _using = state.engine_use.read().await;
         ace_job(&state, run).await
@@ -7374,6 +7376,7 @@ async fn run_ace_job(state: AppState, run: AceRun) {
         match ended.as_ref() {
             Some(("completed", _, songs, profiles)) if *songs > 0 => {
                 hub.count("songs", *songs as u64);
+                hub.count("song_done", 1);
                 for profile in profiles {
                     hub.used_model(profile);
                 }
@@ -7381,7 +7384,7 @@ async fn run_ace_job(state: AppState, run: AceRun) {
                 let set = profiles.first().cloned();
                 let parts = match &set {
                     Some(id) => model_manager::profile_components(id),
-                    None => state.selected_component_ids.read().await.clone().unwrap_or_default(),
+                    None => parts_at_start.clone(),
                 };
                 hub.used_models(set.as_deref(), &parts, *songs as u64);
             }

@@ -10,17 +10,18 @@ import { hubStrings } from './hub';
 import { aceStrings } from './ace';
 import { midiEditorStrings } from './midiEditor';
 import { noticeStrings } from './notices';
+import { shellStrings } from './shell';
 
 export type Language = 'en' | 'zh' | 'ja' | 'ko' | 'ru';
 
-const enAll = { ...en, ...processingStrings.en, ...adapterStrings.en, ...trainingStrings.en, ...hubStrings.en, ...aceStrings.en, ...midiEditorStrings.en, ...noticeStrings.en };
+const enAll = { ...en, ...processingStrings.en, ...adapterStrings.en, ...trainingStrings.en, ...hubStrings.en, ...aceStrings.en, ...midiEditorStrings.en, ...noticeStrings.en, ...shellStrings.en };
 
 export type TranslationKey = keyof typeof enAll;
 
 export const translations: Record<Language, Partial<Record<TranslationKey, string>>> = {
   en: enAll,
-  zh: { ...zh, ...processingStrings.zh, ...adapterStrings.zh, ...trainingStrings.zh, ...hubStrings.zh, ...aceStrings.zh, ...midiEditorStrings.zh, ...noticeStrings.zh },
-  ja: { ...ja, ...processingStrings.ja, ...adapterStrings.ja, ...trainingStrings.ja, ...hubStrings.ja, ...aceStrings.ja, ...midiEditorStrings.ja, ...noticeStrings.ja },
-  ko: { ...ko, ...processingStrings.ko, ...adapterStrings.ko, ...trainingStrings.ko, ...hubStrings.ko, ...aceStrings.ko, ...midiEditorStrings.ko, ...noticeStrings.ko },
-  ru: { ...ru, ...processingStrings.ru, ...adapterStrings.ru, ...trainingStrings.ru, ...hubStrings.ru, ...aceStrings.ru, ...midiEditorStrings.ru, ...noticeStrings.ru },
+  zh: { ...zh, ...processingStrings.zh, ...adapterStrings.zh, ...trainingStrings.zh, ...hubStrings.zh, ...aceStrings.zh, ...midiEditorStrings.zh, ...noticeStrings.zh, ...shellStrings.zh },
+  ja: { ...ja, ...processingStrings.ja, ...adapterStrings.ja, ...trainingStrings.ja, ...hubStrings.ja, ...aceStrings.ja, ...midiEditorStrings.ja, ...noticeStrings.ja, ...shellStrings.ja },
+  ko: { ...ko, ...processingStrings.ko, ...adapterStrings.ko, ...trainingStrings.ko, ...hubStrings.ko, ...aceStrings.ko, ...midiEditorStrings.ko, ...noticeStrings.ko, ...shellStrings.ko },
+  ru: { ...ru, ...processingStrings.ru, ...adapterStrings.ru, ...trainingStrings.ru, ...hubStrings.ru, ...aceStrings.ru, ...midiEditorStrings.ru, ...noticeStrings.ru, ...shellStrings.ru },
 };
