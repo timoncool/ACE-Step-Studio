@@ -4,7 +4,7 @@ import { SiGithub } from '@icons-pack/react-simple-icons';
 import { useI18n } from '../context/I18nContext';
 import newsData from '../data/news.json';
 import { useHubState } from '../services/studioQueries';
-import type { HubItem } from '../services/studioHub';
+import { reportNotice, type HubItem } from '../services/studioHub';
 import changelogData from '../data/changelog.json';
 import { STUDIO, STUDIO_REPO_URL } from '../studio';
 
@@ -234,7 +234,20 @@ export const NewsPage: React.FC = () => {
   const activeNews = allNews.filter(n => !dismissedNews.has(n.id));
   const dismissed = allNews.filter(n => dismissedNews.has(n.id));
 
+  // the hub's news count as its notices do: seen once a launch, clicks by button or link, closes
+  const hubId = (id: string) => (id.startsWith('hub:') ? id.slice(4) : null);
+  const hubShown = activeNews.map(n => hubId(n.id)).filter((id): id is string => id !== null).join(',');
+  useEffect(() => {
+    for (const id of hubShown ? hubShown.split(',') : []) reportNotice(id, 'shown').catch(error => console.warn('[hub] news shown not recorded:', error));
+  }, [hubShown]);
+  const hubClicked = (id: string, button: string) => {
+    const hub = hubId(id);
+    if (hub) reportNotice(hub, 'clicked', button).catch(error => console.warn('[hub] news click not recorded:', error));
+  };
+
   const dismissNewsItem = (id: string) => {
+    const hub = hubId(id);
+    if (hub) reportNotice(hub, 'dismissed').catch(error => console.warn('[hub] news close not recorded:', error));
     setDismissedNews(prev => {
       const next = new Set(prev);
       next.add(id);
@@ -301,14 +314,17 @@ export const NewsPage: React.FC = () => {
           )}
         </div>
 
-        <NewsBody text={localize(item.body)} />
+        <div onClickCapture={event => { if ((event.target as HTMLElement).closest('a')) hubClicked(item.id, 'link'); }}>
+          <NewsBody text={localize(item.body)} />
+        </div>
 
         {item.links && item.links.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-3">
-            {item.links.map(link => (
+            {item.links.map((link, index) => (
               <a
                 key={link.url}
                 href={link.url}
+                onClick={() => hubClicked(item.id, `b${index}`)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 transition-colors"

@@ -70,8 +70,9 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const fetchHubState = (lang: string) => call<HubState>(`/v1/hub/state?lang=${encodeURIComponent(lang)}`);
 
-export const reportNotice = (id: string, event: 'shown' | 'clicked' | 'dismissed') =>
-  call<{ ok: true }>(`/v1/hub/notices/${encodeURIComponent(id)}/${event}`, { method: 'POST' });
+/** `button` names a click: `b0`, `b1`... the notice's buttons in order, `link` a link in its text. */
+export const reportNotice = (id: string, event: 'shown' | 'clicked' | 'dismissed', button?: string) =>
+  call<{ ok: true }>(`/v1/hub/notices/${encodeURIComponent(id)}/${event}${button ? `?button=${encodeURIComponent(button)}` : ''}`, { method: 'POST' });
 
 export const setTelemetry = (enabled: boolean, acknowledge = false) =>
   call<HubState['telemetry']>('/v1/hub/telemetry', {
