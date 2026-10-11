@@ -29,6 +29,7 @@
     "withGlobalTauri": true
   },
   "bundle": {
+    "linux": { "appimage": { "bundleMediaFramework": true } },
     "active": true,
     "targets": [
       "nsis"

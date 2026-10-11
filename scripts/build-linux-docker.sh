@@ -12,7 +12,7 @@ if [ "${1:-}" = "--inside" ]; then
   apt-get update -q >/dev/null
   apt-get install -y -q --no-install-recommends build-essential pkg-config cmake ninja-build nasm autoconf automake libtool \
     curl ca-certificates git unzip xz-utils libssl-dev libasound2-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
-    librsvg2-dev patchelf file libfuse2 libvulkan-dev >/dev/null
+    librsvg2-dev patchelf file libfuse2 gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav libvulkan-dev >/dev/null
   if [ ! -x /cache/node/bin/node ]; then
     echo "[..] node 22"
     v=$(curl -s https://nodejs.org/dist/latest-v22.x/ | grep -o 'node-v22[0-9.]*-linux-x64.tar.xz' | head -1)
