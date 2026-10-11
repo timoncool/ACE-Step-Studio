@@ -1362,6 +1362,7 @@ export const ja = {
     removeKey: '削除',
     saveKey: 'キーを保存',
     noLocalEngineForCapability: 'このビルドにはこの機能のローカルエンジンがありません。',
+    noCloudModelForCapability: 'OpenRouter のカタログにこの機能のモデルがまだありません。OpenRouter 設定でカタログを更新してください。',
     noCatalogModelForCapability: '更新されたカタログにこの機能のモデルがありません。',
     openRouterIntro: 'クラウド機能はライブの OpenRouter カタログから取得され、必要なモダリティを実際に宣言するモデルのみ提示されます。キーはローカルサービスが保持します。',
     keyFromEnvironment: '環境変数のキー',

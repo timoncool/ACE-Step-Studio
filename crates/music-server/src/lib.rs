@@ -7582,9 +7582,19 @@ fn with_planned_metadata(request: &Value, planned: &Value) -> Value {
 fn song_audio_and_latent(state: &AppState, song_id: &str) -> anyhow::Result<(Vec<u8>, Option<Vec<u8>>)> {
     let song = state.library.get_song(song_id)?.with_context(|| format!("the track {song_id} is not in the library"))?;
     let path = state.library.media_path_for_song(&song).with_context(|| format!("{} has no audio file", song.title))?;
-    let audio = std::fs::read(&path).with_context(|| format!("read {}", path.display()))?;
+    let audio = engine_audio(&path)?;
     let latent = std::fs::read(latent_path(state, song_id)).ok();
     Ok((audio, latent))
+}
+
+/// A recording as the engine can read it: it decodes WAV and MP3 only, so a
+/// FLAC (how songs are kept) or any other format goes as a 32-bit float WAV.
+fn engine_audio(path: &std::path::Path) -> anyhow::Result<Vec<u8>> {
+    let extension = path.extension().map(|extension| extension.to_string_lossy().to_ascii_lowercase()).unwrap_or_default();
+    if extension == "wav" || extension == "mp3" {
+        return std::fs::read(path).with_context(|| format!("read {}", path.display()));
+    }
+    audio_pcm::wav_f32_bytes(&audio_pcm::decode_stereo(path)?)
 }
 
 /// The engine's latent of a rendered track, beside its audio.
@@ -8059,6 +8069,16 @@ fn initial_configuration() -> StudioConfiguration {
 fn sanitize_persisted_configuration(mut configuration: StudioConfiguration) -> StudioConfiguration {
     let declared = capability_engines(None, false);
     for selection in &mut configuration.selections {
+        // Songs have one local engine and no cloud model to fall back on: an
+        // engine id from an older build, or a cloud choice saved without a
+        // model, would stop every song, so both go back to the studio's engine.
+        if selection.capability == Capability::MusicGeneration {
+            if selection.mode == ExecutionMode::Local || selection.cloud_model.as_deref().is_none_or(|model| model.trim().is_empty()) {
+                selection.mode = ExecutionMode::Local;
+                selection.local_engine = Some(PRIMARY_MUSIC_ENGINE_ID.to_owned());
+            }
+            continue;
+        }
         let engine_serves_capability = selection.local_engine.as_deref().is_some_and(|engine_id| {
             declared.iter().any(|engine| {
                 engine.id == engine_id

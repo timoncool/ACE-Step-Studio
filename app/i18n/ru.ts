@@ -1366,6 +1366,7 @@ export const ru = {
     removeKey: 'Удалить',
     saveKey: 'Сохранить ключ',
     noLocalEngineForCapability: 'В этой сборке нет локального движка для этой возможности.',
+    noCloudModelForCapability: 'В каталоге OpenRouter пока нет модели для этого: обновите его в настройках OpenRouter.',
     noCatalogModelForCapability: 'В обновлённом каталоге нет модели для этой возможности.',
     openRouterIntro: 'Облачные возможности берутся из живого каталога OpenRouter, поэтому предлагаются только модели, действительно заявляющие нужную модальность. Ключ хранит локальный сервис студии.',
     keyFromEnvironment: 'Ключ из окружения',

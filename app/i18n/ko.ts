@@ -1362,6 +1362,7 @@ export const ko = {
     removeKey: '삭제',
     saveKey: '키 저장',
     noLocalEngineForCapability: '이 빌드에는 해당 기능의 로컬 엔진이 없습니다.',
+    noCloudModelForCapability: 'OpenRouter 카탈로그에 아직 이 기능에 쓸 모델이 없습니다. OpenRouter 설정에서 카탈로그를 새로 고치세요.',
     noCatalogModelForCapability: '새로고침된 카탈로그에 해당 기능의 모델이 없습니다.',
     openRouterIntro: '클라우드 기능은 실시간 OpenRouter 카탈로그에서 가져오므로 필요한 모달리티를 실제로 선언한 모델만 제공됩니다. 키는 로컬 서비스가 보관합니다.',
     keyFromEnvironment: '환경 변수 키',

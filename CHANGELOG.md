@@ -2,6 +2,15 @@
 
 What changed, newest first. Dates are release dates.
 
+## 2026-10-11 — 3.5.4
+
+### Fixed
+
+- **Exports from the MIDI editor are saved.** Export WAV, Export MP3 and the MIDI download filled their progress bar and then did nothing in the desktop window; they now open the Save dialog, named after the song ([YuE2-Studio #71](https://github.com/timoncool/YuE2-Studio/issues/71), [#72](https://github.com/timoncool/YuE2-Studio/issues/72)).
+- **Playback on Linux.** The AppImage now carries the GStreamer libraries and plugins the window plays sound with, so playing a song no longer crashes on systems such as Arch ([YuE2-Studio #70](https://github.com/timoncool/YuE2-Studio/issues/70)).
+- **Songs stay on this computer's engine.** Settings from an older build could switch song-making to OpenRouter with no model chosen, and every song then stopped with "OpenRouter music requires a selected model"; songs go back to the studio's own engine, and OpenRouter can be picked for songs only once its catalog offers a model ([ACE-Step-Studio #37](https://github.com/timoncool/ACE-Step-Studio/issues/37)).
+- **Covers, repaints and Listen work on FLAC songs.** The engine reads WAV and MP3 only, and songs are kept as FLAC; it is now handed the song as a lossless WAV instead of failing with "Failed to decode audio".
+
 ## 2026-10-10 — 3.5.3
 
 ### Fixed

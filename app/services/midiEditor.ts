@@ -1,5 +1,6 @@
 import { mapNativeLibrarySong } from './nativeLibrary';
 import { libraryChanged } from './studioQueries';
+import { saveFile } from './saveFile';
 import type { NativeLibrarySong, Song } from '../types';
 
 /**
@@ -32,6 +33,11 @@ export class MidiEditorLink {
       if (event.source !== this.frame.contentWindow || event.origin !== window.location.origin || data?.signal !== true) return;
       if (data.type === 'ready' || data.type === 'dirty') {
         this.onEvent(data as EditorEvent);
+        return;
+      }
+      // the editor's own WAV, MP3 and MIDI exports: a download link inside the frame goes nowhere
+      if (data.type === 'save' && data.data instanceof ArrayBuffer && typeof data.name === 'string') {
+        void saveFile(data.name, { blob: new Blob([data.data]) });
         return;
       }
       const waiting = this.waiting.get(data.id);

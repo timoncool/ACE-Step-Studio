@@ -1,7 +1,7 @@
 {
   "repository": "https://github.com/timoncool/signal.git",
   "branch": "studio",
-  "commit": "15748a8ac0ab81f786d39f59e475841dca3df6e4",
+  "commit": "b8035c7977411e27dc9b356b3dc222dd2e96de46",
   "upstream": "https://github.com/ryohey/signal",
   "license": "MIT (code); A320U SoundFonts GPL-2.0",
   "shipped_as": "app/public/midi-editor"
