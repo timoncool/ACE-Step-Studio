@@ -295,13 +295,13 @@ export const ProviderSettings: React.FC = () => {
                     // Only a capability with no local implementation at all
                     // stays out of reach; "not installed yet" is a thing to
                     // fix here, not a reason to lock the button.
-                    const disabled = mode === 'local' ? local.length === 0 : !cloudReady;
+                    const disabled = mode === 'local' ? local.length === 0 : !cloudReady || (selection.capability === 'music_generation' && cloud.length === 0);
                     return (
                       <button
                         key={mode}
                         type="button"
                         disabled={disabled || busy === 'configuration'}
-                        title={disabled ? (mode === 'local' ? t('noLocalEngineForCapability') : t('configureKeyFirst')) : undefined}
+                        title={disabled ? (mode === 'local' ? t('noLocalEngineForCapability') : !cloudReady ? t('configureKeyFirst') : t('noCloudModelForCapability')) : undefined}
                         onClick={() => update(selection.capability, {
                           mode,
                           local_engine: mode === 'local' ? (selection.local_engine ?? local[0]?.id ?? null) : null,

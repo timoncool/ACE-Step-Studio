@@ -1367,6 +1367,7 @@ export const en = {
     removeKey: 'Remove',
     saveKey: 'Save key',
     noLocalEngineForCapability: 'This build ships no local engine for this capability.',
+    noCloudModelForCapability: "OpenRouter's catalog has no model for this yet: refresh it in OpenRouter settings.",
     noCatalogModelForCapability: 'The refreshed catalog declares no model for this capability.',
     openRouterIntro: 'Cloud capabilities come from the live OpenRouter catalog, so only models that really declare the needed modality are offered. The key is kept by the local studio service.',
     keyFromEnvironment: 'Key from environment',
