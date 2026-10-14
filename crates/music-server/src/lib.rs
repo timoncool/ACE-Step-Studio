@@ -860,8 +860,15 @@ pub async fn serve() -> anyhow::Result<()> {
     tokio::spawn(resume_unfinished_jobs(state.clone()));
     {
         let state = state.clone();
-        // both rewrite the tags of stored tracks, so one after the other
+        // all three read or rewrite the stored tracks in place, so one after the other
         tokio::spawn(async move {
+            let library = state.library.clone();
+            match tokio::task::spawn_blocking(move || library.remeasure_imported_mp3s()).await {
+                Ok(Ok(0)) => {}
+                Ok(Ok(fixed)) => eprintln!("[library] measured the length of {fixed} imported MP3s again"),
+                Ok(Err(error)) => eprintln!("[library] the imported MP3s were not measured again: {error:#}"),
+                Err(error) => eprintln!("[library] the imported MP3s were not measured again: {error}"),
+            }
             tag_untagged_songs(state.clone()).await;
             pin_placeholders(state).await;
         });
@@ -4047,12 +4054,21 @@ async fn update_configuration(
     // request verbatim then erased every other choice - which is how a studio
     // with a downloaded engine started answering "the local music engine is not
     // configured" after the assistant was pointed at a local model.
+    let mut changed = Vec::new();
     let configuration = {
         let mut stored = state.configuration.write().await;
         for selection in update.selections {
             match stored.selections.iter_mut().find(|existing| existing.capability == selection.capability) {
-                Some(existing) => *existing = selection,
-                None => stored.selections.push(selection),
+                Some(existing) => {
+                    if existing.mode != selection.mode || existing.local_engine != selection.local_engine || existing.cloud_model != selection.cloud_model {
+                        changed.push(selection.capability);
+                    }
+                    *existing = selection;
+                }
+                None => {
+                    changed.push(selection.capability);
+                    stored.selections.push(selection);
+                }
             }
         }
         stored.clone()
@@ -4061,7 +4077,8 @@ async fn update_configuration(
     // The choice has to reach the code that does the work, or the button is
     // decoration. Speech-to-text is done by the karaoke stack, and the writing
     // assistant has its own provider; both follow this page now.
-    for selection in &configuration.selections {
+    // A page saves every role at once, each as it last read it: replaying an unchanged one would undo a choice made elsewhere since.
+    for selection in configuration.selections.iter().filter(|selection| changed.contains(&selection.capability)) {
         match selection.capability {
             Capability::SpeechToText => {
                 let mut sync = state.lyrics_sync_config.write().await;
@@ -5056,8 +5073,24 @@ async fn proxy_image(
 async fn assistant_status(State(state): State<AppState>) -> Json<Value> {
     let config = state.assistant.read().await.clone();
     let runtime = state.assistant_runtime.status().await;
-    // A managed model is only usable once its file and the runtime are on disk.
-    let available = match config.provider {
+    let available = assistant_available(&config, &runtime);
+    Json(serde_json::json!({
+        "available": available,
+        "managed_model": config.managed_model,
+        "managed_path": config.managed_path,
+        "reasoning_effort": config.reasoning_effort,
+        "runtime_ready": runtime.ready,
+        "provider": config.provider,
+        "local_base_url": config.local_base_url,
+        "local_model": config.local_model,
+        "local_api_key_set": credentials::local_server_key().is_some(),
+        "openrouter_model": config.openrouter_model,
+    }))
+}
+
+fn assistant_available(config: &AssistantConfig, runtime: &assistant_runtime::RuntimeStatus) -> bool {
+    match config.provider {
+        // A managed model is only usable once its file and the runtime are on disk.
         AssistantProvider::Managed => {
             let has_runtime = runtime.server_path.is_some();
             let downloaded = config
@@ -5071,19 +5104,7 @@ async fn assistant_status(State(state): State<AppState>) -> Json<Value> {
             has_runtime && (downloaded || own_file)
         }
         _ => config.available(),
-    };
-    Json(serde_json::json!({
-        "available": available,
-        "managed_model": config.managed_model,
-        "managed_path": config.managed_path,
-        "reasoning_effort": config.reasoning_effort,
-        "runtime_ready": runtime.ready,
-        "provider": config.provider,
-        "local_base_url": config.local_base_url,
-        "local_model": config.local_model,
-        "local_api_key_set": credentials::local_server_key().is_some(),
-        "openrouter_model": config.openrouter_model,
-    }))
+    }
 }
 
 /// Every field optional, so the download page can set the provider without
@@ -5206,6 +5227,18 @@ async fn update_assistant_settings(
         }
     }
     *state.assistant.write().await = request.clone();
+    // The providers page stores its own copy of this choice and replays it on every save of any role.
+    {
+        let mut configuration = state.configuration.write().await;
+        if let Some(selection) = configuration.selections.iter_mut().find(|selection| selection.capability == Capability::PromptEnhancement) {
+            if request.provider == AssistantProvider::OpenRouter {
+                selection.mode = ExecutionMode::OpenRouter;
+                selection.cloud_model = request.openrouter_model.clone();
+            } else if request.provider != AssistantProvider::None {
+                selection.mode = ExecutionMode::Local;
+            }
+        }
+    }
     let _ = persist_studio_settings(&state).await;
     Ok(Json(serde_json::json!({ "available": request.available(), "provider": request.provider })))
 }
@@ -5236,14 +5269,18 @@ struct AssistantModelRequest {
 /// had picked.
 async fn assistant_runtime_status(State(state): State<AppState>) -> Json<Value> {
     let status = state.assistant_runtime.status().await;
-    let provider = state.assistant.read().await.provider;
+    let config = state.assistant.read().await.clone();
     let mut value = serde_json::to_value(&status).unwrap_or(Value::Null);
-    let chosen = state.assistant.read().await.managed_model.clone();
     if let Value::Object(ref mut fields) = value {
-        fields.insert("provider".into(), serde_json::to_value(provider).unwrap_or(Value::Null));
+        fields.insert("provider".into(), serde_json::to_value(config.provider).unwrap_or(Value::Null));
         // And which model, so the dropdown reopens on the one that was picked
         // rather than on whichever happens to be installed first.
-        fields.insert("chosen_model".into(), serde_json::to_value(chosen).unwrap_or(Value::Null));
+        fields.insert("chosen_model".into(), serde_json::to_value(&config.managed_model).unwrap_or(Value::Null));
+        // the panel's "installed" is about the chosen provider: OpenRouter or a server of the user's downloads nothing;
+        // switched off, it is about the files
+        if config.provider != AssistantProvider::None {
+            fields.insert("set".into(), serde_json::json!({ "ready": assistant_available(&config, &status) }));
+        }
     }
     Json(value)
 }
@@ -5376,6 +5413,10 @@ async fn karaoke_status(State(state): State<AppState>) -> Json<Value> {
         let mut progress = set_progress(state.lyrics_sync.downloader(), &set);
         // the chosen model's files are part of this set, so the window adds nothing to it
         progress["with_model"] = Value::Bool(true);
+        // the files above belong to the local recogniser; OpenRouter needs only the key
+        if config.provider == lyrics_sync::AsrProvider::OpenRouter {
+            progress["ready"] = Value::Bool(credentials::openrouter_source().is_some());
+        }
         fields.insert("set".into(), progress);
     }
     Json(value)
@@ -7072,6 +7113,8 @@ fn describes_exhausted_memory(log: &str) -> bool {
         "insufficient memory",
         "cudaerrormemoryallocation",
         "bad_alloc",
+        "oom allocating",
+        "graph alloc failed",
     ]
     .iter()
     .any(|marker| log.contains(marker))
@@ -7297,7 +7340,10 @@ async fn wait_engine(state: &AppState, job: &str) -> anyhow::Result<()> {
         match state.music_server.status(job).await?.as_str() {
             "done" => return Ok(()),
             "failed" => {
-                let reason = state.engine_log.lines().and_then(|lines| last_fatal(&lines, job));
+                let reason = state.engine_log.lines().and_then(|lines| first_fatal(&lines, job));
+                if let Some(why) = reason.as_deref().filter(|why| describes_exhausted_memory(&why.to_lowercase())) {
+                    anyhow::bail!("There was not enough memory for this song ({why}). Choose a smaller model set in the model manager or a shorter song, and close whatever else uses the card or the computer's memory.");
+                }
                 anyhow::bail!(reason.unwrap_or_else(|| "the engine failed this job and its log names no cause".into()))
             }
             "cancelled" => anyhow::bail!("cancelled"),
@@ -7306,12 +7352,13 @@ async fn wait_engine(state: &AppState, job: &str) -> anyhow::Result<()> {
     }
 }
 
-/// What the engine said when it gave a job up: the last FATAL line after the
-/// job's own start, without the stage tag.
-fn last_fatal(lines: &[String], job: &str) -> Option<String> {
+/// What the engine said when it gave a job up: the first FATAL line after the
+/// job's own start, without the stage tag. The lines after it are its
+/// consequences - "encode failed" under the allocation that failed.
+fn first_fatal(lines: &[String], job: &str) -> Option<String> {
     let start = format!("Job {job}");
     let from = lines.iter().rposition(|line| line.contains(&start))?;
-    lines[from..].iter().rev().find_map(|line| line.split_once("FATAL:").map(|(_, why)| why.trim().to_string())).filter(|why| !why.is_empty())
+    lines[from..].iter().find_map(|line| line.split_once("FATAL:").map(|(_, why)| why.trim().to_string())).filter(|why| !why.is_empty())
 }
 
 async fn run_ace_job(state: AppState, run: AceRun) {
@@ -7587,14 +7634,13 @@ fn song_audio_and_latent(state: &AppState, song_id: &str) -> anyhow::Result<(Vec
     Ok((audio, latent))
 }
 
-/// A recording as the engine can read it: it decodes WAV and MP3 only, so a
-/// FLAC (how songs are kept) or any other format goes as a 32-bit float WAV.
+/// A recording as the engine can read it. The engine's own readers take MP3
+/// and only some WAVs (16- and 24-bit PCM, float), while the library takes any
+/// file the studio decodes, so every recording is decoded here and goes as a
+/// 32-bit float WAV.
 fn engine_audio(path: &std::path::Path) -> anyhow::Result<Vec<u8>> {
-    let extension = path.extension().map(|extension| extension.to_string_lossy().to_ascii_lowercase()).unwrap_or_default();
-    if extension == "wav" || extension == "mp3" {
-        return std::fs::read(path).with_context(|| format!("read {}", path.display()));
-    }
-    audio_pcm::wav_f32_bytes(&audio_pcm::decode_stereo(path)?)
+    let audio = audio_pcm::decode_stereo(path).with_context(|| format!("decode {}", path.display()))?;
+    audio_pcm::wav_f32_bytes(&audio)
 }
 
 /// The engine's latent of a rendered track, beside its audio.
@@ -8200,8 +8246,12 @@ mod tests {
     #[test]
     fn a_failed_job_is_named_by_its_own_fatal_line() {
         let lines: Vec<String> = ["[Server] FATAL: an earlier job's reason", "[Server] Job 7 created (1 requests)", "[DiT] step 3/8", "[Server] FATAL: synth load failed", "[Server] job failed"].iter().map(|line| line.to_string()).collect();
-        assert_eq!(last_fatal(&lines, "7").as_deref(), Some("synth load failed"));
-        assert_eq!(last_fatal(&lines, "8"), None, "a job the log never started has no reason in it");
+        assert_eq!(first_fatal(&lines, "7").as_deref(), Some("synth load failed"));
+        assert_eq!(first_fatal(&lines, "8"), None, "a job the log never started has no reason in it");
+        let encode: Vec<String> = ["[Server] Job 9 created (1 requests)", "[VAE-Enc] FATAL: graph alloc failed for T=480000", "[VAE-Enc] FATAL: tile 0 encode failed", "[Encode-Src] FATAL: encode failed"].iter().map(|line| line.to_string()).collect();
+        let why = first_fatal(&encode, "9").unwrap();
+        assert_eq!(why, "graph alloc failed for T=480000", "the cause, not the lines that follow from it");
+        assert!(describes_exhausted_memory(&why.to_lowercase()));
     }
 
     use super::*;

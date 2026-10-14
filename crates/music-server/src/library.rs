@@ -30,11 +30,12 @@ fn manual_source()->String{"manual".into()}
 ///
 /// The engine's replay request is sparse — a 60-second track omits the
 /// `duration` field because 60 is the default — so the only dependable source
-/// for a library row is the rendered file. WAV is read from its header; MP3 is
-/// derived from the declared constant bitrate.
+/// for a library row is the rendered file. WAV is read from its header; an MP3
+/// the studio rendered at a declared constant bitrate from that bitrate; any
+/// other file, an imported MP3 among them, from its own frames and headers.
 pub fn audio_duration_seconds(audio:&[u8],extension:&str,declared_bitrate_kbps:Option<u32>)->Option<f64>{
- match extension{
-  "wav"=>{
+ match (extension,declared_bitrate_kbps){
+  ("wav",_)=>{
    if audio.len()<44||&audio[0..4]!=b"RIFF"||&audio[8..12]!=b"WAVE"{return None}
    let fmt=audio.windows(4).position(|w|w==b"fmt ")?;
    let channels=u16::from_le_bytes(audio.get(fmt+10..fmt+12)?.try_into().ok()?) as f64;
@@ -45,16 +46,16 @@ pub fn audio_duration_seconds(audio:&[u8],extension:&str,declared_bitrate_kbps:O
    let bytes_per_second=rate*channels*(bits/8.0);
    (bytes_per_second>0.0).then(||payload/bytes_per_second)
   }
-  "mp3"=>{
-   let bitrate=declared_bitrate_kbps.unwrap_or(128) as f64*1000.0;
+  ("mp3",Some(kbps))=>{
+   let bitrate=kbps as f64*1000.0;
    (bitrate>0.0).then(||(audio.len() as f64*8.0)/bitrate)
   }
-  "flac"=>{
+  _=>{
    use lofty::file::AudioFile;
-   let file=lofty::flac::FlacFile::read_from(&mut std::io::Cursor::new(audio),lofty::config::ParseOptions::new()).ok()?;
-   Some(file.properties().duration().as_secs_f64())
+   let file=lofty::probe::Probe::new(std::io::Cursor::new(audio)).guess_file_type().ok()?.read().ok()?;
+   let seconds=file.properties().duration().as_secs_f64();
+   (seconds>0.0).then_some(seconds)
   }
-  _=>None,
  }
 }
 
@@ -140,6 +141,31 @@ impl Library {
   let now=now(); let song=Song{id,title:input.title,audio_path:Some(target.display().to_string()),caption:input.caption,lyrics:input.lyrics,metadata:input.metadata,generation_settings:input.generation_settings,engine_id:input.engine_id,profile_id:input.profile_id,replay_request:None,audio_codes:None,source:input.source,created_at:now.clone(),updated_at:now};
   if let Err(error)=self.save_song(&song){let _=fs::remove_file(&target);return Err(error.context("store imported song record"));}
   Ok(ImportedSong{song,audio_filename:filename})
+ }
+
+ /// Every imported MP3 is measured from its own headers and frames; only a stored length that
+ /// disagrees with that by half a second or more is rewritten.
+ pub fn remeasure_imported_mp3s(&self)->Result<usize>{
+  let rows:Vec<(String,String,String)>={
+   let connection=self.connection.lock().unwrap();
+   let mut statement=connection.prepare("SELECT id,audio_path,metadata_json FROM songs WHERE source='audio_import' AND lower(audio_path) LIKE '%.mp3'")?;
+   let rows=statement.query_map([],|row|Ok((row.get(0)?,row.get(1)?,row.get(2)?)))?.collect::<rusqlite::Result<_>>()?;
+   rows
+  };
+  let mut fixed=0;
+  for (id,path,metadata) in rows{
+   use lofty::file::AudioFile;
+   // a missing or unreadable file has no length to measure
+   let Some(file)=lofty::probe::Probe::open(&path).ok().and_then(|probe|probe.guess_file_type().ok()).and_then(|probe|probe.read().ok()) else {continue};
+   let seconds=file.properties().duration().as_secs_f64();
+   if seconds<=0.0{continue}
+   let mut value:serde_json::Value=serde_json::from_str(&metadata).with_context(||format!("metadata of song {id}"))?;
+   if value.get("duration_seconds").and_then(serde_json::Value::as_f64).is_some_and(|stored|(stored-seconds).abs()<0.5){continue}
+   value["duration_seconds"]=serde_json::json!(seconds);
+   self.connection.lock().unwrap().execute("UPDATE songs SET metadata_json=?1 WHERE id=?2",params![value.to_string(),id])?;
+   fixed+=1;
+  }
+  Ok(fixed)
  }
  /// Stores a cover image next to the track audio and records its filename in
  /// the song metadata. Covers are a Studio-side concept: the engine never sees
@@ -400,6 +426,14 @@ Basic Attributes: bpm is 118. key is F# minor, and scale is minor. Darkwave, Syn
  // 128 kbps MP3: 16 kB is one second.
  assert!((audio_duration_seconds(&vec![0u8;16000],"mp3",Some(128)).unwrap()-1.0).abs()<0.01);
  assert!(audio_duration_seconds(b"not audio","wav",None).is_none());
+}
+
+#[test]fn an_imported_mp3_is_measured_from_its_frames_not_an_assumed_bitrate(){
+ // 77 frames of MPEG-1 Layer III, 320 kbps, 44.1 kHz: 1044 bytes and 1152 samples each.
+ let mut mp3=Vec::new();
+ for _ in 0..77{ mp3.extend_from_slice(&[0xFF,0xFB,0xE0,0x00]); mp3.resize(mp3.len()+1040,0); }
+ let seconds=audio_duration_seconds(&mp3,"mp3",None).unwrap();
+ assert!((seconds-77.0*1044.0*8.0/320_000.0).abs()<0.05,"{seconds}");
 }
 #[test]fn a_generated_song_gets_a_readable_title_instead_of_the_whole_caption(){
  assert_eq!(generated_title("cinematic synthwave instrumental, 1980s analog synthesizers, warm bassline, soaring lead melody, polished production"),"cinematic synthwave instrumental, 1980s analog");

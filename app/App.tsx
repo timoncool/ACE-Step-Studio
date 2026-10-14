@@ -440,7 +440,9 @@ function AppContent() {
 
   const handleShowDetails = (song: Song) => {
     setSelectedSong(song);
-    setShowMobileDetails(true);
+    // the side panel exists from Tailwind's xl up; below it the details open over the page
+    if (window.matchMedia('(min-width: 80rem)').matches) setShowRightSidebar(true);
+    else setShowMobileDetails(true);
   };
 
   // Reuse Handler

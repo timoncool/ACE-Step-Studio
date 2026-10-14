@@ -195,9 +195,9 @@ export const AssistantExtras: React.FC<{ engine: string }> = ({ engine }) => {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              selections: selections.map((selection: { capability: string; cloud_model: string | null }) =>
+              selections: selections.map((selection: { capability: string; mode: string; cloud_model: string | null }) =>
                 selection.capability === 'prompt_enhancement'
-                  ? { ...selection, execution_mode: 'open_router', cloud_model: openRouterModel.trim() || null }
+                  ? { ...selection, mode: 'open_router', cloud_model: openRouterModel.trim() || null }
                   : selection,
               ),
             }),

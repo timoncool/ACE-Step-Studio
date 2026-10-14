@@ -202,7 +202,7 @@
 									'<input type="radio" class="pk_check" id="k01" name="frmtex" checked value="mp3">'+
 									'<label for="k01">mp3</label>' +
 									'<input type="radio" class="pk_check" id="k02" name="frmtex" value="wav">'+  
-									'<label for="k02">wav <i>(44100hz)</i></label>' +
+									'<label for="k02">wav</label>' +
 									'<input type="radio" class="pk_check" id="k03" name="frmtex" value="flac">'+  
 									'<label for="k03">flac</i></label>' +
 									'</div>' +

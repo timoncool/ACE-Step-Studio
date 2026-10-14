@@ -4,6 +4,42 @@
  * @license BSD-3-Clause
  */
 
+/** The sample rate a WAV, FLAC, MP3 or Ogg file was recorded at, read from its header; 0 when it is not one of them. */
+function nativeSampleRate(arraybuffer) {
+    var b = new Uint8Array(arraybuffer);
+    var tag = function (at, text) {
+        for (var i = 0; i < text.length; i++) if (b[at + i] !== text.charCodeAt(i)) return false;
+        return true;
+    };
+    var u32le = function (at) { return (b[at] | (b[at + 1] << 8) | (b[at + 2] << 16) | (b[at + 3] << 24)) >>> 0; };
+    if (tag(0, 'RIFF') && tag(8, 'WAVE')) {
+        for (var at = 12; at + 16 <= b.length; at += 8 + u32le(at + 4) + (u32le(at + 4) & 1)) {
+            if (tag(at, 'fmt ')) return u32le(at + 12);
+        }
+        return 0;
+    }
+    if (tag(0, 'fLaC') && b.length > 20) return (b[18] << 12) | (b[19] << 4) | (b[20] >> 4);
+    if (tag(0, 'OggS')) {
+        for (var o = 0; o + 16 < Math.min(b.length, 4096); o++) {
+            if (tag(o, '\x01vorbis')) return u32le(o + 12);
+            if (tag(o, 'OpusHead')) return 48000;
+        }
+        return 0;
+    }
+    var start = 0;
+    if (tag(0, 'ID3') && b.length > 10) {
+        start = 10 + ((b[6] << 21) | (b[7] << 14) | (b[8] << 7) | b[9]) + ((b[5] & 0x10) ? 10 : 0);
+    }
+    var rates = { 3: [44100, 48000, 32000], 2: [22050, 24000, 16000], 0: [11025, 12000, 8000] };
+    for (var p = start; p + 4 < Math.min(b.length, start + 65536); p++) {
+        if (b[p] !== 0xff || (b[p + 1] & 0xe0) !== 0xe0) continue;
+        var version = (b[p + 1] >> 3) & 3, layer = (b[p + 1] >> 1) & 3, bitrate = b[p + 2] >> 4, index = (b[p + 2] >> 2) & 3;
+        if (version === 1 || layer === 0 || bitrate === 15 || bitrate === 0 || index === 3) continue;
+        return rates[version][index];
+    }
+    return 0;
+}
+
 
 /**
  * Calculate FFT - Based on https://github.com/corbanbrook/dsp.js
@@ -6219,8 +6255,11 @@ var WebAudio = function (_util$Observer) {
 
             PKAudioEditor.engine.ID3 (arraybuffer);
 
-            if (!this.offlineAc) {
-                this.offlineAc = this.getOfflineAudioContext(44100); // this.ac ? this.ac.sampleRate : 44100);
+            // decoded at the file's own rate, within what an OfflineAudioContext accepts
+            var rate = nativeSampleRate(arraybuffer);
+            if (!(rate >= 8000 && rate <= 384000)) rate = this.ac ? this.ac.sampleRate : 48000;
+            if (!this.offlineAc || this.offlineAc.sampleRate !== rate) {
+                this.offlineAc = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 2, rate);
             }
 
             var promise = this.offlineAc.decodeAudioData(arraybuffer, function (data) {

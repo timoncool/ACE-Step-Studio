@@ -893,9 +893,8 @@ const SongItem: React.FC<SongItemProps> = ({
                             <ListPlus size={16} />
                         </button>
 
-                        {/* Info Button - Visible only on small/medium screens where sidebar is hidden */}
                         <button
-                            className="p-2 rounded-full hover:bg-zinc-200 dark:hover:bg-white/5 text-zinc-400 hover:text-black dark:hover:text-white transition-colors xl:hidden"
+                            className="p-2 rounded-full hover:bg-zinc-200 dark:hover:bg-white/5 text-zinc-400 hover:text-black dark:hover:text-white transition-colors"
                             onClick={(e) => { e.stopPropagation(); if (onShowDetails) onShowDetails(); }}
                             {...named(t('songDetails'))}
                         >

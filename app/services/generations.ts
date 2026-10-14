@@ -67,6 +67,11 @@ async function stopJob(jobId: string): Promise<void> {
   if (!response.ok) throw new Error(`The engine did not stop the job (${response.status})`);
 }
 
+/** "Without stopping" sends the same request again: one that failed would fail on every round. */
+function generationFailed(): void {
+  window.dispatchEvent(new CustomEvent('studio:generation-failed'));
+}
+
 export function useGenerations({ enabled, notify, onFinished }: GenerationOptions) {
   const { t } = useI18n();
   const [cards, setCards] = useState<Song[]>([]);
@@ -128,6 +133,7 @@ export function useGenerations({ enabled, notify, onFinished }: GenerationOption
       .sort((a, b) => (a.id < b.id ? 1 : -1));
     if (made.length === 0) {
       remove(finished.id);
+      generationFailed();
       notify(job.message || t('generationFailed'), 'error');
       return;
     }
@@ -154,6 +160,7 @@ export function useGenerations({ enabled, notify, onFinished }: GenerationOption
         finish(running, job);
       } else if (job.status === 'failed' || job.status === 'cancelled') {
         remove(running.id);
+        if (job.status === 'failed') generationFailed();
         notify(job.message || t('generationFailed'), job.status === 'failed' ? 'error' : 'info');
       }
       // still queued or running: the list was read before this job was sent
@@ -239,6 +246,7 @@ export function useGenerations({ enabled, notify, onFinished }: GenerationOption
       follow(id, job);
     } catch (error) {
       remove(id);
+      generationFailed();
       notify(error instanceof Error ? error.message : t('generationFailed'), 'error');
     }
   }, [follow, remove, notify, t]);
