@@ -5,9 +5,9 @@ export const STUDIO = {
   name: 'ACE-Step Studio',
   repo: 'https://github.com/timoncool/ACE-Step-Studio',
   site: 'https://timoncool.github.io/ACE-Step-Studio/',
-  version: '3.5.4',
-  installerMB: 455.64,
-  updated: '2026-10-11',
+  version: '3.5.5',
+  installerMB: 454.89,
+  updated: '2026-10-14',
   bento: [
     { feature: 7, shot: '05-lora' },
     { feature: 1, shot: '02-simple' },
