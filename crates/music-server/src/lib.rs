@@ -4209,7 +4209,7 @@ async fn engine_options(State(state): State<AppState>) -> Json<Value> {
     // a start holds the engine for as long as it takes (a download, the weights): the page is answered now
     let (running, starting) = match state.engine.try_lock() {
         // canonicalised paths carry the \\?\ prefix, which the saved path and the environment do not
-        Ok(engine) => (engine.as_ref().map(|engine| engine.config().executable.display().to_string().trim_start_matches(r"\\?\").to_string()), false),
+        Ok(engine) => (engine.as_ref().map(|engine| music_engine::server::strip_verbatim(&engine.config().executable).display().to_string()), false),
         Err(_) => (None, true),
     };
     Json(serde_json::json!({
@@ -4448,6 +4448,8 @@ fn previous_run_log() -> String {
     }
 }
 
+/// Why a song was lost with an engine that restarted during it, from the log
+/// of the run that ended.
 fn lost_job_reason(log: &str) -> String {
     let lowered = log.to_lowercase();
     if describes_exhausted_memory(&lowered) {

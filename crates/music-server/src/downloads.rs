@@ -91,6 +91,7 @@ pub struct DownloadProgress {
 }
 
 /// Owns one capability's download directory.
+#[derive(Clone)]
 pub struct Downloader {
     root: PathBuf,
     http: reqwest::Client,
@@ -167,9 +168,9 @@ impl Downloader {
         // Ask the servers what these actually weigh. The answers land in time
         // for the next poll a second from now; nothing waits on them.
         crate::sizes::ask(&self.http, assets.iter().map(|asset| asset.url.to_string()).collect());
-        for asset in assets.iter().filter(|asset| asset.kind == AssetKind::Model && asset.pick.is_empty() && asset.unzip_into.is_none()) {
-            self.link_from_neighbor(asset);
-        }
+        self.link_from_neighbors(
+            assets.iter().copied().filter(|asset| asset.kind == AssetKind::Model && asset.pick.is_empty() && asset.unzip_into.is_none() && !self.is_installed(asset)).collect(),
+        );
         assets
             .iter()
             .map(|asset| AssetStatus {
@@ -184,6 +185,32 @@ impl Downloader {
                 taken_from: taken_from(asset.id),
             })
             .collect()
+    }
+
+    /// Links in what another program already has off the async workers: the walk of its folders, and the wait for a
+    /// file another caller is taking, must not hold a status poll. What is found shows from the next poll.
+    fn link_from_neighbors(&self, assets: Vec<Asset>) {
+        static LINKING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        struct Linking;
+        impl Drop for Linking {
+            fn drop(&mut self) {
+                LINKING.store(false, std::sync::atomic::Ordering::Release);
+            }
+        }
+        if assets.is_empty() || LINKING.swap(true, std::sync::atomic::Ordering::AcqRel) {
+            return;
+        }
+        let downloader = self.clone();
+        let work = move || {
+            let _linking = Linking;
+            for asset in &assets {
+                downloader.link_from_neighbor(asset);
+            }
+        };
+        match tokio::runtime::Handle::try_current() {
+            Ok(runtime) => drop(runtime.spawn_blocking(work)),
+            Err(_) => work(),
+        }
     }
 
     /// A model another program of timoncool's already has (the same name and the size the server gives) is linked

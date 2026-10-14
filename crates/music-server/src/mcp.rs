@@ -586,6 +586,9 @@ fn open_windows() -> std::sync::MutexGuard<'static, Vec<u64>> {
 /// Keeps the window on the list while its stream is open.
 struct Listening(u64);
 
+/// What a command gets when the window it went to closes before answering.
+const WINDOW_CLOSED: &str = "The studio's window closed before it answered. Call the tool again: it goes to another open window, or says that none is open.";
+
 impl Drop for Listening {
     fn drop(&mut self) {
         open_windows().retain(|window| *window != self.0);
@@ -594,7 +597,7 @@ impl Drop for Listening {
         let gone: Vec<String> = pending.iter().filter(|(_, (window, _))| *window == self.0).map(|(id, _)| id.clone()).collect();
         for id in gone {
             if let Some((_, sender)) = pending.remove(&id) {
-                let _ = sender.send(Err("The studio's window closed before it answered. Call the tool again: it goes to another open window, or says that none is open.".into()));
+                let _ = sender.send(Err(WINDOW_CLOSED.into()));
             }
         }
     }
@@ -714,6 +717,11 @@ async fn ask_window(command: &str, args: Value, seconds: u64) -> Result<Value, S
     let id = format!("w{}", bridge().sequence.fetch_add(1, Ordering::Relaxed));
     let (sender, receiver) = tokio::sync::oneshot::channel();
     bridge().pending.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).insert(id.clone(), (window, sender));
+    // the window may have closed after it was chosen: its Listening went before this entry was there to fail
+    if !open_windows().contains(&window) {
+        bridge().pending.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).remove(&id);
+        return Err(WINDOW_CLOSED.into());
+    }
     let _ = bridge().commands.send(json!({ "id": id, "window": window, "command": command, "args": args }).to_string());
     match tokio::time::timeout(Duration::from_secs(seconds), receiver).await {
         Ok(Ok(answer)) => answer,

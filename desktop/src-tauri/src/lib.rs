@@ -645,11 +645,11 @@ pub fn run() {
                 .cloned()
                 .expect("the main window is declared in tauri.conf.json");
             let window = tauri::WebviewWindowBuilder::from_config(app.handle(), &window_config)?;
-            // WebView2 leaves a microphone request with no answer and no prompt: the window's own page (recording in
-            // the audio editor, the names of the sound outputs) waited on getUserMedia for ever
+            // WebView2 leaves a microphone request with no answer and no prompt: the window's own bundled page
+            // (tauri.localhost on Windows, tauri://localhost elsewhere) - recording in the audio editor - waited for ever
             let window = window.on_permission_request(|webview, kind| match kind {
                 tauri::webview::PermissionKind::Microphone
-                    if webview.url().is_ok_and(|url| matches!(url.host_str(), Some("127.0.0.1" | "localhost"))) =>
+                    if webview.url().is_ok_and(|url| url.scheme() == "tauri" || url.host_str() == Some("tauri.localhost")) =>
                 {
                     tauri::webview::PermissionResponse::Allow
                 }

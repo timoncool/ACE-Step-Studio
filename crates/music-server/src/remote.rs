@@ -85,7 +85,9 @@ fn from_this_computer(peer: &SocketAddr, headers: &axum::http::HeaderMap) -> boo
     peer.ip().is_loopback() && !FORWARDED.iter().any(|name| headers.contains_key(*name))
 }
 
-
+/// Whether a page of another site sent this from the person's own browser, which reaches loopback like the window
+/// does. The window, a dev server and other pages on this computer send a loopback origin, a page opened at the
+/// studio's network address sends that address (or names it in X-Forwarded-Host behind a proxy), agents send none.
 fn from_another_site(headers: &axum::http::HeaderMap) -> bool {
     let Some(origin) = headers.get(header::ORIGIN) else { return false };
     let Some(authority) = origin.to_str().ok().and_then(|origin| origin.split_once("://")).map(|(_, authority)| authority) else { return true };
@@ -107,7 +109,6 @@ fn loopback_host(authority: &str) -> bool {
     };
     host.eq_ignore_ascii_case("localhost") || host.to_ascii_lowercase().ends_with(".localhost") || host.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback())
 }
-
 
 /// CORS answers pages of this computer only: a dev server on another port, the window.
 pub fn cors() -> tower_http::cors::CorsLayer {

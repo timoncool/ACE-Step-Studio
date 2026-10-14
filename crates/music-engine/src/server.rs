@@ -510,6 +510,16 @@ fn canonical_directory(path: &Path, label: &str) -> Result<PathBuf> {
     fs::canonicalize(path).with_context(|| format!("canonicalize {label}: {}", path.display()))
 }
 
+/// `canonicalize` on Windows yields `\\?\C:\...`; the plain form reads better and is equally valid for paths under
+/// MAX_PATH. A `\\?\UNC\` path is left as it is.
+pub fn strip_verbatim(path: &Path) -> PathBuf {
+    let text = path.to_string_lossy();
+    match text.strip_prefix(r"\\?\") {
+        Some(rest) if !rest.starts_with("UNC\\") => PathBuf::from(rest),
+        _ => path.to_path_buf(),
+    }
+}
+
 fn validate_loopback_host(host: &str) -> Result<()> {
     let address: IpAddr = host
         .parse()
@@ -577,6 +587,12 @@ fn request_graceful_shutdown(child: &Child) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_verbatim_path_reads_plain_and_a_unc_one_stays() {
+        assert_eq!(strip_verbatim(Path::new(r"\\?\C:\engine\mm.exe")), PathBuf::from(r"C:\engine\mm.exe"));
+        assert_eq!(strip_verbatim(Path::new(r"\\?\UNC\server\share\mm.exe")), PathBuf::from(r"\\?\UNC\server\share\mm.exe"));
+    }
 
     fn fresh_directory(label: &str) -> PathBuf {
         let path = std::env::temp_dir().join(format!("music-engine-{label}-{}", std::process::id()));
