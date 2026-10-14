@@ -484,14 +484,21 @@ async fn fetch(
     if plan.total > 0 {
         crate::sizes::learn(asset.url, plan.total);
         // another program of timoncool's has it: taken from there, by copy too when it is on another drive
-        if let Some((source, app)) = target.file_name().and_then(|name| studio_hub_client::neighbors::find_file(name, plan.total, target.parent().and_then(Path::file_name))) {
-            match studio_hub_client::neighbors::take_file(&source, target, true, |_| true) {
-                Ok(()) => {
-                    note_taken(asset.id, target, &app);
-                    return Ok(());
-                }
-                Err(error) => report_take_failure(target, &app, &error),
+        let (to, total) = (target.to_path_buf(), plan.total);
+        let taken = tokio::task::spawn_blocking(move || {
+            let (source, app) = to.file_name().and_then(|name| studio_hub_client::neighbors::find_file(name, total, to.parent().and_then(Path::file_name)))?;
+            Some((studio_hub_client::neighbors::take_file(&source, &to, true, |_| true), app))
+        })
+        .await
+        .ok()
+        .flatten();
+        match taken {
+            Some((Ok(()), app)) => {
+                note_taken(asset.id, target, &app);
+                return Ok(());
             }
+            Some((Err(error), app)) => report_take_failure(target, &app, &error),
+            None => {}
         }
     }
 
