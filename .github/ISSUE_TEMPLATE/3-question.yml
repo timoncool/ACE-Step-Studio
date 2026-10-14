@@ -18,7 +18,12 @@ body:
       label: ACE-Step Studio version / Версия
       description: "**Settings → About** · **Настройки → О программе**"
   - type: input
-    id: system
+    id: os
     attributes:
-      label: System and graphics card / Система и видеокарта
-      placeholder: "Windows 11, RTX 4060 8 GB"
+      label: System / Система
+      placeholder: "Windows 11 · macOS 15.4 · Ubuntu 24.04"
+  - type: input
+    id: gpu
+    attributes:
+      label: Graphics card / Видеокарта
+      placeholder: "RTX 4060 8 GB · Apple M3 16 GB · no GPU"
