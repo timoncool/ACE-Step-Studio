@@ -4208,7 +4208,8 @@ async fn engine_options(State(state): State<AppState>) -> Json<Value> {
     };
     // a start holds the engine for as long as it takes (a download, the weights): the page is answered now
     let (running, starting) = match state.engine.try_lock() {
-        Ok(engine) => (engine.as_ref().map(|engine| engine.config().executable.display().to_string()), false),
+        // canonicalised paths carry the \\?\ prefix, which the saved path and the environment do not
+        Ok(engine) => (engine.as_ref().map(|engine| engine.config().executable.display().to_string().trim_start_matches(r"\\?\").to_string()), false),
         Err(_) => (None, true),
     };
     Json(serde_json::json!({
