@@ -874,7 +874,11 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   useEffect(() => {
     const stop = () => setForever(false);
     window.addEventListener('studio:cancel-all', stop);
-    return () => window.removeEventListener('studio:cancel-all', stop);
+    window.addEventListener('studio:generation-failed', stop);
+    return () => {
+      window.removeEventListener('studio:cancel-all', stop);
+      window.removeEventListener('studio:generation-failed', stop);
+    };
   }, []);
   const foreverRequest = useRef<AceCreateRequest | null>(null);
   const generate = (request: AceCreateRequest) => {
