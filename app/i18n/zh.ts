@@ -1363,6 +1363,7 @@ export const zh = {
     engineBinEnvOverride: 'STUDIO_ENGINE_BIN 环境变量已设置，优先于此处',
     saveAndRestartEngine: '保存并重启引擎',
     restartEngine: '重启引擎',
+    stemPlayerFailed: '此录音无法在这里播放：{reason}',
     engineOptionsSavedRestarted: '已保存。引擎已重启，新参数生效。',
     engineOptionsSavedLater: '已保存。将在引擎下次启动时生效。',
     engineRestarted: '引擎已重启。',

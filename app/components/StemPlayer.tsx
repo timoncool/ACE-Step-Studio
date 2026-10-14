@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pause, Play } from 'lucide-react';
 import { AudioWaveform } from './AudioWaveform';
+import { useI18n } from '../context/I18nContext';
 
 /**
  * A stem, playable.
@@ -18,12 +19,21 @@ const clock = (seconds: number): string => {
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
 };
 
+/** What the browser says about a recording it would not play, in its own words where it gives any. */
+const mediaFailure = (error: MediaError | null): string => {
+  if (!error) return 'unknown error';
+  const kind = ['', 'aborted', 'network error', 'cannot decode', 'format not supported'][error.code] ?? `code ${error.code}`;
+  return error.message ? `${kind} (${error.message})` : kind;
+};
+
 export const StemPlayer: React.FC<{ src: string; label: string }> = ({ src, label }) => {
   const audio = useRef<HTMLAudioElement | null>(null);
   const bar = useRef<HTMLDivElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [length, setLength] = useState(0);
+  const [failure, setFailure] = useState<string | null>(null);
+  const { t } = useI18n();
 
   useEffect(() => {
     const element = audio.current;
@@ -31,6 +41,11 @@ export const StemPlayer: React.FC<{ src: string; label: string }> = ({ src, labe
     const onTime = () => setPosition(element.currentTime);
     const onMeta = () => setLength(element.duration);
     const onEnd = () => setPlaying(false);
+    const onError = () => {
+      setPlaying(false);
+      setFailure(mediaFailure(element.error));
+    };
+    element.addEventListener('error', onError);
     element.addEventListener('timeupdate', onTime);
     element.addEventListener('loadedmetadata', onMeta);
     element.addEventListener('durationchange', onMeta);
@@ -40,6 +55,7 @@ export const StemPlayer: React.FC<{ src: string; label: string }> = ({ src, labe
       element.removeEventListener('loadedmetadata', onMeta);
       element.removeEventListener('durationchange', onMeta);
       element.removeEventListener('ended', onEnd);
+      element.removeEventListener('error', onError);
     };
   }, []);
 
@@ -47,8 +63,12 @@ export const StemPlayer: React.FC<{ src: string; label: string }> = ({ src, labe
     const element = audio.current;
     if (!element) return;
     if (element.paused) {
-      void element.play();
+      setFailure(null);
       setPlaying(true);
+      element.play().catch((reason: unknown) => {
+        setPlaying(false);
+        setFailure(element.error ? mediaFailure(element.error) : reason instanceof Error ? reason.message : String(reason));
+      });
     } else {
       element.pause();
       setPlaying(false);
@@ -67,6 +87,7 @@ export const StemPlayer: React.FC<{ src: string; label: string }> = ({ src, labe
   }, []);
 
   return (
+    <div>
     <div className="flex items-center gap-3 rounded-lg border border-zinc-200 px-3 py-2 dark:border-white/10">
       <span className="w-24 shrink-0 truncate text-xs font-semibold uppercase tracking-wide text-zinc-500">{label}</span>
       <button
@@ -112,6 +133,8 @@ export const StemPlayer: React.FC<{ src: string; label: string }> = ({ src, labe
       </div>
       <span className="w-11 shrink-0 text-[11px] tabular-nums text-zinc-500">{clock(length)}</span>
       <audio ref={audio} src={src} preload="metadata" className="hidden" />
+    </div>
+    {failure && <p role="alert" className="mt-1 text-xs text-rose-600 dark:text-rose-300">{t('stemPlayerFailed').replace('{reason}', failure)}</p>}
     </div>
   );
 };

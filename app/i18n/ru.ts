@@ -1367,6 +1367,7 @@ export const ru = {
     engineBinEnvOverride: 'Задана переменная STUDIO_ENGINE_BIN, и она важнее этого поля',
     saveAndRestartEngine: 'Сохранить и перезапустить движок',
     restartEngine: 'Перезапустить движок',
+    stemPlayerFailed: 'Эта запись здесь не играет: {reason}',
     engineOptionsSavedRestarted: 'Сохранено. Движок перезапущен, флаги применены.',
     engineOptionsSavedLater: 'Сохранено. Применится при следующем запуске движка.',
     engineRestarted: 'Движок перезапущен.',

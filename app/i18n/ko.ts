@@ -1363,6 +1363,7 @@ export const ko = {
     engineBinEnvOverride: '환경변수 STUDIO_ENGINE_BIN 이 설정되어 있어 이 항목보다 우선합니다',
     saveAndRestartEngine: '저장하고 엔진 재시작',
     restartEngine: '엔진 재시작',
+    stemPlayerFailed: '이 녹음은 여기서 재생되지 않습니다: {reason}',
     engineOptionsSavedRestarted: '저장했습니다. 엔진을 재시작해 새 플래그를 적용했습니다.',
     engineOptionsSavedLater: '저장했습니다. 다음 엔진 시작 시 적용됩니다.',
     engineRestarted: '엔진을 재시작했습니다.',

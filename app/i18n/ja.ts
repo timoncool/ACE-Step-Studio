@@ -1363,6 +1363,7 @@ export const ja = {
     engineBinEnvOverride: '環境変数 STUDIO_ENGINE_BIN が設定されており、こちらより優先されます',
     saveAndRestartEngine: '保存してエンジンを再起動',
     restartEngine: 'エンジンを再起動',
+    stemPlayerFailed: 'この録音はここで再生できません: {reason}',
     engineOptionsSavedRestarted: '保存しました。エンジンを再起動し新しいフラグを適用しました。',
     engineOptionsSavedLater: '保存しました。次回のエンジン起動時に適用されます。',
     engineRestarted: 'エンジンを再起動しました。',
