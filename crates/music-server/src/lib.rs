@@ -873,6 +873,9 @@ pub async fn serve() -> anyhow::Result<()> {
             pin_placeholders(state).await;
         });
     }
+    if let Some(hub) = &state.hub {
+        state.model_manager.report_to(hub.clone());
+    }
 
     let app = Router::new()
         .route("/health", get(health))
@@ -1039,6 +1042,11 @@ pub async fn serve() -> anyhow::Result<()> {
         // two-megabyte cap rejected a generated cover by dropping the
         // connection, which reaches the interface as "Failed to fetch".
         .layer(DefaultBodyLimit::max(256 * 1024 * 1024));
+    // counted before the MCP tools take the router, so an agent's calls count as the features they use
+    let app = match &state.hub {
+        Some(hub) => hub.track(app),
+        None => app,
+    };
     // the MCP tools call the same routes, inside the process
     mcp::install(app.clone());
     let app = app
@@ -7365,10 +7373,15 @@ async fn run_ace_job(state: AppState, run: AceRun) {
     let job_id = run.job_id.clone();
     // the parts as they were when the song started: the person may switch sets while it is made
     let parts_at_start = state.selected_component_ids.read().await.clone().unwrap_or_default();
+    // timed only when nothing else held the engine: a song waiting its turn would read as a slow card
+    let alone = !another_job_under_way(&state, &job_id).await;
+    let started = std::time::Instant::now();
     let outcome = {
         let _using = state.engine_use.read().await;
         ace_job(&state, run).await
     };
+    let worked = started.elapsed();
+    let work = (alone && !another_job_under_way(&state, &job_id).await).then_some(worked);
     let cancelled = job_cancelled(&state, &job_id).await;
     // The engine died under the song - a refused or dropped connection, or a
     // restarted engine that no longer knows the job: its own log says why
@@ -7422,13 +7435,16 @@ async fn run_ace_job(state: AppState, run: AceRun) {
     // however it ended, it is no longer one the studio's closing could cut off
     let ended = state.jobs.read().await.get(&job_id).map(|job| {
         let profiles: Vec<String> = job.songs.iter().filter_map(|made| made.song.profile_id.clone()).collect();
-        (job_status_name(&job.status), job.message.clone(), job.songs.len(), profiles)
+        (job_status_name(&job.status), job.message.clone(), job.songs.len(), profiles, songs_seconds(&job.songs))
     });
     if let Some(hub) = &state.hub {
         match ended.as_ref() {
-            Some(("completed", _, songs, profiles)) if *songs > 0 => {
+            Some(("completed", _, songs, profiles, seconds)) if *songs > 0 => {
                 hub.count("songs", *songs as u64);
                 hub.count("song_done", 1);
+                if let Some(work) = work {
+                    hub.worked("song", *seconds, work);
+                }
                 for profile in profiles {
                     hub.used_model(profile);
                 }
@@ -7440,21 +7456,31 @@ async fn run_ace_job(state: AppState, run: AceRun) {
                 };
                 hub.used_models(set.as_deref(), &parts, *songs as u64);
             }
-            Some(("failed", message, _, _)) => {
+            Some(("failed", message, ..)) => {
                 hub.count("song_failed", 1);
                 hub.failed("song", message);
             }
-            Some(("cancelled", _, _, _)) => hub.count("song_cancelled", 1),
+            Some(("cancelled", ..)) => hub.count("song_cancelled", 1),
             _ => {}
         }
     }
-    if let Some((status, message, _, _)) = ended {
+    if let Some((status, message, ..)) = ended {
         // a song that reached the library needs no record of its request any more
         let kept = if status == "completed" { state.library.forget_music_job(&job_id) } else { state.library.set_music_job_status(&job_id, status, &message) };
         if let Err(error) = kept {
             eprintln!("[ERROR] the song's state could not be kept: {error:#}");
         }
     }
+}
+
+/// Whether another song is queued or being made besides this one.
+async fn another_job_under_way(state: &AppState, job_id: &str) -> bool {
+    state.jobs.read().await.iter().any(|(id, job)| id != job_id && matches!(job.status, MusicJobStatus::Queued | MusicJobStatus::Running))
+}
+
+/// The length of the songs a job made, as the library measured them.
+fn songs_seconds(songs: &[CompletedSong]) -> f64 {
+    songs.iter().filter_map(|made| made.song.metadata.get("duration_seconds").and_then(Value::as_f64)).sum()
 }
 
 #[derive(Debug, Deserialize)]

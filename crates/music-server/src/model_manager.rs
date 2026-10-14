@@ -41,6 +41,8 @@ pub struct ModelManager {
     http: reqwest::Client,
     state: Arc<RwLock<PersistentState>>,
     cancelled: Arc<AtomicBool>,
+    /// Where a download's outcome is counted, once the hub is up.
+    hub: Arc<std::sync::OnceLock<studio_hub_client::Hub>>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -168,6 +170,7 @@ impl ModelManager {
             http: crate::net::client(),
             state: Arc::new(RwLock::new(state)),
             cancelled: Arc::new(AtomicBool::new(false)),
+            hub: Arc::default(),
         })
     }
 
@@ -297,6 +300,11 @@ impl ModelManager {
         self.state.read().await.active.as_ref().filter(|job| job.id == id).cloned()
     }
 
+    /// From now on every download that ends is counted in the hub: models ready, or failed with its reason.
+    pub fn report_to(&self, hub: studio_hub_client::Hub) {
+        let _ = self.hub.set(hub);
+    }
+
     pub fn installed_profile_files(&self, profile_id: &str) -> Result<ProfileModelFiles> {
         let selection = resolve_install(InstallRequest { profile_id: Some(profile_id.into()), component_ids: vec![] })?;
         self.installed_files_from_selection(selection, &format!("selected profile '{profile_id}'"))
@@ -351,6 +359,13 @@ impl ModelManager {
                 Err(error) => {
                     job.status = DownloadStatus::Failed;
                     job.error = Some(error.to_string());
+                }
+            }
+            if let Some(hub) = self.hub.get() {
+                match job.status {
+                    DownloadStatus::Completed => hub.setup_ready(),
+                    DownloadStatus::Failed => hub.setup_failed(job.error.as_deref().unwrap_or_default()),
+                    _ => {}
                 }
             }
             let _ = self.persist_locked(&state);
