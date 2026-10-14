@@ -859,17 +859,16 @@ pub async fn serve() -> anyhow::Result<()> {
     prepare::resume(&state);
     tokio::spawn(resume_unfinished_jobs(state.clone()));
     {
-        let library = state.library.clone();
-        tokio::task::spawn_blocking(move || match library.remeasure_imported_mp3s() {
-            Ok(0) => {}
-            Ok(fixed) => eprintln!("[library] measured the length of {fixed} imported MP3s again"),
-            Err(error) => eprintln!("[library] the imported MP3s were not measured again: {error:#}"),
-        });
-    }
-    {
         let state = state.clone();
-        // both rewrite the tags of stored tracks, so one after the other
+        // all three read or rewrite the stored tracks in place, so one after the other
         tokio::spawn(async move {
+            let library = state.library.clone();
+            match tokio::task::spawn_blocking(move || library.remeasure_imported_mp3s()).await {
+                Ok(Ok(0)) => {}
+                Ok(Ok(fixed)) => eprintln!("[library] measured the length of {fixed} imported MP3s again"),
+                Ok(Err(error)) => eprintln!("[library] the imported MP3s were not measured again: {error:#}"),
+                Err(error) => eprintln!("[library] the imported MP3s were not measured again: {error}"),
+            }
             tag_untagged_songs(state.clone()).await;
             pin_placeholders(state).await;
         });
@@ -5277,8 +5276,11 @@ async fn assistant_runtime_status(State(state): State<AppState>) -> Json<Value> 
         // And which model, so the dropdown reopens on the one that was picked
         // rather than on whichever happens to be installed first.
         fields.insert("chosen_model".into(), serde_json::to_value(&config.managed_model).unwrap_or(Value::Null));
-        // the panel's "installed" is about the chosen provider: OpenRouter or a server of the user's downloads nothing
-        fields.insert("set".into(), serde_json::json!({ "ready": assistant_available(&config, &status) }));
+        // the panel's "installed" is about the chosen provider: OpenRouter or a server of the user's downloads nothing;
+        // switched off, it is about the files
+        if config.provider != AssistantProvider::None {
+            fields.insert("set".into(), serde_json::json!({ "ready": assistant_available(&config, &status) }));
+        }
     }
     Json(value)
 }

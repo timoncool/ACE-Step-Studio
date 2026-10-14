@@ -6255,8 +6255,9 @@ var WebAudio = function (_util$Observer) {
 
             PKAudioEditor.engine.ID3 (arraybuffer);
 
-            // decoded at the file's own rate: an edit saved at another rate is resampled twice
-            var rate = nativeSampleRate(arraybuffer) || (this.ac ? this.ac.sampleRate : 48000);
+            // decoded at the file's own rate, within what an OfflineAudioContext accepts
+            var rate = nativeSampleRate(arraybuffer);
+            if (!(rate >= 8000 && rate <= 384000)) rate = this.ac ? this.ac.sampleRate : 48000;
             if (!this.offlineAc || this.offlineAc.sampleRate !== rate) {
                 this.offlineAc = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 2, rate);
             }

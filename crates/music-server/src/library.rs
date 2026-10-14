@@ -143,8 +143,8 @@ impl Library {
   Ok(ImportedSong{song,audio_filename:filename})
  }
 
- /// Imported MP3s stored before their length was read from the frames carry one guessed from the
- /// file size at 128 kbps; each is measured again, and only a length that disagrees is rewritten.
+ /// Every imported MP3 is measured from its own headers and frames; only a stored length that
+ /// disagrees with that by half a second or more is rewritten.
  pub fn remeasure_imported_mp3s(&self)->Result<usize>{
   let rows:Vec<(String,String,String)>={
    let connection=self.connection.lock().unwrap();
@@ -154,8 +154,11 @@ impl Library {
   };
   let mut fixed=0;
   for (id,path,metadata) in rows{
-   let Ok(audio)=fs::read(&path) else {continue};
-   let Some(seconds)=audio_duration_seconds(&audio,"mp3",None) else {continue};
+   use lofty::file::AudioFile;
+   // a missing or unreadable file has no length to measure
+   let Some(file)=lofty::probe::Probe::open(&path).ok().and_then(|probe|probe.guess_file_type().ok()).and_then(|probe|probe.read().ok()) else {continue};
+   let seconds=file.properties().duration().as_secs_f64();
+   if seconds<=0.0{continue}
    let mut value:serde_json::Value=serde_json::from_str(&metadata).with_context(||format!("metadata of song {id}"))?;
    if value.get("duration_seconds").and_then(serde_json::Value::as_f64).is_some_and(|stored|(stored-seconds).abs()<0.5){continue}
    value["duration_seconds"]=serde_json::json!(seconds);
