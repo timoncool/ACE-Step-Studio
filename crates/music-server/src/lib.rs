@@ -7111,6 +7111,8 @@ fn describes_exhausted_memory(log: &str) -> bool {
         "insufficient memory",
         "cudaerrormemoryallocation",
         "bad_alloc",
+        "oom allocating",
+        "graph alloc failed",
     ]
     .iter()
     .any(|marker| log.contains(marker))
@@ -7336,7 +7338,10 @@ async fn wait_engine(state: &AppState, job: &str) -> anyhow::Result<()> {
         match state.music_server.status(job).await?.as_str() {
             "done" => return Ok(()),
             "failed" => {
-                let reason = state.engine_log.lines().and_then(|lines| last_fatal(&lines, job));
+                let reason = state.engine_log.lines().and_then(|lines| first_fatal(&lines, job));
+                if let Some(why) = reason.as_deref().filter(|why| describes_exhausted_memory(&why.to_lowercase())) {
+                    anyhow::bail!("There was not enough memory for this song ({why}). Choose a smaller model set in the model manager or a shorter song, and close whatever else uses the card or the computer's memory.");
+                }
                 anyhow::bail!(reason.unwrap_or_else(|| "the engine failed this job and its log names no cause".into()))
             }
             "cancelled" => anyhow::bail!("cancelled"),
@@ -7345,12 +7350,13 @@ async fn wait_engine(state: &AppState, job: &str) -> anyhow::Result<()> {
     }
 }
 
-/// What the engine said when it gave a job up: the last FATAL line after the
-/// job's own start, without the stage tag.
-fn last_fatal(lines: &[String], job: &str) -> Option<String> {
+/// What the engine said when it gave a job up: the first FATAL line after the
+/// job's own start, without the stage tag. The lines after it are its
+/// consequences - "encode failed" under the allocation that failed.
+fn first_fatal(lines: &[String], job: &str) -> Option<String> {
     let start = format!("Job {job}");
     let from = lines.iter().rposition(|line| line.contains(&start))?;
-    lines[from..].iter().rev().find_map(|line| line.split_once("FATAL:").map(|(_, why)| why.trim().to_string())).filter(|why| !why.is_empty())
+    lines[from..].iter().find_map(|line| line.split_once("FATAL:").map(|(_, why)| why.trim().to_string())).filter(|why| !why.is_empty())
 }
 
 async fn run_ace_job(state: AppState, run: AceRun) {
@@ -8238,8 +8244,12 @@ mod tests {
     #[test]
     fn a_failed_job_is_named_by_its_own_fatal_line() {
         let lines: Vec<String> = ["[Server] FATAL: an earlier job's reason", "[Server] Job 7 created (1 requests)", "[DiT] step 3/8", "[Server] FATAL: synth load failed", "[Server] job failed"].iter().map(|line| line.to_string()).collect();
-        assert_eq!(last_fatal(&lines, "7").as_deref(), Some("synth load failed"));
-        assert_eq!(last_fatal(&lines, "8"), None, "a job the log never started has no reason in it");
+        assert_eq!(first_fatal(&lines, "7").as_deref(), Some("synth load failed"));
+        assert_eq!(first_fatal(&lines, "8"), None, "a job the log never started has no reason in it");
+        let encode: Vec<String> = ["[Server] Job 9 created (1 requests)", "[VAE-Enc] FATAL: graph alloc failed for T=480000", "[VAE-Enc] FATAL: tile 0 encode failed", "[Encode-Src] FATAL: encode failed"].iter().map(|line| line.to_string()).collect();
+        let why = first_fatal(&encode, "9").unwrap();
+        assert_eq!(why, "graph alloc failed for T=480000", "the cause, not the lines that follow from it");
+        assert!(describes_exhausted_memory(&why.to_lowercase()));
     }
 
     use super::*;
