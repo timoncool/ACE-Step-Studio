@@ -2,6 +2,13 @@
 
 What changed, newest first. Dates are release dates.
 
+## Unreleased
+
+### Fixed
+
+- **Downloads that stall come back.** A connection that stopped sending held the download at the same byte for ever, with no error and no retry - most visibly the engine libraries from NVIDIA, which kept the start screen at "Downloading the engine libraries - 0%" ([YuE2-Studio #92](https://github.com/timoncool/YuE2-Studio/issues/92)). A silent connection is now dropped after a minute and the piece is fetched again, and a server that refuses a file says so at once instead of after two minutes of retries.
+- **Only the studio's own window and agents can use it.** A web page open in your browser could send requests to the studio on this computer, and the studio answered any site; it now refuses pages of other sites, and requests that reach it under another site's name (DNS rebinding), as Dub Studio does.
+
 ## 2026-10-14 — 3.5.5
 
 ### Fixed

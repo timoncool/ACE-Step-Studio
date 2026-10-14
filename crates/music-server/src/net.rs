@@ -265,6 +265,16 @@ pub fn client() -> reqwest::Client {
     builder().build().expect("an HTTP client with a proxy callback builds")
 }
 
+/// The client of the downloads: a connection that goes silent fails and is retried, instead of holding the bar
+/// at the same byte for ever.
+pub fn download_client() -> reqwest::Client {
+    builder()
+        .connect_timeout(std::time::Duration::from_secs(30))
+        .read_timeout(std::time::Duration::from_secs(60))
+        .build()
+        .expect("an HTTP client with a proxy callback builds")
+}
+
 /// Whether Hugging Face, where the models come from, and OpenRouter answer
 /// through `settings`, before they are kept. An answer of any status counts;
 /// a connection that fails does not.

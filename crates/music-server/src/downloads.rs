@@ -105,7 +105,7 @@ impl Downloader {
     pub fn new(root: PathBuf) -> Self {
         Self {
             root,
-            http: crate::net::client(),
+            http: crate::net::download_client(),
             progress: Arc::new(Mutex::new(None)),
             cancel: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         }

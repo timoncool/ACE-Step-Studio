@@ -135,6 +135,7 @@ pub async fn probe(http: &reqwest::Client, url: &str) -> Result<Plan> {
     for attempt in 0..RETRIES {
         match probe_once(http, url).await {
             Ok(plan) => return Ok(plan),
+            Err(error) if error.is::<Refused>() => return Err(error),
             Err(error) => last = error.to_string(),
         }
         // Hugging Face answers 429 when it has had enough for the moment, and
@@ -203,11 +204,26 @@ async fn probe_once(http: &reqwest::Client, url: &str) -> Result<Plan> {
             return Ok(Plan { total, ranged: true });
         }
     }
+    if response.status().is_client_error() {
+        return Err(Refused(format!("{url} answered {}", response.status())).into());
+    }
     if !response.status().is_success() {
         bail!("{url} answered {}", response.status());
     }
     Ok(Plan { total: response.content_length().unwrap_or(0), ranged: false })
 }
+
+/// A server that said no (a 4xx; "too many requests" is waited out in `send`): asking again gets the same answer.
+#[derive(Debug)]
+struct Refused(String);
+
+impl std::fmt::Display for Refused {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for Refused {}
 
 /// The offsets already on disk, from the manifest beside the part file.
 fn manifest_path(part: &Path) -> PathBuf {

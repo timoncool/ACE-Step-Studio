@@ -69,7 +69,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::RwLock;
 use tower::ServiceExt;
-use tower_http::{cors::CorsLayer, services::ServeFile, set_header::SetResponseHeaderLayer, trace::TraceLayer};
+use tower_http::{services::ServeFile, set_header::SetResponseHeaderLayer, trace::TraceLayer};
 
 const PRIMARY_MUSIC_ENGINE_ID: &str = model_manager::ENGINE_ID;
 
@@ -1062,7 +1062,7 @@ pub async fn serve() -> anyhow::Result<()> {
         // browser cache, and Chrome holds a second request for a URL until a
         // cacheable first one finishes - a song asked for twice waited 20 s.
         .layer(SetResponseHeaderLayer::if_not_present(header::CACHE_CONTROL, header::HeaderValue::from_static("no-store")))
-        .layer(CorsLayer::permissive())
+        .layer(remote::cors())
         .layer(TraceLayer::new_for_http());
 
     // The provider catalog is public and small; reading it once at startup
