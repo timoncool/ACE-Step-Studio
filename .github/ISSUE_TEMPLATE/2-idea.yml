@@ -20,8 +20,6 @@ body:
     attributes:
       label: How could ACE-Step Studio help? / Как могла бы помочь студия?
       placeholder: "A trim handle on the source track before making the cover."
-    validations:
-      required: true
   - type: textarea
     id: examples
     attributes:
