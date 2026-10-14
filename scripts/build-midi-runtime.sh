@@ -19,6 +19,7 @@ git -C "$worktree" checkout --quiet "$commit"
 git -C "$worktree" submodule update --init --recursive
 
 cmake -S "$worktree/engine" -B "$worktree/engine/build" -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON -DCMAKE_INSTALL_RPATH=@executable_path \
     -DGGML_METAL=ON -DGGML_METAL_EMBED_LIBRARY=ON
 cmake --build "$worktree/engine/build" --config Release --target ace-midi \
     -j "$(getconf _NPROCESSORS_ONLN)"
@@ -26,4 +27,13 @@ cmake --build "$worktree/engine/build" --config Release --target ace-midi \
 mkdir -p "$output"
 cp "$worktree/engine/build/ace-midi" "$output/music-midi"
 cp -a "$worktree"/engine/build/*.dylib "$output/"
+# the binaries look for their dylibs beside themselves: an absolute build-machine path would only resolve on the runner
+for binary in "$output"/*; do
+    [ -f "$binary" ] && [ ! -L "$binary" ] || continue
+    if otool -l "$binary" | grep -A2 LC_RPATH | grep -q ' path /'; then
+        echo "[ERROR] $binary keeps an absolute rpath:" >&2
+        otool -l "$binary" | grep -A2 LC_RPATH >&2
+        exit 1
+    fi
+done
 echo "music-midi ($commit) built into $output"
