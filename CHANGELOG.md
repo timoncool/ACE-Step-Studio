@@ -10,6 +10,8 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- **An agent's command to a closed window fails at once.** A window that closed without saying so kept the agent waiting the full five minutes for its answer; the command now fails as the window goes, and the next call reaches another open window or says none is open.
+- **The window gets the microphone it asks for.** WebView2 left the request with no answer and no prompt, so recording in the audio editor waited for ever; the studio's own page is now allowed the microphone, nothing else is.
 - **A song lost to the graphics card names the error.** "The graphics card failed" now carries the engine's own CUDA or Vulkan error, and a song lost to an engine that ended without a word says the last thing it wrote, so the cause can be told apart instead of guessed.
 - **A recording that will not play says why.** The player of a training song or a stem turned to Pause and stayed silent when the window could not play the file; it now stays on Play and names the reason the window gave ([YuE2-Studio #75](https://github.com/timoncool/YuE2-Studio/issues/75)).
 - **Downloads that stall come back.** A connection that stopped sending held the download at the same byte for ever, with no error and no retry - most visibly the engine libraries from NVIDIA, which kept the start screen at "Downloading the engine libraries - 0%" ([YuE2-Studio #92](https://github.com/timoncool/YuE2-Studio/issues/92)). A silent connection is now dropped after a minute and the piece is fetched again, and a server that refuses a file says so at once instead of after two minutes of retries.

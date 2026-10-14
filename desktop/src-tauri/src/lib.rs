@@ -645,6 +645,16 @@ pub fn run() {
                 .cloned()
                 .expect("the main window is declared in tauri.conf.json");
             let window = tauri::WebviewWindowBuilder::from_config(app.handle(), &window_config)?;
+            // WebView2 leaves a microphone request with no answer and no prompt: the window's own page (recording in
+            // the audio editor, the names of the sound outputs) waited on getUserMedia for ever
+            let window = window.on_permission_request(|webview, kind| match kind {
+                tauri::webview::PermissionKind::Microphone
+                    if webview.url().is_ok_and(|url| matches!(url.host_str(), Some("127.0.0.1" | "localhost"))) =>
+                {
+                    tauri::webview::PermissionResponse::Allow
+                }
+                _ => tauri::webview::PermissionResponse::Default,
+            });
             #[cfg(windows)]
             let window = window.additional_browser_args(&webview_browser_arguments());
             // The proxy chosen in Settings for what the window loads itself -
