@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Latest version / Последняя версия
+    url: https://github.com/timoncool/ACE-Step-Studio/releases/latest
+    about: Many problems are already fixed in the newest release. · Многое уже исправлено в свежей версии.
+  - name: News and announcements / Новости (Telegram)
+    url: https://t.me/nerual_dreming
+    about: Releases and plans of the author. · Выпуски и планы автора.
