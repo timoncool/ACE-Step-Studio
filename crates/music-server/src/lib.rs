@@ -7626,14 +7626,13 @@ fn song_audio_and_latent(state: &AppState, song_id: &str) -> anyhow::Result<(Vec
     Ok((audio, latent))
 }
 
-/// A recording as the engine can read it: it decodes WAV and MP3 only, so a
-/// FLAC (how songs are kept) or any other format goes as a 32-bit float WAV.
+/// A recording as the engine can read it. The engine's own readers take MP3
+/// and only some WAVs (16- and 24-bit PCM, float), while the library takes any
+/// file the studio decodes, so every recording is decoded here and goes as a
+/// 32-bit float WAV.
 fn engine_audio(path: &std::path::Path) -> anyhow::Result<Vec<u8>> {
-    let extension = path.extension().map(|extension| extension.to_string_lossy().to_ascii_lowercase()).unwrap_or_default();
-    if extension == "wav" || extension == "mp3" {
-        return std::fs::read(path).with_context(|| format!("read {}", path.display()));
-    }
-    audio_pcm::wav_f32_bytes(&audio_pcm::decode_stereo(path)?)
+    let audio = audio_pcm::decode_stereo(path).with_context(|| format!("decode {}", path.display()))?;
+    audio_pcm::wav_f32_bytes(&audio)
 }
 
 /// The engine's latent of a rendered track, beside its audio.
