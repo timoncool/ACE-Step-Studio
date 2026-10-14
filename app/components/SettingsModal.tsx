@@ -13,6 +13,8 @@ import { AgentPanel } from './AgentPanel';
 import { HubSettings } from './HubSettings';
 import { STUDIO, STUDIO_REPO_URL } from '../studio';
 import { isDesktop } from '../services/externalLinks';
+import { issueReportUrl, type ReportFacts } from '../services/issueReport';
+import { useSetupStatus } from '../services/studioQueries';
 import { onSidebarExtras, setSidebarExtras, sidebarExtras, type SidebarExtras } from '../services/playerPanels';
 
 /**
@@ -46,6 +48,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
   const { user, setDisplayName } = useAuth();
   const { t, language, setLanguage } = useI18n();
   const [section, setSection] = useState<SectionId>('account');
+  const reportFacts = useSetupStatus<ReportFacts>().data;
   /// A part of the page to open at, after a colon: `models:assistant`.
   const [focus, setFocus] = useState<string | null>(null);
   // Opened from somewhere with a page in mind - the profile line, say.
@@ -262,7 +265,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
                     <a href={STUDIO_REPO_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-medium text-white dark:bg-zinc-700">
                       <SiGithub size={14} />{STUDIO.name}
                     </a>
-                    <a href={`${STUDIO_REPO_URL}/issues`} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">{t('reportIssues')}</a>
+                    <a href={issueReportUrl(STUDIO_REPO_URL, __APP_VERSION__, reportFacts)} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">{t('reportIssues')}</a>
                   </div>
                 </div>
               </div>
