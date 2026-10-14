@@ -4446,17 +4446,43 @@ fn previous_run_log() -> String {
     }
 }
 
-/// Why a song was lost with an engine that restarted during it, from the log
-/// of the run that ended.
 fn lost_job_reason(log: &str) -> String {
-    let log = log.to_lowercase();
-    if describes_exhausted_memory(&log) {
+    let lowered = log.to_lowercase();
+    if describes_exhausted_memory(&lowered) {
         "The graphics card ran out of memory on this song and the engine restarted, so the song was lost. Choose a smaller model set in the model manager or a shorter song, and close whatever else uses the card; a card below the smallest set cannot make songs.".into()
-    } else if describes_device_failure(&log) {
-        "The graphics card failed during this song (a CUDA or driver error) and the engine restarted, so the song was lost. The engine log is in Settings, Engine.".into()
+    } else if describes_device_failure(&lowered) {
+        match device_error_line(log) {
+            Some(error) => format!("The graphics card failed during this song ({error}) and the engine restarted, so the song was lost. The engine log is in Settings, Engine."),
+            None => "The graphics card failed during this song (a CUDA or driver error) and the engine restarted, so the song was lost. The engine log is in Settings, Engine.".into(),
+        }
     } else {
-        "The engine stopped during this song and restarted, so the song was lost. The engine log is in Settings, Engine.".into()
+        match last_engine_line(log) {
+            Some(line) => format!("The engine stopped during this song and restarted, so the song was lost; its last line was {line}. The engine log is in Settings, Engine."),
+            None => "The engine stopped during this song and restarted, so the song was lost. The engine log is in Settings, Engine.".into(),
+        }
     }
+}
+
+/// The last thing the engine wrote before it went: a process the driver ends says nothing, and the stage it was
+/// in is all there is to tell a long kernel cut short from a crash at the start.
+fn last_engine_line(log: &str) -> Option<String> {
+    log.lines()
+        .map(str::trim)
+        .rfind(|line| line.starts_with('[') && !line.starts_with("[studio]"))
+        .map(|line| line.chars().take(90).collect())
+}
+
+/// The engine's own words for a device failure: which CUDA or Vulkan error it was is what tells a driver
+/// timeout from a bad kernel, for the person and for the statistics alike.
+fn device_error_line(log: &str) -> Option<String> {
+    const MARKERS: [&str; 5] = ["cuda error:", "devicelost", "device lost", "ggml_vulkan: error", "vk::"];
+    log.lines()
+        .map(str::trim)
+        .find(|line| {
+            let lowered = line.to_lowercase();
+            MARKERS.iter().any(|marker| lowered.contains(marker))
+        })
+        .map(|line| line.chars().take(140).collect())
 }
 
 /// Whether the engine ended without a word about why. Its own failures -
@@ -8414,7 +8440,9 @@ mod tests {
     #[test]
     fn a_lost_song_is_told_why_from_the_run_that_ended() {
         assert!(lost_job_reason("ggml_backend_cuda_buffer_type_alloc_buffer: allocating 2048 MB on device 0: cudaMalloc failed: out of memory").contains("ran out of memory"));
-        assert!(lost_job_reason("CUDA error: an illegal memory access was encountered").contains("CUDA or driver error"));
+        assert!(lost_job_reason("[NAR] Step 3/16\nCUDA error: an illegal memory access was encountered\n  current device: 0").contains("(CUDA error: an illegal memory access was encountered)"));
+        assert!(lost_job_reason("ggml_cuda_compute_forward: MUL_MAT failed").contains("CUDA or driver error"));
+        assert!(lost_job_reason("[NAR] Step 2/16, 87844 ms\n[NAR] Step 3/16\n[studio] the engine stopped answering").contains("its last line was [NAR] Step 3/16."));
         assert!(lost_job_reason("[Server] listening").contains("stopped during this song"));
     }
 
