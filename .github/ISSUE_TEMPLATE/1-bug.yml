@@ -1,0 +1,92 @@
+name: Bug report / Ошибка
+description: Something is broken or works wrong · Что-то сломалось или работает не так
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report! Write in any language — English, Русский, 中文.
+        Спасибо, что сообщаете! Пишите на любом языке.
+
+        - Please check that you have the [latest version](https://github.com/timoncool/ACE-Step-Studio/releases/latest) — many problems are already fixed. · Проверьте, что у вас [последняя версия](https://github.com/timoncool/ACE-Step-Studio/releases/latest).
+        - [Search existing issues](https://github.com/timoncool/ACE-Step-Studio/issues?q=is%3Aissue) — if yours is there, add a 👍 or a comment. · [Поищите похожие](https://github.com/timoncool/ACE-Step-Studio/issues?q=is%3Aissue).
+        - One problem per report. · Одна проблема — одно сообщение.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened? / Что случилось?
+      description: Copy the exact error text from the notification, if there was one. · Если было сообщение об ошибке, скопируйте его текст целиком.
+      placeholder: |
+        The song stops at "Decoding" with "The engine stopped during this song…"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / Как повторить
+      placeholder: |
+        1. Open Create
+        2. Paste lyrics, 3 minutes
+        3. Press Create
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect? / Что ожидали?
+  - type: input
+    id: version
+    attributes:
+      label: ACE-Step Studio version / Версия
+      description: "**Settings → About** · **Настройки → О программе**"
+      placeholder: "3.5.5"
+    validations:
+      required: true
+  - type: dropdown
+    id: package
+    attributes:
+      label: System and package / Система и сборка
+      options:
+        - Windows — installer (.exe)
+        - Windows — portable (.zip)
+        - macOS — Apple Silicon (.dmg)
+        - Linux — AppImage
+        - Linux — .deb
+        - Other / Другое
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: System version / Версия системы
+      placeholder: "Windows 11 24H2 · macOS 15.4 · Ubuntu 24.04"
+  - type: input
+    id: gpu
+    attributes:
+      label: Graphics card / Видеокарта
+      description: Card, its memory and driver version. · Карта, её память и версия драйвера.
+      placeholder: "RTX 3060 12 GB, driver 581.57 · RX 6600 XT 8 GB · Apple M3 16 GB · no GPU"
+    validations:
+      required: true
+  - type: input
+    id: models
+    attributes:
+      label: Model set / Набор моделей
+      description: "**Settings → Models** · **Настройки → Модели**"
+      placeholder: "Quality — Q8_0 · Light — Q5_K_M"
+  - type: textarea
+    id: log
+    attributes:
+      label: Log / Лог
+      description: |
+        In the studio: **Settings → Local engine → Engine log** — copy the lines around the error. If the studio does not open, the file `engine.log` is in the data folder (**Settings → Models** shows it).
+        
+        В студии: **Настройки → Локальный движок → Лог движка** — скопируйте строки рядом с ошибкой. Если студия не открывается, файл `engine.log` лежит в папке данных (её путь — в **Настройки → Модели**).
+
+        Remove API keys if any. · Уберите ключи API, если они там есть.
+      render: shell
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Screenshots or files / Скриншоты или файлы
+      description: Drag images, videos or the log file here. · Перетащите сюда картинки, видео или файл лога.
