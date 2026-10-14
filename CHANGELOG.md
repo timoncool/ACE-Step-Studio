@@ -4,6 +4,10 @@ What changed, newest first. Dates are release dates.
 
 ## Unreleased
 
+### Added
+
+- **Any engine launch flag and a hand-built engine.** Settings - Local engine take one line of extra flags for the engine, split as a shell would and placed after the studio's own, and an engine executable of your own build, picked in a file dialog and checked when saved. The restart button saves the page first and starts what it shows; an old engine still holding the port is waited for and refused instead of being reused with its old flags. By [@wuyue92tree](https://github.com/wuyue92tree) ([#46](https://github.com/timoncool/ACE-Step-Studio/pull/46)).
+
 ### Fixed
 
 - **Downloads that stall come back.** A connection that stopped sending held the download at the same byte for ever, with no error and no retry - most visibly the engine libraries from NVIDIA, which kept the start screen at "Downloading the engine libraries - 0%" ([YuE2-Studio #92](https://github.com/timoncool/YuE2-Studio/issues/92)). A silent connection is now dropped after a minute and the piece is fetched again, and a server that refuses a file says so at once instead of after two minutes of retries.
