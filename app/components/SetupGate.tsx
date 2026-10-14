@@ -8,6 +8,7 @@ import { AssistantExtras } from './AssistantSettings';
 import { KaraokeExtras } from './KaraokeSettings';
 import { HubTelemetryPreview } from './HubTelemetryPreview';
 import { setTelemetry } from '../services/studioHub';
+import { programName } from '../services/programs';
 import type { TranslationKey } from '../i18n/translations';
 import {
   componentKindLabel,
@@ -55,6 +56,8 @@ type SetupStatus = {
   installed_components: string[];
   data_directory?: string | null;
   portable?: boolean;
+  /** Models taken from another program of timoncool's in this run instead of being downloaded, by id. */
+  taken_from?: Record<string, { app: string; file: string }>;
 };
 
 type Profile = {
@@ -71,7 +74,7 @@ type Profile = {
 type Catalog = { engine_id: string; recommended_profile_id: string; profiles: Profile[]; components: ModelComponent[] };
 
 // variant_bytes: what choosing this model downloads with it (a Parakeet encoder's decoder and weights, a Whisper folder).
-type OptionalAsset = { id: string; label: string; bytes: number; note: string; installed: boolean; kind: 'model' | 'runtime'; vram_gb?: number | null; variant_bytes?: number };
+type OptionalAsset = { id: string; label: string; bytes: number; note: string; installed: boolean; kind: 'model' | 'runtime'; vram_gb?: number | null; variant_bytes?: number; taken_from?: string | null };
 // with_model: the chosen model's files are already in bytes, as the karaoke set counts them.
 type SetProgress = { bytes: number; installed_bytes: number; ready: boolean; files: number; with_model?: boolean };
 type OptionalStatus = {
@@ -533,7 +536,7 @@ export const OptionalGroup: React.FC<{
                     <span className="text-xs tabular-nums text-zinc-500">{bytes(asset.bytes)}</span>
                     {asset.installed ? (
                       <>
-                        <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-300">{t('installed')}</span>
+                        <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-300">{asset.taken_from ? t('takenFrom').replace('{app}', programName(asset.taken_from)) : t('installed')}</span>
                         {removeUrl && (
                           <button
                             type="button"
@@ -970,7 +973,11 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
                   </label>
                   <div className="mb-2 flex shrink-0 items-center gap-2">
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${isInstalled ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300' : 'bg-zinc-200/70 text-zinc-500 dark:bg-white/10 dark:text-zinc-400'}`}>
-                      {isInstalled ? t('installed') : t('missingBadge')}
+                      {isInstalled
+                        ? selectedId && status?.taken_from?.[selectedId]
+                          ? t('takenFrom').replace('{app}', programName(status.taken_from[selectedId].app))
+                          : t('installed')
+                        : t('missingBadge')}
                     </span>
                     {isInstalled && (
                       <button
@@ -988,6 +995,16 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
               );
             })}
             {!chosenIds && <p className="text-xs text-amber-600 dark:text-amber-300">{t('incompleteSet')}</p>}
+            {status?.taken_from && Object.keys(status.taken_from).length > 0 && (
+              <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-[11px] leading-5 text-emerald-700 dark:text-emerald-300">
+                <p className="font-semibold">{t('takenNotice')}</p>
+                {Object.entries(status.taken_from).map(([id, taken]) => (
+                  <p key={id} className="font-mono">
+                    {taken.file} — {t('takenFrom').replace('{app}', programName(taken.app))}
+                  </p>
+                ))}
+              </div>
+            )}
             {/* Where the weights actually are. People asked for this after
                 hunting through their profile folder for ten gigabytes. */}
             {status?.data_directory && (

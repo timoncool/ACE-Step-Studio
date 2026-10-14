@@ -65,6 +65,8 @@ pub struct AssetStatus {
     pub installed: bool,
     /// Bytes already on disk, so a resumed download reports honestly.
     pub downloaded_bytes: u64,
+    /// The program (yue2, dub...) it was taken from in this run instead of being downloaded.
+    pub taken_from: Option<String>,
 }
 
 /// What a whole set calls itself while it downloads. A capability is usually
@@ -165,6 +167,9 @@ impl Downloader {
         // Ask the servers what these actually weigh. The answers land in time
         // for the next poll a second from now; nothing waits on them.
         crate::sizes::ask(&self.http, assets.iter().map(|asset| asset.url.to_string()).collect());
+        for asset in assets.iter().filter(|asset| asset.kind == AssetKind::Model && asset.pick.is_empty() && asset.unzip_into.is_none()) {
+            self.link_from_neighbor(asset);
+        }
         assets
             .iter()
             .map(|asset| AssetStatus {
@@ -176,8 +181,25 @@ impl Downloader {
                 note: asset.note,
                 installed: self.is_installed(asset),
                 downloaded_bytes: if self.is_installed(asset) { crate::sizes::or_listed(asset.url, asset.bytes) } else { self.partial_bytes(asset) },
+                taken_from: taken_from(asset.id),
             })
             .collect()
+    }
+
+    /// A model another program of timoncool's already has (the same name and the size the server gives) is linked
+    /// in without asking: a hard link costs no disk and no download. A copy waits for the person to ask (`fetch`).
+    fn link_from_neighbor(&self, asset: &Asset) {
+        if self.is_installed(asset) {
+            return;
+        }
+        let target = self.path_of(asset);
+        let (Some(bytes), Some(name)) = (crate::sizes::known(asset.url), target.file_name()) else { return };
+        if let Some((source, app)) = studio_hub_client::neighbors::find_file(name, bytes, target.parent().and_then(Path::file_name)) {
+            match studio_hub_client::neighbors::take_file(&source, &target, false, |_| true) {
+                Ok(()) => note_taken(asset.id, &target, &app),
+                Err(error) => report_take_failure(&target, &app, &error),
+            }
+        }
     }
 
     /// Deletes an installed asset, whatever shape it took on disk.
@@ -461,6 +483,16 @@ async fn fetch(
     let plan = crate::chunked::probe(http, asset.url).await?;
     if plan.total > 0 {
         crate::sizes::learn(asset.url, plan.total);
+        // another program of timoncool's has it: taken from there, by copy too when it is on another drive
+        if let Some((source, app)) = target.file_name().and_then(|name| studio_hub_client::neighbors::find_file(name, plan.total, target.parent().and_then(Path::file_name))) {
+            match studio_hub_client::neighbors::take_file(&source, target, true, |_| true) {
+                Ok(()) => {
+                    note_taken(asset.id, target, &app);
+                    return Ok(());
+                }
+                Err(error) => report_take_failure(target, &app, &error),
+            }
+        }
     }
 
     let part = target.with_extension("part");
@@ -493,6 +525,45 @@ async fn fetch(
     fs::rename(&part, target).with_context(|| format!("publish {}", target.display()))?;
     Ok(())
 }
+
+/// Says once per file why a neighbour's copy could not be taken: the setup screen asks every second.
+pub(crate) fn report_take_failure(target: &Path, app: &str, error: &io::Error) {
+    static SAID: std::sync::Mutex<Vec<PathBuf>> = std::sync::Mutex::new(Vec::new());
+    let mut said = SAID.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if !said.iter().any(|known| known == target) {
+        said.push(target.to_path_buf());
+        eprintln!("[ERROR] {} was not taken from {app}: {error}", target.display());
+    }
+}
+
+/// A model taken from another program instead of being downloaded: which program, and the file's name.
+#[derive(Clone, Debug, Serialize)]
+pub struct Taken {
+    pub app: String,
+    pub file: String,
+}
+
+/// What was taken from another program in this run, by asset or component id: the panels say "taken from ...".
+fn taken() -> &'static std::sync::Mutex<std::collections::BTreeMap<String, Taken>> {
+    static TAKEN: std::sync::OnceLock<std::sync::Mutex<std::collections::BTreeMap<String, Taken>>> = std::sync::OnceLock::new();
+    TAKEN.get_or_init(Default::default)
+}
+
+pub(crate) fn note_taken(id: &str, file: &Path, app: &str) {
+    eprintln!("[OK] {id} taken from {app} instead of downloading");
+    let file = file.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
+    taken().lock().unwrap_or_else(|poisoned| poisoned.into_inner()).insert(id.to_string(), Taken { app: app.to_string(), file });
+}
+
+pub(crate) fn taken_from(id: &str) -> Option<String> {
+    taken().lock().unwrap_or_else(|poisoned| poisoned.into_inner()).get(id).map(|taken| taken.app.clone())
+}
+
+/// Everything taken from another program in this run, for the setup screen.
+pub(crate) fn taken_all() -> std::collections::BTreeMap<String, Taken> {
+    taken().lock().unwrap_or_else(|poisoned| poisoned.into_inner()).clone()
+}
+
 
 /// Unpacks a release zip. Entries are flattened into `destination` because the
 /// releases nest their binaries one or two directories deep.

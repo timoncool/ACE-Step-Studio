@@ -1575,6 +1575,8 @@ export const en = {
     assistantManagedHint: 'Studio downloads the model and the llama.cpp runtime and runs them itself. Nothing is fetched until you press Download, and the model only loads when the assistant is actually used.',
     assistantUnload: 'Unload model',
     installed: 'installed',
+    takenFrom: 'taken from {app}',
+    takenNotice: 'Taken from other programs on this computer, without downloading:',
     remove: 'Remove',
     removeDownloaded: 'Delete the downloaded files and free the disk',
     dataFolder: 'Everything the studio keeps',

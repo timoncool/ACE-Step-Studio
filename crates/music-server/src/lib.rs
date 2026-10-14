@@ -4941,6 +4941,7 @@ async fn compose_setup_status(state: &AppState, manager_status: model_manager::M
             studio_data_root().map(|root| Value::String(root.display().to_string())).unwrap_or(Value::Null),
         );
         fields.insert("portable".into(), Value::Bool(is_portable_installation()));
+        fields.insert("taken_from".into(), serde_json::to_value(downloads::taken_all()).unwrap_or(Value::Null));
         // Half a gigabyte of CUDA libraries arriving is the difference between
         // an engine that starts in three seconds and one that starts in ten
         // minutes. A spinner that says nothing for ten minutes is the same

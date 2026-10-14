@@ -198,7 +198,11 @@ impl ModelManager {
         let root = self.root.clone();
         // SHA-256 over a GGUF can take seconds. Keep it off the Tokio request
         // workers so setup polling and cancellation remain available.
-        tokio::task::spawn_blocking(move || status_snapshot(root, active, target))
+        let components = self.catalog().components;
+        tokio::task::spawn_blocking(move || {
+            link_from_neighbors(&root, &components);
+            status_snapshot(root, active, target)
+        })
             .await
             .unwrap_or_else(|_| status_snapshot(PathBuf::from("."), None, None))
     }
@@ -390,6 +394,24 @@ impl ModelManager {
             "https://huggingface.co/{}/resolve/{}/{}?download=true",
             component.repository, component.revision, component.remote_path
         );
+
+        // another program of timoncool's has this file: taken through the same checksum a download passes
+        let name = Path::new(component.filename).file_name().unwrap_or_default();
+        if let Some((source, app)) = studio_hub_client::neighbors::find_file(name, component.bytes, None) {
+            let (checked, staged_target) = (component.clone(), target.clone());
+            let taken = tokio::task::spawn_blocking(move || {
+                studio_hub_client::neighbors::take_file(&source, &staged_target, true, |staged| verified_file(staged, &checked).unwrap_or(false))
+            })
+            .await
+            .unwrap_or_else(|error| Err(std::io::Error::other(error.to_string())));
+            match taken {
+                Ok(()) => {
+                    crate::downloads::note_taken(component.id, &target, &app);
+                    return Ok(());
+                }
+                Err(error) => crate::downloads::report_take_failure(&target, &app, &error),
+            }
+        }
 
         let plan = crate::chunked::probe(&self.http, &url).await?;
         let written = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
@@ -649,6 +671,25 @@ fn verified_file(path: &Path, component: &Component) -> Result<bool> {
     }
     let hex: String = digest.finalize().iter().map(|byte| format!("{byte:02x}")).collect();
     Ok(hex == component.sha256)
+}
+
+/// Components another program of timoncool's already has (the same name and size) are linked in as the setup
+/// screen looks: a hard link costs neither disk nor download, and the status check that follows verifies them as it
+/// does a download. A copy (another drive) waits for the person to install.
+fn link_from_neighbors(root: &Path, components: &[Component]) {
+    for component in components {
+        let target = root.join(component.filename);
+        if target.exists() {
+            continue;
+        }
+        let Some(name) = Path::new(component.filename).file_name() else { continue };
+        if let Some((source, app)) = studio_hub_client::neighbors::find_file(name, component.bytes, None) {
+            match studio_hub_client::neighbors::take_file(&source, &target, false, |staged| verified_file(staged, component).unwrap_or(false)) {
+                Ok(()) => crate::downloads::note_taken(component.id, &target, &app),
+                Err(error) => crate::downloads::report_take_failure(&target, &app, &error),
+            }
+        }
+    }
 }
 
 fn validate_model_root(root: &Path) -> Result<()> {

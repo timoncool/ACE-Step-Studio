@@ -1570,6 +1570,8 @@ export const ja = {
     assistantManagedHint: 'Studio がモデルと llama.cpp ランタイムをダウンロードし、自身で起動します。「ダウンロード」を押すまで何も取得されず、モデルはアシスタント使用時にのみ読み込まれます。',
     assistantUnload: 'モデルをアンロード',
     installed: '導入済み',
+    takenFrom: '{app} から取得',
+    takenNotice: 'このPCの他のプログラムから取得（ダウンロードなし）：',
     remove: '削除',
     removeDownloaded: 'ダウンロード済みのファイルを削除してディスクを空けます',
     dataFolder: 'スタジオが持っているもの',

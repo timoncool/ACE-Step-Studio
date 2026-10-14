@@ -1570,6 +1570,8 @@ export const ko = {
     assistantManagedHint: 'Studio 가 모델과 llama.cpp 런타임을 내려받아 직접 실행합니다. 「다운로드」를 누르기 전에는 아무것도 받지 않으며, 모델은 실제로 도우미를 쓸 때만 로드됩니다.',
     assistantUnload: '모델 언로드',
     installed: '설치됨',
+    takenFrom: '{app}에서 가져옴',
+    takenNotice: '이 컴퓨터의 다른 프로그램에서 가져옴(다운로드 없음):',
     remove: '삭제',
     removeDownloaded: '내려받은 파일을 지우고 디스크를 비웁니다',
     dataFolder: '스튜디오가 보관하는 모든 것',

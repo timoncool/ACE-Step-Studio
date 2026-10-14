@@ -1570,6 +1570,8 @@ export const zh = {
     assistantManagedHint: '工作室会下载模型与 llama.cpp 运行时并自行启动。在你点击“下载”之前不会获取任何内容，模型仅在实际使用助手时加载。',
     assistantUnload: '卸载模型',
     installed: '已安装',
+    takenFrom: '取自 {app}',
+    takenNotice: '已从本机其他程序取用，无需下载：',
     remove: '删除',
     removeDownloaded: '删除已下载的文件并释放磁盘空间',
     dataFolder: '工作室保存的全部内容',
