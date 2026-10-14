@@ -550,7 +550,7 @@ struct OpenRouterTranscriptionRequest {
 /// Launch flags for the local engine process. They are a property of the
 /// running engine, so changing one restarts it; upstream has no way to apply
 /// them to a live server.
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
 struct EngineOptions {
     backend: music_engine::server::ComputeBackend,
@@ -563,6 +563,16 @@ struct EngineOptions {
     /// The NVIDIA card, by its nvidia-smi index, that every CUDA process of
     /// the studio computes on. None: the first. Taken at the studio's start.
     gpu: Option<u32>,
+    /// Every other launch flag, as the line it was typed on. It reaches the
+    /// engine last, so it can also override one of the flags above - and it
+    /// restarts the engine like they do, because upstream reads it once at
+    /// startup.
+    extra_args: String,
+    /// The engine executable when it is not the one the studio ships: a build
+    /// of acestep.cpp compiled by hand. None is the bundled engine, and
+    /// `STUDIO_ENGINE_BIN` still wins over whatever is saved here, so a
+    /// developer build needs no settings at all.
+    engine_bin: Option<String>,
 }
 
 impl EngineOptions {
@@ -650,8 +660,46 @@ impl EngineOptions {
             // Ampere, which accumulate in FP16. In range it changes nothing.
             clamp_fp16: self.clamp_fp16 || cuda.is_none() || cuda_build::accumulates_in_fp16(),
             cuda_folder: cuda.map(cuda_build::CudaBuild::folder),
+            extra_args: self.extra_args,
         }
     }
+}
+
+/// The flags the studio passes itself to find the engine process and reach it
+/// afterwards. An extra argument carrying one of them would point the engine
+/// somewhere the studio does not look, and the restart would report a start
+/// that never becomes healthy - so it is refused while it is still a form
+/// field rather than a broken engine.
+fn studio_owned_flag(arguments: &[String]) -> Option<&str> {
+    const OWNED: [&str; 4] = ["--host", "--port", "--models", "--adapters"];
+    arguments.iter().find_map(|argument| {
+        let name = argument.split('=').next().unwrap_or(argument);
+        OWNED.contains(&name).then_some(name)
+    })
+}
+
+/// The custom engine executable as it will be stored: empty means the bundled
+/// engine, and anything else has to be a file that exists already - a typo
+/// would otherwise surface much later as an engine that mysteriously never
+/// starts. A relative path is resolved now, against the folder the studio is
+/// running from, because that folder is not guaranteed to be the same at the
+/// next start.
+fn validated_engine_bin(raw: Option<String>) -> Result<Option<String>, String> {
+    let Some(path) = raw.map(|value| value.trim().to_string()).filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+    let path = std::path::Path::new(&path);
+    let absolute = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .map(|current| current.join(path))
+            .map_err(|error| format!("the engine executable cannot be resolved: {error}"))?
+    };
+    if !absolute.is_file() {
+        return Err(format!("{} is not a file the studio can start", absolute.display()));
+    }
+    Ok(Some(absolute.to_string_lossy().into_owned()))
 }
 
 /// Where the optional writing assistant runs.
@@ -838,7 +886,7 @@ pub async fn serve() -> anyhow::Result<()> {
         library: library::Library::open_default()?,
         engine: Arc::new(tokio::sync::Mutex::new(None)),
         engine_use: Arc::new(tokio::sync::RwLock::new(())),
-        engine_options: Arc::new(RwLock::new(persisted.as_ref().map(|settings| settings.engine_options).unwrap_or_default())),
+        engine_options: Arc::new(RwLock::new(persisted.as_ref().map(|settings| settings.engine_options.clone()).unwrap_or_default())),
         failed_devices: Arc::new(RwLock::new(Vec::new())),
         active_device: Arc::new(RwLock::new(None)),
         engine_runtime: Arc::new(engine_runtime::EngineRuntime::new(&engine_bundle_root())),
@@ -884,6 +932,7 @@ pub async fn serve() -> anyhow::Result<()> {
         .route("/engine/presets", get(engine_presets))
         .route("/engine/preset", post(apply_engine_preset))
         .route("/engine/options", get(engine_options).put(update_engine_options))
+        .route("/engine/pick-executable", post(pick_engine_executable))
         .route("/engine/restart", post(restart_local_engine))
         .route("/v1/resources/rescan", post(rescan_resources_route))
         .route("/v1/engine/logs", get(engine_logs))
@@ -4036,7 +4085,7 @@ async fn health(State(state): State<AppState>) -> Json<Value> {
     // copy has no bundle for. Saying whose service this is turns a hang into
     // a sentence.
     let executable = std::env::current_exe().ok().map(|path| path.display().to_string());
-    let engine_available = engine_location(*state.engine_options.read().await).bundle_root.is_dir();
+    let engine_available = engine_location((*state.engine_options.read().await).clone()).bundle_root.is_dir();
     Json(serde_json::json!({
         "status": "ok",
         "runtime": "native",
@@ -4139,11 +4188,36 @@ async fn update_configuration(
 }
 
 async fn engine_options(State(state): State<AppState>) -> Json<Value> {
-    let options = *state.engine_options.read().await;
+    let options = (*state.engine_options.read().await).clone();
+    // Which executable a start takes, said here rather than only in the
+    // engine log: the environment when it is pinned, the saved path, the
+    // bundled engine - and what is running now, so "did my change apply?"
+    // has an answer on the page itself.
+    let from_environment = env::var_os("STUDIO_ENGINE_BIN");
+    let executable = from_environment
+        .clone()
+        .map(|path| path.to_string_lossy().into_owned())
+        .or_else(|| options.engine_bin.clone().filter(|path| !path.trim().is_empty()));
+    let executable_source = if from_environment.is_some() {
+        "environment"
+    } else if executable.is_some() {
+        "settings"
+    } else {
+        "bundled"
+    };
+    let running = state
+        .engine
+        .lock()
+        .await
+        .as_ref()
+        .map(|engine| engine.config().executable.display().to_string());
     Json(serde_json::json!({
         "options": options,
         "effective_max_batch": options.effective_max_batch(),
         "restart_required_to_apply": true,
+        "executable": executable,
+        "executable_source": executable_source,
+        "running_executable": running,
     }))
 }
 
@@ -4151,7 +4225,7 @@ async fn engine_options(State(state): State<AppState>) -> Json<Value> {
 /// upstream reads them once at startup.
 async fn update_engine_options(
     State(state): State<AppState>,
-    Json(request): Json<EngineOptions>,
+    Json(mut request): Json<EngineOptions>,
 ) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
     if request.max_batch.is_some_and(|value| value == 0 || value > 8) {
         return Err(api_error(StatusCode::BAD_REQUEST, "max_batch must be between 1 and 8".into()));
@@ -4159,10 +4233,24 @@ async fn update_engine_options(
     if request.max_seq.is_some_and(|value| value < 512) {
         return Err(api_error(StatusCode::BAD_REQUEST, "max_seq must be at least 512".into()));
     }
+    // A line the engine could not be started with is refused here, while the
+    // form can still say so, rather than at the restart that would fail.
+    let extra = music_engine::server::split_extra_args(&request.extra_args)
+        .map_err(|reason| api_error(StatusCode::BAD_REQUEST, reason))?;
+    if let Some(flag) = studio_owned_flag(&extra) {
+        return Err(api_error(
+            StatusCode::BAD_REQUEST,
+            format!("{flag} is passed to the engine by the studio itself, so it can be found and asked for a song; it cannot be added here"),
+        ));
+    }
+    // And a custom engine that is not on disk yet would only be noticed at a
+    // restart that fails; the path is stored the way it will be read.
+    request.engine_bin = validated_engine_bin(request.engine_bin.clone())
+        .map_err(|reason| api_error(StatusCode::BAD_REQUEST, reason))?;
     let changed = {
         let mut options = state.engine_options.write().await;
         let changed = *options != request;
-        *options = request;
+        *options = request.clone();
         changed
     };
     let _ = persist_studio_settings(&state).await;
@@ -4208,12 +4296,48 @@ async fn restart_local_engine(State(state): State<AppState>) -> Result<Json<Valu
     Ok(Json(serde_json::json!({ "engine_id": PRIMARY_MUSIC_ENGINE_ID, "restarted": true })))
 }
 
+/// Opens the native file picker for an engine executable. The window is a
+/// browser and cannot open one itself, so the studio picks on its behalf and
+/// hands the path back; nothing changes until the user saves the options, the
+/// same as every other field on that page.
+async fn pick_engine_executable() -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    let picked = tokio::task::spawn_blocking(|| {
+        let mut dialog = rfd::FileDialog::new().set_title("The engine executable to run instead of the bundled one".to_string());
+        // An extension filter would hide a Linux build, which has none.
+        #[cfg(windows)]
+        {
+            dialog = dialog.add_filter("Engine executable", &["exe"]);
+        }
+        dialog.pick_file()
+    })
+    .await
+    .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    Ok(Json(serde_json::json!({
+        "picked": picked.is_some(),
+        "path": picked.map(|path| path.to_string_lossy().into_owned()),
+    })))
+}
+
 async fn restart_engine(state: &AppState) -> Result<(), String> {
     let mut supervisor = state.engine.lock().await;
     let owned = supervisor.is_some();
     if let Some(engine) = supervisor.as_mut() {
         tokio::task::block_in_place(|| engine.stop(std::time::Duration::from_secs(10)))
             .map_err(|error| format!("stopping the local engine failed: {error}"))?;
+    }
+    // The port has to answer to nothing before a start can mean the new
+    // options: a start reuses whatever is already healthy there, so a process
+    // that outlived its stop - one that spawned another to hold the port, for
+    // instance - would keep running with the old flags while the restart
+    // claimed to have applied new ones.
+    if owned {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while state.music_server.health().await && std::time::Instant::now() < deadline {
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+        if state.music_server.health().await {
+            return Err("something is still answering on the engine port after the engine was stopped; the new options cannot be applied until it is gone".into());
+        }
     }
     // Launch flags are read once at engine startup. If something this service
     // does not own is still listening, starting again would silently reuse it
@@ -4230,14 +4354,14 @@ async fn restart_engine(state: &AppState) -> Result<(), String> {
     // is not a slow start, it is no start at all. This is the path the studio
     // actually takes on launch, so the fetch belongs here rather than only in
     // the endpoint nothing calls.
-    let options = *state.engine_options.read().await;
+    let options = (*state.engine_options.read().await).clone();
     if options.backend == music_engine::server::ComputeBackend::Cuda && cuda_build::current().is_none() {
         return Err(cuda_build::UNSUPPORTED.into());
     }
     let chain = options.device_chain(&state.failed_devices.read().await);
     let mut last_error = String::new();
     for (index, device) in chain.iter().copied().enumerate() {
-        let attempt = EngineOptions { backend: device, ..options };
+        let attempt = EngineOptions { backend: device, ..options.clone() };
         match attempt.cuda_build() {
             Some(build) if !state.engine_runtime.is_ready(build) => {
                 state
@@ -4390,7 +4514,11 @@ fn engine_bundle_root() -> PathBuf {
 }
 
 fn engine_location(options: EngineOptions) -> music_engine::server::ServerLocation {
-    let configured_executable = env::var_os("STUDIO_ENGINE_BIN").map(PathBuf::from);
+    // The environment still wins, so a developer build needs no settings: a
+    // saved path is what is left when nothing is pinned from outside.
+    let configured_executable = env::var_os("STUDIO_ENGINE_BIN")
+        .map(PathBuf::from)
+        .or_else(|| options.engine_bin.as_ref().map(|path| path.trim()).filter(|path| !path.is_empty()).map(PathBuf::from));
     let bundle_root = engine_bundle_root();
     music_engine::server::ServerLocation {
         bundle_root,
@@ -4875,7 +5003,7 @@ fn load_studio_settings(path: &PathBuf) -> Option<PersistedStudioSettings> {
 
 async fn persist_studio_settings(state: &AppState) -> anyhow::Result<()> {
     let settings = PersistedStudioSettings {
-        engine_options: *state.engine_options.read().await,
+        engine_options: (*state.engine_options.read().await).clone(),
         assistant: state.assistant.read().await.clone(),
         lyrics_sync: state.lyrics_sync_config.read().await.clone(),
         configuration: state.configuration.read().await.clone(),
@@ -4930,7 +5058,7 @@ async fn compose_setup_status(state: &AppState, manager_status: model_manager::M
         fields.insert("selected_profile_id".into(), serde_json::to_value(selected_profile_id).unwrap_or(Value::Null));
         fields.insert("selected_component_ids".into(), serde_json::to_value(selected_component_ids).unwrap_or(Value::Null));
         fields.insert("hardware".into(), serde_json::to_value(presets::hardware()).unwrap_or(Value::Null));
-        fields.insert("engine_options".into(), serde_json::to_value(*state.engine_options.read().await).unwrap_or(Value::Null));
+        fields.insert("engine_options".into(), serde_json::to_value((*state.engine_options.read().await).clone()).unwrap_or(Value::Null));
         fields.insert("effective_max_batch".into(), Value::from(state.engine_options.read().await.effective_max_batch()));
         // Where everything the studio owns actually lives. People complained
         // they could not find the ten gigabytes afterwards, let alone delete
@@ -8420,6 +8548,48 @@ mod tests {
     fn nothing_is_kept_in_memory_by_default() {
         assert!(!EngineOptions::default().keep_loaded);
         assert!(!EngineOptions::default().to_engine().keep_loaded);
+    }
+
+    /// Extra launch arguments are kept as typed and reach the engine last,
+    /// and the flags the studio passes itself are refused at the form rather
+    /// than at a restart that would never find the engine again. A settings
+    /// file written before this flag existed still loads.
+    #[test]
+    fn extra_engine_arguments_reach_the_engine_and_studio_flags_are_refused() {
+        let extra = music_engine::server::split_extra_args("--clown-mode --prompt \"two words\"").unwrap();
+        assert_eq!(extra, vec!["--clown-mode", "--prompt", "two words"]);
+        assert!(studio_owned_flag(&extra).is_none());
+        assert_eq!(studio_owned_flag(&["--port".into()]), Some("--port"));
+        assert_eq!(studio_owned_flag(&["--models=/x/models".into()]), Some("--models"));
+        assert_eq!(studio_owned_flag(&["--clown-mode".into(), "--adapters".into()]), Some("--adapters"));
+        let options = EngineOptions { extra_args: "--clown-mode".into(), ..EngineOptions::default() };
+        assert_eq!(options.to_engine().extra_args, "--clown-mode");
+        assert!(EngineOptions::default().extra_args.is_empty());
+        let older: EngineOptions = serde_json::from_str("{}").unwrap();
+        assert!(older.extra_args.is_empty());
+    }
+
+    /// A custom engine is checked while it is still a form field: empty is
+    /// the bundled engine, a file that exists is stored the way it will be
+    /// read, and one that does not is refused before it can become an engine
+    /// that mysteriously never starts.
+    #[test]
+    fn a_custom_engine_path_is_checked_and_kept() {
+        assert_eq!(validated_engine_bin(None).unwrap(), None);
+        assert_eq!(validated_engine_bin(Some("   ".into())).unwrap(), None);
+        let folder = tempfile::tempdir().unwrap();
+        let executable = folder.path().join("ace-server");
+        std::fs::write(&executable, b"not really an engine").unwrap();
+        let stored = validated_engine_bin(Some(executable.to_string_lossy().into_owned())).unwrap().unwrap();
+        assert_eq!(std::path::Path::new(&stored), executable.as_path());
+        assert!(validated_engine_bin(Some(folder.path().join("missing").to_string_lossy().into_owned())).is_err());
+        // And it is kept through a round trip to the settings file and back,
+        // like every other launch option.
+        let options = EngineOptions { engine_bin: Some(stored), ..EngineOptions::default() };
+        let restored: EngineOptions = serde_json::from_str(&serde_json::to_string(&options).unwrap()).unwrap();
+        assert_eq!(restored.engine_bin, options.engine_bin);
+        // Nothing pinned from outside is the bundled engine.
+        assert!(engine_location(EngineOptions::default()).configured_executable.is_none());
     }
 
     /// A card that ran out of memory has to say so. The studio used to answer

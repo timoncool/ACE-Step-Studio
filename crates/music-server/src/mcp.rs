@@ -963,7 +963,7 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "engine_options_get",
-                description: "The engine's launch options: backend (auto, cuda, vulkan, cpu), keep models loaded, and the rest.",
+                description: "The engine's launch options: backend (auto, cuda, vulkan, cpu), keep models loaded, and the rest - including extra_args, any other command-line flag the engine takes, and engine_bin, a hand-built engine executable to run instead of the bundled one.",
                 schema: nothing,
                 call: |_| get("/engine/options".into()),
             },

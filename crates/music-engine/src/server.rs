@@ -82,7 +82,7 @@ impl ComputeBackend {
 /// text. They change how the engine uses the GPU for the whole session, so they
 /// belong to the process, not to a single request — changing one requires a
 /// restart of the engine.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ServerOptions {
     /// The device to compute on, passed as `GGML_BACKEND`.
     pub backend: ComputeBackend,
@@ -104,6 +104,10 @@ pub struct ServerOptions {
     /// loads, passed as `STUDIO_CUDA_BACKEND`. A release keeps one CUDA backend
     /// per toolkit in folders of their own.
     pub cuda_folder: Option<&'static str>,
+    /// Anything else the engine accepts as a launch flag, as the line the user
+    /// typed it - split like a shell would when the process starts. It is
+    /// appended after every flag above, so it can also override one of them.
+    pub extra_args: String,
 }
 
 impl ServerOptions {
@@ -126,7 +130,81 @@ impl ServerOptions {
         if self.clamp_fp16 {
             command.arg("--clamp-fp16");
         }
+        // Last, so a line of extra arguments can also override one of the
+        // flags the studio set itself - the engine keeps the value it read
+        // last.
+        match split_extra_args(&self.extra_args) {
+            Ok(extra) => {
+                for argument in extra {
+                    command.arg(argument);
+                }
+            }
+            // Settings refuses a line that cannot be split, so this is a
+            // settings file written by hand: better no extra flags at all
+            // than half of them, said where the next start is explained.
+            Err(reason) => note_in_log(&format!("the extra engine arguments were not used: {reason}")),
+        }
     }
+}
+
+/// Splits a line of extra launch arguments the way a shell would: on
+/// whitespace, with single and double quotes keeping their contents together
+/// - `--prompt "a long value"` reaches the engine as one argument - and a
+/// backslash escaping the next character outside quotes. An unmatched quote
+/// is refused rather than guessed at: it is nearly always a typo, and the
+/// engine would silently start with half of the line.
+pub fn split_extra_args(input: &str) -> Result<Vec<String>, String> {
+    let mut arguments = Vec::new();
+    let mut current = String::new();
+    // Whether anything has gone into the current argument, so an empty `""`
+    // still counts as one argument of its own.
+    let mut started = false;
+    let mut quote: Option<char> = None;
+    let mut characters = input.chars();
+    while let Some(character) = characters.next() {
+        match quote {
+            Some(delimiter) => {
+                if character == delimiter {
+                    quote = None;
+                } else if character == '\\' && delimiter == '"' {
+                    if let Some(escaped) = characters.next() {
+                        current.push(escaped);
+                    }
+                } else {
+                    current.push(character);
+                }
+            }
+            None => match character {
+                '\'' | '"' => {
+                    quote = Some(character);
+                    started = true;
+                }
+                '\\' => {
+                    if let Some(escaped) = characters.next() {
+                        current.push(escaped);
+                        started = true;
+                    }
+                }
+                _ if character.is_whitespace() => {
+                    if started {
+                        arguments.push(std::mem::take(&mut current));
+                        started = false;
+                    }
+                }
+                _ => {
+                    current.push(character);
+                    started = true;
+                }
+            },
+        }
+    }
+    if let Some(delimiter) = quote {
+        return Err(format!("the extra engine arguments have an unmatched {delimiter} quote"));
+    }
+    if started {
+        arguments.push(current);
+    }
+    Ok(arguments)
 }
 
 impl ServerLaunchConfig {
@@ -183,14 +261,23 @@ pub struct ServerSupervisor {
 
 impl ServerLocation {
     pub fn resolve(self) -> Result<ServerLaunchConfig> {
-        let bundle_root = canonical_directory(&self.bundle_root, "engine server bundle root")?;
+        // The bundle is only looked for when nothing else names the engine: a
+        // hand-built executable - or `STUDIO_ENGINE_BIN` - has to work on a
+        // machine where the studio never shipped one, and demanding the
+        // folder first made that configuration fail before it was read.
         let executable = match self.configured_executable {
             Some(path) => canonical_file(&path, "configured engine server executable")?,
-            None => locate_bundled_executable(&bundle_root)?,
+            None => {
+                let bundle_root = canonical_directory(&self.bundle_root, "engine server bundle root")?;
+                locate_bundled_executable(&bundle_root)?
+            }
         };
         let models_root = match self.configured_models_root {
             Some(path) => canonical_directory(&path, "configured models root")?,
-            None => canonical_directory(&bundle_root.join("models"), "bundled models root")?,
+            None => {
+                let bundle_root = canonical_directory(&self.bundle_root, "bundled models root")?;
+                canonical_directory(&bundle_root.join("models"), "bundled models root")?
+            }
         };
         let host = self.host.unwrap_or_else(|| DEFAULT_HOST.into());
         validate_loopback_host(&host)?;
@@ -559,6 +646,33 @@ mod tests {
         let mut default_command = Command::new("engine server");
         ServerOptions::default().apply(&mut default_command);
         assert_eq!(default_command.get_args().count(), 0);
+
+        // A line of extra arguments arrives last, split the way a shell would
+        // - a quoted value stays one argument - and can therefore also
+        // override a flag the studio set above it.
+        let mut extra_command = Command::new("engine server");
+        ServerOptions {
+            keep_loaded: true,
+            extra_args: "--clown-mode --prompt \"a long value\"".into(),
+            ..Default::default()
+        }
+        .apply(&mut extra_command);
+        let extra: Vec<String> = extra_command.get_args().map(|value| value.to_string_lossy().into_owned()).collect();
+        assert_eq!(extra, vec!["--keep-loaded", "--clown-mode", "--prompt", "a long value"]);
+    }
+
+    #[test]
+    fn an_extra_argument_line_is_split_like_a_shell_would() {
+        assert_eq!(split_extra_args("").unwrap(), Vec::<String>::new());
+        assert_eq!(split_extra_args("   \n ").unwrap(), Vec::<String>::new());
+        assert_eq!(split_extra_args("--flag value").unwrap(), vec!["--flag", "value"]);
+        assert_eq!(split_extra_args("--flag=value --other").unwrap(), vec!["--flag=value", "--other"]);
+        assert_eq!(split_extra_args("--prompt 'two words' --n=1").unwrap(), vec!["--prompt", "two words", "--n=1"]);
+        assert_eq!(split_extra_args("--prompt \"two words\"").unwrap(), vec!["--prompt", "two words"]);
+        assert_eq!(split_extra_args("--prompt two\\ words").unwrap(), vec!["--prompt", "two words"]);
+        assert_eq!(split_extra_args("--empty \"\"").unwrap(), vec!["--empty", ""]);
+        assert!(split_extra_args("--prompt \"unterminated").is_err());
+        assert!(split_extra_args("--prompt 'unterminated").is_err());
     }
 
     #[test]
