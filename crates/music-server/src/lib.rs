@@ -859,6 +859,14 @@ pub async fn serve() -> anyhow::Result<()> {
     prepare::resume(&state);
     tokio::spawn(resume_unfinished_jobs(state.clone()));
     {
+        let library = state.library.clone();
+        tokio::task::spawn_blocking(move || match library.remeasure_imported_mp3s() {
+            Ok(0) => {}
+            Ok(fixed) => eprintln!("[library] measured the length of {fixed} imported MP3s again"),
+            Err(error) => eprintln!("[library] the imported MP3s were not measured again: {error:#}"),
+        });
+    }
+    {
         let state = state.clone();
         // both rewrite the tags of stored tracks, so one after the other
         tokio::spawn(async move {
