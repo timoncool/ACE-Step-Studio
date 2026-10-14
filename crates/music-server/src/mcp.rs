@@ -2653,6 +2653,8 @@ mod tests {
 
     #[tokio::test]
     async fn a_command_to_a_window_that_closed_fails_at_once() {
+        // a command is sent only while some window listens: without a receiver it would fail as "not open"
+        let _commands = bridge().commands.subscribe();
         let window = bridge().sequence.fetch_add(1, Ordering::Relaxed);
         open_windows().push(window);
         let listening = Listening(window);
