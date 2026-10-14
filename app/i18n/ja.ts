@@ -1359,6 +1359,7 @@ export const ja = {
     engineBinBundled: '同梱のエンジンを使う',
     engineBinRunning: '実行中',
     engineBinNotRunning: 'エンジンは現在停止しています。次に起動するときは上の実行ファイルが使われます。',
+    engineBinStarting: 'エンジンを起動中です。',
     engineBinNextStart: '再起動で使う',
     engineBinEnvOverride: '環境変数 STUDIO_ENGINE_BIN が設定されており、こちらより優先されます',
     saveAndRestartEngine: '保存してエンジンを再起動',

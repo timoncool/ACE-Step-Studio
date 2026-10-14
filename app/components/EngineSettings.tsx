@@ -64,7 +64,7 @@ export const EngineSettings: React.FC = () => {
   const [saved, setSaved] = useState<EngineOptions>(DEFAULTS);
   // Which engine executable a start takes and which one is running, so the
   // page answers "did my change apply?" without opening the engine log.
-  const [runtime, setRuntime] = useState<{ executable: string | null; executable_source: string; running_executable: string | null } | null>(null);
+  const [runtime, setRuntime] = useState<{ executable: string | null; executable_source: string; running_executable: string | null; engine_starting: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [picking, setPicking] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -94,7 +94,7 @@ export const EngineSettings: React.FC = () => {
     try {
       const response = await fetch('/engine/options');
       if (!response.ok) throw new Error(`Engine options are unavailable (${response.status})`);
-      const body: { options: EngineOptions; executable?: string | null; executable_source?: string; running_executable?: string | null } = await response.json();
+      const body: { options: EngineOptions; executable?: string | null; executable_source?: string; running_executable?: string | null; engine_starting?: boolean } = await response.json();
       // A settings file written before a flag existed arrives without it;
       // the default keeps the comparison below honest.
       setOptions({ ...DEFAULTS, ...body.options });
@@ -103,6 +103,7 @@ export const EngineSettings: React.FC = () => {
         executable: body.executable ?? null,
         executable_source: body.executable_source ?? 'bundled',
         running_executable: body.running_executable ?? null,
+        engine_starting: body.engine_starting === true,
       });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not read the engine options.');
@@ -243,7 +244,7 @@ export const EngineSettings: React.FC = () => {
         <span className="mt-2 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('engineBinHint')}</span>
         {runtime && (
           <span className="mt-1 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-            {runtime.running_executable ? `${t('engineBinRunning')}: ${runtime.running_executable}` : t('engineBinNotRunning')}
+            {runtime.running_executable ? `${t('engineBinRunning')}: ${runtime.running_executable}` : runtime.engine_starting ? t('engineBinStarting') : t('engineBinNotRunning')}
             {runtime.executable && runtime.executable !== runtime.running_executable ? ` · ${t('engineBinNextStart')}: ${runtime.executable}` : ''}
             {runtime.executable_source === 'environment' ? ` · ${t('engineBinEnvOverride')}` : ''}
           </span>

@@ -34,6 +34,8 @@ export const StemPlayer: React.FC<{ src: string; label: string }> = ({ src, labe
   const [length, setLength] = useState(0);
   const [failure, setFailure] = useState<string | null>(null);
   const { t } = useI18n();
+  // the same player is handed another recording: what the last one did says nothing about this one
+  useEffect(() => setFailure(null), [src]);
 
   useEffect(() => {
     const element = audio.current;

@@ -86,16 +86,16 @@ fn from_this_computer(peer: &SocketAddr, headers: &axum::http::HeaderMap) -> boo
 }
 
 
-/// Whether a page of another site sent this from the person's own browser, which reaches loopback like the window
-/// does. The window, a dev server and other pages on this computer send a loopback origin, a page opened at the
-/// studio's network address sends that address, agents send none.
 fn from_another_site(headers: &axum::http::HeaderMap) -> bool {
     let Some(origin) = headers.get(header::ORIGIN) else { return false };
     let Some(authority) = origin.to_str().ok().and_then(|origin| origin.split_once("://")).map(|(_, authority)| authority) else { return true };
     if loopback_host(authority) {
         return false;
     }
-    headers.get(header::HOST).and_then(|host| host.to_str().ok()).is_none_or(|host| !host.eq_ignore_ascii_case(authority))
+    // a reverse proxy (nginx's proxy_pass) hands the studio its own Host and the page's name as X-Forwarded-Host
+    let forwarded = headers.get("x-forwarded-host").and_then(|host| host.to_str().ok()).and_then(|hosts| hosts.split(',').next()).map(str::trim);
+    let asked = [headers.get(header::HOST).and_then(|host| host.to_str().ok()), forwarded];
+    !asked.iter().flatten().any(|host| host.eq_ignore_ascii_case(authority))
 }
 
 /// A host, with or without its port, that can only be this computer. A site whose name was pointed at 127.0.0.1
@@ -297,6 +297,9 @@ mod tests {
         assert!(from_another_site(&headers(Some("https://evil.example"), "127.0.0.1:8085")));
         assert!(from_another_site(&headers(Some("null"), "127.0.0.1:8085")));
         assert!(from_another_site(&headers(Some("http://192.168.1.9:8085"), "192.168.1.5:8085")));
+        let mut proxied = headers(Some("https://music.example"), "127.0.0.1:8085");
+        proxied.insert("x-forwarded-host", "music.example".parse().unwrap());
+        assert!(!from_another_site(&proxied), "a reverse proxy names the page's host in X-Forwarded-Host");
         assert!(loopback_host("127.0.0.1:8085") && loopback_host("localhost") && loopback_host("[::1]:8085"));
         assert!(!loopback_host("evil.example:8085") && !loopback_host("192.168.1.5:8085"));
     }

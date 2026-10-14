@@ -4085,7 +4085,8 @@ async fn health(State(state): State<AppState>) -> Json<Value> {
     // copy has no bundle for. Saying whose service this is turns a hang into
     // a sentence.
     let executable = std::env::current_exe().ok().map(|path| path.display().to_string());
-    let engine_available = engine_location((*state.engine_options.read().await).clone()).bundle_root.is_dir();
+    let location = engine_location((*state.engine_options.read().await).clone());
+    let engine_available = location.configured_executable.is_some() || location.bundle_root.is_dir();
     Json(serde_json::json!({
         "status": "ok",
         "runtime": "native",
@@ -4205,12 +4206,11 @@ async fn engine_options(State(state): State<AppState>) -> Json<Value> {
     } else {
         "bundled"
     };
-    let running = state
-        .engine
-        .lock()
-        .await
-        .as_ref()
-        .map(|engine| engine.config().executable.display().to_string());
+    // a start holds the engine for as long as it takes (a download, the weights): the page is answered now
+    let (running, starting) = match state.engine.try_lock() {
+        Ok(engine) => (engine.as_ref().map(|engine| engine.config().executable.display().to_string()), false),
+        Err(_) => (None, true),
+    };
     Json(serde_json::json!({
         "options": options,
         "effective_max_batch": options.effective_max_batch(),
@@ -4218,6 +4218,7 @@ async fn engine_options(State(state): State<AppState>) -> Json<Value> {
         "executable": executable,
         "executable_source": executable_source,
         "running_executable": running,
+        "engine_starting": starting,
     }))
 }
 

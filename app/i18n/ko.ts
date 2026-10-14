@@ -1359,6 +1359,7 @@ export const ko = {
     engineBinBundled: '제공된 엔진 사용',
     engineBinRunning: '실행 중',
     engineBinNotRunning: '엔진이 지금 실행되고 있지 않습니다. 다음 시작부터는 위의 실행 파일이 사용됩니다.',
+    engineBinStarting: '엔진을 시작하는 중입니다.',
     engineBinNextStart: '재시작 시 사용',
     engineBinEnvOverride: '환경변수 STUDIO_ENGINE_BIN 이 설정되어 있어 이 항목보다 우선합니다',
     saveAndRestartEngine: '저장하고 엔진 재시작',

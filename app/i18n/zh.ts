@@ -1359,6 +1359,7 @@ export const zh = {
     engineBinBundled: '使用自带引擎',
     engineBinRunning: '当前运行',
     engineBinNotRunning: '引擎当前没有在运行；下次启动将使用上面的可执行文件。',
+    engineBinStarting: '引擎正在启动。',
     engineBinNextStart: '重启将启动',
     engineBinEnvOverride: 'STUDIO_ENGINE_BIN 环境变量已设置，优先于此处',
     saveAndRestartEngine: '保存并重启引擎',

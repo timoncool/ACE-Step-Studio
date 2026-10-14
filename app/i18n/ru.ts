@@ -1363,6 +1363,7 @@ export const ru = {
     engineBinBundled: 'Использовать встроенный движок',
     engineBinRunning: 'Сейчас запущен',
     engineBinNotRunning: 'Движок сейчас не запущен; при следующем старте будет взят файл выше.',
+    engineBinStarting: 'Движок запускается.',
     engineBinNextStart: 'После перезапуска будет запущен',
     engineBinEnvOverride: 'Задана переменная STUDIO_ENGINE_BIN, и она важнее этого поля',
     saveAndRestartEngine: 'Сохранить и перезапустить движок',
