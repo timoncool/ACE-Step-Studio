@@ -6,7 +6,7 @@ const en = {
   hubAd: 'Ad',
   hubTelemetryTitle: 'Anonymous statistics',
   hubTelemetryCheckbox: 'Send anonymous usage statistics',
-  hubTelemetryWhy: 'How many people use the studio and what for helps decide what to work on next. Nothing personal: no lyrics, prompts, audio or file names — only counts, which of the studio's functions were used (by name, never with what), the model sets used, the version, the graphics card class and why something failed, with paths, names and quoted text cut out on this computer before it is sent.',
+  hubTelemetryWhy: 'How many people use the studio and what for helps decide what to work on next. Nothing personal: no lyrics, prompts, audio or file names — only counts, which studio functions were used (by name, never with what), the model sets used, the version, the graphics card class and why something failed, with paths, names and quoted text cut out on this computer before it is sent.',
   hubTelemetryWhat: 'What is sent',
   hubTelemetryEnabled: 'Statistics are on',
   hubTelemetryDisabled: 'Statistics are off',
