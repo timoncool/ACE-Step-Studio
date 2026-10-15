@@ -96,6 +96,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onToggleJournal,
 }) => {
   const { t } = useI18n();
+  const portable = useSetupStatus<{ portable?: boolean }>().data?.portable;
 
   return (
     <>
@@ -114,8 +115,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <img src="/brand/studio.png" alt="" className="h-10 w-10 rounded-[11px]" />
             </button>
             {isOpen && (
-              <span className="min-w-0 text-[13px] font-bold leading-[1.15] text-zinc-900 dark:text-white" title={STUDIO.name}>
-                {STUDIO.name}
+              <span className="flex min-w-0 flex-col" title={STUDIO.name}>
+                <span className="text-[13px] font-bold leading-[1.15] text-zinc-900 dark:text-white">{STUDIO.name}</span>
+                <span className="flex flex-wrap gap-x-1.5 text-[10px] font-medium leading-4 text-zinc-500 dark:text-zinc-400"><span>v{__APP_VERSION__}</span>{portable && <span>{t('portableEdition')}</span>}</span>
               </span>
             )}
           </div>

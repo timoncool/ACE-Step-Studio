@@ -409,6 +409,7 @@ export const en = {
     // Sidebar
     aceStepUI: '{studio}',
     collapseSidebar: 'Collapse Sidebar',
+    portableEdition: 'Portable',
     expandSidebar: 'Expand Sidebar',
     monitoring: 'Monitoring',
     connected: 'connected',

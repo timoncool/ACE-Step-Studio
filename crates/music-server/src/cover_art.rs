@@ -285,7 +285,7 @@ pub const COMMONS_PAGES: &str = "https://commons.wikimedia.org/";
 /// Commons asks every client to name itself and a way to reach its authors.
 pub fn commons_agent() -> String {
     let studio = music_core::studio();
-    format!("{}/{} (https://github.com/{})", studio.name.replace(' ', "-"), env!("CARGO_PKG_VERSION"), studio.repo)
+    format!("{}/{} (https://github.com/{})", studio.name.replace(' ', "-"), crate::studio_version(), studio.repo)
 }
 
 /// Commons asks for no more than a few requests at a time.

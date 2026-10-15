@@ -410,6 +410,7 @@ export const ru = {
     // Sidebar
     aceStepUI: '{studio}',
     collapseSidebar: 'Свернуть боковую панель',
+    portableEdition: 'портативная',
     expandSidebar: 'Развернуть боковую панель',
     monitoring: 'Мониторинг',
     connected: 'подключён',

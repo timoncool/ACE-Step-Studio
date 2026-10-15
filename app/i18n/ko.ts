@@ -406,6 +406,7 @@ export const ko = {
     // Sidebar
     aceStepUI: '{studio}',
     collapseSidebar: '사이드바 접기',
+    portableEdition: '포터블',
     expandSidebar: '사이드바 펼치기',
     monitoring: '모니터링',
     connected: '연결됨',

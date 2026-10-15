@@ -6,11 +6,13 @@ What changed, newest first. Dates are release dates.
 
 ### Added
 
+- **The version in the window title and under the studio's name**, with "Portable" on a portable copy, so a copy waiting to be updated tells which it is ([ACE-Step-Studio #40](https://github.com/timoncool/ACE-Step-Studio/issues/40)).
 - **Every settings slider takes a typed number.** The value beside a slider is a field: type `0.40` for a LoRA's strength, `2:10` for a duration or `6` for an equalizer band, and Enter sets it, kept within the slider's range (a comma works as the decimal point, Escape puts the value back). On LoRA strength, the creation settings, audio processing, the equalizer, the Winamp size and the video clip editor.
 - **Any engine launch flag and a hand-built engine.** Settings - Local engine take one line of extra flags for the engine, split as a shell would and placed after the studio's own, and an engine executable of your own build, picked in a file dialog and checked when saved. The restart button saves the page first and starts what it shows; an old engine still holding the port is waited for and refused instead of being reused with its old flags. By [@wuyue92tree](https://github.com/wuyue92tree) ([#46](https://github.com/timoncool/ACE-Step-Studio/pull/46)).
 
 ### Fixed
 
+- **One version everywhere.** The studio's version is written in `desktop/src-tauri/tauri.conf.json` alone: the window, the service, the interface, the project page and the release all read it there, and the studio names itself to the sites it asks with it instead of 0.1.0.
 - **An agent's command to a closed window fails at once.** A window that closed without saying so kept the agent waiting the full five minutes for its answer; the command now fails as the window goes, and the next call reaches another open window or says none is open.
 - **The window gets the microphone it asks for.** WebView2 left the request with no answer and no prompt, so recording in the audio editor waited for ever; the studio's own page is now allowed the microphone, nothing else is.
 - **A song lost to the graphics card names the error.** "The graphics card failed" now carries the engine's own CUDA or Vulkan error, and a song lost to an engine that ended without a word says the last thing it wrote, so the cause can be told apart instead of guessed.

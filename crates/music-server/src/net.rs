@@ -244,7 +244,7 @@ fn proxy_for(settings: &ProxySettings, system: &Matcher, url: &reqwest::Url) -> 
 }
 
 fn user_agent() -> String {
-    music_core::studio().user_agent(env!("CARGO_PKG_VERSION"))
+    music_core::studio().user_agent(crate::studio_version())
 }
 
 /// A client builder that goes out as the settings say, with the studio's

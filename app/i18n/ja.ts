@@ -406,6 +406,7 @@ export const ja = {
   // Sidebar
   aceStepUI: '{studio}',
   collapseSidebar: 'サイドバーを折りたたむ',
+  portableEdition: 'ポータブル版',
   expandSidebar: 'サイドバーを展開',
   monitoring: 'モニタリング',
   connected: '接続済み',

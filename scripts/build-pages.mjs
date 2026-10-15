@@ -7,6 +7,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ORDER, SAMPLES, SETS, STRINGS } from '../docs/site/strings.mjs';
 import { STUDIO } from '../docs/site/studio.mjs';
+// the studio's version, from the one place it is written
+const VERSION = JSON.parse(readFileSync(new URL('../desktop/src-tauri/tauri.conf.json', import.meta.url), 'utf8')).version;
 
 const docs = join(dirname(fileURLToPath(import.meta.url)), '..', 'docs');
 const css = readFileSync(join(docs, 'site', 'page.css'), 'utf8');
@@ -74,7 +76,7 @@ function page(lang) {
     .map((code) => `      <a href="${file(code)}" hreflang="${code}"${code === lang ? ' aria-current="page"' : ''}>${escape(STRINGS[code].label)}</a>`)
     .join('\n');
 
-  const download = `<a class="btn primary" href="${REPO}/releases/latest">${escape(s.ctaDownload)}<small data-release>v${STUDIO.version} · ${STUDIO.installerMB} MB</small></a>`;
+  const download = `<a class="btn primary" href="${REPO}/releases/latest">${escape(s.ctaDownload)}<small data-release>v${VERSION} · ${STUDIO.installerMB} MB</small></a>`;
 
   const tiles = STUDIO.bento.map(({ feature, shot: name }) => {
     const [title, body] = s.features[feature];
@@ -139,7 +141,7 @@ ${s.inside.map((row) => `            <tr>${row.map((cell) => `<td>${escape(cell)
       {
         '@type': 'SoftwareApplication', '@id': `${SITE}#app`, name: NAME, url: pageUrl(lang), inLanguage: lang,
         description: s.description, applicationCategory: 'MultimediaApplication', applicationSubCategory: 'AI music generation',
-        operatingSystem: 'Windows 10, Windows 11', softwareVersion: STUDIO.version, fileSize: `${STUDIO.installerMB} MB`,
+        operatingSystem: 'Windows 10, Windows 11', softwareVersion: VERSION, fileSize: `${STUDIO.installerMB} MB`,
         downloadUrl: `${REPO}/releases/latest`, isAccessibleForFree: true, license: 'https://opensource.org/licenses/MIT',
         offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
         image: `${SITE}og-${lang}.jpg`, screenshot: `${SITE}${shot(lang, '01-create')}`,

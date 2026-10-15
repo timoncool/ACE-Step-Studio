@@ -406,6 +406,7 @@ export const zh = {
     // Sidebar
     aceStepUI: '{studio}',
     collapseSidebar: '收起侧边栏',
+    portableEdition: '便携版',
     expandSidebar: '展开侧边栏',
     monitoring: '监控',
     connected: '已连接',
