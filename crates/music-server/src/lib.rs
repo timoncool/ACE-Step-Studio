@@ -807,7 +807,7 @@ pub async fn serve() -> anyhow::Result<()> {
         eprintln!("[ERROR] the saved proxy cannot be used, requests go straight out until it is fixed in Settings: {error:#}");
     }
     net::set(proxy);
-    let bind_to = remote::start(persisted.as_ref().and_then(|settings| settings.network.clone()));
+    let (bind_to, network_keyed) = remote::start(persisted.as_ref().and_then(|settings| settings.network.clone()));
     let model_manager = ModelManager::from_environment()?;
     let persisted_components = persisted
         .as_ref()
@@ -904,6 +904,11 @@ pub async fn serve() -> anyhow::Result<()> {
     };
     processing::clear_workspace(state.library.media_dir());
     state.training.recover();
+    if network_keyed {
+        if let Err(error) = persist_studio_settings(&state).await {
+            eprintln!("[ERROR] the key made for access from the network was not saved and changes at the next start: {error:#}");
+        }
+    }
     prepare::resume(&state);
     tokio::spawn(resume_unfinished_jobs(state.clone()));
     {

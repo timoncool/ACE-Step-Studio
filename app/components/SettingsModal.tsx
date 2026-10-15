@@ -12,7 +12,6 @@ import { CoverTemplateSettings } from './CoverTemplateSettings';
 import { AgentPanel } from './AgentPanel';
 import { HubSettings } from './HubSettings';
 import { STUDIO, STUDIO_REPO_URL } from '../studio';
-import { isDesktop } from '../services/externalLinks';
 import { issueReportUrl, type ReportFacts } from '../services/issueReport';
 import { useSetupStatus } from '../services/studioQueries';
 import { onSidebarExtras, setSidebarExtras, sidebarExtras, type SidebarExtras } from '../services/playerPanels';
@@ -215,7 +214,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
 
                 <SidebarExtrasSetting />
 
-                {isDesktop() && <NetworkAccessSetting />}
+                <NetworkAccessSetting />
               </div>
             )}
 
@@ -335,7 +334,8 @@ const NetworkAccessSetting: React.FC = () => {
       setError(reason instanceof Error ? reason.message : String(reason));
     }
   };
-  if (!status) return null;
+  // the key comes only to the studio's own computer, where the setting is changed
+  if (!status || status.key === null) return null;
   const links = status.key ? status.addresses.map(address => `http://${address}:${status.port}/?key=${status.key}`) : [];
   const restart = status.enabled !== status.listening;
   return (

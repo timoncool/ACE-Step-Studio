@@ -46,13 +46,19 @@ pub fn current() -> NetworkAccess {
 }
 
 /// Loads the kept setting at the service's start and says which address to
-/// bind: every address when it is on and has a key, loopback otherwise.
-pub fn start(saved: Option<NetworkAccess>) -> [u8; 4] {
-    let saved = saved.unwrap_or_default();
-    let open = saved.enabled && !saved.key.is_empty();
+/// bind: every address when it is on, loopback otherwise. A setting turned on
+/// in the file by hand has no key yet and gets one here; the second value says
+/// the setting changed and is to be saved.
+pub fn start(saved: Option<NetworkAccess>) -> ([u8; 4], bool) {
+    let mut saved = saved.unwrap_or_default();
+    let keyed = saved.enabled && saved.key.is_empty();
+    if keyed {
+        saved.key = new_key();
+    }
+    let open = saved.enabled;
     *setting().lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = saved;
     let _ = listening().set(open);
-    if open { [0, 0, 0, 0] } else { [127, 0, 0, 1] }
+    (if open { [0, 0, 0, 0] } else { [127, 0, 0, 1] }, keyed)
 }
 
 /// 148 random bits: the random parts of two version 7 ids.

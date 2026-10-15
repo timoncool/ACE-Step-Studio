@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pause, Play } from 'lucide-react';
 import { AudioWaveform } from './AudioWaveform';
 import { useI18n } from '../context/I18nContext';
+import { apiUrl } from '../services/apiBase';
 
 /**
  * A stem, playable.
@@ -121,7 +122,7 @@ export const StemPlayer: React.FC<{ src: string; label: string }> = ({ src, labe
         className="min-w-0 flex-1"
       >
         <AudioWaveform
-          url={src}
+          url={apiUrl(src)}
           currentTime={position}
           duration={length}
           height={32}
@@ -134,7 +135,7 @@ export const StemPlayer: React.FC<{ src: string; label: string }> = ({ src, labe
         />
       </div>
       <span className="w-11 shrink-0 text-[11px] tabular-nums text-zinc-500">{clock(length)}</span>
-      <audio ref={audio} src={src} preload="metadata" className="hidden" />
+      <audio ref={audio} src={apiUrl(src)} preload="metadata" className="hidden" />
     </div>
     {failure && <p role="alert" className="mt-1 text-xs text-rose-600 dark:text-rose-300">{t('stemPlayerFailed').replace('{reason}', failure)}</p>}
     </div>
