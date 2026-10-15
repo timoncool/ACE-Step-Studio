@@ -654,7 +654,7 @@ fn profile_complete(profile_id: &str, root: &Path) -> bool {
     selection.components.iter().all(|component| verified_file(&root.join(component.filename), component).unwrap_or(false))
 }
 
-fn verified_file(path: &Path, component: &Component) -> Result<bool> {
+pub(crate) fn verified_file(path: &Path, component: &Component) -> Result<bool> {
     if fs::metadata(path).map(|metadata| metadata.len()).unwrap_or(0) == 0 {
         return Ok(false);
     }

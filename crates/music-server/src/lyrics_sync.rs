@@ -168,6 +168,7 @@ fn whisper_words_from_json(text: &str) -> Vec<(f64, String)> {
 }
 
 pub const ASSETS: &[Asset] = &[
+    #[cfg(not(target_os = "linux"))]
     Asset {
         id: "whisper-engine",
         label: "Whisper (faster-whisper standalone)",
@@ -181,6 +182,7 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "Purfview's build of faster-whisper: word timestamps, on the card or the processor.",
     },
+    #[cfg(not(target_os = "linux"))]
     Asset {
         id: "whisper-cublas",
         label: "NVIDIA cuBLAS 11.11 (for Whisper)",
@@ -194,6 +196,7 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "CTranslate2 is built against CUDA 11; without these the card is never used.",
     },
+    #[cfg(not(target_os = "linux"))]
     Asset {
         id: "whisper-cudnn",
         label: "NVIDIA cuDNN 8.9 (for Whisper)",
@@ -204,6 +207,50 @@ pub const ASSETS: &[Asset] = &[
         unzip_into: Some(WHISPER_RUNTIME_DIR),
         marker: "cudnn64_8",
         pick: &["cudnn64_8.dll", "cudnn_ops_infer64_8.dll", "cudnn_cnn_infer64_8.dll"],
+        vram_gb: None,
+        note: "The convolution kernels the encoder spends its time in.",
+    },
+    // r189.1 is Purfview's last Linux build of faster-whisper itself (not
+    // XXL): CTranslate2 on CUDA 11, the same libraries as on Windows.
+    #[cfg(target_os = "linux")]
+    Asset {
+        id: "whisper-engine",
+        label: "Whisper (faster-whisper standalone)",
+        kind: AssetKind::Runtime,
+        url: "https://github.com/Purfview/whisper-standalone-win/releases/download/faster-whisper/Whisper-Faster_r189.1_linux.zip",
+        relative_path: "runtime/whisper-faster.zip",
+        bytes: 106_093_648,
+        unzip_into: Some(WHISPER_RUNTIME_DIR),
+        marker: "whisper-faster",
+        pick: &[],
+        vram_gb: None,
+        note: "Purfview's build of faster-whisper: word timestamps, on the card or the processor.",
+    },
+    #[cfg(target_os = "linux")]
+    Asset {
+        id: "whisper-cublas",
+        label: "NVIDIA cuBLAS 11.11 (for Whisper)",
+        kind: AssetKind::Runtime,
+        url: "https://developer.download.nvidia.com/compute/cuda/redist/libcublas/linux-x86_64/libcublas-linux-x86_64-11.11.3.6-archive.tar.xz",
+        relative_path: "runtime/whisper-cublas.tar.xz",
+        bytes: 500_681_532,
+        unzip_into: Some(WHISPER_RUNTIME_DIR),
+        marker: "libcublas.so.11",
+        pick: &["libcublas.so.11", "libcublasLt.so.11"],
+        vram_gb: None,
+        note: "CTranslate2 is built against CUDA 11; without these the card is never used.",
+    },
+    #[cfg(target_os = "linux")]
+    Asset {
+        id: "whisper-cudnn",
+        label: "NVIDIA cuDNN 8.9 (for Whisper)",
+        kind: AssetKind::Runtime,
+        url: "https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.9.7.29_cuda11-archive.tar.xz",
+        relative_path: "runtime/whisper-cudnn.tar.xz",
+        bytes: 860_967_256,
+        unzip_into: Some(WHISPER_RUNTIME_DIR),
+        marker: "libcudnn.so.8",
+        pick: &["libcudnn.so.8", "libcudnn_ops_infer.so.8", "libcudnn_cnn_infer.so.8"],
         vram_gb: None,
         note: "The convolution kernels the encoder spends its time in.",
     },
@@ -703,6 +750,7 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "Token table.",
     },
+    #[cfg(not(target_os = "linux"))]
     Asset {
         id: "onnxruntime-cuda",
         label: "ONNX Runtime 1.30.0 · CUDA",
@@ -716,6 +764,7 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: Some(2),
         note: "Runs the separator on an NVIDIA card instead of the processor. Needs CUDA 12.",
     },
+    #[cfg(not(target_os = "linux"))]
     Asset {
         id: "cuda-cublas",
         label: "NVIDIA cuBLAS 12.9",
@@ -729,6 +778,7 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "The linear algebra the CUDA provider is built on.",
     },
+    #[cfg(not(target_os = "linux"))]
     Asset {
         id: "cuda-cudart",
         label: "NVIDIA CUDA runtime 12.9",
@@ -742,6 +792,7 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "The CUDA runtime itself.",
     },
+    #[cfg(not(target_os = "linux"))]
     Asset {
         id: "cuda-cufft",
         label: "NVIDIA cuFFT 11.4",
@@ -755,6 +806,7 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "The transforms the provider uses for spectral work.",
     },
+    #[cfg(not(target_os = "linux"))]
     Asset {
         id: "cuda-cudnn",
         label: "NVIDIA cuDNN 9.25",
@@ -780,6 +832,7 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "The convolution kernels the separator spends its time in.",
     },
+    #[cfg(not(target_os = "linux"))]
     Asset {
         id: "onnxruntime",
         label: "ONNX Runtime 1.30.0",
@@ -796,6 +849,7 @@ pub const ASSETS: &[Asset] = &[
     // The card path for every card that is not an NVIDIA one running CUDA:
     // DirectML over DirectX 12. 1.24.4 is the last DirectML build Microsoft
     // publishes; it speaks the same API level (24) as the builds above.
+    #[cfg(not(target_os = "linux"))]
     Asset {
         id: "onnxruntime-directml",
         label: "ONNX Runtime 1.24.4 · DirectML",
@@ -809,6 +863,7 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "Runs karaoke's Parakeet and the tempo model on an AMD or Intel card through DirectX 12.",
     },
+    #[cfg(not(target_os = "linux"))]
     Asset {
         id: "directml",
         label: "DirectML 1.15.4",
@@ -823,7 +878,142 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "The DirectML the runtime above is built for; the copy inside Windows is older.",
     },
+    // Linux: the same versions as the Windows builds above, from the same
+    // places - Microsoft's tarballs and NVIDIA's linux-x86_64 redistributables.
+    #[cfg(target_os = "linux")]
+    Asset {
+        id: "onnxruntime-cuda",
+        label: "ONNX Runtime 1.30.0 · CUDA",
+        kind: AssetKind::Runtime,
+        url: "https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-linux-x64-gpu_cuda12-1.30.0.tgz",
+        relative_path: "runtime/onnxruntime-cuda.tgz",
+        bytes: 439_354_926,
+        unzip_into: Some("onnx-cuda"),
+        marker: "libonnxruntime_providers_cuda.so",
+        pick: &[],
+        vram_gb: Some(2),
+        note: "Runs the separator on an NVIDIA card instead of the processor. Needs CUDA 12.",
+    },
+    #[cfg(target_os = "linux")]
+    Asset {
+        id: "cuda-cublas",
+        label: "NVIDIA cuBLAS 12.9",
+        kind: AssetKind::Runtime,
+        url: "https://developer.download.nvidia.com/compute/cuda/redist/libcublas/linux-x86_64/libcublas-linux-x86_64-12.9.2.10-archive.tar.xz",
+        relative_path: "runtime/cuda-cublas.tar.xz",
+        bytes: 944_339_140,
+        unzip_into: Some("onnx-cuda"),
+        marker: "libcublasLt.so.12",
+        pick: &["libcublasLt.so.12", "libcublas.so.12"],
+        vram_gb: None,
+        note: "The linear algebra the CUDA provider is built on.",
+    },
+    #[cfg(target_os = "linux")]
+    Asset {
+        id: "cuda-cudart",
+        label: "NVIDIA CUDA runtime 12.9",
+        kind: AssetKind::Runtime,
+        url: "https://developer.download.nvidia.com/compute/cuda/redist/cuda_cudart/linux-x86_64/cuda_cudart-linux-x86_64-12.9.79-archive.tar.xz",
+        relative_path: "runtime/cuda-cudart.tar.xz",
+        bytes: 1_514_676,
+        unzip_into: Some("onnx-cuda"),
+        marker: "libcudart.so.12",
+        pick: &["libcudart.so.12"],
+        vram_gb: None,
+        note: "The CUDA runtime itself.",
+    },
+    #[cfg(target_os = "linux")]
+    Asset {
+        id: "cuda-cufft",
+        label: "NVIDIA cuFFT 11.4",
+        kind: AssetKind::Runtime,
+        url: "https://developer.download.nvidia.com/compute/cuda/redist/libcufft/linux-x86_64/libcufft-linux-x86_64-11.4.1.4-archive.tar.xz",
+        relative_path: "runtime/cuda-cufft.tar.xz",
+        bytes: 470_942_192,
+        unzip_into: Some("onnx-cuda"),
+        marker: "libcufft.so.11",
+        pick: &["libcufft.so.11"],
+        vram_gb: None,
+        note: "The transforms the provider uses for spectral work.",
+    },
+    // The Linux provider links cuRAND by name; the Windows one does not.
+    #[cfg(target_os = "linux")]
+    Asset {
+        id: "cuda-curand",
+        label: "NVIDIA cuRAND 10.3",
+        kind: AssetKind::Runtime,
+        url: "https://developer.download.nvidia.com/compute/cuda/redist/libcurand/linux-x86_64/libcurand-linux-x86_64-10.3.10.19-archive.tar.xz",
+        relative_path: "runtime/cuda-curand.tar.xz",
+        bytes: 89_582_256,
+        unzip_into: Some("onnx-cuda"),
+        marker: "libcurand.so.10",
+        pick: &["libcurand.so.10"],
+        vram_gb: None,
+        note: "Random numbers, which the CUDA provider is linked against.",
+    },
+    #[cfg(target_os = "linux")]
+    Asset {
+        id: "cuda-cudnn",
+        label: "NVIDIA cuDNN 9.25",
+        kind: AssetKind::Runtime,
+        url: "https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-9.25.0.15_cuda12-archive.tar.xz",
+        relative_path: "runtime/cuda-cudnn.tar.xz",
+        bytes: 987_863_504,
+        unzip_into: Some("onnx-cuda"),
+        marker: "libcudnn.so.9",
+        pick: &[
+            "libcudnn.so.9",
+            "libcudnn_graph.so.9",
+            "libcudnn_ops.so.9",
+            "libcudnn_cnn.so.9",
+            "libcudnn_heuristic.so.9",
+            "libcudnn_engines_precompiled.so.9",
+            "libcudnn_engines_runtime_compiled.so.9",
+            "libcudnn_engines_tensor_ir.so.9",
+            "libcudnn_ext.so.9",
+        ],
+        vram_gb: None,
+        note: "The convolution kernels the separator spends its time in.",
+    },
+    #[cfg(target_os = "linux")]
+    Asset {
+        id: "onnxruntime",
+        label: "ONNX Runtime 1.30.0",
+        kind: AssetKind::Runtime,
+        url: "https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-linux-x64-1.30.0.tgz",
+        relative_path: "runtime/onnxruntime.tgz",
+        bytes: 11_306_877,
+        unzip_into: Some("onnx"),
+        marker: "libonnxruntime.so",
+        pick: &[],
+        vram_gb: None,
+        note: "Parakeet runs on this; it is loaded at run time, not linked in.",
+    },
 ];
+
+/// The file names of this platform's ONNX Runtime and of the libraries its
+/// CUDA provider loads.
+#[cfg(not(target_os = "linux"))]
+mod libraries {
+    pub const ORT: &str = "onnxruntime.dll";
+    pub const ORT_SHARED: &str = "onnxruntime_providers_shared.dll";
+    pub const CUDA: &[&str] = &["onnxruntime_providers_cuda.dll", "cublasLt64_12.dll", "cudart64_12.dll", "cudnn64_9.dll"];
+}
+
+#[cfg(target_os = "linux")]
+mod libraries {
+    pub const ORT: &str = "libonnxruntime.so";
+    pub const ORT_SHARED: &str = "libonnxruntime_providers_shared.so";
+    pub const CUDA: &[&str] =
+        &["libonnxruntime_providers_cuda.so", "libcublasLt.so.12", "libcublas.so.12", "libcudart.so.12", "libcufft.so.11", "libcurand.so.10", "libcudnn.so.9"];
+}
+
+/// The CUDA provider's parts, in the order they are used: `karaoke_set` and the
+/// separator build their card path out of these.
+#[cfg(not(target_os = "linux"))]
+pub const CUDA_ASSETS: &[&str] = &["onnxruntime-cuda", "cuda-cudart", "cuda-cublas", "cuda-cufft", "cuda-cudnn"];
+#[cfg(target_os = "linux")]
+pub const CUDA_ASSETS: &[&str] = &["onnxruntime-cuda", "cuda-cudart", "cuda-cublas", "cuda-cufft", "cuda-curand", "cuda-cudnn"];
 
 /// Everything the DirectML path needs, in the order it is used.
 pub const DIRECTML_ASSETS: [&str; 2] = ["onnxruntime-directml", "directml"];
@@ -854,7 +1044,7 @@ impl OnnxFlavour {
     /// not run on - AMD, Intel, an NVIDIA card whose driver is too old - as
     /// long as there is a card at all.
     pub fn uses_directml(self) -> bool {
-        !matches!(self, OnnxFlavour::Cpu) && crate::cuda_build::current().is_none() && crate::presets::display_card().is_some()
+        cfg!(windows) && !matches!(self, OnnxFlavour::Cpu) && crate::cuda_build::current().is_none() && crate::presets::display_card().is_some()
     }
 
     /// The card path this choice takes on this machine; none is the processor.
@@ -941,19 +1131,68 @@ pub fn with_card(builder: ort::session::builder::SessionBuilder, card: Option<On
     }
 }
 
-/// Points `ort` at one ONNX Runtime build. On Windows a DLL's own dependencies
-/// are resolved through the process search path, not through the folder it
-/// came from, so the folder joins PATH. The DirectML build needs DirectML 1.15,
-/// and System32 carries an older one that the search order reaches first: ours
-/// is loaded by its full path beforehand, and a loaded module is what every
-/// later load of that name gets.
 fn point_ort_at(runtime: &Path, card: Option<OnnxCard>) {
     unsafe { std::env::set_var("ORT_DYLIB_PATH", runtime) };
     let Some(directory) = runtime.parent() else { return };
-    let existing = std::env::var("PATH").unwrap_or_default();
-    unsafe { std::env::set_var("PATH", format!("{};{existing}", directory.display())) };
-    if card == Some(OnnxCard::DirectMl) {
-        preload(&directory.join("DirectML.dll"));
+    #[cfg(windows)]
+    {
+        let existing = std::env::var("PATH").unwrap_or_default();
+        unsafe { std::env::set_var("PATH", format!("{};{existing}", directory.display())) };
+        if card == Some(OnnxCard::DirectMl) {
+            preload(&directory.join("DirectML.dll"));
+        }
+    }
+    #[cfg(target_os = "linux")]
+    if card == Some(OnnxCard::Cuda) {
+        preload_cuda(directory);
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
+    let _ = (directory, card);
+}
+
+/// Linux reads LD_LIBRARY_PATH once, at process start, and the CUDA provider
+/// carries no path to its libraries. A library already loaded is what the
+/// loader hands every later request for its name, so each one in the folder
+/// is loaded here by its full path first, dependencies before dependants -
+/// in passes, because which needs which is the libraries' business.
+#[cfg(target_os = "linux")]
+fn preload_cuda(directory: &Path) {
+    use std::os::unix::ffi::OsStrExt;
+    unsafe extern "C" {
+        fn dlopen(filename: *const std::ffi::c_char, flag: std::ffi::c_int) -> *mut std::ffi::c_void;
+        fn dlerror() -> *const std::ffi::c_char;
+    }
+    const RTLD_NOW: std::ffi::c_int = 2;
+    const RTLD_GLOBAL: std::ffi::c_int = 0x100;
+    let mut pending: Vec<PathBuf> = fs::read_dir(directory)
+        .map(|entries| {
+            entries
+                .flatten()
+                .map(|entry| entry.path())
+                .filter(|path| {
+                    let name = path.file_name().unwrap_or_default().to_string_lossy();
+                    // the loader's names only: `libcudnn_ops.so.9`, not the versioned file it links to
+                    !name.starts_with("libonnxruntime") && name.split_once(".so.").is_some_and(|(_, version)| !version.is_empty() && version.bytes().all(|byte| byte.is_ascii_digit()))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    while !pending.is_empty() {
+        let before = pending.len();
+        let mut errors = Vec::new();
+        pending.retain(|library| {
+            let Ok(name) = std::ffi::CString::new(library.as_os_str().as_bytes()) else { return false };
+            if !unsafe { dlopen(name.as_ptr(), RTLD_NOW | RTLD_GLOBAL) }.is_null() {
+                return false;
+            }
+            let error = unsafe { dlerror() };
+            errors.push(if error.is_null() { library.display().to_string() } else { unsafe { std::ffi::CStr::from_ptr(error) }.to_string_lossy().into_owned() });
+            true
+        });
+        if pending.len() == before {
+            eprintln!("[ERROR] the CUDA libraries did not load, the provider will not register: {}", errors.join("; "));
+            return;
+        }
     }
 }
 
@@ -970,9 +1209,6 @@ fn preload(library: &Path) {
         eprintln!("[ERROR] could not load {}: {}", library.display(), std::io::Error::last_os_error());
     }
 }
-
-#[cfg(not(windows))]
-fn preload(_library: &Path) {}
 
 /// Every Parakeet file, because the model is useless without all of them.
 pub const PARAKEET_ASSET_IDS: [&str; 5] =
@@ -1102,9 +1338,9 @@ impl LyricsSync {
     /// setting: the build for this machine's card when every file of it is
     /// there - it carries the processor provider too - else the processor build.
     pub fn machine_runtime(&self) -> Option<(PathBuf, Option<OnnxCard>)> {
-        let cuda = self.downloader.runtime_dir("onnx-cuda").join("onnxruntime.dll");
-        let directml = self.downloader.runtime_dir("onnx-dml").join("onnxruntime.dll");
-        let cpu = self.downloader.runtime_dir("onnx").join("onnxruntime.dll");
+        let cuda = self.downloader.runtime_dir("onnx-cuda").join(libraries::ORT);
+        let directml = self.downloader.runtime_dir("onnx-dml").join(libraries::ORT);
+        let cpu = self.downloader.runtime_dir("onnx").join(libraries::ORT);
         match OnnxFlavour::Auto.card() {
             Some(OnnxCard::Cuda) if self.has_cuda_libraries() => return Some((cuda, Some(OnnxCard::Cuda))),
             Some(OnnxCard::DirectMl) if self.has_directml_libraries() => return Some((directml, Some(OnnxCard::DirectMl))),
@@ -1116,7 +1352,7 @@ impl LyricsSync {
     /// The DirectML build and the DirectML it is built for, side by side.
     pub fn has_directml_libraries(&self) -> bool {
         let dir = self.downloader.runtime_dir("onnx-dml");
-        ["onnxruntime.dll", "onnxruntime_providers_shared.dll", "DirectML.dll"].iter().all(|name| dir.join(name).is_file())
+        [libraries::ORT, libraries::ORT_SHARED, "DirectML.dll"].iter().all(|name| dir.join(name).is_file())
     }
 
     /// Whether every library the card's provider needs is installed.
@@ -1151,18 +1387,12 @@ impl LyricsSync {
         Ok(if matches!(runtime, OnnxFlavour::Cpu) { None } else { bound })
     }
 
-    pub fn has_cuda_runtime(&self) -> bool {
-        self.downloader.runtime_dir("onnx-cuda").join("onnxruntime.dll").is_file()
-    }
-
     /// The CUDA provider is a separate library, and it in turn needs cuBLAS and
     /// cuDNN beside it. Without all of them the provider refuses to load and the
     /// run silently lands on the processor.
     pub fn has_cuda_libraries(&self) -> bool {
         let dir = self.downloader.runtime_dir("onnx-cuda");
-        ["onnxruntime_providers_cuda.dll", "cublasLt64_12.dll", "cudart64_12.dll", "cudnn64_9.dll"]
-            .iter()
-            .all(|name| dir.join(name).is_file())
+        libraries::CUDA.iter().all(|name| dir.join(name).is_file())
     }
 
     /// A model counts as present only with every one of its files: a directory
@@ -1469,6 +1699,19 @@ impl LyricsSync {
         // where they are found from.
         if let Some(directory) = binary.parent() {
             command.current_dir(directory);
+            // a Linux loader does not look beside the program
+            #[cfg(target_os = "linux")]
+            command.env(
+                "LD_LIBRARY_PATH",
+                std::env::join_paths(std::iter::once(directory.to_path_buf()).chain(std::env::var_os("LD_LIBRARY_PATH").iter().flat_map(std::env::split_paths)))
+                    .unwrap_or_else(|_| directory.as_os_str().to_owned()),
+            );
+            // CTranslate2 in this build asks for an executable stack, which glibc 2.41 and later refuse unless told
+            #[cfg(target_os = "linux")]
+            command.env(
+                "GLIBC_TUNABLES",
+                std::env::var("GLIBC_TUNABLES").ok().filter(|tunables| !tunables.is_empty()).map_or_else(|| "glibc.rtld.execstack=2".to_string(), |tunables| format!("{tunables}:glibc.rtld.execstack=2")),
+            );
         }
         hide_console(&mut command);
 
@@ -1922,13 +2165,17 @@ mod tests {
     }
 
     // The releases every runtime download is pinned to.
+    #[cfg(not(target_os = "linux"))]
     const WHISPER_BUILD: &str = "Whisper-Faster_r192.3";
+    #[cfg(target_os = "linux")]
+    const WHISPER_BUILD: &str = "Whisper-Faster_r189.1";
     const WHISPER_CUBLAS_BUILD: &str = "11.11.3.6";
     const WHISPER_CUDNN_BUILD: &str = "8.9.7.29";
     const CUBLAS_BUILD: &str = "12.9.2.10";
     const CUDART_BUILD: &str = "12.9.79";
     const CUFFT_BUILD: &str = "11.4.1.4";
     const CUDNN_BUILD: &str = "9.25.0.15";
+    const CURAND_BUILD: &str = "10.3.10.19";
     const ONNXRUNTIME_BUILD: &str = "v1.30.0";
     const ONNXRUNTIME_DIRECTML_BUILD: &str = "onnxruntime.directml/1.24.4/";
     const DIRECTML_BUILD: &str = "ai.directml/1.15.4/";
@@ -2074,7 +2321,8 @@ Third");
                     || entry.url.contains(CUBLAS_BUILD)
                     || entry.url.contains(CUDART_BUILD)
                     || entry.url.contains(CUDNN_BUILD)
-                    || entry.url.contains(CUFFT_BUILD);
+                    || entry.url.contains(CUFFT_BUILD)
+                    || entry.url.contains(CURAND_BUILD);
                 assert!(pinned, "{} is not pinned to a release", entry.id);
                 assert!(!entry.marker.is_empty(), "{} has no proof of extraction", entry.id);
             }

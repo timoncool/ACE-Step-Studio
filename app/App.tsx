@@ -329,7 +329,7 @@ function AppContent() {
   // Modals
   const [isCreatePlaylistModalOpen, setIsCreatePlaylistModalOpen] = useState(false);
   const [isAddToPlaylistModalOpen, setIsAddToPlaylistModalOpen] = useState(false);
-  const [songToAddToPlaylist, setSongToAddToPlaylist] = useState<Song | null>(null);
+  const [songsToAddToPlaylist, setSongsToAddToPlaylist] = useState<Song[]>([]);
 
   // Video Modal
 
@@ -444,6 +444,17 @@ function AppContent() {
     if (window.matchMedia('(min-width: 80rem)').matches) setShowRightSidebar(true);
     else setShowMobileDetails(true);
   };
+
+  // the library has no side panel: its details open over the page, and the same button closes them
+  const toggleLibraryDetails = (song: Song) => {
+    if (showMobileDetails && selectedSong?.id === song.id) {
+      setShowMobileDetails(false);
+      return;
+    }
+    setSelectedSong(song);
+    setShowMobileDetails(true);
+  };
+
 
   // Reuse Handler
   const handleReuse = (song: Song) => {
@@ -1008,9 +1019,9 @@ function AppContent() {
 
   const createPlaylist = async (name: string, description: string) => {
     try {
-      const playlist = await createNativePlaylist(name, description, songToAddToPlaylist ? [songToAddToPlaylist.id] : []);
+      const playlist = await createNativePlaylist(name, description, songsToAddToPlaylist.map(song => song.id));
       updateLibraryPlaylists(prev => [playlist, ...prev]);
-      if (songToAddToPlaylist) setSongToAddToPlaylist(null);
+      setSongsToAddToPlaylist([]);
       showToast(t('playlistCreated'));
     } catch (error) {
       console.error('Create playlist error:', error);
@@ -1032,21 +1043,21 @@ function AppContent() {
     }
   };
 
-  const openAddToPlaylistModal = (song: Song) => {
-    setSongToAddToPlaylist(song);
+  const openAddToPlaylistModal = (chosen: Song | Song[]) => {
+    setSongsToAddToPlaylist(Array.isArray(chosen) ? chosen : [chosen]);
     setIsAddToPlaylistModalOpen(true);
   };
 
   const addSongToPlaylist = async (playlistId: string) => {
-    if (!songToAddToPlaylist) return;
+    if (songsToAddToPlaylist.length === 0) return;
     try {
       const playlist = playlists.find(item => item.id === playlistId);
       if (!playlist) throw new Error('Playlist was not found in the local library');
-      const songIds = Array.from(new Set([...(playlist.songIds || []), songToAddToPlaylist.id]));
+      const songIds = Array.from(new Set([...(playlist.songIds || []), ...songsToAddToPlaylist.map(song => song.id)]));
       const updated = await updateNativePlaylist(playlist.id, playlist, songIds);
       updateLibraryPlaylists(prev => prev.map(item => item.id === updated.id ? updated : item));
-      setSongToAddToPlaylist(null);
-      showToast(t('songAddedToPlaylist'));
+      showToast(songsToAddToPlaylist.length === 1 ? t('songAddedToPlaylist') : t('songsAddedToPlaylist').replace('{count}', String(songsToAddToPlaylist.length)));
+      setSongsToAddToPlaylist([]);
     } catch (error) {
       console.error('Add song error:', error);
       showToast(t('failedToAddSong'), 'error');
@@ -1120,11 +1131,17 @@ function AppContent() {
             currentSong={currentSong}
             isPlaying={isPlaying}
             onCreatePlaylist={() => {
-              setSongToAddToPlaylist(null);
+              setSongsToAddToPlaylist([]);
               setIsCreatePlaylistModalOpen(true);
             }}
             onSelectPlaylist={(p) => handleNavigateToPlaylist(p.id)}
             onImported={libraryChanged}
+            likedSongIds={likedSongIds}
+            onToggleLike={toggleLike}
+            onAddToPlaylist={openAddToPlaylistModal}
+            onDeleteMany={handleDeleteSongs}
+            onShowDetails={toggleLibraryDetails}
+            detailsSongId={showMobileDetails ? selectedSong?.id ?? null : null}
           />
         );
       }
@@ -1221,8 +1238,10 @@ function AppContent() {
                 }}
                 onToggleLike={toggleLike}
                 onAddToPlaylist={openAddToPlaylistModal}
+                onAddManyToPlaylist={openAddToPlaylistModal}
                 onOpenCoverRegen={openCoverRegen}
                 onShowDetails={handleShowDetails}
+                detailsBesideList
                 onDeleteMany={handleDeleteSongs}
                 onSongUpdate={handleSongUpdate}
                 onCancelJob={generations.cancel}
@@ -1481,7 +1500,7 @@ function AppContent() {
 
       {/* Mobile Details Modal */}
       {showMobileDetails && selectedShown && (
-        <div className="fixed inset-0 z-60 flex justify-end xl:hidden">
+        <div className={`fixed inset-0 z-60 flex justify-end ${currentView === 'create' ? 'xl:hidden' : ''}`}>
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-xs animate-in fade-in"
             onClick={() => setShowMobileDetails(false)}

@@ -16,7 +16,11 @@ if [ ! -d "$worktree/.git" ]; then
 fi
 git -C "$worktree" fetch --quiet origin "$commit" || git -C "$worktree" fetch --quiet origin
 git -C "$worktree" checkout --quiet "$commit"
-git -C "$worktree" submodule update --init --recursive
+# ggml whole; of the VST3 SDK only what the engine's hosting library compiles -
+# its documentation and examples are submodules that do not always resolve
+git -C "$worktree" submodule update --init --recursive engine/ggml
+git -C "$worktree" submodule update --init engine/vendor/vst3sdk
+git -C "$worktree/engine/vendor/vst3sdk" submodule update --init base pluginterfaces public.sdk
 
 cmake -S "$worktree/engine" -B "$worktree/engine/build" -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON -DCMAKE_INSTALL_RPATH=@executable_path \

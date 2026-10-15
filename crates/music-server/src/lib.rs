@@ -1477,50 +1477,23 @@ fn stems_on_disk(state: &AppState, song_id: &str) -> Vec<String> {
 /// page lists all three the same way.
 async fn separation_assets(State(state): State<AppState>) -> Json<Value> {
     let runtime_installed = state.lyrics_sync.onnxruntime_library().is_some();
-    let assets = serde_json::json!([
-        {
-            "id": separation::MODEL.id,
-            "label": separation::MODEL.label,
-            "bytes": separation::MODEL.bytes,
-            "note": separation::MODEL.note,
-            "installed": state.separator.is_installed(),
-        },
-        {
-            "id": "onnxruntime-cuda",
-            "label": "ONNX Runtime 1.30.0 · CUDA",
-            "bytes": 379_723_801u64,
-            "note": "The CUDA build of the runtime.",
-            "installed": state.lyrics_sync.has_cuda_runtime(),
-        },
-        {
-            "id": "cuda-cublas",
-            "label": "NVIDIA cuBLAS 12.9",
-            "bytes": 549_731_131u64,
-            "note": "The linear algebra the CUDA provider is built on.",
-            "installed": state.lyrics_sync.downloader().runtime_dir("onnx-cuda").join("cublasLt64_12.dll").is_file(),
-        },
-        {
-            "id": "cuda-cudart",
-            "label": "NVIDIA CUDA runtime 12.9",
-            "bytes": 3_521_238u64,
-            "note": "The CUDA runtime itself.",
-            "installed": state.lyrics_sync.downloader().runtime_dir("onnx-cuda").join("cudart64_12.dll").is_file(),
-        },
-        {
-            "id": "cuda-cudnn",
-            "label": "NVIDIA cuDNN 9.25",
-            "bytes": 1_904_452_100u64,
-            "note": "The convolution kernels the separator spends its time in.",
-            "installed": state.lyrics_sync.downloader().runtime_dir("onnx-cuda").join("cudnn64_9.dll").is_file(),
-        },
-        {
-            "id": "onnxruntime",
-            "label": "ONNX Runtime 1.30.0",
-            "bytes": 82_645_522,
-            "note": "Runs the separator and the karaoke recogniser; shared between them.",
-            "installed": runtime_installed,
-        }
-    ]);
+    let mut assets = vec![serde_json::json!({
+        "id": separation::MODEL.id,
+        "label": separation::MODEL.label,
+        "bytes": separation::MODEL.bytes,
+        "note": separation::MODEL.note,
+        "installed": state.separator.is_installed(),
+    })];
+    assets.extend(lyrics_sync::CUDA_ASSETS.iter().chain(["onnxruntime"].iter()).filter_map(|id| lyrics_sync::asset(id)).map(|asset| {
+        let shared = asset.id == "onnxruntime";
+        serde_json::json!({
+            "id": asset.id,
+            "label": asset.label,
+            "bytes": asset.bytes,
+            "note": if shared { "Runs the separator and the karaoke recogniser; shared between them." } else { asset.note },
+            "installed": if shared { runtime_installed } else { state.lyrics_sync.downloader().is_installed(asset) },
+        })
+    }));
     let config = state.separation_config.read().await.clone();
     let mut set: Vec<&'static lyrics_sync::Asset> = Vec::new();
     if let Some(asset) = lyrics_sync::asset("onnxruntime") { set.push(asset); }
@@ -1552,17 +1525,12 @@ struct InstallSeparationAssetRequest {
     asset_id: String,
 }
 
-/// Everything the card path needs, in the order it is used. `karaoke_set`
-/// builds a recogniser out of these plus its own model files, so this is the
-/// one place the CUDA provider's parts are named.
-const CUDA_ASSETS: [&str; 5] = ["onnxruntime-cuda", "cuda-cudart", "cuda-cublas", "cuda-cufft", "cuda-cudnn"];
-
 /// The runtime parts work set to `runtime` needs on this machine's card:
 /// CUDA's on an NVIDIA card that runs it, DirectML's on any other card,
 /// none on the processor.
 fn card_assets(runtime: lyrics_sync::OnnxFlavour) -> &'static [&'static str] {
     match runtime.card() {
-        Some(lyrics_sync::OnnxCard::Cuda) => &CUDA_ASSETS,
+        Some(lyrics_sync::OnnxCard::Cuda) => lyrics_sync::CUDA_ASSETS,
         Some(lyrics_sync::OnnxCard::DirectMl) => &lyrics_sync::DIRECTML_ASSETS,
         None => &[],
     }
@@ -1578,7 +1546,7 @@ fn separates_on(card: lyrics_sync::OnnxCard) -> bool {
 
 /// The runtime parts separation needs on this machine's card.
 fn separation_card_assets(runtime: lyrics_sync::OnnxFlavour) -> &'static [&'static str] {
-    if runtime.card().is_some_and(separates_on) { &CUDA_ASSETS } else { &[] }
+    if runtime.card().is_some_and(separates_on) { lyrics_sync::CUDA_ASSETS } else { &[] }
 }
 
 /// Stops a download. What arrived stays on disk: pressing this again later
@@ -6982,11 +6950,32 @@ fn adoptable_files(folder: &std::path::Path, depth: usize) -> Vec<std::path::Pat
     files
 }
 
+/// The file in `entries` each missing component is taken from: the one with
+/// its name and size, else a file renamed by another build - but only one whose
+/// contents are that component's: the catalogue's quantisations of one
+/// architecture weigh the same to the byte.
+fn adoptable_sources(components: &[model_manager::Component], root: &std::path::Path, entries: &[std::path::PathBuf]) -> Vec<(model_manager::Component, std::path::PathBuf)> {
+    components
+        .iter()
+        .filter_map(|component| {
+            let sized = |path: &std::path::Path| std::fs::metadata(path).map(|meta| meta.is_file() && meta.len() == component.bytes).unwrap_or(false);
+            if sized(&root.join(component.filename)) {
+                return None;
+            }
+            entries
+                .iter()
+                .find(|path| path.file_name().is_some_and(|name| name == component.filename) && sized(path))
+                .or_else(|| entries.iter().filter(|path| sized(path)).find(|path| model_manager::verified_file(path, component).unwrap_or(false)))
+                .map(|source| (component.clone(), source.clone()))
+        })
+        .collect()
+}
+
 /// Takes models the user already has instead of downloading them again.
 ///
 /// Anyone who has run ACE-Step through acestep.cpp or another build already has these
 /// weights on disk, and they are gigabytes each. This opens a folder picker,
-/// looks for the files the catalogue names - by name, then by matching size -
+/// looks for the files the catalogue names - by name, then by their contents -
 /// and hard-links or copies them into the studio's own model directory.
 async fn setup_adopt(State(state): State<AppState>, body: axum::body::Bytes) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
     let Some(models_root) = studio_data_root().map(|root| root.join("models").join(model_manager::ENGINE_ID)) else {
@@ -7018,22 +7007,13 @@ async fn setup_adopt(State(state): State<AppState>, body: axum::body::Bytes) -> 
         .await
         .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
 
-    for component in &catalog.components {
+    let components = catalog.components.clone();
+    let root = models_root.clone();
+    let found = tokio::task::spawn_blocking(move || adoptable_sources(&components, &root, &entries))
+        .await
+        .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    for (component, source) in &found {
         let target = models_root.join(component.filename);
-        if target.is_file() {
-            continue;
-        }
-        // The name first, because that is unambiguous; then the exact size,
-        // because other builds rename the same file.
-        let source = entries
-            .iter()
-            .find(|path| path.file_name().is_some_and(|name| name == component.filename))
-            .or_else(|| {
-                entries.iter().find(|path| {
-                    std::fs::metadata(path).map(|meta| meta.len() == component.bytes).unwrap_or(false)
-                })
-            });
-        let Some(source) = source else { continue };
         // A hard link costs nothing and keeps one copy on disk; a folder on
         // another drive cannot have one, so that falls back to a copy.
         if std::fs::hard_link(source, &target).is_err() && std::fs::copy(source, &target).is_err() {
@@ -8520,6 +8500,20 @@ mod tests {
         names.sort();
         assert_eq!(names, ["deep.gguf", "top.gguf"]);
         assert_eq!(adoptable_files(root.path(), 0).len(), 1, "depth 0 is the folder itself");
+    }
+
+    #[test]
+    fn a_file_of_the_right_size_is_taken_only_for_the_model_it_is() {
+        use sha2::Digest;
+        let folder = tempfile::tempdir().unwrap();
+        let models = tempfile::tempdir().unwrap();
+        let sha = |body: &[u8]| -> &'static str { Box::leak(sha2::Sha256::digest(body).iter().map(|byte| format!("{byte:02x}")).collect::<String>().into_boxed_str()) };
+        let component = |id: &'static str, filename: &'static str, body: &[u8]| model_manager::Component { id, kind: "dit", filename, bytes: body.len() as u64, sha256: sha(body), repository: "", revision: "", remote_path: "" };
+        let turbo = component("turbo", "turbo.gguf", b"turbo weights");
+        let merge = component("merge", "merge.gguf", b"merge weights");
+        std::fs::write(folder.path().join("renamed.gguf"), b"turbo weights").unwrap();
+        let found = adoptable_sources(&[turbo, merge], models.path(), &adoptable_files(folder.path(), ADOPT_FOLDER_DEPTH));
+        assert_eq!(found.iter().map(|(component, _)| component.id).collect::<Vec<_>>(), ["turbo"]);
     }
 
     #[test]

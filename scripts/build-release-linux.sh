@@ -1,6 +1,6 @@
 #!/bin/bash
 # Builds ACE-Step Studio for Linux x86-64: a .deb and an AppImage with the
-# pinned acestep.cpp engine on Vulkan bundled. Model weights are downloaded in
+# pinned acestep.cpp engine on Vulkan and the audio-to-MIDI transcriber bundled. Model weights are downloaded in
 # the app.
 set -euo pipefail
 
@@ -12,6 +12,13 @@ server="$(sed -n 's/.*"server": "\(.*\)".*/\1/p' "$root/engines/engine-source.js
 if [ ! -x "$engine/$server" ] || ! grep -q "$commit" "$engine/runtime.json" 2>/dev/null; then
     rm -rf "$engine"
     "$root/scripts/build-engine-runtime-linux.sh" "$engine"
+fi
+
+midi="$root/desktop/src-tauri/resources/music-midi"
+midi_commit="$(sed -n 's/.*"commit": "\(.*\)".*/\1/p' "$root/engines/music-midi-source.json")"
+if [ ! -x "$midi/music-midi" ] || [ "$(cat "$midi/runtime.commit" 2>/dev/null)" != "$midi_commit" ]; then
+    rm -rf "$midi"
+    "$root/scripts/build-midi-runtime-linux.sh" "$midi"
 fi
 
 cd "$root"

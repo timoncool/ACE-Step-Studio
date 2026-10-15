@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Song } from '../types';
-import { Play, MoreHorizontal, Heart, ListPlus, Pause, Search, Filter, Check, Globe, Lock, Loader2, Share2, Video, Info, Clock, Timer, ImagePlus, Pencil, Clapperboard, ListMusic } from 'lucide-react';
+import { Play, MoreHorizontal, Heart, ListPlus, Pause, Search, Filter, Check, Globe, Lock, Loader2, Share2, Video, Info, Clock, Timer, ImagePlus, Pencil, Clapperboard, ListMusic, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
 import type { TranslationKey } from '../i18n/translations';
@@ -14,7 +14,7 @@ import { foldStems, stemOf } from '../services/songStems';
 import { StemIcon, StemsToggle, useStemName } from './StemsToggle';
 import { SortMenu } from './SortMenu';
 import { exactMoment, relativeMoment } from '../services/dates';
-import { compareBy, SONG_ORDERS, useListOrder } from '../services/songOrder';
+import { compareBy, SONG_ORDERS, useListOrder, type SongOrder } from '../services/songOrder';
 import { TRACK_ARTIST } from '../services/studio';
 
 interface SongListProps {
@@ -40,6 +40,18 @@ interface SongListProps {
     onNavigateToProfile?: (username: string) => void;
     onSongUpdate?: (updatedSong: Song) => void;
     onDeleteMany?: (songs: Song[]) => void;
+    /** Adds every chosen song to one playlist. */
+    onAddManyToPlaylist?: (songs: Song[]) => void;
+    /** Inside another page, which scrolls and names the list itself. */
+    embedded?: boolean;
+    /** Choosing a song already opens its details beside the list on a wide window, so the button is for narrow ones. */
+    detailsBesideList?: boolean;
+    /** The song whose details are open, so its button shows it. */
+    detailsSongId?: string | null;
+    /** Where the chosen order is remembered, and which orders the list offers. */
+    orderKey?: string;
+    orders?: SongOrder[];
+    defaultOrder?: SongOrder;
     onCancelJob?: (jobId: string) => void;
     onResetJob?: (jobId: string) => void;
     onCancelAll?: () => void;
@@ -124,6 +136,13 @@ export const SongList: React.FC<SongListProps> = ({
     onNavigateToProfile,
     onSongUpdate,
     onDeleteMany,
+    onAddManyToPlaylist,
+    embedded = false,
+    detailsBesideList = false,
+    detailsSongId = null,
+    orderKey = 'create',
+    orders = SONG_ORDERS,
+    defaultOrder = 'newest',
     onCancelJob,
     onCancelAll,
     onResetJob,
@@ -132,7 +151,7 @@ export const SongList: React.FC<SongListProps> = ({
 }) => {
     const { user } = useAuth();
     const { t, songCount, language } = useI18n();
-    const [order, setOrder] = useListOrder('create', 'newest', SONG_ORDERS);
+    const [order, setOrder] = useListOrder(orderKey, defaultOrder, orders);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilters, setActiveFilters] = useState<Set<FilterType>>(new Set());
     const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -310,7 +329,10 @@ export const SongList: React.FC<SongListProps> = ({
             onToggleLike={() => onToggleLike(song.id)}
             onAddToPlaylist={() => onAddToPlaylist(song)}
             onOpenCoverRegen={() => onOpenCoverRegen && onOpenCoverRegen(song)}
-            onShowDetails={() => onShowDetails && onShowDetails(song)}
+            onShowDetails={onShowDetails ? () => onShowDetails(song) : undefined}
+            detailsNarrowOnly={detailsBesideList}
+            detailsOpen={detailsSongId === song.id}
+            onDelete={onDeleteMany && !isCard(song) ? () => onDeleteMany([song]) : undefined}
             onNavigateToProfile={onNavigateToProfile}
             onSongUpdate={onSongUpdate}
             // a card can be stopped once the engine has its job
@@ -327,15 +349,15 @@ export const SongList: React.FC<SongListProps> = ({
     );
 
     return (
-        <div className="h-full min-w-0 flex-1 overflow-y-auto bg-white p-4 pb-32 transition-colors duration-300 dark:bg-black sm:p-6">
-            <div className="mx-auto w-full min-w-0 max-w-5xl"> {/* Container constraint */}
+        <div className={embedded ? 'min-w-0' : 'h-full min-w-0 flex-1 overflow-y-auto bg-white p-4 pb-32 transition-colors duration-300 dark:bg-black sm:p-6'}>
+            <div className={embedded ? 'w-full min-w-0' : 'mx-auto w-full min-w-0 max-w-5xl'}> {/* Container constraint */}
 
                 {/* Header */}
                 <div className="flex flex-col gap-6 mb-8">
                     {/* The library is a real local store, so the header states what
                         is in it rather than naming a workspace concept that this
                         single-user desktop build does not have. */}
-                    <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+                    <div className={`items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400 ${embedded ? 'hidden' : 'flex'}`}>
                         {scopeName ? (
                             <span className="flex min-w-0 items-center gap-1.5 font-medium text-zinc-900 dark:text-white">
                                 <ListMusic size={14} className="shrink-0" />
@@ -408,7 +430,7 @@ export const SongList: React.FC<SongListProps> = ({
                             )}
                         </div>
 
-                        <SortMenu order={order} orders={SONG_ORDERS} onChange={setOrder} />
+                        <SortMenu order={order} orders={orders} onChange={setOrder} />
 
                         <button
                             onClick={() => {
@@ -464,6 +486,22 @@ export const SongList: React.FC<SongListProps> = ({
                                 >
                                     {allSelected ? t('clearAll') : t('selectAll')}
                                 </button>
+                                {onAddManyToPlaylist && (
+                                    <button
+                                        onClick={() => {
+                                            if (!selectedSongs.length) return;
+                                            onAddManyToPlaylist(selectedSongs);
+                                        }}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border ${selectedSongs.length
+                                                ? 'border-zinc-300 dark:border-white/20 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/10'
+                                                : 'border-zinc-200 dark:border-white/10 text-zinc-400 cursor-not-allowed'
+                                            }`}
+                                        disabled={!selectedSongs.length}
+                                    >
+                                        <ListPlus size={14} />
+                                        {t('addToPlaylist')}
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => {
                                         if (!selectedSongs.length) return;
@@ -574,6 +612,9 @@ interface SongItemProps {
     onAddToPlaylist: () => void;
     onOpenCoverRegen?: () => void;
     onShowDetails?: () => void;
+    detailsNarrowOnly?: boolean;
+    detailsOpen?: boolean;
+    onDelete?: () => void;
     onNavigateToProfile?: (username: string) => void;
     onSongUpdate?: (updatedSong: Song) => void;
     onCancelJob?: () => void;
@@ -600,6 +641,9 @@ const SongItem: React.FC<SongItemProps> = ({
     onAddToPlaylist,
     onOpenCoverRegen,
     onShowDetails,
+    detailsNarrowOnly = false,
+    detailsOpen = false,
+    onDelete,
     onNavigateToProfile,
     onSongUpdate,
     onCancelJob,
@@ -893,13 +937,26 @@ const SongItem: React.FC<SongItemProps> = ({
                             <ListPlus size={16} />
                         </button>
 
-                        <button
-                            className="p-2 rounded-full hover:bg-zinc-200 dark:hover:bg-white/5 text-zinc-400 hover:text-black dark:hover:text-white transition-colors"
-                            onClick={(e) => { e.stopPropagation(); if (onShowDetails) onShowDetails(); }}
-                            {...named(t('songDetails'))}
-                        >
-                            <Info size={16} />
-                        </button>
+                        {onDelete && (
+                            <button
+                                className="p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10 text-zinc-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                                onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                                {...named(t('delete'))}
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                        )}
+
+                        {onShowDetails && (
+                            <button
+                                className={`p-2 rounded-full hover:bg-zinc-200 dark:hover:bg-white/5 transition-colors ${detailsOpen ? 'text-pink-600 dark:text-pink-500' : 'text-zinc-400 hover:text-black dark:hover:text-white'} ${detailsNarrowOnly ? 'xl:hidden' : ''}`}
+                                onClick={(e) => { e.stopPropagation(); onShowDetails(); }}
+                                {...named(t('songDetails'))}
+                                aria-pressed={detailsOpen}
+                            >
+                                <Info size={16} />
+                            </button>
+                        )}
 
                         <div className="relative">
                             <button
@@ -1004,7 +1061,6 @@ const UploadItem: React.FC<{
             onToggleSelect={() => undefined}
             onToggleLike={() => undefined}
             onAddToPlaylist={() => undefined}
-            onShowDetails={() => undefined}
             onNavigateToProfile={() => undefined}
         />
         </SongActionsProvider>
