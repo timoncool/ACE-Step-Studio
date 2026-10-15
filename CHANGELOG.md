@@ -6,6 +6,7 @@ What changed, newest first. Dates are release dates.
 
 ### Added
 
+- **Every settings slider takes a typed number.** The value beside a slider is a field: type `0.40` for a LoRA's strength, `2:10` for a duration or `6` for an equalizer band, and Enter sets it, kept within the slider's range (a comma works as the decimal point, Escape puts the value back). On LoRA strength, the creation settings, audio processing, the equalizer, the Winamp size and the video clip editor.
 - **Any engine launch flag and a hand-built engine.** Settings - Local engine take one line of extra flags for the engine, split as a shell would and placed after the studio's own, and an engine executable of your own build, picked in a file dialog and checked when saved. The restart button saves the page first and starts what it shows; an old engine still holding the port is waited for and refused instead of being reused with its old flags. By [@wuyue92tree](https://github.com/wuyue92tree) ([#46](https://github.com/timoncool/ACE-Step-Studio/pull/46)).
 
 ### Fixed

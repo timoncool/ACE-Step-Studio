@@ -1,3 +1,4 @@
+import { NumberField } from './NumberField';
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useI18n } from '../context/I18nContext';
 import type { TranslationKey } from '../i18n/translations';
@@ -2561,7 +2562,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                 <div>
                                     <div className="flex justify-between text-sm text-zinc-300 mb-2">
                                         <span>{t('dimming')}</span>
-                                        <span>{Math.round(config.bgDim * 100)}%</span>
+                                        <NumberField value={Math.round(config.bgDim * 100)} min={0} max={100} step={1} label={t('dimming')} format={number => `${number}%`} onChange={number => setConfig({...config, bgDim: number / 100})} className="w-12" />
                                     </div>
                                     <input
                                         type="range" min="0" max="1" step="0.1"
@@ -2632,7 +2633,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                          <div className="space-y-3">
                             <div className="flex justify-between text-xs font-bold text-zinc-500 uppercase">
                                 <span>{t('size')}</span>
-                                <span>{Math.round(config.visualizerScale * 100)}%</span>
+                                <NumberField value={Math.round(config.visualizerScale * 100)} min={30} max={200} step={1} label={t('size')} format={number => `${number}%`} onChange={number => setConfig({...config, visualizerScale: number / 100})} className="w-12" />
                             </div>
                             <input
                                 type="range" min="30" max="200" step="5"
@@ -2646,7 +2647,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                          <div className="space-y-3">
                             <div className="flex justify-between text-xs font-bold text-zinc-500 uppercase">
                                 <span>{t('particles')}</span>
-                                <span>{config.particleCount}</span>
+                                <NumberField value={config.particleCount} min={0} max={200} step={1} label={t('particles')} onChange={number => setConfig({...config, particleCount: number})} className="w-12" />
                             </div>
                             <input
                                 type="range" min="0" max="200" step="10"
@@ -2755,7 +2756,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                         <div>
                                             <div className="flex justify-between">
                                                 <label className="text-[10px] text-zinc-500">{t('fontSize') || 'Font Size'}</label>
-                                                <span className="text-[10px] text-zinc-400">{lyricsFontSize}px</span>
+                                                <NumberField value={lyricsFontSize} min={24} max={72} step={1} label={t('fontSize') || 'Font Size'} format={number => `${number}px`} onChange={setLyricsFontSize} className="w-12" />
                                             </div>
                                             <input type="range" min={24} max={72} value={lyricsFontSize} onChange={e => setLyricsFontSize(Number(e.target.value))} className="w-full accent-pink-500 h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer" />
                                         </div>
@@ -2768,7 +2769,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                             <input type="color" value={lyricsBgColor} onChange={e => setLyricsBgColor(e.target.value)} className="w-5 h-5 rounded-sm cursor-pointer border-none bg-transparent" />
                                             <span className="text-[10px] text-zinc-500">{t('opacity') || 'Opacity'}</span>
                                             <input type="range" min={0} max={100} value={lyricsBgOpacity} onChange={e => setLyricsBgOpacity(Number(e.target.value))} className="flex-1 accent-pink-500 h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer min-w-[60px]" />
-                                            <span className="text-[10px] text-zinc-400">{lyricsBgOpacity}%</span>
+                                            <NumberField value={lyricsBgOpacity} min={0} max={100} step={1} label={t('opacity') || 'Opacity'} format={number => `${number}%`} onChange={setLyricsBgOpacity} className="w-12" />
                                         </div>
 
                                         {/* Show sections */}
@@ -2776,7 +2777,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                         <div className="flex items-center gap-2">
                                             <span className="text-[10px] text-zinc-500">{t('lyricsOffset') || 'Offset'}</span>
                                             <input type="range" min={-3} max={3} step={0.1} value={lyricsOffset} onChange={e => setLyricsOffset(Number(e.target.value))} className="flex-1 accent-pink-500 h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer" />
-                                            <span className="text-[10px] text-zinc-400 w-10 text-right">{lyricsOffset > 0 ? '+' : ''}{lyricsOffset.toFixed(1)}s</span>
+                                            <NumberField value={lyricsOffset} min={-3} max={3} step={0.1} label={t('lyricsOffset') || 'Offset'} format={number => `${number > 0 ? '+' : ''}${number.toFixed(1)}s`} onChange={setLyricsOffset} className="w-12" />
                                         </div>
 
                                         <label className="flex items-center gap-2 text-[10px] text-zinc-400 cursor-pointer">
@@ -2815,7 +2816,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                     <div className="flex items-center gap-2">
                                         <span className="text-[10px] text-zinc-500">{t('size')}</span>
                                         <input type="range" min="12" max="120" value={layer.size} onChange={(e) => updateTextLayer(layer.id, { size: parseInt(e.target.value) })} className="flex-1 accent-pink-500 h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer" />
-                                        <span className="text-[10px] text-zinc-400 w-8 text-right">{layer.size}px</span>
+                                        <NumberField value={layer.size} min={12} max={120} step={1} label={t('size')} format={number => `${number}px`} onChange={number => updateTextLayer(layer.id, { size: number })} className="w-12" />
                                         <input type="color" value={layer.color} onChange={(e) => updateTextLayer(layer.id, { color: e.target.value })} className="w-5 h-5 rounded-sm cursor-pointer border-none bg-transparent" />
                                     </div>
                                 </div>
@@ -2869,7 +2870,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                         <div className="px-3 pb-3 pt-0 animate-in fade-in slide-in-from-top-2">
                                             <div className="flex justify-between text-[10px] text-zinc-400 mb-1">
                                                 <span>{t('intensity')}</span>
-                                                <span>{Math.round(intensity * 100)}%</span>
+                                                <NumberField value={Math.round(intensity * 100)} min={0} max={100} step={1} label={t('intensity')} format={number => `${number}%`} onChange={number => setIntensities({...intensities, [effectId]: number / 100})} className="w-12" />
                                             </div>
                                             <input 
                                                 type="range" min="0" max="1" step="0.05" 
