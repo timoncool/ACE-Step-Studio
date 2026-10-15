@@ -445,6 +445,20 @@ function AppContent() {
     else setShowMobileDetails(true);
   };
 
+  // the chosen songs go to the MIDI transcriber one after another; the tools page shows how far it is
+  const transcribeManyToMidi = async (chosen: Song[]) => {
+    try {
+      const response = await fetch('/v1/midi/transcribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ song_ids: chosen.map(song => song.id) }) });
+      if (!response.ok) {
+        const problem = await response.json().catch(() => null);
+        throw new Error(problem?.error || `HTTP ${response.status}`);
+      }
+      showToast(t('midiBatchStarted').replace('{count}', String(chosen.length)));
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : String(error), 'error');
+    }
+  };
+
   // the library has no side panel: its details open over the page, and the same button closes them
   const toggleLibraryDetails = (song: Song) => {
     if (showMobileDetails && selectedSong?.id === song.id) {
@@ -1140,6 +1154,7 @@ function AppContent() {
             onToggleLike={toggleLike}
             onAddToPlaylist={openAddToPlaylistModal}
             onDeleteMany={handleDeleteSongs}
+            onMidiMany={transcribeManyToMidi}
             onShowDetails={toggleLibraryDetails}
             detailsSongId={showMobileDetails ? selectedSong?.id ?? null : null}
           />
@@ -1239,6 +1254,7 @@ function AppContent() {
                 onToggleLike={toggleLike}
                 onAddToPlaylist={openAddToPlaylistModal}
                 onAddManyToPlaylist={openAddToPlaylistModal}
+                onMidiMany={transcribeManyToMidi}
                 onOpenCoverRegen={openCoverRegen}
                 onShowDetails={handleShowDetails}
                 detailsBesideList

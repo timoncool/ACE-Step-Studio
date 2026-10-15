@@ -31,6 +31,9 @@ interface MidiRun {
   error: string | null;
   file: string | null;
   progress: number;
+  title: string;
+  /** The set this track belongs to, when several were asked for at once. */
+  batch: { done: number; total: number; queued: string[]; failed: string[] } | null;
 }
 
 interface MidiStatus {
@@ -65,6 +68,8 @@ export const MidiTool: React.FC<{ songId: string; songTitle: string; card: strin
 
   const run = status?.run?.song_id === songId ? status.run : null;
   const running = Boolean(run && !run.done);
+  const batch = status?.run?.batch ?? null;
+  const batchActive = Boolean(batch && (batch.queued.length > 0 || !status?.run?.done));
   const chosen = size ?? status?.default_size ?? 'medium';
   const chosenSize = status?.sizes.find(entry => entry.id === chosen);
 
@@ -190,11 +195,32 @@ export const MidiTool: React.FC<{ songId: string; songTitle: string; card: strin
         )}
       </div>
 
+      {batch && (
+        <div className="mt-3 rounded-lg border border-zinc-200 px-3 py-2 text-xs text-zinc-600 dark:border-white/10 dark:text-zinc-300">
+          <div className="flex min-w-0 items-center gap-2">
+            {batchActive && <Loader2 size={13} className="shrink-0 animate-spin text-pink-500" />}
+            <span className="shrink-0 font-semibold tabular-nums">{t('midiBatchProgress').replace('{done}', String(batch.done)).replace('{total}', String(batch.total))}</span>
+            {batchActive && status?.run?.title && <span className="min-w-0 truncate text-zinc-500">· {status.run.title}</span>}
+            {batchActive && (
+              <button type="button" onClick={() => void post('/v1/midi/cancel', {})} className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-md border border-zinc-300 px-2 py-1 text-[11px] font-semibold hover:border-pink-400 dark:border-white/15">
+                <Square size={10} /> {t('midiStop')}
+              </button>
+            )}
+          </div>
+          {batch.queued.includes(songId) && <p className="mt-1 text-zinc-500">{t('midiBatchQueuedHere')}</p>}
+          {batch.failed.length > 0 && (
+            <ul className="mt-1 space-y-0.5 text-rose-600 wrap-anywhere dark:text-rose-300">
+              {batch.failed.map(line => <li key={line}>{line}</li>)}
+            </ul>
+          )}
+        </div>
+      )}
+
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
           onClick={transcribe}
-          disabled={!songId || running || busy}
+          disabled={!songId || running || busy || batchActive}
           className="inline-flex items-center gap-2 rounded-lg bg-linear-to-r from-orange-500 to-pink-600 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           {running ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}

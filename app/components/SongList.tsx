@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Song } from '../types';
-import { Play, MoreHorizontal, Heart, ListPlus, Pause, Search, Filter, Check, Globe, Lock, Loader2, Share2, Video, Info, Clock, Timer, ImagePlus, Pencil, Clapperboard, ListMusic, Trash2 } from 'lucide-react';
+import { Play, MoreHorizontal, Heart, ListPlus, Pause, Search, Filter, Check, Globe, Lock, Loader2, Share2, Video, Info, Clock, Timer, ImagePlus, Pencil, Clapperboard, ListMusic, Trash2, Piano } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
 import type { TranslationKey } from '../i18n/translations';
@@ -42,6 +42,8 @@ interface SongListProps {
     onDeleteMany?: (songs: Song[]) => void;
     /** Adds every chosen song to one playlist. */
     onAddManyToPlaylist?: (songs: Song[]) => void;
+    /** Turns every chosen song into MIDI, one after another. */
+    onMidiMany?: (songs: Song[]) => void;
     /** Inside another page, which scrolls and names the list itself. */
     embedded?: boolean;
     /** Choosing a song already opens its details beside the list on a wide window, so the button is for narrow ones. */
@@ -137,6 +139,7 @@ export const SongList: React.FC<SongListProps> = ({
     onSongUpdate,
     onDeleteMany,
     onAddManyToPlaylist,
+    onMidiMany,
     embedded = false,
     detailsBesideList = false,
     detailsSongId = null,
@@ -500,6 +503,22 @@ export const SongList: React.FC<SongListProps> = ({
                                     >
                                         <ListPlus size={14} />
                                         {t('addToPlaylist')}
+                                    </button>
+                                )}
+                                {onMidiMany && (
+                                    <button
+                                        onClick={() => {
+                                            if (!selectedSongs.length) return;
+                                            onMidiMany(selectedSongs);
+                                        }}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border ${selectedSongs.length
+                                                ? 'border-zinc-300 dark:border-white/20 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/10'
+                                                : 'border-zinc-200 dark:border-white/10 text-zinc-400 cursor-not-allowed'
+                                            }`}
+                                        disabled={!selectedSongs.length}
+                                    >
+                                        <Piano size={14} />
+                                        {t('midiForSelected')}
                                     </button>
                                 )}
                                 <button

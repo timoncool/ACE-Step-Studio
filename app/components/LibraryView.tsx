@@ -24,6 +24,7 @@ interface LibraryViewProps {
   onToggleLike: (songId: string) => void;
   onAddToPlaylist: (songs: Song | Song[]) => void;
   onDeleteMany: (songs: Song[]) => void;
+  onMidiMany: (songs: Song[]) => void;
   /** Opens a song's details over the page, or closes them when they are its. */
   onShowDetails: (song: Song) => void;
   detailsSongId: string | null;
@@ -43,6 +44,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     onToggleLike,
     onAddToPlaylist,
     onDeleteMany,
+    onMidiMany,
     onShowDetails,
     detailsSongId,
 }) => {
@@ -95,6 +97,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             onShowDetails={onShowDetails}
             detailsSongId={detailsSongId}
             onDeleteMany={onDeleteMany}
+            onMidiMany={onMidiMany}
             orderKey={orderKey}
             orders={orders}
             defaultOrder={defaultOrder}

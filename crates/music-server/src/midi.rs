@@ -241,6 +241,20 @@ pub struct Run {
     pub error: Option<String>,
     /// The MIDI file on this computer, once written.
     pub file: Option<String>,
+    /// The set this track belongs to, when several were asked for at once.
+    pub batch: Option<Batch>,
+}
+
+/// Several library tracks turned into MIDI one after another.
+#[derive(Debug, Clone, Serialize)]
+pub struct Batch {
+    /// How many of the set are finished, made or failed.
+    pub done: usize,
+    pub total: usize,
+    /// The tracks still waiting, in order.
+    pub queued: Vec<String>,
+    /// Each track that failed, by its title, with the reason.
+    pub failed: Vec<String>,
 }
 
 impl Run {

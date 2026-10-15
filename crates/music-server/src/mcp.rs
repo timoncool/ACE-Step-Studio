@@ -303,7 +303,7 @@ fn busy(summary: &Value) -> Vec<&'static str> {
         ("covers_and_karaoke", summary["covers_and_karaoke"].as_array().is_some_and(|entries| !entries.is_empty())),
         ("stems", unfinished(&summary["stems"])),
         ("processing", unfinished(&summary["processing"])),
-        ("midi", unfinished(&summary["midi"])),
+        ("midi", unfinished(&summary["midi"]) || summary["midi"]["batch"]["queued"].as_array().is_some_and(|queued| !queued.is_empty())),
         ("preparation", summary["preparation"].is_object() && summary["preparation"]["finished"] != true),
         ("training", !summary["training"].is_null()),
     ]
@@ -1629,8 +1629,8 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "midi_transcribe",
-                description: "Turn a library track - a song, a stem, a processed take - or any audio file on this computer into multi-instrument MIDI (34 instrument groups and drums). Give song_id or path; size small, medium (default) or large. What the transcriber needs is downloaded first when it is missing. Wait with studio_wait until midi; a track's MIDI is then kept beside it (midi_get, library_song_files), a file's in the studio's midi folder (midi_status run.file).",
-                schema: || object(json!({ "song_id": { "type": "string" }, "path": { "type": "string", "description": "an audio file on this computer, instead of song_id" }, "size": { "type": "string", "enum": ["small", "medium", "large"] } }), &[]),
+                description: "Turn a library track - a song, a stem, a processed take - or any audio file on this computer into multi-instrument MIDI (34 instrument groups and drums). Give song_id or path, or song_ids for several library tracks one after another (midi_status run.batch: done, total, queued, failed); size small, medium (default) or large. What the transcriber needs is downloaded first when it is missing. Wait with studio_wait until midi; a track's MIDI is then kept beside it (midi_get, library_song_files), a file's in the studio's midi folder (midi_status run.file).",
+                schema: || object(json!({ "song_id": { "type": "string" }, "song_ids": { "type": "array", "items": { "type": "string" }, "description": "several library tracks, turned into MIDI one after another, instead of song_id" }, "path": { "type": "string", "description": "an audio file on this computer, instead of song_id" }, "size": { "type": "string", "enum": ["small", "medium", "large"] } }), &[]),
                 call: |args| post("/v1/midi/transcribe".into(), args.clone()),
             },
             Tool {

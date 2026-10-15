@@ -85,13 +85,28 @@ pub fn cublas_asset(build: CudaBuild) -> &'static Asset {
 /// The engine's downloadable runtime.
 pub struct EngineRuntime {
     downloader: Downloader,
+    /// Where the engine and the Visual C++ runtime shipped with it live.
+    bundle_root: PathBuf,
 }
 
 impl EngineRuntime {
     /// Takes the directory `ace-server.exe` lives in: the libraries belong
     /// beside the binary that imports them, not in a folder of their own.
-    pub fn new(bundle_root: &Path) -> Self {
-        Self { downloader: Downloader::new(bundle_root.to_path_buf()) }
+    /// Where that directory cannot be written - an installation under Program
+    /// Files - they go to the studio's data folder instead, which joins PATH:
+    /// the engine inherits it, and Windows looks there for what its backend imports.
+    pub fn new(bundle_root: &Path, data_root: &Path) -> Self {
+        let root = if writable(bundle_root) {
+            bundle_root.to_path_buf()
+        } else {
+            let elsewhere = data_root.join("engine-runtime");
+            let existing = std::env::var_os("PATH").unwrap_or_default();
+            if let Ok(joined) = std::env::join_paths(std::iter::once(elsewhere.clone()).chain(std::env::split_paths(&existing))) {
+                unsafe { std::env::set_var("PATH", joined) };
+            }
+            elsewhere
+        };
+        Self { downloader: Downloader::new(root), bundle_root: bundle_root.to_path_buf() }
     }
 
     pub fn downloader(&self) -> &Downloader {
@@ -121,7 +136,7 @@ impl EngineRuntime {
         VC_RUNTIME_LIBRARIES
             .iter()
             .copied()
-            .filter(|library| !self.downloader.root().join(library).is_file() && !is_on_the_search_path(library))
+            .filter(|library| !self.bundle_root.join(library).is_file() && !is_on_the_search_path(library))
             .collect()
     }
 
@@ -154,6 +169,17 @@ impl EngineRuntime {
         }
         self.downloader.install_all("engine", &self.missing(build)).await
     }
+}
+
+/// Whether files can be written into `directory`, found by writing one.
+fn writable(directory: &Path) -> bool {
+    if std::fs::create_dir_all(directory).is_err() {
+        return false;
+    }
+    let probe = directory.join(format!(".write-probe-{}", std::process::id()));
+    let written = std::fs::write(&probe, b"").is_ok();
+    let _ = std::fs::remove_file(&probe);
+    written
 }
 
 /// Whether the loader would already find this library without help.
@@ -298,6 +324,20 @@ pub fn unresolved_dependencies(directory: &Path, entry_point: &str) -> Result<Ve
 mod tests {
     use super::*;
 
+    #[test]
+    fn libraries_go_to_the_data_folder_when_the_engine_folder_cannot_be_written() {
+        let data = std::env::temp_dir().join(format!("engine-runtime-{}", uuid::Uuid::now_v7()));
+        std::fs::create_dir_all(&data).unwrap();
+        std::fs::write(data.join("a-file"), b"").unwrap();
+        // a folder inside a file can be neither made nor written, as Program Files cannot without elevation
+        let runtime = EngineRuntime::new(&data.join("a-file").join("engine"), &data);
+        assert_eq!(runtime.library_dir(), data.join("engine-runtime"));
+        let writable = data.join("install");
+        std::fs::create_dir_all(&writable).unwrap();
+        assert_eq!(EngineRuntime::new(&writable, &data).library_dir(), writable);
+        std::fs::remove_dir_all(&data).ok();
+    }
+
     /// The file names are the contract with the engine binary: they are what
     /// the import table asks the loader for, and what `pick` takes out of the
     /// archive. A typo here is a download that finishes and changes nothing.
@@ -395,7 +435,7 @@ mod tests {
     #[test]
     fn the_libraries_count_as_installed_only_beside_the_engine() {
         let root = std::env::temp_dir().join(format!("engine-runtime-{}", uuid::Uuid::now_v7()));
-        let runtime = EngineRuntime::new(&root);
+        let runtime = EngineRuntime::new(&root, &root);
         let asset = cublas_asset(CudaBuild::Cuda13);
         assert!(!runtime.downloader().is_installed(asset));
         assert_eq!(runtime.library_dir(), root);

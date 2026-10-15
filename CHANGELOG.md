@@ -6,6 +6,7 @@ What changed, newest first. Dates are release dates.
 
 ### Added
 
+- **Several tracks to MIDI at once.** Choose songs in the library or on the create page and press To MIDI: they are turned into MIDI one after another, Studio tools shows which track it is on and how many are done, Stop ends the set, and a track that fails is named while the rest go on. Agents give `song_ids` to `midi_transcribe` ([YuE2-Studio #94](https://github.com/timoncool/YuE2-Studio/issues/94)).
 - **Sorting out a long list of songs.** A song's row has a Delete button beside Add to playlist, and the chosen songs of a selection go to a playlist in one go. The Library's All and Liked tabs have the create page's search, filters, selection, Like, Add to playlist and Delete, and a details button that opens the song's details over the page and closes them again ([ACE-Step-Studio #48](https://github.com/timoncool/ACE-Step-Studio/issues/48)).
 - **OGG and FLAC songs can be imported into the library**, beside MP3 and WAV, and turned into MIDI, stems or karaoke like any other ([YuE2-Studio #94](https://github.com/timoncool/YuE2-Studio/issues/94)).
 - **The version in the window title and under the studio's name**, with "Portable" on a portable copy, so a copy waiting to be updated tells which it is ([ACE-Step-Studio #40](https://github.com/timoncool/ACE-Step-Studio/issues/40)).
@@ -14,6 +15,7 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- **An installation under Program Files downloads the engine's libraries.** The studio put NVIDIA's cuBLAS beside the engine, where Windows lets no program write without administrator rights, so an installed studio stood at "Downloading the engine library - 0%" for ever. Where the engine's folder cannot be written, the libraries now go to the studio's data folder and the engine finds them there ([ACE-Step-Studio #49](https://github.com/timoncool/ACE-Step-Studio/issues/49)).
 - **Stems, karaoke and Audio to MIDI work on Linux.** The studio downloaded the Windows builds of their runtimes on Linux and stopped there without a word. It now takes Microsoft's and NVIDIA's Linux builds of the same versions - ONNX Runtime with CUDA, cuBLAS, cuDNN, cuFFT, cuRAND - and Purfview's Linux Whisper, runs the separator and recogniser on an NVIDIA card there, and the Linux packages carry the MIDI transcriber ([YuE2-Studio #95](https://github.com/timoncool/YuE2-Studio/issues/95)).
 - **A download that cannot start says so in its panel** instead of leaving the bar where it was.
 - **"Use models I already have" takes only the models in the folder.** A file was taken for every model of the same size, and many models of one architecture weigh the same to the byte, so four files came in as a dozen models with the wrong weights under their names; a file under another name is now taken only when its contents are that model's ([ACE-Step-Studio #40](https://github.com/timoncool/ACE-Step-Studio/issues/40)).

@@ -889,7 +889,7 @@ pub async fn serve() -> anyhow::Result<()> {
         engine_options: Arc::new(RwLock::new(persisted.as_ref().map(|settings| settings.engine_options.clone()).unwrap_or_default())),
         failed_devices: Arc::new(RwLock::new(Vec::new())),
         active_device: Arc::new(RwLock::new(None)),
-        engine_runtime: Arc::new(engine_runtime::EngineRuntime::new(&engine_bundle_root())),
+        engine_runtime: Arc::new(engine_runtime::EngineRuntime::new(&engine_bundle_root(), &studio_data_root().unwrap_or_else(|| std::path::PathBuf::from(".")))),
         assistant: Arc::new(RwLock::new(persisted.as_ref().map(|settings| settings.assistant.clone()).unwrap_or_default())),
         assistant_runtime: Arc::new(assistant_runtime::AssistantRuntime::new(
             &studio_data_root().unwrap_or_else(|| std::path::PathBuf::from(".")),
@@ -6465,6 +6465,9 @@ struct MidiRequest {
     /// Or any audio file on this computer: its MIDI goes to the studio's folder.
     #[serde(default)]
     path: Option<String>,
+    /// Or several library tracks, one after another.
+    #[serde(default)]
+    song_ids: Option<Vec<String>>,
     #[serde(default)]
     size: Option<String>,
 }
@@ -6473,19 +6476,18 @@ struct MidiRequest {
 /// needs is downloaded first if it is not here yet.
 async fn start_midi(State(state): State<AppState>, Json(input): Json<MidiRequest>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
     card_free_of_training(&state, "turn tracks into MIDI").await?;
-    if state.midi_run.read().await.as_ref().is_some_and(|run| !run.done) {
+    if state.midi_run.read().await.as_ref().is_some_and(|run| !run.done || run.batch.as_ref().is_some_and(|batch| !batch.queued.is_empty())) {
         return Err(api_error(StatusCode::CONFLICT, "a track is already being turned into MIDI".into()));
     }
     let size = midi_size(input.size.as_deref().or(Some(preferred_midi_size(&state))))?;
+    let ids: Vec<String> = input.song_ids.unwrap_or_default().into_iter().map(|id| id.trim().to_string()).filter(|id| !id.is_empty()).collect();
+    if !ids.is_empty() {
+        return start_midi_batch(state, size, ids).await;
+    }
     let (song_id, title, audio, output) = match (input.song_id.filter(|id| !id.trim().is_empty()), input.path.filter(|path| !path.trim().is_empty())) {
         (Some(id), _) => {
-            let song = state
-                .library
-                .get_song(&id)
-                .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
-                .ok_or_else(|| api_error(StatusCode::NOT_FOUND, "Song not found".into()))?;
-            let audio = state.library.media_path_for_song(&song).ok_or_else(|| api_error(StatusCode::BAD_REQUEST, "this track has no stored audio".into()))?;
-            (Some(id.clone()), song.title.clone(), audio, midi_path(&state, &id))
+            let (title, audio) = midi_source(&state, &id)?;
+            (Some(id.clone()), title, audio, midi_path(&state, &id))
         }
         (None, Some(path)) => {
             let audio = PathBuf::from(path.trim());
@@ -6496,27 +6498,96 @@ async fn start_midi(State(state): State<AppState>, Json(input): Json<MidiRequest
             let output = state.midi.loose_output(&audio);
             (None, title, audio, output)
         }
-        _ => return Err(api_error(StatusCode::BAD_REQUEST, "song_id or path is required".into())),
+        _ => return Err(api_error(StatusCode::BAD_REQUEST, "song_id, song_ids or path is required".into())),
     };
     state.midi_stop.0.store(false, std::sync::atomic::Ordering::Relaxed);
     state.midi_notes.write().await.clear();
-    *state.midi_run.write().await = Some(midi::Run { song_id: song_id.clone(), title, size: size.id, stage: "preparing", chunks_done: 0, chunks_total: 0, notes: 0, done: false, error: None, file: None });
+    *state.midi_run.write().await = Some(midi::Run { song_id: song_id.clone(), title, size: size.id, stage: "preparing", chunks_done: 0, chunks_total: 0, notes: 0, done: false, error: None, file: None, batch: None });
     let background = state.clone();
     tokio::spawn(async move {
         let outcome = transcribe_to_midi(&background, size, &audio, &output).await;
-        if let Some(run) = background.midi_run.write().await.as_mut() {
-            run.done = true;
-            match outcome {
-                Ok(notes) => {
-                    run.stage = "done";
-                    run.notes = notes;
-                    run.file = Some(plain_path(&output));
+        finish_midi_run(&background, outcome, &output).await;
+    });
+    Ok(Json(serde_json::json!({ "started": true, "song_id": song_id, "size": size.id })))
+}
+
+/// A library track's title and its audio on disk.
+fn midi_source(state: &AppState, id: &str) -> Result<(String, PathBuf), (StatusCode, Json<ApiError>)> {
+    let song = state
+        .library
+        .get_song(id)
+        .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
+        .ok_or_else(|| api_error(StatusCode::NOT_FOUND, format!("Song {id} not found")))?;
+    let audio = state.library.media_path_for_song(&song).ok_or_else(|| api_error(StatusCode::BAD_REQUEST, format!("{} has no stored audio", song.title)))?;
+    Ok((song.title, audio))
+}
+
+/// Records how the run of the current track ended.
+async fn finish_midi_run(state: &AppState, outcome: anyhow::Result<usize>, output: &std::path::Path) {
+    if let Some(run) = state.midi_run.write().await.as_mut() {
+        run.done = true;
+        match outcome {
+            Ok(notes) => {
+                run.stage = "done";
+                run.notes = notes;
+                run.file = Some(plain_path(output));
+            }
+            Err(error) => run.error = Some(format!("{error:#}")),
+        }
+    }
+}
+
+/// Several library tracks, one after another. Every track is checked before the
+/// first starts; a track that fails is noted and the next one goes on, and
+/// stopping ends the set with the rest still queued.
+async fn start_midi_batch(state: AppState, size: &'static midi::Size, ids: Vec<String>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    let mut tracks = Vec::with_capacity(ids.len());
+    for id in &ids {
+        let (title, audio) = midi_source(&state, id)?;
+        tracks.push((id.clone(), title, audio));
+    }
+    let total = tracks.len();
+    let batch_at = |index: usize, failed: &[String]| midi::Batch { done: index, total, queued: tracks[index + 1..].iter().map(|(id, _, _)| id.clone()).collect(), failed: failed.to_vec() };
+    let run_for = |index: usize, failed: &[String]| midi::Run { song_id: Some(tracks[index].0.clone()), title: tracks[index].1.clone(), size: size.id, stage: "preparing", chunks_done: 0, chunks_total: 0, notes: 0, done: false, error: None, file: None, batch: Some(batch_at(index, failed)) };
+    state.midi_stop.0.store(false, std::sync::atomic::Ordering::Relaxed);
+    state.midi_notes.write().await.clear();
+    *state.midi_run.write().await = Some(run_for(0, &[]));
+    let runs: Vec<midi::Run> = (0..total).map(|index| run_for(index, &[])).collect();
+    let background = state.clone();
+    tokio::spawn(async move {
+        let mut failed: Vec<String> = Vec::new();
+        for (index, mut run) in runs.into_iter().enumerate() {
+            if index > 0 {
+                background.midi_notes.write().await.clear();
+                if let Some(batch) = run.batch.as_mut() {
+                    batch.failed = failed.clone();
                 }
-                Err(error) => run.error = Some(format!("{error:#}")),
+                *background.midi_run.write().await = Some(run.clone());
+            }
+            let Some(id) = run.song_id.clone() else { continue };
+            let output = midi_path(&background, &id);
+            let outcome = match background.library.get_song(&id).ok().flatten().and_then(|song| background.library.media_path_for_song(&song)) {
+                Some(audio) => transcribe_to_midi(&background, size, &audio, &output).await,
+                None => Err(anyhow::anyhow!("the track is no longer in the library")),
+            };
+            if let Err(error) = &outcome {
+                failed.push(format!("{}: {error:#}", run.title));
+            }
+            finish_midi_run(&background, outcome, &output).await;
+            let stopped = midi_stopped(&background);
+            if let Some(batch) = background.midi_run.write().await.as_mut().and_then(|current| current.batch.as_mut()) {
+                batch.done = index + 1;
+                batch.failed = failed.clone();
+                if stopped {
+                    batch.queued.clear();
+                }
+            }
+            if stopped {
+                break;
             }
         }
     });
-    Ok(Json(serde_json::json!({ "started": true, "song_id": song_id, "size": size.id })))
+    Ok(Json(serde_json::json!({ "started": true, "song_ids": ids, "size": size.id })))
 }
 
 async fn set_midi_stage(state: &AppState, stage: &'static str) {
