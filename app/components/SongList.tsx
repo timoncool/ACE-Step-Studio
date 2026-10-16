@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Song } from '../types';
-import { Play, MoreHorizontal, Heart, ListPlus, Pause, Search, Filter, Check, Globe, Lock, Loader2, Share2, Video, Info, Clock, Timer, ImagePlus, Pencil, Clapperboard, ListMusic, Trash2, Piano } from 'lucide-react';
+import { Play, MoreHorizontal, Heart, ListPlus, Pause, Search, Filter, Check, Loader2, Share2, Video, Info, Clock, Timer, ImagePlus, Pencil, Clapperboard, ListMusic, Trash2, Piano, Download, ListStart, ListEnd, Rows3, Rows4, Sparkles, FileAudio, GitBranch, Mic2, Layers } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
 import type { TranslationKey } from '../i18n/translations';
@@ -15,6 +15,8 @@ import { StemIcon, StemsToggle, useStemName } from './StemsToggle';
 import { SortMenu } from './SortMenu';
 import { exactMoment, relativeMoment } from '../services/dates';
 import { compareBy, SONG_ORDERS, useListOrder, type SongOrder } from '../services/songOrder';
+import { onPlayHistory } from '../services/playHistory';
+import { downloadSongAudio } from '../services/songDownload';
 import { TRACK_ARTIST } from '../services/studio';
 
 interface SongListProps {
@@ -59,6 +61,8 @@ interface SongListProps {
     onCancelAll?: () => void;
     onResetAll?: () => void;
     activeJobCount?: number;
+    /** What an empty list says when nothing is searched or filtered. */
+    emptyMessage?: string;
 }
 
 // ... existing code ...
@@ -66,7 +70,21 @@ interface SongListProps {
 
 
 // Define Filter Types
-type FilterType = 'liked' | 'public' | 'private' | 'generating';
+type FilterType = 'liked' | 'made' | 'imported' | 'derived' | 'karaoke' | 'versions' | 'generating';
+/** Where a song came from: these filters add up, the others narrow. */
+const SOURCE_FILTERS: FilterType[] = ['made', 'imported', 'derived'];
+const isImported = (song: Song) => song.ditModel === 'imported-audio';
+
+/** Rows with their cover, style and actions, or one line each. */
+type Density = 'comfortable' | 'compact';
+const DENSITY_KEY = 'studio.library.density';
+function readDensity(): Density {
+    try {
+        return window.localStorage.getItem(DENSITY_KEY) === 'compact' ? 'compact' : 'comfortable';
+    } catch {
+        return 'comfortable';
+    }
+}
 
 /// The badge names the complete component set the track was rendered with —
 /// that is what actually determines its fidelity.
@@ -151,9 +169,21 @@ export const SongList: React.FC<SongListProps> = ({
     onResetJob,
     onResetAll,
     activeJobCount = 0,
+    emptyMessage,
 }) => {
     const { user } = useAuth();
     const { t, songCount, language } = useI18n();
+    const songActions = useSongActions();
+    const [density, setDensity] = useState<Density>(readDensity);
+    const chooseDensity = (next: Density) => {
+        setDensity(next);
+        try { window.localStorage.setItem(DENSITY_KEY, next); } catch (error) { console.error('The list density could not be kept:', error); }
+    };
+    // the "recently played" order changes as songs play
+    const [playedTick, setPlayedTick] = useState(0);
+    useEffect(() => onPlayHistory(() => setPlayedTick(tick => tick + 1)), []);
+    // the row a shift-click selects from
+    const anchorId = useRef<string | null>(null);
     const [order, setOrder] = useListOrder(orderKey, defaultOrder, orders);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilters, setActiveFilters] = useState<Set<FilterType>>(new Set());
@@ -166,9 +196,12 @@ export const SongList: React.FC<SongListProps> = ({
     const filterRef = useRef<HTMLDivElement>(null);
 
     const FILTERS: { id: FilterType; label: string; icon: React.ReactNode }[] = [
+        { id: 'made', label: t('filterMade'), icon: <Sparkles size={16} /> },
+        { id: 'imported', label: t('filterImported'), icon: <FileAudio size={16} /> },
+        { id: 'derived', label: t('filterDerived'), icon: <GitBranch size={16} /> },
         { id: 'liked', label: t('liked'), icon: <Heart size={16} /> },
-        { id: 'public', label: t('public'), icon: <Globe size={16} /> },
-        { id: 'private', label: t('private'), icon: <Lock size={16} /> },
+        { id: 'karaoke', label: t('filterKaraoke'), icon: <Mic2 size={16} /> },
+        { id: 'versions', label: t('filterVersions'), icon: <Layers size={16} /> },
         { id: 'generating', label: t('generatingStatus'), icon: <Loader2 size={16} /> }
     ];
 
@@ -179,8 +212,15 @@ export const SongList: React.FC<SongListProps> = ({
                 setIsFilterOpen(false);
             }
         };
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setIsFilterOpen(false);
+        };
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleEscape);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleEscape);
+        };
     }, []);
 
     useEffect(() => {
@@ -236,9 +276,14 @@ export const SongList: React.FC<SongListProps> = ({
             // 2. Filter Logic
             if (activeFilters.size === 0) return true;
 
+            const sources = SOURCE_FILTERS.filter(filter => activeFilters.has(filter));
+            if (sources.length) {
+                const source: FilterType = isImported(song) ? 'imported' : song.derived ? 'derived' : 'made';
+                if (!sources.includes(source)) return false;
+            }
             if (activeFilters.has('liked') && !likedSongIds.has(song.id)) return false;
-            if (activeFilters.has('public') && !song.isPublic) return false;
-            if (activeFilters.has('private') && song.isPublic) return false;
+            if (activeFilters.has('karaoke') && !song.lrcContent) return false;
+            if (activeFilters.has('versions') && !(song.audioVersions?.length)) return false;
             if (activeFilters.has('generating') && !song.isGenerating) return false;
 
             return true;
@@ -283,7 +328,7 @@ export const SongList: React.FC<SongListProps> = ({
             b.type === 'song' ? b.song : { createdAt: b.createdAt, title: b.track.filename },
         ));
         return [...cards, ...finished];
-    }, [listedSongs, filteredUploads, order, language]);
+    }, [listedSongs, filteredUploads, order, language, order === 'recentlyPlayed' ? playedTick : 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // what plays after a song: the list's songs in the order shown
     const queue = useMemo(
@@ -299,6 +344,61 @@ export const SongList: React.FC<SongListProps> = ({
 
     const allSelected = selectableSongs.length > 0 && selectableSongs.every(song => selectedIds.has(song.id));
     const selectedSongs = selectableSongs.filter(song => selectedIds.has(song.id));
+    const allSelectedLiked = selectedSongs.length > 0 && selectedSongs.every(song => likedSongIds.has(song.id));
+
+    const leaveSelection = () => {
+        setIsSelecting(false);
+        setSelectedIds(new Set());
+        anchorId.current = null;
+    };
+    // a click marks one row; with shift, every row from the last one marked
+    const toggleSelected = (song: Song, range: boolean) => {
+        if (isCard(song)) return;
+        const order = selectableSongs.map(entry => entry.id);
+        const from = anchorId.current ? order.indexOf(anchorId.current) : -1;
+        const to = order.indexOf(song.id);
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (range && from >= 0 && to >= 0) {
+                const mark = prev.has(anchorId.current!) ;
+                order.slice(Math.min(from, to), Math.max(from, to) + 1).forEach(id => (mark ? next.add(id) : next.delete(id)));
+            } else if (next.has(song.id)) next.delete(song.id);
+            else next.add(song.id);
+            return next;
+        });
+        if (!range) anchorId.current = song.id;
+    };
+    // Escape leaves the selection, Ctrl+A marks every row, as in a file manager
+    useEffect(() => {
+        if (!isSelecting) return undefined;
+        const key = (event: KeyboardEvent) => {
+            const target = event.target as HTMLElement | null;
+            if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+            if (event.defaultPrevented || document.querySelector('[role="dialog"], [role="menu"]')) return;
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                leaveSelection();
+            } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+                event.preventDefault();
+                setSelectedIds(new Set(selectableSongs.map(song => song.id)));
+            }
+        };
+        window.addEventListener('keydown', key);
+        return () => window.removeEventListener('keydown', key);
+    }, [isSelecting, selectableSongs]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const [downloading, setDownloading] = useState(false);
+    const downloadSelected = async () => {
+        setDownloading(true);
+        try {
+            for (const song of selectedSongs.filter(entry => entry.audioUrl)) await downloadSongAudio(song);
+        } catch (error) {
+            console.error('Download failed:', error);
+            window.alert(error instanceof Error ? error.message : String(error));
+        } finally {
+            setDownloading(false);
+        }
+    };
 
     // one row for a song and for each of its stems; a song keeps the key of the
     // row it took over, so a finished card turns into its song in place
@@ -310,25 +410,19 @@ export const SongList: React.FC<SongListProps> = ({
             isCurrent={currentSong?.id === song.id}
             isSelected={selectedSong?.id === song.id}
             isSelectionMode={isSelecting}
+            compact={density === 'compact'}
             isChecked={selectedIds.has(song.id)}
             isLiked={likedSongIds.has(song.id)}
             isPlaying={isPlaying}
             isOwner={ownsSong(user, song)}
             onPlay={play}
             onSelect={() => onSelect(song)}
+            onRowClick={isSelecting && !isCard(song) ? (range) => toggleSelected(song, range) : undefined}
             onOpenOriginal={(() => {
                 const original = song.derived ? songsById.get(song.derived.from) : undefined;
                 return original ? () => onSelect(original) : undefined;
             })()}
-            onToggleSelect={() => {
-                if (isCard(song)) return;
-                setSelectedIds(prev => {
-                    const next = new Set(prev);
-                    if (next.has(song.id)) next.delete(song.id);
-                    else next.add(song.id);
-                    return next;
-                });
-            }}
+            onToggleSelect={(range) => toggleSelected(song, range)}
             onToggleLike={() => onToggleLike(song.id)}
             onAddToPlaylist={() => onAddToPlaylist(song)}
             onOpenCoverRegen={() => onOpenCoverRegen && onOpenCoverRegen(song)}
@@ -402,7 +496,7 @@ export const SongList: React.FC<SongListProps> = ({
 
                             {/* Filter Dropdown */}
                             {isFilterOpen && (
-                                <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-suno-card border border-zinc-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden py-1 z-50 animate-in fade-in zoom-in-95 duration-100 origin-top-right">
+                                <div role="menu" className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-suno-card border border-zinc-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden py-1 z-50 animate-in fade-in zoom-in-95 duration-100 origin-top-right">
                                     <div className="px-3 py-2 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
                                         {t('refineBy')}
                                     </div>
@@ -436,10 +530,21 @@ export const SongList: React.FC<SongListProps> = ({
                         <SortMenu order={order} orders={orders} onChange={setOrder} />
 
                         <button
+                            type="button"
+                            onClick={() => chooseDensity(density === 'compact' ? 'comfortable' : 'compact')}
+                            aria-pressed={density === 'compact'}
+                            {...named(density === 'compact' ? t('listComfortable') : t('listCompact'))}
+                            className="flex select-none items-center rounded-lg border border-zinc-200 bg-zinc-100 px-3 py-2.5 text-zinc-700 transition-all hover:bg-zinc-200 dark:border-white/10 dark:bg-suno-panel dark:text-white dark:hover:bg-white/5"
+                        >
+                            {density === 'compact' ? <Rows3 size={14} /> : <Rows4 size={14} />}
+                        </button>
+
+                        <button
                             onClick={() => {
-                                setIsSelecting(prev => !prev);
-                                setSelectedIds(new Set());
+                                if (isSelecting) leaveSelection();
+                                else setIsSelecting(true);
                             }}
+                            aria-pressed={isSelecting}
                             className={`border text-xs font-bold px-4 py-2.5 rounded-lg flex items-center gap-2 transition-all select-none ${isSelecting
                                     ? 'bg-zinc-900 dark:bg-white text-white dark:text-black border-transparent'
                                     : 'bg-zinc-100 dark:bg-suno-panel hover:bg-zinc-200 dark:hover:bg-white/5 border-zinc-200 dark:border-white/10 text-zinc-700 dark:text-white'
@@ -471,12 +576,20 @@ export const SongList: React.FC<SongListProps> = ({
                         )}
                     </div>
 
-                    {isSelecting && (
-                        <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-3">
-                            <div className="text-sm text-zinc-600 dark:text-zinc-300">
+                    {(searchQuery || activeFilters.size > 0) && listItems.length > 0 && (
+                        <p className="-mt-3 text-xs text-zinc-500" role="status">
+                            {t('shownOf').replace('{shown}', String(listItems.length)).replace('{total}', String(songs.length))}
+                        </p>
+                    )}
+                </div>
+
+                {isSelecting && (
+                        <div className="sticky top-0 z-30 -mt-4 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50/95 px-4 py-3 shadow-lg backdrop-blur-sm dark:border-white/10 dark:bg-zinc-900/95">
+                            <div className="flex items-center gap-3 text-sm text-zinc-600 dark:text-zinc-300" role="status">
                                 {selectedSongs.length} {t('nSelected')}
+                                <span className="hidden text-xs text-zinc-400 lg:inline">{t('selectionKeysHint')}</span>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                                 <button
                                     onClick={() => {
                                         const next = new Set<string>();
@@ -488,6 +601,43 @@ export const SongList: React.FC<SongListProps> = ({
                                     className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-white/20"
                                 >
                                     {allSelected ? t('clearAll') : t('selectAll')}
+                                </button>
+                                {songActions.queue && (
+                                    <>
+                                        <button
+                                            onClick={() => selectedSongs.length && songActions.queue?.(selectedSongs, true)}
+                                            disabled={!selectedSongs.length}
+                                            className="flex items-center gap-1.5 rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:border-zinc-200 disabled:text-zinc-400 dark:border-white/20 dark:text-zinc-200 dark:hover:bg-white/10 dark:disabled:border-white/10"
+                                        >
+                                            <ListStart size={14} />
+                                            {t('playNextMenu')}
+                                        </button>
+                                        <button
+                                            onClick={() => selectedSongs.length && songActions.queue?.(selectedSongs, false)}
+                                            disabled={!selectedSongs.length}
+                                            className="flex items-center gap-1.5 rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:border-zinc-200 disabled:text-zinc-400 dark:border-white/20 dark:text-zinc-200 dark:hover:bg-white/10 dark:disabled:border-white/10"
+                                        >
+                                            <ListEnd size={14} />
+                                            {t('addToQueueMenu')}
+                                        </button>
+                                    </>
+                                )}
+                                <button
+                                    onClick={() => selectedSongs.filter(song => likedSongIds.has(song.id) === allSelectedLiked).forEach(song => onToggleLike(song.id))}
+                                    disabled={!selectedSongs.length}
+                                    aria-pressed={allSelectedLiked}
+                                    className="flex items-center gap-1.5 rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:border-zinc-200 disabled:text-zinc-400 dark:border-white/20 dark:text-zinc-200 dark:hover:bg-white/10 dark:disabled:border-white/10"
+                                >
+                                    <Heart size={14} fill={allSelectedLiked ? 'currentColor' : 'none'} />
+                                    {allSelectedLiked ? t('unlikeSelected') : t('likeSelected')}
+                                </button>
+                                <button
+                                    onClick={() => void downloadSelected()}
+                                    disabled={!selectedSongs.length || downloading}
+                                    className="flex items-center gap-1.5 rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:border-zinc-200 disabled:text-zinc-400 dark:border-white/20 dark:text-zinc-200 dark:hover:bg-white/10 dark:disabled:border-white/10"
+                                >
+                                    {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                                    {t('download')}
                                 </button>
                                 {onAddManyToPlaylist && (
                                     <button
@@ -525,8 +675,7 @@ export const SongList: React.FC<SongListProps> = ({
                                     onClick={() => {
                                         if (!selectedSongs.length) return;
                                         onDeleteMany?.(selectedSongs);
-                                        setSelectedIds(new Set());
-                                        setIsSelecting(false);
+                                        leaveSelection();
                                     }}
                                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${selectedSongs.length
                                             ? 'border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10'
@@ -539,7 +688,6 @@ export const SongList: React.FC<SongListProps> = ({
                             </div>
                         </div>
                     )}
-                </div>
 
                 {/* List */}
                 <div className="space-y-2"> {/* Reduced vertical spacing */}
@@ -551,10 +699,10 @@ export const SongList: React.FC<SongListProps> = ({
                     ) : listItems.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-64 text-zinc-500 space-y-4 border border-dashed border-zinc-200 dark:border-white/5 rounded-2xl bg-zinc-50 dark:bg-white/2">
                             <div className="w-16 h-16 rounded-full bg-zinc-100 dark:bg-white/5 flex items-center justify-center">
-                                {scopeName && !searchQuery && activeFilters.size === 0 ? <ListMusic size={32} /> : <Filter size={32} />}
+                                {!searchQuery && activeFilters.size === 0 ? <ListMusic size={32} /> : <Filter size={32} />}
                             </div>
-                            {scopeName && !searchQuery && activeFilters.size === 0 ? (
-                                <p className="max-w-xs text-center font-medium">{t('playlistEmptyCreate')}</p>
+                            {!searchQuery && activeFilters.size === 0 ? (
+                                <p className="max-w-xs text-center font-medium">{emptyMessage ?? (scopeName ? t('playlistEmptyCreate') : t('noSongsYet'))}</p>
                             ) : (
                                 <>
                                     <p className="font-medium">{t('noSongsMatchFilters')}</p>
@@ -620,13 +768,17 @@ interface SongItemProps {
     isCurrent: boolean;
     isSelected: boolean;
     isSelectionMode: boolean;
+    /** One line per song: small cover, title, length and the main actions. */
+    compact?: boolean;
     isChecked: boolean;
     isLiked: boolean;
     isPlaying: boolean;
     isOwner: boolean;
     onPlay: () => void;
     onSelect: () => void;
-    onToggleSelect: () => void;
+    /** In the selection, a click on the row marks it; true when shift holds, for a range. */
+    onRowClick?: (range: boolean) => void;
+    onToggleSelect: (range: boolean) => void;
     onToggleLike: () => void;
     onAddToPlaylist: () => void;
     onOpenCoverRegen?: () => void;
@@ -649,12 +801,14 @@ const SongItem: React.FC<SongItemProps> = ({
     isCurrent,
     isSelected,
     isSelectionMode,
+    compact = false,
     isChecked,
     isLiked,
     isPlaying,
     isOwner,
     onPlay,
     onSelect,
+    onRowClick,
     onToggleSelect,
     onToggleLike,
     onAddToPlaylist,
@@ -673,6 +827,8 @@ const SongItem: React.FC<SongItemProps> = ({
     const { t, language } = useI18n();
     const stemName = useStemName();
     const [showDropdown, setShowDropdown] = useState(false);
+    // the same menu, opened by a right click where the pointer is
+    const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const songActions = useSongActions();
     const [editedTitle, setEditedTitle] = useState(song.title);
@@ -721,7 +877,13 @@ const SongItem: React.FC<SongItemProps> = ({
         <>
         <div
             data-mcp-context={`song ${song.id}: ${song.title}`}
-            onClick={onSelect}
+            onClick={(event) => (onRowClick ? onRowClick(event.shiftKey) : onSelect())}
+            onContextMenu={(event) => {
+                if (isCard(song) || song.id.startsWith('upload_')) return;
+                event.preventDefault();
+                setShowDropdown(false);
+                setMenuAt({ x: event.clientX, y: event.clientY });
+            }}
             draggable={Boolean(song.audioUrl) && !song.isGenerating}
             onDragStart={(e) => {
                 if (!song.audioUrl || song.isGenerating) return;
@@ -744,14 +906,14 @@ const SongItem: React.FC<SongItemProps> = ({
                     }
                 }, 0);
             }}
-            className={`group flex min-w-0 items-center gap-2 rounded-lg border p-2 transition-all hover:bg-zinc-100 dark:hover:bg-suno-card sm:gap-4 ${isSelected ? 'bg-zinc-100 dark:bg-suno-card border-zinc-200 dark:border-white/10' : 'border-transparent bg-transparent'} ${song.audioUrl && !song.isGenerating ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            className={`group flex min-w-0 items-center gap-2 rounded-lg border transition-all hover:bg-zinc-100 dark:hover:bg-suno-card sm:gap-4 ${compact ? 'px-2 py-1' : 'p-2'} ${isSelected || isChecked ? 'bg-zinc-100 dark:bg-suno-card border-zinc-200 dark:border-white/10' : 'border-transparent bg-transparent'} ${song.audioUrl && !song.isGenerating ? (onRowClick ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing') : ''}`}
         >
             {isSelectionMode && (
                 <button
                     type="button"
                     onClick={(e) => {
                         e.stopPropagation();
-                        onToggleSelect();
+                        onToggleSelect(e.shiftKey);
                     }}
                     className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isChecked
                             ? 'bg-pink-600 border-pink-600 text-white'
@@ -765,7 +927,7 @@ const SongItem: React.FC<SongItemProps> = ({
             )}
 
             {/* Cover Art - Reduced size */}
-            <div className="relative w-16 h-16 shrink-0 rounded-md bg-zinc-200 dark:bg-zinc-800 overflow-hidden shadow-xs group/image">
+            <div className={`relative shrink-0 rounded-md bg-zinc-200 dark:bg-zinc-800 overflow-hidden shadow-xs group/image ${compact ? 'h-10 w-10' : 'h-16 w-16'}`}>
                 <SongCover song={song} size="full" className={`w-full h-full transition-opacity ${song.isGenerating ? 'opacity-20 blur-xs' : 'opacity-100'}`} />
 
                 {song.isGenerating ? (
@@ -796,11 +958,11 @@ const SongItem: React.FC<SongItemProps> = ({
                             onPlay();
                         }}
                     >
-                        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-lg transform transition-transform hover:scale-105">
+                        <div className={`rounded-full bg-white flex items-center justify-center shadow-lg transform transition-transform hover:scale-105 ${compact ? 'h-7 w-7' : 'h-10 w-10'}`}>
                             {isCurrent && isPlaying ? (
-                                <Pause fill="black" className="text-black w-5 h-5" />
+                                <Pause fill="black" className={`text-black ${compact ? 'h-3.5 w-3.5' : 'h-5 w-5'}`} />
                             ) : (
-                                <Play fill="black" className="text-black ml-1 w-5 h-5" />
+                                <Play fill="black" className={`text-black ml-0.5 ${compact ? 'h-3.5 w-3.5' : 'h-5 w-5'}`} />
                             )}
                         </div>
                     </div>
@@ -808,8 +970,8 @@ const SongItem: React.FC<SongItemProps> = ({
             </div>
 
             {/* Content */}
-            <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
-                <div className="space-y-1">
+            <div className={`flex-1 min-w-0 ${compact ? 'flex items-center gap-2 sm:gap-3' : 'flex flex-col justify-between py-1'}`}>
+                <div className={compact ? 'min-w-0 flex-1' : 'space-y-1'}>
                     <div className="flex items-center gap-2">
                         {isEditingTitle && isOwner ? (
                             <input
@@ -820,11 +982,11 @@ const SongItem: React.FC<SongItemProps> = ({
                                 onBlur={handleSaveTitle}
                                 onKeyDown={handleTitleKeyDown}
                                 onClick={(e) => e.stopPropagation()}
-                                className="font-bold text-lg bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-sm border border-pink-500 focus:outline-hidden text-zinc-900 dark:text-white min-w-0 flex-1"
+                                className={`font-bold bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-sm border border-pink-500 focus:outline-hidden text-zinc-900 dark:text-white min-w-0 flex-1 ${compact ? 'text-sm' : 'text-lg'}`}
                             />
                         ) : (
                             <h3
-                                className={`font-bold text-lg truncate ${isCurrent ? 'text-pink-600 dark:text-pink-500' : 'text-zinc-900 dark:text-white'} ${isOwner && !song.isGenerating ? 'cursor-pointer hover:underline' : ''}`}
+                                className={`min-w-0 font-bold truncate ${compact ? 'text-sm' : 'text-lg'} ${isCurrent ? 'text-pink-600 dark:text-pink-500' : 'text-zinc-900 dark:text-white'} ${isOwner && !song.isGenerating ? 'cursor-pointer hover:underline' : ''}`}
                                 onClick={(e) => {
                                     if (isOwner && !song.isGenerating) {
                                         e.stopPropagation();
@@ -851,7 +1013,7 @@ const SongItem: React.FC<SongItemProps> = ({
                                 <StemIcon song={song} size={11} />
                                 {stemName(song)}
                             </span>
-                        ) : song.derived && (
+                        ) : song.derived && !compact && (
                             <button
                                 type="button"
                                 disabled={!onOpenOriginal}
@@ -864,7 +1026,7 @@ const SongItem: React.FC<SongItemProps> = ({
                             </button>
                         )}
                         <span
-                          className="inline-flex items-center justify-center text-[9px] font-bold text-white bg-linear-to-r from-pink-500 to-purple-500 px-1.5 py-0.5 rounded-xs shadow-xs"
+                          className={`hidden sm:inline-flex shrink-0 items-center justify-center text-[9px] font-bold text-white bg-linear-to-r from-pink-500 to-purple-500 px-1.5 py-0.5 rounded-xs shadow-xs`}
                           title={[
                             `DiT: ${song.ditModel || '?'}`,
                             // Only show LM line when a real local model was used
@@ -877,18 +1039,18 @@ const SongItem: React.FC<SongItemProps> = ({
                         >
                             {getProfileBadge(song)}
                         </span>
-                        {song.generationTime != null && song.generationTime > 0 && (
+                        {!compact && song.generationTime != null && song.generationTime > 0 && (
                             <span className="inline-flex items-center gap-0.5 text-[9px] text-zinc-400 dark:text-zinc-500" title={t('generationTime') || 'Generation time'}>
                                 <Timer size={10} />
                                 {song.generationTime}s
                             </span>
                         )}
                     </div>
-                    <div className="flex h-5 items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    <div className={`flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 ${compact ? 'hidden' : 'h-5'}`}>
                         <span>{song.ditModel === 'imported-audio' ? t('importedAudio') : TRACK_ARTIST}</span>
                         {song.nativeReplayAvailable && <span title={t('replayAvailable')} className="rounded-sm bg-zinc-200/70 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide dark:bg-white/10">replay</span>}
                     </div>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-500 line-clamp-2 pt-1 font-medium max-w-2xl">
+                    <p className={`text-xs text-zinc-500 dark:text-zinc-500 font-medium max-w-2xl ${compact ? 'truncate' : 'line-clamp-2 pt-1'}`}>
                         {captionSummary(song.style)}
                     </p>
                 </div>
@@ -896,7 +1058,7 @@ const SongItem: React.FC<SongItemProps> = ({
                 {/* One slot for the progress and, once the song is made, its
                     actions: the row keeps its height when a card becomes a song. */}
                 {isCard(song) ? (
-                    <div className="flex h-10 items-center pt-2">
+                    <div className={compact ? 'w-24 shrink-0' : 'flex h-10 items-center pt-2'}>
                         {song.isGenerating && (
                             <div className="h-1 w-full rounded-full bg-zinc-200/70 dark:bg-white/10 overflow-hidden">
                                 <div
@@ -912,9 +1074,9 @@ const SongItem: React.FC<SongItemProps> = ({
                         )}
                     </div>
                 ) : (
-                    <div className="flex h-10 items-center gap-1 pt-2">
+                    <div className={compact ? 'flex shrink-0 items-center gap-0.5' : 'flex h-10 items-center gap-1 pt-2'}>
                         <button
-                            className={`flex items-center gap-1 px-3 py-1.5 rounded-full hover:bg-white/5 transition-colors ${isLiked ? 'text-pink-600 dark:text-pink-500 bg-pink-100 dark:bg-pink-500/10' : 'text-zinc-400 hover:text-black dark:hover:text-white'}`}
+                            className={`flex items-center gap-1 ${compact ? 'p-2' : 'px-3 py-1.5'} rounded-full hover:bg-white/5 transition-colors ${isLiked ? 'text-pink-600 dark:text-pink-500 bg-pink-100 dark:bg-pink-500/10' : 'text-zinc-400 hover:text-black dark:hover:text-white'}`}
                             onClick={(e) => { e.stopPropagation(); onToggleLike(); }}
                             {...named(t('like'))}
                             aria-pressed={isLiked}
@@ -928,9 +1090,9 @@ const SongItem: React.FC<SongItemProps> = ({
                         {/* Manual cover regeneration — opens CoverRegenModal where the user can
                             pick a model + prompt and either generate via Pollinations or
                             upload a custom image from disk. Only shown for owned songs. */}
-                        {isOwner && (
+                        {isOwner && !compact && (
                             <button
-                                className="p-2 rounded-full hover:bg-zinc-200 dark:hover:bg-white/5 text-zinc-400 hover:text-black dark:hover:text-white transition-colors"
+                                className="hidden p-2 rounded-full hover:bg-zinc-200 dark:hover:bg-white/5 text-zinc-400 hover:text-black dark:hover:text-white transition-colors sm:block"
                                 onClick={(e) => { e.stopPropagation(); if (onOpenCoverRegen) onOpenCoverRegen(); }}
                                 {...named(t('coverRegen.openTooltip'))}
                             >
@@ -938,9 +1100,9 @@ const SongItem: React.FC<SongItemProps> = ({
                             </button>
                         )}
 
-                        {songActions.exportVideo && song.audioUrl && !song.isGenerating && (
+                        {songActions.exportVideo && song.audioUrl && !song.isGenerating && !compact && (
                             <button
-                                className="p-2 rounded-full hover:bg-zinc-200 dark:hover:bg-white/5 text-zinc-400 hover:text-black dark:hover:text-white transition-colors"
+                                className="hidden p-2 rounded-full sm:block hover:bg-zinc-200 dark:hover:bg-white/5 text-zinc-400 hover:text-black dark:hover:text-white transition-colors"
                                 onClick={(e) => { e.stopPropagation(); songActions.exportVideo?.(song); }}
                                 {...named(t('videoExport'))}
                             >
@@ -949,7 +1111,7 @@ const SongItem: React.FC<SongItemProps> = ({
                         )}
 
                         <button
-                            className="p-2 rounded-full hover:bg-zinc-200 dark:hover:bg-white/5 text-zinc-400 hover:text-black dark:hover:text-white transition-colors ml-auto"
+                            className={`p-2 rounded-full hover:bg-zinc-200 dark:hover:bg-white/5 text-zinc-400 hover:text-black dark:hover:text-white transition-colors ${compact ? 'hidden sm:block' : 'ml-auto'}`}
                             onClick={(e) => { e.stopPropagation(); onAddToPlaylist(); }}
                             {...named(t('addToPlaylist'))}
                         >
@@ -958,7 +1120,7 @@ const SongItem: React.FC<SongItemProps> = ({
 
                         {onDelete && (
                             <button
-                                className="p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10 text-zinc-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                                className={`p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10 text-zinc-400 hover:text-red-600 dark:hover:text-red-400 transition-colors ${compact ? 'hidden sm:block' : ''}`}
                                 onClick={(e) => { e.stopPropagation(); onDelete(); }}
                                 {...named(t('delete'))}
                             >
@@ -995,13 +1157,21 @@ const SongItem: React.FC<SongItemProps> = ({
                                 isOpen={showDropdown}
                                 onClose={() => setShowDropdown(false)}
                             />
+                            {menuAt && (
+                                <SongDropdownMenu
+                                    song={song}
+                                    isOpen
+                                    at={menuAt}
+                                    onClose={() => setMenuAt(null)}
+                                />
+                            )}
                         </div>
                     </div>
                 )}
             </div>
 
             {/* Timestamp / Status */}
-            <div className="text-xs font-mono text-zinc-500 dark:text-zinc-600 self-start pt-1 text-right">
+            <div className={`text-xs font-mono text-zinc-500 dark:text-zinc-600 text-right ${compact ? (isCard(song) ? 'w-20 shrink-0 self-center' : 'hidden w-12 shrink-0 self-center sm:block') : 'self-start pt-1'}`}>
                 {song.isGenerating ? (
                     <div className="flex flex-col items-end gap-0.5">
                         <span className={song.queuePosition ? 'text-amber-500' : 'text-pink-500'}>
@@ -1031,7 +1201,7 @@ const SongItem: React.FC<SongItemProps> = ({
                     <div className="flex flex-col items-end gap-0.5">
                         <span>{song.duration}</span>
                         {/* when it was made: how long ago, the exact moment on hover */}
-                        <time dateTime={song.createdAt.toISOString()} title={exactMoment(song.createdAt, language)} className="font-sans text-[10px]">
+                        <time dateTime={song.createdAt.toISOString()} title={exactMoment(song.createdAt, language)} className={`font-sans text-[10px] ${compact ? 'hidden' : ''}`}>
                             {relativeMoment(song.createdAt, language)}
                         </time>
                     </div>

@@ -18,6 +18,8 @@ export interface SongActions {
   addToPlaylist?: (song: Song) => void;
   remove?: (song: Song) => void;
   update?: (song: Song) => void;
+  /** Puts songs right after the one playing (next) or at the end of the queue. */
+  queue?: (songs: Song[], next: boolean) => void;
 }
 
 const SongActionsContext = createContext<SongActions>({});

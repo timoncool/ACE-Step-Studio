@@ -1151,6 +1151,12 @@ fn tools() -> &'static [Tool] {
                 call: |args| window("player_previous", args, 15),
             },
             Tool {
+                name: "player_queue_add",
+                description: "Queue library songs in the studio's player without stopping what plays: next=true puts them right after the song playing (Play next), otherwise at the end of the queue (Add to queue). With nothing loaded the first of them starts. In the Winamp mode they go to the end of Winamp's list.",
+                schema: || object(json!({ "song_ids": { "type": "array", "items": { "type": "string" } }, "next": { "type": "boolean" } }), &["song_ids"]),
+                call: |args| window("player_queue_add", args, 15),
+            },
+            Tool {
                 name: "player_set",
                 description: "Set the player's volume (0 to 1), shuffle, and repeat (none, all, one).",
                 schema: || object(json!({ "volume": { "type": "number" }, "shuffle": { "type": "boolean" }, "repeat": { "type": "string", "enum": ["none", "all", "one", "stop"], "description": "stop: play the current track to its end and stay there" } }), &[]),
@@ -1586,7 +1592,7 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "playlist_update",
-                description: "Rename a playlist or set its songs.",
+                description: "Rename a playlist, change its description, or set its songs: song_ids is the whole list in its order, so it also reorders, adds and removes.",
                 schema: || object(json!({ "playlist_id": { "type": "string" }, "name": { "type": "string" }, "description": { "type": "string" }, "song_ids": { "type": "array", "items": { "type": "string" } } }), &["playlist_id", "name"]),
                 call: |args| send(Method::PUT, format!("/v1/library/playlists/{}", segment(&text(args, "playlist_id")?)), body_without(args, &["playlist_id"])),
             },

@@ -115,6 +115,7 @@ import { PlayerExtras } from './components/player/PlayerExtras';
 import { registerPlayer } from './services/audioGraph';
 import { serveVisualizerFeed } from './services/visualizerFeed';
 import { winampControl, winampOn } from './services/winamp';
+import { notePlayed } from './services/playHistory';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { SetupGate } from './components/SetupGate';
 import { EngineStarting } from './components/EngineStarting';
@@ -352,6 +353,8 @@ function AppContent() {
 
   // Playlist View
   const [viewingPlaylistId, setViewingPlaylistId] = useState<string | null>(null);
+  // the studio playlist the queue was started from: Winamp's SAVE LIST offers it first
+  const [queuePlaylistId, setQueuePlaylistId] = useState<string | null>(null);
 
   // Reuse State
   const [reuseData, setReuseData] = useState<{ song: Song, timestamp: number } | null>(null);
@@ -366,7 +369,7 @@ function AppContent() {
   const [showMobileDetails, setShowMobileDetails] = useState(false);
 
   // Toast State
-  const [toast, setToast] = useState<{ message: string; type: ToastType; isVisible: boolean }>({
+  const [toast, setToast] = useState<{ message: string; type: ToastType; isVisible: boolean; action?: { label: string; onClick: () => void } }>({
     message: '',
     type: 'success',
     isVisible: false,
@@ -381,8 +384,8 @@ function AppContent() {
 
 
   // a message shown for a moment stays readable in the journal
-  const showToast = (message: string, type: ToastType = 'success') => {
-    setToast({ message, type, isVisible: true });
+  const showToast = (message: string, type: ToastType = 'success', action?: { label: string; onClick: () => void }) => {
+    setToast({ message, type, isVisible: true, action });
     noteStudioMessage(message, type);
   };
 
@@ -636,6 +639,11 @@ function AppContent() {
     playNextRef.current = playNext;
   }, [playNext]);
 
+  // the "recently played" order reads when each song last played
+  useEffect(() => {
+    if (currentSong && isPlaying) notePlayed(currentSong.id);
+  }, [currentSong?.id, isPlaying]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Audio Setup
   useEffect(() => {
     audioRef.current = new Audio();
@@ -812,6 +820,7 @@ function AppContent() {
     const nextIndex = nextQueue.findIndex(s => s.id === song.id);
     setPlayQueue(nextQueue);
     setQueueIndex(nextIndex);
+    if (list) setQueuePlaylistId(null);
 
     if (currentSong?.id !== song.id) {
       const updatedSong = { ...song, viewCount: (song.viewCount || 0) + 1 };
@@ -824,6 +833,38 @@ function AppContent() {
     }
     if (currentSong?.id === song.id) {
       setSelectedSong(song);
+    }
+  };
+
+  const playFromPlaylist = (playlistId: string) => (song: Song, list?: Song[]) => {
+    playSong(song, list);
+    setQueuePlaylistId(playlistId);
+  };
+
+  // "play next" goes right after the song playing, "add to queue" to the end of what plays
+  const queueSongs = (chosen: Song[], next: boolean): { count: number; started: boolean } => {
+    const playable = chosen.filter(song => song.audioUrl && !song.isGenerating && song.id !== currentSong?.id);
+    if (!playable.length) throw new Error(t('nothingToQueue'));
+    if (!currentSong) {
+      playSong(playable[0], playable);
+      return { count: playable.length, started: true };
+    }
+    const active = getActiveQueue();
+    const base = active.some(s => s.id === currentSong.id) ? active : [currentSong, ...active];
+    const ids = new Set(playable.map(s => s.id));
+    const rest = base.filter(s => !ids.has(s.id));
+    const at = next ? rest.findIndex(s => s.id === currentSong.id) + 1 : rest.length;
+    const nextQueue = [...rest.slice(0, at), ...playable, ...rest.slice(at)];
+    setPlayQueue(nextQueue);
+    setQueueIndex(nextQueue.findIndex(s => s.id === currentSong.id));
+    return { count: playable.length, started: false };
+  };
+  const queueFromWindow = (chosen: Song[], next: boolean) => {
+    try {
+      const { count, started } = queueSongs(chosen, next);
+      showToast((started ? t('queueStarted') : next ? t('queuedNext') : t('queuedLast')).replace('{count}', String(count)));
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : String(error), 'error');
     }
   };
 
@@ -910,6 +951,13 @@ function AppContent() {
     if (winampControl()) return inWinamp({ action: 'next' });
     playNext();
     return { text: 'Next song.' };
+  });
+  useBridgeCommand('player_queue_add', ({ song_ids, next }) => {
+    if (!Array.isArray(song_ids) || !song_ids.length) throw new Error('song_ids takes the songs to queue.');
+    const list = song_ids.map((id) => songById(id));
+    if (winampControl()) return inWinamp({ append_song_ids: list.map((song) => song.id) });
+    const { count, started } = queueSongs(list, Boolean(next));
+    return { text: started ? `Nothing was playing: ${count} song(s) became the queue and the first plays.` : `${count} song(s) ${next ? 'play next' : 'are at the end of the queue'}.` };
   });
   useBridgeCommand('player_previous', () => {
     if (winampControl()) return inWinamp({ action: 'previous' });
@@ -1067,10 +1115,20 @@ function AppContent() {
     try {
       const playlist = playlists.find(item => item.id === playlistId);
       if (!playlist) throw new Error('Playlist was not found in the local library');
-      const songIds = Array.from(new Set([...(playlist.songIds || []), ...songsToAddToPlaylist.map(song => song.id)]));
-      const updated = await updateNativePlaylist(playlist.id, playlist, songIds);
-      updateLibraryPlaylists(prev => prev.map(item => item.id === updated.id ? updated : item));
-      showToast(songsToAddToPlaylist.length === 1 ? t('songAddedToPlaylist') : t('songsAddedToPlaylist').replace('{count}', String(songsToAddToPlaylist.length)));
+      const had = new Set(playlist.songIds || []);
+      const fresh = Array.from(new Set(songsToAddToPlaylist.map(song => song.id))).filter(id => !had.has(id));
+      if (fresh.length) {
+        const updated = await updateNativePlaylist(playlist.id, playlist, [...(playlist.songIds || []), ...fresh]);
+        updateLibraryPlaylists(prev => prev.map(item => item.id === updated.id ? updated : item));
+      }
+      const already = songsToAddToPlaylist.length - fresh.length;
+      const added = fresh.length === 0
+        ? t(songsToAddToPlaylist.length === 1 ? 'songAlreadyInPlaylist' : 'songsAlreadyInPlaylist').replace('{name}', playlist.name)
+        : t('songsAddedToNamedPlaylist').replace('{count}', String(fresh.length)).replace('{name}', playlist.name);
+      showToast(already && fresh.length ? `${added} ${t('songsAlreadyThere').replace('{count}', String(already))}` : added, fresh.length ? 'success' : 'info', {
+        label: t('openPlaylist'),
+        onClick: () => handleNavigateToPlaylist(playlist.id),
+      });
       setSongsToAddToPlaylist([]);
     } catch (error) {
       console.error('Add song error:', error);
@@ -1149,6 +1207,8 @@ function AppContent() {
               setIsCreatePlaylistModalOpen(true);
             }}
             onSelectPlaylist={(p) => handleNavigateToPlaylist(p.id)}
+            onPlayPlaylist={(p, songs) => playFromPlaylist(p.id)(songs[0], songs)}
+            onError={message => showToast(message, 'error')}
             onImported={count => { libraryChanged(); showToast(t('importedToLibrary').replace('{count}', String(count))); }}
             likedSongIds={likedSongIds}
             onToggleLike={toggleLike}
@@ -1167,7 +1227,10 @@ function AppContent() {
           <PlaylistDetail
             playlistId={viewingPlaylistId}
             onBack={handleBackFromPlaylist}
-            onPlaySong={playSong}
+            onPlaySong={playFromPlaylist(viewingPlaylistId)}
+            currentSong={currentSong}
+            isPlaying={isPlaying}
+            notify={showToast}
             onSelect={(s) => {
               setSelectedSong(s);
               setShowRightSidebar(true);
@@ -1317,6 +1380,7 @@ function AppContent() {
     addToPlaylist: openAddToPlaylistModal,
     remove: handleDeleteSong,
     update: handleSongUpdate,
+    queue: queueFromWindow,
   };
   const songActions = useMemo<SongActions>(() => ({
     reusePrompt: song => songActionsLatest.current.reusePrompt(song),
@@ -1325,6 +1389,7 @@ function AppContent() {
     addToPlaylist: song => songActionsLatest.current.addToPlaylist(song),
     remove: song => songActionsLatest.current.remove(song),
     update: song => songActionsLatest.current.update(song),
+    queue: (songs, next) => songActionsLatest.current.queue(songs, next),
   }), []);
 
   // Anonymous statistics are on by default: the start screen's checkbox decides on a first run, and an install that
@@ -1426,10 +1491,17 @@ function AppContent() {
         currentTime={currentTime}
         isPlaying={isPlaying}
         volume={volume}
+        shuffle={isShuffle}
+        repeat={repeatMode === 'all'}
         library={librarySongs}
+        playlists={playlists}
+        sourcePlaylistId={queuePlaylistId}
         onPause={() => setIsPlaying(false)}
         onLeaveWinamp={(exit) => {
           setVolume(exit.volume);
+          setIsShuffle(exit.shuffle);
+          // Winamp repeats the list or nothing: a changed switch is the studio's repeat-the-list, the rest stays
+          if (exit.repeat !== (repeatMode === 'all')) setRepeatMode(exit.repeat ? 'all' : 'none');
           const song = exit.songId ? librarySongs.find((entry) => entry.id === exit.songId) : null;
           if (song && song.id !== currentSong?.id) {
             // the position waits for the new song to load
@@ -1441,10 +1513,16 @@ function AppContent() {
           // Winamp played a file from disk: the studio's own song stays paused
           setIsPlaying(Boolean(song) && exit.playing);
         }}
-        onSavePlaylist={async (songIds) => {
-          const playlist = await createNativePlaylist(`Winamp ${new Date().toLocaleString()}`, '', songIds);
-          updateLibraryPlaylists((prev) => [playlist, ...prev]);
-          showToast(t('playlistCreated'));
+        onSavePlaylist={async (songIds, into) => {
+          if ('playlistId' in into) {
+            const playlist = playlists.find((entry) => entry.id === into.playlistId);
+            if (!playlist) throw new Error(t('playlistNotFound'));
+            const updated = await updateNativePlaylist(playlist.id, playlist, songIds);
+            updateLibraryPlaylists((prev) => prev.map((entry) => (entry.id === updated.id ? updated : entry)));
+          } else {
+            const playlist = await createNativePlaylist(into.name, '', songIds);
+            updateLibraryPlaylists((prev) => [playlist, ...prev]);
+          }
         }}
       />
 
@@ -1469,6 +1547,7 @@ function AppContent() {
         type={toast.type}
         isVisible={toast.isVisible}
         onClose={closeToast}
+        action={toast.action}
         duration={toast.type === 'error' ? 8000 : 3000}
       />
       {/* Cover regen modal — only mounted while a song is selected for regen.

@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import type { Song } from '../types';
 import { parseDuration } from './nativeLibrary';
+import { playedAt } from './playHistory';
 
 /** How a list of songs is read. */
-export type SongOrder = 'newest' | 'oldest' | 'titleAsc' | 'titleDesc' | 'longest' | 'shortest' | 'likedNewest';
+export type SongOrder = 'newest' | 'oldest' | 'recentlyPlayed' | 'titleAsc' | 'titleDesc' | 'longest' | 'shortest' | 'likedNewest';
 
-export const SONG_ORDERS: SongOrder[] = ['newest', 'oldest', 'titleAsc', 'titleDesc', 'longest', 'shortest'];
+export const SONG_ORDERS: SongOrder[] = ['newest', 'oldest', 'recentlyPlayed', 'titleAsc', 'titleDesc', 'longest', 'shortest'];
 
 /** "3:07" as seconds; a song without a length sorts as the shortest. */
 function seconds(duration: string | undefined): number {
@@ -14,6 +15,7 @@ function seconds(duration: string | undefined): number {
 
 /** Anything a list shows as a row: a song, or a file brought in beside the songs. */
 export interface Orderable {
+  id?: string;
   createdAt: Date;
   title: string;
   duration?: string;
@@ -30,6 +32,7 @@ export function compareBy(order: SongOrder, language: string): (a: Orderable, b:
     case 'titleDesc': return (a, b) => titles.compare(b.title, a.title) || made(b, a);
     case 'longest': return (a, b) => seconds(b.duration) - seconds(a.duration) || made(b, a);
     case 'shortest': return (a, b) => seconds(a.duration) - seconds(b.duration) || made(b, a);
+    case 'recentlyPlayed': return (a, b) => (b.id ? playedAt(b.id) : 0) - (a.id ? playedAt(a.id) : 0) || made(b, a);
     case 'likedNewest': return (a, b) => (b.likedAt?.getTime() ?? 0) - (a.likedAt?.getTime() ?? 0) || made(b, a);
     default: return (a, b) => made(b, a);
   }
