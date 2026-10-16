@@ -18,8 +18,11 @@ export function playedAt(songId: string): number {
   return played[songId] ?? 0;
 }
 
+const KEPT = 1000;
+
 export function notePlayed(songId: string): void {
-  played = { ...played, [songId]: Date.now() };
+  const latest = Object.entries({ ...played, [songId]: Date.now() }).sort((x, y) => y[1] - x[1]).slice(0, KEPT);
+  played = Object.fromEntries(latest);
   try {
     window.localStorage.setItem(KEY, JSON.stringify(played));
   } catch (error) {

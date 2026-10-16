@@ -3608,6 +3608,9 @@ async fn tag_stored_song(state: &AppState, song_id: &str) {
         settings: own.then(|| tagging::settings_json(PROGRAM_ID, &song.engine_id, &song.generation_settings)).flatten(),
     };
     let shown = audio_path.display().to_string();
+    // one file rewrite at a time: a setting switched twice, the start's pass and a saved note all tag the same files
+    static TAGGING: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+    let _one = TAGGING.lock().await;
     // reading the cover and rewriting the file are blocking file work
     let written = tokio::task::spawn_blocking(move || {
         let cover = cover_file.and_then(|(path, media_type)| std::fs::read(path).ok().map(|bytes| (media_type, bytes)));
