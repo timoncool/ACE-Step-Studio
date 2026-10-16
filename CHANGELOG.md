@@ -19,6 +19,7 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- **"Instrumental" is not a genre.** A style that starts with "instrumental" no longer files the track under the genre Instrumental in its file; the next phrase that names music is taken, or none.
 - **An installation under Program Files downloads the engine's libraries.** The studio put NVIDIA's cuBLAS beside the engine, where Windows lets no program write without administrator rights, so an installed studio stood at "Downloading the engine library - 0%" for ever. Where the engine's folder cannot be written, the libraries now go to the studio's data folder and the engine finds them there ([ACE-Step-Studio #49](https://github.com/timoncool/ACE-Step-Studio/issues/49)).
 - **Stems, karaoke and Audio to MIDI work on Linux.** The studio downloaded the Windows builds of their runtimes on Linux and stopped there without a word. It now takes Microsoft's and NVIDIA's Linux builds of the same versions - ONNX Runtime with CUDA, cuBLAS, cuDNN, cuFFT, cuRAND - and Purfview's Linux Whisper, runs the separator and recogniser on an NVIDIA card there, and the Linux packages carry the MIDI transcriber ([YuE2-Studio #95](https://github.com/timoncool/YuE2-Studio/issues/95)).
 - **A download that cannot start says so in its panel** instead of leaving the bar where it was.
