@@ -303,7 +303,7 @@ fn busy(summary: &Value) -> Vec<&'static str> {
         ("covers_and_karaoke", summary["covers_and_karaoke"].as_array().is_some_and(|entries| !entries.is_empty())),
         ("stems", unfinished(&summary["stems"])),
         ("processing", unfinished(&summary["processing"])),
-        ("midi", unfinished(&summary["midi"])),
+        ("midi", unfinished(&summary["midi"]) || summary["midi"]["batch"]["queued"].as_array().is_some_and(|queued| !queued.is_empty())),
         ("preparation", summary["preparation"].is_object() && summary["preparation"]["finished"] != true),
         ("training", !summary["training"].is_null()),
     ]
@@ -450,6 +450,7 @@ const JOURNAL: &[(&str, &str, &str)] = &[
     ("karaoke_settings_set", "updated", "settings"),
     ("separator_settings_set", "updated", "settings"),
     ("cover_templates_set", "updated", "settings"),
+    ("library_file_tags_set", "updated", "settings"),
     ("assistant_set", "updated", "settings"),
     ("openrouter_set_key", "updated", "settings"),
 ];
@@ -567,7 +568,7 @@ async fn journal_change(name: &str, args: &Value, before: &str, reply: &str) {
 
 struct Bridge {
     commands: tokio::sync::broadcast::Sender<String>,
-    pending: Mutex<HashMap<String, tokio::sync::oneshot::Sender<Result<Value, String>>>>,
+    pending: Mutex<HashMap<String, (u64, tokio::sync::oneshot::Sender<Result<Value, String>>)>>,
     /// The open windows, the one the person turned to last at the end: a
     /// command goes to that one only, so a second window never runs it again.
     windows: Mutex<Vec<u64>>,
@@ -586,9 +587,20 @@ fn open_windows() -> std::sync::MutexGuard<'static, Vec<u64>> {
 /// Keeps the window on the list while its stream is open.
 struct Listening(u64);
 
+/// What a command gets when the window it went to closes before answering.
+const WINDOW_CLOSED: &str = "The studio's window closed before it answered. Call the tool again: it goes to another open window, or says that none is open.";
+
 impl Drop for Listening {
     fn drop(&mut self) {
         open_windows().retain(|window| *window != self.0);
+        // a window that went away answers nothing: its commands fail now, not at their timeout
+        let mut pending = bridge().pending.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let gone: Vec<String> = pending.iter().filter(|(_, (window, _))| *window == self.0).map(|(id, _)| id.clone()).collect();
+        for id in gone {
+            if let Some((_, sender)) = pending.remove(&id) {
+                let _ = sender.send(Err(WINDOW_CLOSED.into()));
+            }
+        }
     }
 }
 
@@ -646,7 +658,7 @@ pub async fn window_result(headers: HeaderMap, Json(answer): Json<WindowAnswer>)
     }
     let waiting = bridge().pending.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).remove(&answer.id);
     match waiting {
-        Some(sender) => {
+        Some((_, sender)) => {
             let _ = sender.send(match answer.error {
                 Some(error) => Err(error),
                 None => Ok(answer.result),
@@ -705,7 +717,12 @@ async fn ask_window(command: &str, args: Value, seconds: u64) -> Result<Value, S
     };
     let id = format!("w{}", bridge().sequence.fetch_add(1, Ordering::Relaxed));
     let (sender, receiver) = tokio::sync::oneshot::channel();
-    bridge().pending.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).insert(id.clone(), sender);
+    bridge().pending.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).insert(id.clone(), (window, sender));
+    // the window may have closed after it was chosen: its Listening went before this entry was there to fail
+    if !open_windows().contains(&window) {
+        bridge().pending.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).remove(&id);
+        return Err(WINDOW_CLOSED.into());
+    }
     let _ = bridge().commands.send(json!({ "id": id, "window": window, "command": command, "args": args }).to_string());
     match tokio::time::timeout(Duration::from_secs(seconds), receiver).await {
         Ok(Ok(answer)) => answer,
@@ -963,7 +980,7 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "engine_options_get",
-                description: "The engine's launch options: backend (auto, cuda, vulkan, cpu), keep models loaded, and the rest.",
+                description: "The engine's launch options: backend (auto, cuda, vulkan, cpu), keep models loaded, and the rest - including extra_args, any other command-line flag the engine takes, and engine_bin, a hand-built engine executable to run instead of the bundled one.",
                 schema: nothing,
                 call: |_| get("/engine/options".into()),
             },
@@ -1132,6 +1149,12 @@ fn tools() -> &'static [Tool] {
                 description: "Play the previous song of the queue.",
                 schema: nothing,
                 call: |args| window("player_previous", args, 15),
+            },
+            Tool {
+                name: "player_queue_add",
+                description: "Queue library songs in the studio's player without stopping what plays: next=true puts them right after the song playing (Play next), otherwise at the end of the queue (Add to queue). With nothing loaded the first of them starts. In the Winamp mode they go to the end of Winamp's list.",
+                schema: || object(json!({ "song_ids": { "type": "array", "items": { "type": "string" } }, "next": { "type": "boolean" } }), &["song_ids"]),
+                call: |args| window("player_queue_add", args, 15),
             },
             Tool {
                 name: "player_set",
@@ -1534,14 +1557,26 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "library_import_audio",
-                description: "Add an audio file from this computer to the library.",
+                description: "Add an audio file from this computer to the library. Without a title it takes the file's own title tag, else its name; the file's lyrics come with it, and a track one of the studios made brings its style and note, and from this studio also what it was made with, so it can be made again.",
                 schema: || object(json!({ "path": { "type": "string" }, "title": { "type": "string" } }), &["path"]),
                 call: |args| {
                     let path = PathBuf::from(text(args, "path")?);
-                    let title = args.get("title").and_then(Value::as_str).map(str::to_string).unwrap_or_else(|| path.file_stem().map(|stem| stem.to_string_lossy().into_owned()).unwrap_or_default());
+                    let fields = args.get("title").and_then(Value::as_str).map(|title| vec![("title".to_string(), title.to_string())]).unwrap_or_default();
                     let name = file_name(&path);
-                    Ok(Call { method: Method::POST, path: "/v1/library/import".into(), payload: Payload::Form { fields: vec![("title".into(), title)], files: vec![("audio".into(), path, name)] } })
+                    Ok(Call { method: Method::POST, path: "/v1/library/import".into(), payload: Payload::Form { fields, files: vec![("audio".into(), path, name)] } })
                 },
+            },
+            Tool {
+                name: "library_file_tags_get",
+                description: "Whether the studio writes each track's note, style and generation settings into its file (settings: true, the default) besides the title, lyrics, cover, genre and tempo it always writes.",
+                schema: nothing,
+                call: |_| get("/v1/library/file-tags".into()),
+            },
+            Tool {
+                name: "library_file_tags_set",
+                description: "Turn writing each track's note, style and generation settings into its file on (settings: true) or off; every stored track is tagged again in the background.",
+                schema: || object(json!({ "settings": { "type": "boolean" } }), &["settings"]),
+                call: |args| send(Method::PUT, "/v1/library/file-tags".into(), json!({ "settings": args.get("settings").and_then(Value::as_bool).unwrap_or(true) })),
             },
             Tool {
                 name: "playlist_list",
@@ -1557,7 +1592,7 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "playlist_update",
-                description: "Rename a playlist or set its songs.",
+                description: "Rename a playlist, change its description, or set its songs: song_ids is the whole list in its order, so it also reorders, adds and removes.",
                 schema: || object(json!({ "playlist_id": { "type": "string" }, "name": { "type": "string" }, "description": { "type": "string" }, "song_ids": { "type": "array", "items": { "type": "string" } } }), &["playlist_id", "name"]),
                 call: |args| send(Method::PUT, format!("/v1/library/playlists/{}", segment(&text(args, "playlist_id")?)), body_without(args, &["playlist_id"])),
             },
@@ -1613,8 +1648,8 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "midi_transcribe",
-                description: "Turn a library track - a song, a stem, a processed take - or any audio file on this computer into multi-instrument MIDI (34 instrument groups and drums). Give song_id or path; size small, medium (default) or large. What the transcriber needs is downloaded first when it is missing. Wait with studio_wait until midi; a track's MIDI is then kept beside it (midi_get, library_song_files), a file's in the studio's midi folder (midi_status run.file).",
-                schema: || object(json!({ "song_id": { "type": "string" }, "path": { "type": "string", "description": "an audio file on this computer, instead of song_id" }, "size": { "type": "string", "enum": ["small", "medium", "large"] } }), &[]),
+                description: "Turn a library track - a song, a stem, a processed take - or any audio file on this computer into multi-instrument MIDI (34 instrument groups and drums). Give song_id or path, or song_ids for several library tracks one after another (midi_status run.batch: done, total, queued, failed); size small, medium (default) or large. What the transcriber needs is downloaded first when it is missing. Wait with studio_wait until midi; a track's MIDI is then kept beside it (midi_get, library_song_files), a file's in the studio's midi folder (midi_status run.file).",
+                schema: || object(json!({ "song_id": { "type": "string" }, "song_ids": { "type": "array", "items": { "type": "string" }, "description": "several library tracks, turned into MIDI one after another, instead of song_id" }, "path": { "type": "string", "description": "an audio file on this computer, instead of song_id" }, "size": { "type": "string", "enum": ["small", "medium", "large"] } }), &[]),
                 call: |args| post("/v1/midi/transcribe".into(), args.clone()),
             },
             Tool {
@@ -2634,6 +2669,22 @@ fn instructions() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn a_command_to_a_window_that_closed_fails_at_once() {
+        // a command is sent only while some window listens: without a receiver it would fail as "not open"
+        let _commands = bridge().commands.subscribe();
+        let window = bridge().sequence.fetch_add(1, Ordering::Relaxed);
+        open_windows().push(window);
+        let listening = Listening(window);
+        let asked = tokio::spawn(ask_window("read_page", json!({}), 300));
+        while !bridge().pending.lock().unwrap().values().any(|(to, _)| *to == window) {
+            tokio::task::yield_now().await;
+        }
+        drop(listening);
+        let answer = tokio::time::timeout(Duration::from_secs(5), asked).await.expect("an answer before the timeout").unwrap();
+        assert!(answer.unwrap_err().contains("closed"));
+    }
 
     #[test]
     fn a_change_reaches_the_windows_and_a_read_does_not() {

@@ -1,7 +1,6 @@
 {
   "name": "ace-step-studio-ui",
   "private": true,
-  "version": "3.5.5",
   "type": "module",
   "scripts": {
     "dev": "vite",

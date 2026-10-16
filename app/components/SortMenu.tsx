@@ -8,6 +8,7 @@ import { named } from '../services/accessibleName';
 const LABELS: Record<SongOrder, TranslationKey> = {
   newest: 'sortNewest',
   oldest: 'sortOldest',
+  recentlyPlayed: 'sortRecentlyPlayed',
   titleAsc: 'sortTitleAsc',
   titleDesc: 'sortTitleDesc',
   longest: 'sortLongest',

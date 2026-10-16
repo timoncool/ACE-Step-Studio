@@ -4,7 +4,8 @@ import { currentMonitor, getCurrentWindow, LogicalSize, PhysicalPosition, Physic
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { invoke } from '@tauri-apps/api/core';
 import { useI18n } from '../../context/I18nContext';
-import type { Song } from '../../types';
+import type { Playlist, Song } from '../../types';
+import { parseDuration } from '../../services/nativeLibrary';
 import { TRACK_ARTIST } from '../../services/studio';
 import { trackCoverUrl } from '../../services/playerPanels';
 import { isDesktop } from '../../services/externalLinks';
@@ -29,7 +30,12 @@ export interface WinampExit {
   seconds: number;
   playing: boolean;
   volume: number;
+  shuffle: boolean;
+  repeat: boolean;
 }
+
+/** Where SAVE LIST puts Winamp's list: over a studio playlist, or into a new one. */
+export type WinampSaveTarget = { playlistId: string } | { name: string };
 
 interface Props {
   queue: Song[];
@@ -37,10 +43,18 @@ interface Props {
   startSeconds: number;
   playing: boolean;
   volume: number;
+  shuffle: boolean;
+  repeat: boolean;
   library: Song[];
-  onSavePlaylist: (songIds: string[]) => Promise<void>;
+  playlists: Playlist[];
+  /** The studio playlist the queue was started from, offered first by SAVE LIST. */
+  sourcePlaylistId: string | null;
+  onSavePlaylist: (songIds: string[], into: WinampSaveTarget) => Promise<void>;
   onExit: (exit: WinampExit) => void;
 }
+
+type PickerMode = 'load' | 'add' | 'save';
+type Picker = { mode: PickerMode; songIds: string[]; resolve: (tracks: Track[] | null) => void };
 
 /** Webamp's track and layout, as its constructor takes them. */
 type Track = { url: string; metaData?: { artist: string; title: string; albumArtUrl?: string }; duration?: number } | { blob: Blob; defaultName?: string };
@@ -79,7 +93,7 @@ function track(song: Song): Track {
   return {
     url: song.audioUrl as string,
     metaData: { artist: song.creator || TRACK_ARTIST, title: song.title, albumArtUrl: trackCoverUrl(song) || undefined },
-    duration: Number(song.duration) || undefined,
+    duration: parseDuration(song.duration) ?? undefined,
   } as Track;
 }
 
@@ -127,11 +141,21 @@ export async function restoreWindowAfterReload(): Promise<void> {
   });
 }
 
-export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, playing, volume, library, onSavePlaylist, onExit }) => {
+export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, playing, volume, shuffle, repeat, library, playlists, sourcePlaylistId, onSavePlaylist, onExit }) => {
   const { t } = useI18n();
   const host = useRef<HTMLDivElement>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [hint, setHint] = useState(true);
+  // LOAD LIST, ADD and SAVE LIST open the studio's own lists over the player
+  const [picker, setPicker] = useState<Picker | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  useEffect(() => {
+    if (!note) return undefined;
+    const hide = window.setTimeout(() => setNote(null), 4000);
+    return () => window.clearTimeout(hide);
+  }, [note]);
+  const reshapeRef = useRef<(() => void) | null>(null);
+  useEffect(() => reshapeRef.current?.(), [picker, note]);
   const exitRef = useRef(onExit);
   exitRef.current = onExit;
   // the library grows while the mode is on: songs made meanwhile are played from it too
@@ -231,6 +255,8 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
       shapeWanted = true;
       requestAnimationFrame(() => void onWindow(applyShape));
     };
+    reshapeRef.current = reshape;
+    cleanups.push(() => { reshapeRef.current = null; });
     const applyShape = async () => {
       shapeWanted = false;
       if (!webamp || disposed) return;
@@ -265,6 +291,8 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
         seconds: state.media.timeElapsed,
         playing: state.media.status === 'PLAYING',
         volume: state.media.volume / 100,
+        shuffle: state.media.shuffle,
+        repeat: state.media.repeat,
       });
     };
 
@@ -281,7 +309,7 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
         playlist: { position: { top: 232, left: 0 }, size: { extraHeight: 4, extraWidth: 0 } },
         milkdrop: { position: { top: 0, left: 275 }, size: { extraHeight: MILKDROP_SIZE[1], extraWidth: MILKDROP_SIZE[0] }, closed: true },
       };
-      const listAll = () => libraryRef.current.filter((song) => song.audioUrl && !song.isGenerating).map(track);
+      const choose = (mode: PickerMode, songIds: string[] = []) => new Promise<Track[] | null>((resolve) => setPicker({ mode, songIds, resolve }));
       webamp = new Webamp({
         initialTracks: playable.map(track),
         initialSkin: skin ? { url: skin.url } : undefined,
@@ -312,15 +340,14 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
           getPresets: milkdropPresets,
           butterchurnOpen: false,
         },
-        // ADD URL: the studio's library; LOAD LIST: the whole library; SAVE LIST: a studio playlist
-        handleAddUrlEvent: listAll,
-        handleLoadListEvent: listAll,
-        handleSaveListEvent: async (tracks: Track[]) => {
+        // LOAD LIST and ADD URL: a studio playlist, the liked songs or the whole library; SAVE LIST: into a studio playlist
+        handleAddUrlEvent: () => choose('add'),
+        handleLoadListEvent: () => choose('load'),
+        handleSaveListEvent: (tracks: Track[]) => {
           const ids = tracks.map((entry) => ('url' in entry ? idOf(entry.url) : null)).filter((id): id is string => Boolean(id));
-          await onSavePlaylist(ids);
-          return null;
+          void choose('save', ids);
         },
-        filePickers: [{ contextMenuName: t('winampStudioLibrary'), filePicker: async () => listAll(), requiresNetwork: false }],
+        filePickers: [{ contextMenuName: t('winampStudioLibrary'), filePicker: async () => (await choose('add')) ?? [], requiresNetwork: false }],
       } as never);
       if (startSeconds > 0) {
         // the position is set once the studio's song plays in Winamp and its length is known:
@@ -400,6 +427,9 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
       EQ_BANDS.forEach((band, index) => store().dispatch({ type: 'SET_BAND_VALUE', band, value: toSlider(eq.gains[index] ?? 0) }));
       store().dispatch({ type: 'SET_BALANCE', balance: Math.round(eq.balance * 100) });
       webamp.setVolume(Math.round(volume * 100));
+      // the studio's shuffle and repeat-the-list carry over; Winamp has no repeat of one song
+      if (shuffle !== webamp.isShuffleEnabled()) webamp.toggleShuffle();
+      if (repeat !== webamp.isRepeatEnabled()) webamp.toggleRepeat();
       if (at > 0) playAt(at);
       if (playing) webamp.play();
 
@@ -515,6 +545,12 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
             }
             if (typeof wanted.shade === 'boolean' && wanted.shade !== Boolean(info.shade) && id !== 'milkdrop') store().dispatch({ type: 'TOGGLE_WINDOW_SHADE_MODE', windowId: id });
           }
+          if (Array.isArray(change.append_song_ids)) {
+            const list = change.append_song_ids.map(songById).filter((song): song is Song => Boolean(song?.audioUrl));
+            if (!list.length) throw new Error('None of those songs has audio to play.');
+            player.appendTracks(list.map(track) as never);
+            done.push(`added ${list.length} song(s) to the end of the list`);
+          }
           if (Array.isArray(change.song_ids)) {
             const list = change.song_ids.map(songById).filter((song): song is Song => Boolean(song?.audioUrl));
             if (!list.length) throw new Error('None of those songs has audio to play.');
@@ -600,15 +636,46 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
   return (
     <div className="fixed inset-0 z-300 overflow-hidden bg-black">
       <div ref={host} className="absolute inset-0" />
+      {note && !problem && (
+        <div data-winamp-shape role="status" className="absolute bottom-12 left-1/2 z-2000 w-max max-w-md -translate-x-1/2 rounded-sm bg-black/85 px-3 py-2 text-[11px] text-white">
+          {note}
+        </div>
+      )}
       {hint && !problem && (
         <button type="button" data-winamp-shape onClick={() => setHint(false)} className="absolute bottom-3 left-1/2 z-2000 w-max max-w-md -translate-x-1/2 rounded-sm bg-black/85 px-3 py-2 text-left text-[11px] leading-snug text-white">
           {t('winampHowToLeave')}
         </button>
       )}
+      {picker && (
+        <WinampListPicker
+          picker={picker}
+          library={library}
+          playlists={playlists}
+          sourcePlaylistId={sourcePlaylistId}
+          onPick={(songs) => {
+            picker.resolve(songs.filter((song) => song.audioUrl && !song.isGenerating).map(track));
+            setPicker(null);
+          }}
+          onSave={async (into) => {
+            setPicker(null);
+            picker.resolve(null);
+            try {
+              await onSavePlaylist(picker.songIds, into);
+              setNote(t('winampSaved'));
+            } catch (error) {
+              setProblem(`${t('winampSaveFailed')}: ${error instanceof Error ? error.message : String(error)}`);
+            }
+          }}
+          onCancel={() => {
+            picker.resolve(null);
+            setPicker(null);
+          }}
+        />
+      )}
       {problem && (
         <div data-winamp-shape className="absolute bottom-3 left-1/2 z-2000 w-max max-w-lg -translate-x-1/2 rounded-md bg-rose-900/90 px-3 py-2 text-xs text-white">
           {problem}
-          <button type="button" onClick={() => onExit({ songId: null, seconds: 0, playing: false, volume })} className="ml-3 underline">
+          <button type="button" onClick={() => onExit({ songId: null, seconds: 0, playing: false, volume, shuffle, repeat })} className="ml-3 underline">
             {t('winampLeave')}
           </button>
         </div>
@@ -618,3 +685,90 @@ export const WinampMode: React.FC<Props> = ({ queue, startIndex, startSeconds, p
 };
 
 export type { WinampSkin };
+
+/** The studio's lists for LOAD LIST and ADD, and where SAVE LIST writes, drawn as a Winamp dialog. */
+const WinampListPicker: React.FC<{
+  picker: Picker;
+  library: Song[];
+  playlists: Playlist[];
+  sourcePlaylistId: string | null;
+  onPick: (songs: Song[]) => void;
+  onSave: (into: WinampSaveTarget) => void;
+  onCancel: () => void;
+}> = ({ picker, library, playlists, sourcePlaylistId, onPick, onSave, onCancel }) => {
+  const { t, songCount } = useI18n();
+  const [name, setName] = useState(() => `Winamp ${new Date().toLocaleDateString()}`);
+  const byId = new Map(library.map((song) => [song.id, song]));
+  const playable = (songs: Song[]) => songs.filter((song) => song.audioUrl && !song.isGenerating);
+  const source = playlists.find((entry) => entry.id === sourcePlaylistId) ?? null;
+
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.stopPropagation();
+      onCancel();
+    };
+    window.addEventListener('keydown', key, true);
+    return () => window.removeEventListener('keydown', key, true);
+  }, [onCancel]);
+
+  const row = 'flex w-full items-center justify-between gap-4 px-2 py-1 text-left hover:bg-[#0000c6] hover:text-white focus-visible:bg-[#0000c6] focus-visible:text-white focus-visible:outline-hidden';
+  const lists: { key: string; label: string; songs: Song[] }[] = [
+    { key: 'library', label: t('winampWholeLibrary'), songs: playable(library) },
+    { key: 'liked', label: t('likedSongs'), songs: playable(library.filter((song) => song.liked)) },
+    ...playlists.map((entry) => ({
+      key: entry.id,
+      label: entry.name,
+      songs: playable((entry.songIds ?? []).flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []))),
+    })),
+  ];
+  const title = picker.mode === 'load' ? t('winampLoadList') : picker.mode === 'add' ? t('winampAddList') : t('winampSaveList');
+
+  return (
+    <div data-winamp-shape className="absolute left-1/2 top-1/2 z-2000 w-[min(92vw,360px)] -translate-x-1/2 -translate-y-1/2 border border-[#5a5a6e] bg-[#1d1d2b] font-mono text-[11px] text-[#00e000] shadow-2xl" role="dialog" aria-label={title}>
+      <div className="flex items-center justify-between bg-linear-to-r from-[#2a2a52] to-[#1a1a32] px-2 py-1 text-[#d8d8f0]">
+        <span className="font-bold uppercase tracking-wider">{title}</span>
+        <button type="button" onClick={onCancel} aria-label={t('cancel')} className="px-1 hover:text-white">x</button>
+      </div>
+      {picker.mode === 'save' ? (
+        <div className="space-y-2 p-2">
+          <p className="text-[#a0a0c0]">{songCount(picker.songIds.length)}</p>
+          {source && (
+            <button type="button" autoFocus className={row} onClick={() => onSave({ playlistId: source.id })}>
+              <span className="truncate">{t('winampSaveInto').replace('{name}', source.name)}</span>
+            </button>
+          )}
+          <form
+            className="flex items-center gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (name.trim()) onSave({ name: name.trim() });
+            }}
+          >
+            <input
+              autoFocus={!source}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              aria-label={t('playlistName')}
+              className="min-w-0 flex-1 border border-[#5a5a6e] bg-black px-1.5 py-1 text-[#00e000] outline-hidden focus:border-[#00e000]"
+            />
+            <button type="submit" disabled={!name.trim()} className="border border-[#5a5a6e] px-2 py-1 text-[#d8d8f0] hover:bg-[#0000c6] disabled:opacity-40">
+              {t('winampSaveNew')}
+            </button>
+          </form>
+        </div>
+      ) : (
+        <ul className="max-h-[60vh] overflow-y-auto py-1">
+          {lists.map((list, index) => (
+            <li key={list.key}>
+              <button type="button" autoFocus={index === 0} disabled={!list.songs.length} className={`${row} disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[#00e000]`} onClick={() => onPick(list.songs)}>
+                <span className="truncate">{list.label}</span>
+                <span className="shrink-0 text-[#a0a0c0]">{list.songs.length}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};

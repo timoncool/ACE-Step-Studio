@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Check, Cpu, Loader2, RotateCw , Terminal } from 'lucide-react';
+import { AlertTriangle, Check, Cpu, FolderOpen, Loader2, RotateCw , Terminal } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 
 /**
@@ -22,6 +22,10 @@ interface EngineOptions {
   clamp_fp16: boolean;
   /** The NVIDIA card by nvidia-smi index; null: the first. Taken at the studio's start. */
   gpu?: number | null;
+  /** Any other launch flag, as one line. It reaches the engine after the flags above. */
+  extra_args: string;
+  /** A hand-built engine (acestep.cpp) to run instead of the bundled one; null: the bundled engine. */
+  engine_bin?: string | null;
 }
 
 const DEFAULTS: EngineOptions = {
@@ -32,6 +36,8 @@ const DEFAULTS: EngineOptions = {
   split_cfg_forwards: false,
   clamp_fp16: false,
   gpu: null,
+  extra_args: '',
+  engine_bin: null,
 };
 
 const CONTROL =
@@ -56,17 +62,49 @@ export const EngineSettings: React.FC = () => {
     void fetch('/v1/system/gpus').then(response => (response.ok ? response.json() : null)).then(setCards).catch(() => undefined);
   }, []);
   const [saved, setSaved] = useState<EngineOptions>(DEFAULTS);
+  // Which engine executable a start takes and which one is running, so the
+  // page answers "did my change apply?" without opening the engine log.
+  const [runtime, setRuntime] = useState<{ executable: string | null; executable_source: string; running_executable: string | null; engine_starting: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [picking, setPicking] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // The native file picker belongs to the studio process: this window is a
+  // browser and cannot open one. Nothing is changed until the user saves,
+  // the same as every other field on this page.
+  const browseEngine = async () => {
+    setPicking(true);
+    setError(null);
+    try {
+      const response = await fetch('/engine/pick-executable', { method: 'POST' });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.error || `Opening the file picker failed (${response.status})`);
+      if (body?.picked && typeof body.path === 'string') {
+        setOptions(current => ({ ...current, engine_bin: body.path }));
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Opening the file picker failed.');
+    } finally {
+      setPicking(false);
+    }
+  };
 
   const load = useCallback(async () => {
     try {
       const response = await fetch('/engine/options');
       if (!response.ok) throw new Error(`Engine options are unavailable (${response.status})`);
-      const body: { options: EngineOptions } = await response.json();
-      setOptions(body.options);
-      setSaved(body.options);
+      const body: { options: EngineOptions; executable?: string | null; executable_source?: string; running_executable?: string | null; engine_starting?: boolean } = await response.json();
+      // A settings file written before a flag existed arrives without it;
+      // the default keeps the comparison below honest.
+      setOptions({ ...DEFAULTS, ...body.options });
+      setSaved({ ...DEFAULTS, ...body.options });
+      setRuntime({
+        executable: body.executable ?? null,
+        executable_source: body.executable_source ?? 'bundled',
+        running_executable: body.running_executable ?? null,
+        engine_starting: body.engine_starting === true,
+      });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not read the engine options.');
     }
@@ -92,6 +130,8 @@ export const EngineSettings: React.FC = () => {
       setNotice(body.engine_restarted
         ? t('engineOptionsSavedRestarted')
         : t('engineOptionsSavedLater'));
+      // The restart, or the lack of one, changed which engine is running.
+      void load();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Saving the engine options failed.');
     } finally {
@@ -123,6 +163,7 @@ export const EngineSettings: React.FC = () => {
       const body = await response.json().catch(() => null);
       if (!response.ok) throw new Error(body?.error || `Restarting the engine failed (${response.status})`);
       setNotice(t('engineRestarted'));
+      void load();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Restarting the engine failed.');
     } finally {
@@ -171,6 +212,44 @@ export const EngineSettings: React.FC = () => {
           </span>
         </label>
       )}
+
+      <div className="rounded-xl border border-zinc-200 p-3 dark:border-white/10">
+        <span className="block text-sm font-medium text-zinc-800 dark:text-zinc-100">{t('engineBinLabel')}</span>
+        <input
+          type="text"
+          value={options.engine_bin ?? ''}
+          onChange={event => setOptions(current => ({ ...current, engine_bin: event.target.value === '' ? null : event.target.value }))}
+          spellCheck={false}
+          placeholder={t('engineBinBundled')}
+          className={`${CONTROL} mt-2 font-mono text-xs`}
+        />
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void browseEngine()}
+            disabled={busy || picking}
+            className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-700 hover:border-pink-400 hover:text-pink-600 disabled:opacity-50 dark:border-white/15 dark:text-zinc-200"
+          >
+            {picking ? <Loader2 size={13} className="animate-spin" /> : <FolderOpen size={13} />} {t('engineBinBrowse')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setOptions(current => ({ ...current, engine_bin: null }))}
+            disabled={!options.engine_bin || busy}
+            className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-700 hover:border-pink-400 hover:text-pink-600 disabled:opacity-50 dark:border-white/15 dark:text-zinc-200"
+          >
+            {t('engineBinBundled')}
+          </button>
+        </div>
+        <span className="mt-2 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('engineBinHint')}</span>
+        {runtime && (
+          <span className="mt-1 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+            {runtime.running_executable ? `${t('engineBinRunning')}: ${runtime.running_executable}` : runtime.engine_starting ? t('engineBinStarting') : t('engineBinNotRunning')}
+            {runtime.executable && runtime.executable !== runtime.running_executable ? ` · ${t('engineBinNextStart')}: ${runtime.executable}` : ''}
+            {runtime.executable_source === 'environment' ? ` · ${t('engineBinEnvOverride')}` : ''}
+          </span>
+        )}
+      </div>
 
       <Toggle
         label={t('keepLoadedLabel')}
@@ -226,6 +305,21 @@ export const EngineSettings: React.FC = () => {
         </div>
       </details>
 
+      <details className="rounded-xl border border-zinc-200 p-3 dark:border-white/10">
+        <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-zinc-500">{t('extraArgsLabel')}</summary>
+        <div className="mt-3 space-y-2">
+          <textarea
+            value={options.extra_args}
+            onChange={event => setOptions(current => ({ ...current, extra_args: event.target.value }))}
+            rows={2}
+            spellCheck={false}
+            placeholder="--flag value --other=1"
+            className={`${CONTROL} resize-y font-mono text-xs`}
+          />
+          <span className="block text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('extraArgsHint')}</span>
+        </div>
+      </details>
+
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
@@ -237,7 +331,9 @@ export const EngineSettings: React.FC = () => {
         </button>
         <button
           type="button"
-          onClick={() => void restart()}
+          // A restart applies what is saved, so anything typed and not saved
+          // is saved first: the button does what the page shows.
+          onClick={() => void (dirty ? save() : restart())}
           disabled={busy}
           className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-700 hover:border-pink-400 hover:text-pink-600 disabled:opacity-50 dark:border-white/15 dark:text-zinc-200"
         >

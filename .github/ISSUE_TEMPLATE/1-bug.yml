@@ -39,7 +39,6 @@ body:
     attributes:
       label: ACE-Step Studio version / Версия
       description: "**Settings → About** · **Настройки → О программе**"
-      placeholder: "3.5.5"
     validations:
       required: true
   - type: dropdown

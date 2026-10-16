@@ -293,7 +293,7 @@ impl AssistantRuntime {
     pub fn new(data_root: &Path) -> Self {
         Self {
             root: data_root.join("assistant"),
-            http: crate::net::client(),
+            http: crate::net::download_client(),
             state: Arc::new(Mutex::new(RuntimeState::default())),
             cancel: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         }

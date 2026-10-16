@@ -89,7 +89,7 @@ impl Sources {
 
     async fn lrclib(&self, song: &Song) -> Result<Option<Found>> {
         let mut seen = Vec::new();
-        let agent = music_core::studio().user_agent(env!("CARGO_PKG_VERSION"));
+        let agent = music_core::studio().user_agent(crate::studio_version());
         for (artist, title) in queries(song) {
             let list: Value = send(self
                 .http

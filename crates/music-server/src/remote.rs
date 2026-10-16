@@ -46,13 +46,19 @@ pub fn current() -> NetworkAccess {
 }
 
 /// Loads the kept setting at the service's start and says which address to
-/// bind: every address when it is on and has a key, loopback otherwise.
-pub fn start(saved: Option<NetworkAccess>) -> [u8; 4] {
-    let saved = saved.unwrap_or_default();
-    let open = saved.enabled && !saved.key.is_empty();
+/// bind: every address when it is on, loopback otherwise. A setting turned on
+/// in the file by hand has no key yet and gets one here; the second value says
+/// the setting changed and is to be saved.
+pub fn start(saved: Option<NetworkAccess>) -> ([u8; 4], bool) {
+    let mut saved = saved.unwrap_or_default();
+    let keyed = saved.enabled && saved.key.is_empty();
+    if keyed {
+        saved.key = new_key();
+    }
+    let open = saved.enabled;
     *setting().lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = saved;
     let _ = listening().set(open);
-    if open { [0, 0, 0, 0] } else { [127, 0, 0, 1] }
+    (if open { [0, 0, 0, 0] } else { [127, 0, 0, 1] }, keyed)
 }
 
 /// 148 random bits: the random parts of two version 7 ids.
@@ -83,6 +89,42 @@ fn local_addresses() -> Vec<String> {
 fn from_this_computer(peer: &SocketAddr, headers: &axum::http::HeaderMap) -> bool {
     const FORWARDED: [&str; 5] = ["forwarded", "x-forwarded-for", "x-forwarded-host", "x-real-ip", "cf-connecting-ip"];
     peer.ip().is_loopback() && !FORWARDED.iter().any(|name| headers.contains_key(*name))
+}
+
+/// Whether a page of another site sent this from the person's own browser, which reaches loopback like the window
+/// does. The window, a dev server and other pages on this computer send a loopback origin, a page opened at the
+/// studio's network address sends that address (or names it in X-Forwarded-Host behind a proxy), agents send none.
+fn from_another_site(headers: &axum::http::HeaderMap) -> bool {
+    let Some(origin) = headers.get(header::ORIGIN) else { return false };
+    let Some(authority) = origin.to_str().ok().and_then(|origin| origin.split_once("://")).map(|(_, authority)| authority) else { return true };
+    if loopback_host(authority) {
+        return false;
+    }
+    // a reverse proxy (nginx's proxy_pass) hands the studio its own Host and the page's name as X-Forwarded-Host
+    let forwarded = headers.get("x-forwarded-host").and_then(|host| host.to_str().ok()).and_then(|hosts| hosts.split(',').next()).map(str::trim);
+    let asked = [headers.get(header::HOST).and_then(|host| host.to_str().ok()), forwarded];
+    !asked.iter().flatten().any(|host| host.eq_ignore_ascii_case(authority))
+}
+
+/// A host, with or without its port, that can only be this computer. A site whose name was pointed at 127.0.0.1
+/// (DNS rebinding) is asked for by that name.
+fn loopback_host(authority: &str) -> bool {
+    let host = match authority.strip_prefix('[') {
+        Some(bracketed) => bracketed.split(']').next().unwrap_or_default(),
+        None => authority.rsplit_once(':').filter(|(_, port)| port.bytes().all(|byte| byte.is_ascii_digit())).map_or(authority, |(host, _)| host),
+    };
+    host.eq_ignore_ascii_case("localhost") || host.to_ascii_lowercase().ends_with(".localhost") || host.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback())
+}
+
+/// CORS answers pages of this computer only: a dev server on another port, the window.
+pub fn cors() -> tower_http::cors::CorsLayer {
+    use tower_http::cors::{AllowOrigin, Any, CorsLayer};
+    CorsLayer::new()
+        .allow_origin(AllowOrigin::predicate(|origin, _| {
+            origin.to_str().ok().and_then(|origin| origin.split_once("://")).is_some_and(|(_, authority)| loopback_host(authority))
+        }))
+        .allow_methods(Any)
+        .allow_headers(Any)
 }
 
 /// The setting for the page. The key is shown only to this computer.
@@ -154,7 +196,16 @@ fn same(a: &str, b: &str) -> bool {
 
 /// Lets this computer through, and the network only with the key.
 pub async fn guard(ConnectInfo(peer): ConnectInfo<SocketAddr>, request: Request, next: Next) -> Response {
+    let shown = |name: header::HeaderName| request.headers().get(name).map(|value| String::from_utf8_lossy(value.as_bytes()).into_owned()).unwrap_or_default();
+    if from_another_site(request.headers()) {
+        eprintln!("[ERROR] refused {} {}: a page of {} is not the studio's", request.method(), request.uri().path(), shown(header::ORIGIN));
+        return (StatusCode::FORBIDDEN, "A page of another site cannot use the studio.").into_response();
+    }
     if from_this_computer(&peer, request.headers()) {
+        if !request.headers().get(header::HOST).and_then(|host| host.to_str().ok()).is_none_or(loopback_host) {
+            eprintln!("[ERROR] refused {} {}: asked for as {}, not 127.0.0.1 or localhost", request.method(), request.uri().path(), shown(header::HOST));
+            return (StatusCode::FORBIDDEN, "The studio answers this computer at 127.0.0.1 or localhost only.").into_response();
+        }
         return next.run(request).await;
     }
     let access = current();
@@ -232,6 +283,32 @@ mod tests {
         assert!(!from_this_computer(&loopback, &headers));
         let lan: SocketAddr = "192.168.1.20:50000".parse().unwrap();
         assert!(!from_this_computer(&lan, &axum::http::HeaderMap::new()));
+    }
+
+    #[test]
+    fn a_page_of_another_site_is_refused_and_the_window_is_not() {
+        let headers = |origin: Option<&str>, host: &str| {
+            let mut headers = axum::http::HeaderMap::new();
+            headers.insert(header::HOST, host.parse().unwrap());
+            if let Some(origin) = origin {
+                headers.insert(header::ORIGIN, origin.parse().unwrap());
+            }
+            headers
+        };
+        assert!(!from_another_site(&headers(None, "127.0.0.1:8085")));
+        assert!(!from_another_site(&headers(Some("http://127.0.0.1:8085"), "127.0.0.1:8085")));
+        assert!(!from_another_site(&headers(Some("http://localhost:5173"), "127.0.0.1:8085")));
+        assert!(!from_another_site(&headers(Some("http://tauri.localhost"), "127.0.0.1:8085")));
+        assert!(!from_another_site(&headers(Some("http://[::1]:8085"), "[::1]:8085")));
+        assert!(!from_another_site(&headers(Some("http://192.168.1.5:8085"), "192.168.1.5:8085")));
+        assert!(from_another_site(&headers(Some("https://evil.example"), "127.0.0.1:8085")));
+        assert!(from_another_site(&headers(Some("null"), "127.0.0.1:8085")));
+        assert!(from_another_site(&headers(Some("http://192.168.1.9:8085"), "192.168.1.5:8085")));
+        let mut proxied = headers(Some("https://music.example"), "127.0.0.1:8085");
+        proxied.insert("x-forwarded-host", "music.example".parse().unwrap());
+        assert!(!from_another_site(&proxied), "a reverse proxy names the page's host in X-Forwarded-Host");
+        assert!(loopback_host("127.0.0.1:8085") && loopback_host("localhost") && loopback_host("[::1]:8085"));
+        assert!(!loopback_host("evil.example:8085") && !loopback_host("192.168.1.5:8085"));
     }
 
     #[test]

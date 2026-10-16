@@ -1,3 +1,4 @@
+import { NumberField } from './NumberField';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { scriptLanguage } from '../services/lyricsLanguage';
 import { libraryChanged, setupStatusChanged, updateLibrarySongs, useActivity, useAssistantStatus, useLibrarySongs, useSetupStatus, type ActivityEntry } from '../services/studioQueries';
@@ -181,8 +182,8 @@ const SliderRow: React.FC<{
     <div className={disabled ? 'opacity-50' : undefined}>
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{label}</span>
-        <span className="text-[11px] tabular-nums text-zinc-600 dark:text-zinc-300">
-          {shown.toFixed(decimals)}{suffix ?? ''}
+        <span className="flex items-center text-[11px] tabular-nums text-zinc-600 dark:text-zinc-300">
+          <NumberField value={shown} min={min} max={max} step={step} label={label} disabled={disabled} format={number => `${number.toFixed(decimals)}${suffix ?? ''}`} onChange={number => onChange(String(number))} />
           {value.trim() === '' && <span className="ml-1 text-zinc-400">·</span>}
         </span>
       </div>

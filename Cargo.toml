@@ -38,6 +38,8 @@ ort = { version = "=2.0.0-rc.13", default-features = false, features = ["load-dy
 symphonia = { version = "0.6", default-features = false, features = ["mp3", "wav", "pcm", "isomp4", "aac", "flac", "ogg", "vorbis", "aiff", "alac", "all-meta", "opt-simd"] }
 flate2 = "1"
 zip = { version = "8", default-features = false, features = ["deflate"] }
+tar = "0.4"
+lzma-rust2 = { version = "0.21", default-features = false, features = ["std", "optimization", "xz"] }
 windows-sys = { version = "0.61", features = ["Win32_System_JobObjects", "Win32_System_Threading", "Win32_Security", "Win32_Foundation"] }
 uuid = { version = "1.16", features = ["serde", "v7"] }
 

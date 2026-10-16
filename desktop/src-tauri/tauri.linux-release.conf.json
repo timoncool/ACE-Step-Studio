@@ -3,7 +3,8 @@
     "createUpdaterArtifacts": false,
     "targets": ["deb", "appimage"],
     "resources": {
-      "resources/engine": "resources/engine"
+      "resources/engine": "resources/engine",
+      "resources/music-midi": "resources/music-midi"
     },
     "icon": [
       "icons/32x32.png",

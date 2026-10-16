@@ -1,5 +1,4 @@
 param(
-    [Parameter(Mandatory = $true)]
     [ValidatePattern('^\d+\.\d+\.\d+([\-+][0-9A-Za-z.-]+)?$')]
     [string]$Version,
     [string]$ReleaseNotes = "",
@@ -12,6 +11,11 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# The version is written in desktop/src-tauri/tauri.conf.json and nowhere else.
+$configuredVersion = (Get-Content -Raw (Join-Path $PSScriptRoot '..\desktop\src-tauri\tauri.conf.json') | ConvertFrom-Json).version
+if (-not $Version) { $Version = $configuredVersion }
+elseif ($Version -ne $configuredVersion) { throw "desktop/src-tauri/tauri.conf.json says $configuredVersion, not $($Version): change the version there" }
 
 $whereTheKeyIs = @'
 The updater signing key lives on the release machine:

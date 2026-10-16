@@ -6,11 +6,11 @@ import { equalizerPanelOpen, onEqualizerPanel, setEqualizerPanelOpen } from '../
 import { onVisualizer, setVisualizer, visualizer, visualizerCommand, type VisualizerState } from '../../services/visualizerState';
 import { onWinamp, setWinampOn, setWinampSettings, winampControl, winampOn, winampSettings, winampSkins, SKIN_MUSEUM } from '../../services/winamp';
 import { openExternal } from '../../services/externalLinks';
-import type { Song } from '../../types';
+import type { Playlist, Song } from '../../types';
 import { EqualizerPanel } from './EqualizerPanel';
 import { VisualizerPanel, openVisualizerWindow, setVisualizerPanelSize, visualizerPanelSize } from './VisualizerPanel';
 import { SPECTRUM_LOOK_IDS, milkdropPresetNames } from './VisualizerView';
-import { WinampMode, restoreWindowAfterReload, type WinampExit } from './WinampMode';
+import { WinampMode, restoreWindowAfterReload, type WinampExit, type WinampSaveTarget } from './WinampMode';
 import { placePanel } from '../../services/useFloatable';
 
 /**
@@ -25,11 +25,16 @@ interface Props {
   currentTime: number;
   isPlaying: boolean;
   volume: number;
+  shuffle: boolean;
+  /** The studio repeats the whole list: Winamp's repeat. */
+  repeat: boolean;
   library: Song[];
+  playlists: Playlist[];
+  sourcePlaylistId: string | null;
   /** Pauses the studio's player while Winamp plays. */
   onPause: () => void;
   onLeaveWinamp: (exit: WinampExit) => void;
-  onSavePlaylist: (songIds: string[]) => Promise<void>;
+  onSavePlaylist: (songIds: string[], into: WinampSaveTarget) => Promise<void>;
 }
 
 const allPresets = (): EqPreset[] => [...ownPresets(), ...WINAMP_PRESETS, ...SITUATION_PRESETS];
@@ -62,11 +67,11 @@ function base64(bytes: ArrayBuffer): string {
   return btoa(text);
 }
 
-export const PlayerExtras: React.FC<Props> = ({ queue, currentSong, currentTime, isPlaying, volume, library, onPause, onLeaveWinamp, onSavePlaylist }) => {
+export const PlayerExtras: React.FC<Props> = ({ queue, currentSong, currentTime, isPlaying, volume, shuffle, repeat, library, playlists, sourcePlaylistId, onPause, onLeaveWinamp, onSavePlaylist }) => {
   const [eqOpen, setEqOpen] = useState(equalizerPanelOpen);
   const [view, setView] = useState<VisualizerState>(visualizer);
   const [winamp, setWinamp] = useState(winampOn);
-  const [start, setStart] = useState<{ queue: Song[]; index: number; seconds: number; playing: boolean; volume: number } | null>(null);
+  const [start, setStart] = useState<{ queue: Song[]; index: number; seconds: number; playing: boolean; volume: number; shuffle: boolean; repeat: boolean; sourcePlaylistId: string | null } | null>(null);
 
   useEffect(() => onEqualizerPanel(setEqOpen), []);
   useEffect(() => onVisualizer(setView), []);
@@ -95,7 +100,7 @@ export const PlayerExtras: React.FC<Props> = ({ queue, currentSong, currentTime,
     }
     const list = queue.length ? queue : library;
     const index = currentSong ? Math.max(0, list.findIndex((song) => song.id === currentSong.id)) : 0;
-    setStart({ queue: list, index, seconds: currentTime, playing: isPlaying, volume });
+    setStart({ queue: list, index, seconds: currentTime, playing: isPlaying, volume, shuffle, repeat, sourcePlaylistId: queue.length ? sourcePlaylistId : null });
     onPause();
   }, [winamp]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -259,7 +264,11 @@ export const PlayerExtras: React.FC<Props> = ({ queue, currentSong, currentTime,
           startSeconds={start.seconds}
           playing={start.playing}
           volume={start.volume}
+          shuffle={start.shuffle}
+          repeat={start.repeat}
           library={library}
+          playlists={playlists}
+          sourcePlaylistId={start.sourcePlaylistId}
           onSavePlaylist={onSavePlaylist}
           onExit={(exit) => {
             setWinampOn(false);

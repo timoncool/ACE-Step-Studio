@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite';
 
 const studio = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, '../studio.json'), 'utf-8'));
 const service = `http://127.0.0.1:${studio.port}`;
-const appVersion = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, 'package.json'), 'utf-8')).version;
+const appVersion: string = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, '../desktop/src-tauri/tauri.conf.json'), 'utf-8')).version;
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');

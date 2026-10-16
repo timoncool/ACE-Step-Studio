@@ -33,6 +33,98 @@ pub struct TrackTags {
     pub bpm: Option<u32>,
     /// Cover image bytes with their media type, when the track has one.
     pub cover: Option<(String, Vec<u8>)>,
+    /// The person's note on the track, in the format's own comment field.
+    pub comment: Option<String>,
+    /// The whole style prompt the track was made from.
+    pub style: Option<String>,
+    /// `settings_json`: what the track was made with, enough to make it again.
+    pub settings: Option<String>,
+}
+
+/// The studios' own fields, the same in every studio so one reads another's
+/// tracks: a user-defined text frame (TXXX) by its description in ID3v2, a
+/// field by its name in Vorbis comments, the way MusicBrainz and ReplayGain
+/// keep theirs.
+pub const ID3_STYLE: &str = "Music Studio Style";
+pub const ID3_SETTINGS: &str = "Music Studio Settings";
+pub const VORBIS_STYLE: &str = "MUSIC_STUDIO_STYLE";
+pub const VORBIS_SETTINGS: &str = "MUSIC_STUDIO_SETTINGS";
+/// The version of the settings document; a reader takes only the versions it knows.
+pub const SETTINGS_SCHEMA: u64 = 1;
+
+/// The settings document a track carries: which studio made it, with what.
+/// Strings that are paths on this computer stay out of the file, at any depth.
+pub fn settings_json(app: &str, engine_id: &str, settings: &serde_json::Value) -> Option<String> {
+    let kept = without_paths(settings)?;
+    if !kept.as_object().is_some_and(|fields| !fields.is_empty()) {
+        return None;
+    }
+    Some(serde_json::json!({ "schema": SETTINGS_SCHEMA, "app": app, "engine_id": engine_id, "settings": kept }).to_string())
+}
+
+fn without_paths(value: &serde_json::Value) -> Option<serde_json::Value> {
+    use serde_json::Value;
+    match value {
+        Value::String(text) if is_local_path(text) => None,
+        Value::Object(fields) => Some(Value::Object(fields.iter().filter_map(|(key, value)| Some((key.clone(), without_paths(value)?))).collect())),
+        Value::Array(items) => Some(Value::Array(items.iter().filter_map(without_paths).collect())),
+        other => Some(other.clone()),
+    }
+}
+
+fn is_local_path(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    let drive = bytes.len() > 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' && matches!(bytes[2], b'\\' | b'/');
+    drive || value.starts_with('/') || value.starts_with("\\\\") || value.starts_with("file:")
+}
+
+/// What a file says about itself: the standard fields any tagger writes and the studios' own.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ReadTags {
+    pub title: Option<String>,
+    pub lyrics: Option<String>,
+    pub comment: Option<String>,
+    pub style: Option<String>,
+    /// The settings document, when it is one of a version this studio reads.
+    pub settings: Option<serde_json::Value>,
+}
+
+/// Reads the tags of an audio file in memory; a file without tags, or one lofty cannot read, has none.
+pub fn read_tags(audio: &[u8]) -> ReadTags {
+    use lofty::file::AudioFile;
+    let mut found = ReadTags::default();
+    let text = |value: Option<std::borrow::Cow<'_, str>>| value.map(|v| v.trim().to_string()).filter(|v| !v.is_empty());
+    let Ok(probe) = Probe::new(std::io::Cursor::new(audio)).guess_file_type() else { return found };
+    let file_type = probe.file_type();
+    let options = ParseOptions::new().read_properties(false);
+    if let Ok(file) = probe.options(options).read() {
+        if let Some(tag) = file.primary_tag().or_else(|| file.first_tag()) {
+            found.title = text(tag.title());
+            found.lyrics = text(tag.get_string(lyrics_key(tag.tag_type())).map(Into::into));
+            found.comment = text(tag.comment());
+        }
+    }
+    let mut reader = std::io::Cursor::new(audio);
+    let (style, settings) = match file_type {
+        Some(FileType::Mpeg) => lofty::mpeg::MpegFile::read_from(&mut reader, options)
+            .ok()
+            .and_then(|file| file.id3v2().map(|tag| (tag.get_user_text(ID3_STYLE).map(str::to_string), tag.get_user_text(ID3_SETTINGS).map(str::to_string))))
+            .unwrap_or_default(),
+        Some(FileType::Wav) => lofty::iff::wav::WavFile::read_from(&mut reader, options)
+            .ok()
+            .and_then(|file| file.id3v2().map(|tag| (tag.get_user_text(ID3_STYLE).map(str::to_string), tag.get_user_text(ID3_SETTINGS).map(str::to_string))))
+            .unwrap_or_default(),
+        Some(FileType::Flac) => lofty::flac::FlacFile::read_from(&mut reader, options)
+            .ok()
+            .and_then(|file| file.vorbis_comments().map(|tag| (tag.get(VORBIS_STYLE).map(str::to_string), tag.get(VORBIS_SETTINGS).map(str::to_string))))
+            .unwrap_or_default(),
+        _ => (None, None),
+    };
+    found.style = style.map(|v| v.trim().to_string()).filter(|v| !v.is_empty());
+    found.settings = settings
+        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
+        .filter(|document| document["schema"].as_u64() == Some(SETTINGS_SCHEMA) && document["settings"].is_object());
+    found
 }
 
 /// The formats the studio tags: the ones its tracks are kept in.
@@ -45,6 +137,20 @@ pub fn taggable(path: &Path) -> bool {
 pub fn is_tagged(path: &Path) -> anyhow::Result<bool> {
     let file = Probe::open(path)?.options(ParseOptions::new().read_properties(false)).read()?;
     Ok(file.primary_tag().is_some_and(|tag| tag.title().is_some()))
+}
+
+/// Whether the file carries the studios' style field: a track stored before the
+/// studio wrote it gets it once, at start.
+pub fn carries_style(path: &Path) -> anyhow::Result<bool> {
+    use lofty::file::AudioFile;
+    let options = ParseOptions::new().read_properties(false);
+    let mut file = std::fs::File::open(path)?;
+    Ok(match FileType::from_path(path) {
+        Some(FileType::Mpeg) => lofty::mpeg::MpegFile::read_from(&mut file, options)?.id3v2().is_some_and(|tag| tag.get_user_text(ID3_STYLE).is_some()),
+        Some(FileType::Wav) => lofty::iff::wav::WavFile::read_from(&mut file, options)?.id3v2().is_some_and(|tag| tag.get_user_text(ID3_STYLE).is_some()),
+        Some(FileType::Flac) => lofty::flac::FlacFile::read_from(&mut file, options)?.vorbis_comments().is_some_and(|tag| tag.get(VORBIS_STYLE).is_some()),
+        _ => true,
+    })
 }
 
 /// The tempo field of a tag: ID3 keeps a whole number in TBPM, Vorbis comments a BPM.
@@ -77,6 +183,9 @@ pub fn write_tags(path: &Path, tags: &TrackTags) -> anyhow::Result<()> {
     if let Some(lyrics) = tags.lyrics.as_deref().filter(|value| !value.trim().is_empty()) {
         tag.insert_text(lyrics_key(tag.tag_type()), lyrics.to_string());
     }
+    if let Some(comment) = tags.comment.as_deref().filter(|value| !value.trim().is_empty()) {
+        tag.set_comment(comment.to_string());
+    }
     if let Some((media_type, image)) = tags.cover.as_ref() {
         tag.push_picture(
             Picture::unchecked(image.clone())
@@ -86,12 +195,35 @@ pub fn write_tags(path: &Path, tags: &TrackTags) -> anyhow::Result<()> {
                 .build(),
         );
     }
-    tag.save_to_path(path, WriteOptions::default())?;
-    if file_type == FileType::Wav {
-        // RIFF INFO is what most readers of a WAV look at; the id3 chunk holds the lyrics and cover
-        let mut info = tag;
-        info.re_map(lofty::tag::TagType::RiffInfo);
-        info.save_to_path(path, WriteOptions::default())?;
+    let own = |value: &Option<String>| value.as_deref().map(str::trim).filter(|v| !v.is_empty()).map(str::to_string);
+    let (style, settings) = (own(&tags.style), own(&tags.settings));
+    match file_type {
+        FileType::Flac => {
+            let mut vorbis = lofty::ogg::tag::VorbisComments::from(tag);
+            if let Some(style) = style {
+                vorbis.insert(VORBIS_STYLE.into(), style);
+            }
+            if let Some(settings) = settings {
+                vorbis.insert(VORBIS_SETTINGS.into(), settings);
+            }
+            vorbis.save_to_path(path, WriteOptions::default())?;
+        }
+        _ => {
+            let mut id3 = lofty::id3::v2::Id3v2Tag::from(tag.clone());
+            if let Some(style) = style {
+                id3.insert_user_text(ID3_STYLE.into(), style);
+            }
+            if let Some(settings) = settings {
+                id3.insert_user_text(ID3_SETTINGS.into(), settings);
+            }
+            id3.save_to_path(path, WriteOptions::default())?;
+            if file_type == FileType::Wav {
+                // RIFF INFO is what most readers of a WAV look at; the id3 chunk holds the lyrics and cover
+                let mut info = tag;
+                info.re_map(lofty::tag::TagType::RiffInfo);
+                info.save_to_path(path, WriteOptions::default())?;
+            }
+        }
     }
     Ok(())
 }
@@ -121,6 +253,9 @@ pub fn genre_from_caption(caption: &str) -> Option<String> {
         .map(str::to_string)
 }
 
+/// Whether a song has a voice; a style names it first, and it is not a genre.
+const ARRANGEMENTS: &[&str] = &["instrumental", "a cappella", "acapella", "no vocals", "vocals"];
+
 /// Vocal languages a style may open with; a language alone is not a genre.
 const LANGUAGES: &[&str] = &[
     "english", "mandarin", "chinese", "cantonese", "russian", "japanese", "korean", "spanish",
@@ -141,6 +276,7 @@ fn plausible_genre(phrase: &str) -> bool {
         && !phrase.contains(':')
         && !is_label
         && !is_measurement
+        && !ARRANGEMENTS.contains(&lowered.as_str())
         && !phrase.chars().any(|character| character.is_ascii_digit())
 }
 
@@ -210,8 +346,19 @@ mod tests {
                 lyrics: Some("Неон дрожит над мокрым городом".into()),
                 bpm: Some(96),
                 cover: Some(("image/png".into(), png())),
+                comment: Some("Лучший дубль".into()),
+                style: Some("Synth-pop, neon, 96 bpm".into()),
+                settings: settings_json("ace", "acestep", &serde_json::json!({ "seed": 4, "caption": "Synth-pop" })),
             };
             write_tags(&path, &tags).unwrap();
+            assert!(carries_style(&path).unwrap(), "{extension}");
+            let back = read_tags(&std::fs::read(&path).unwrap());
+            assert_eq!(back.title.as_deref(), Some("Неон"), "{extension}");
+            assert_eq!(back.lyrics.as_deref(), Some("Неон дрожит над мокрым городом"), "{extension}");
+            assert_eq!(back.comment.as_deref(), Some("Лучший дубль"), "{extension}");
+            assert_eq!(back.style.as_deref(), Some("Synth-pop, neon, 96 bpm"), "{extension}");
+            let settings = back.settings.expect(extension);
+            assert_eq!((settings["app"].as_str(), settings["settings"]["seed"].as_u64()), (Some("ace"), Some(4)), "{extension}");
 
             assert!(is_tagged(&path).unwrap());
             let file = lofty::read_from_path(&path).unwrap();
@@ -251,7 +398,23 @@ mod tests {
     }
 
     #[test]
+    fn the_settings_leave_paths_out_and_an_unknown_version_is_not_read() {
+        let document = settings_json("yue2", "yue2", &serde_json::json!({ "seed": 1, "reference": "C:\\Users\\me\\ref.wav", "src": "/home/me/a.wav", "model": "q8.gguf", "adapters": [{ "name": "duet", "path": "D:/loras/duet.safetensors" }] })).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&document).unwrap();
+        assert_eq!(parsed["settings"], serde_json::json!({ "seed": 1, "model": "q8.gguf", "adapters": [{ "name": "duet" }] }));
+        assert_eq!(settings_json("yue2", "yue2", &serde_json::Value::Null), None);
+
+        let path = sample("mp3");
+        let later = serde_json::json!({ "schema": 2, "settings": {} }).to_string();
+        write_tags(&path, &TrackTags { title: "x".into(), settings: Some(later), ..TrackTags::default() }).unwrap();
+        assert_eq!(read_tags(&std::fs::read(&path).unwrap()).settings, None);
+        assert!(!carries_style(&path).unwrap());
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
     fn a_genre_is_a_phrase_not_a_document() {
+        assert_ne!(genre_from_caption("instrumental, warm lo-fi hip hop with soft piano and vinyl crackle, 85 BPM").as_deref(), Some("instrumental"));
         assert_eq!(genre_from_caption("Darkwave, Synth-pop. Global Emotional Progression: …"), Some("Darkwave".into()));
         assert_eq!(genre_from_caption("Global Metadata: Basic Attributes: bpm is 96. key is A"), None);
         assert_eq!(genre_from_caption("Global Metadata Basic Attributes: bpm is 95"), None);

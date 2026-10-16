@@ -65,6 +65,8 @@ pub struct AssetStatus {
     pub installed: bool,
     /// Bytes already on disk, so a resumed download reports honestly.
     pub downloaded_bytes: u64,
+    /// The program (yue2, dub...) it was taken from in this run instead of being downloaded.
+    pub taken_from: Option<String>,
 }
 
 /// What a whole set calls itself while it downloads. A capability is usually
@@ -89,6 +91,7 @@ pub struct DownloadProgress {
 }
 
 /// Owns one capability's download directory.
+#[derive(Clone)]
 pub struct Downloader {
     root: PathBuf,
     http: reqwest::Client,
@@ -103,7 +106,7 @@ impl Downloader {
     pub fn new(root: PathBuf) -> Self {
         Self {
             root,
-            http: crate::net::client(),
+            http: crate::net::download_client(),
             progress: Arc::new(Mutex::new(None)),
             cancel: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         }
@@ -165,6 +168,9 @@ impl Downloader {
         // Ask the servers what these actually weigh. The answers land in time
         // for the next poll a second from now; nothing waits on them.
         crate::sizes::ask(&self.http, assets.iter().map(|asset| asset.url.to_string()).collect());
+        self.link_from_neighbors(
+            assets.iter().copied().filter(|asset| asset.kind == AssetKind::Model && asset.pick.is_empty() && asset.unzip_into.is_none() && !self.is_installed(asset)).collect(),
+        );
         assets
             .iter()
             .map(|asset| AssetStatus {
@@ -176,8 +182,51 @@ impl Downloader {
                 note: asset.note,
                 installed: self.is_installed(asset),
                 downloaded_bytes: if self.is_installed(asset) { crate::sizes::or_listed(asset.url, asset.bytes) } else { self.partial_bytes(asset) },
+                taken_from: taken_from(asset.id),
             })
             .collect()
+    }
+
+    /// Links in what another program already has off the async workers: the walk of its folders, and the wait for a
+    /// file another caller is taking, must not hold a status poll. What is found shows from the next poll.
+    fn link_from_neighbors(&self, assets: Vec<Asset>) {
+        static LINKING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        struct Linking;
+        impl Drop for Linking {
+            fn drop(&mut self) {
+                LINKING.store(false, std::sync::atomic::Ordering::Release);
+            }
+        }
+        if assets.is_empty() || LINKING.swap(true, std::sync::atomic::Ordering::AcqRel) {
+            return;
+        }
+        let downloader = self.clone();
+        let work = move || {
+            let _linking = Linking;
+            for asset in &assets {
+                downloader.link_from_neighbor(asset);
+            }
+        };
+        match tokio::runtime::Handle::try_current() {
+            Ok(runtime) => drop(runtime.spawn_blocking(work)),
+            Err(_) => work(),
+        }
+    }
+
+    /// A model another program of timoncool's already has (the same name and the size the server gives) is linked
+    /// in without asking: a hard link costs no disk and no download. A copy waits for the person to ask (`fetch`).
+    fn link_from_neighbor(&self, asset: &Asset) {
+        if self.is_installed(asset) {
+            return;
+        }
+        let target = self.path_of(asset);
+        let (Some(bytes), Some(name)) = (crate::sizes::known(asset.url), target.file_name()) else { return };
+        if let Some((source, app)) = studio_hub_client::neighbors::find_file(name, bytes, target.parent().and_then(Path::file_name)) {
+            match studio_hub_client::neighbors::take_file(&source, &target, false, |_| true) {
+                Ok(()) => note_taken(asset.id, &target, &app),
+                Err(error) => report_take_failure(&target, &app, &error),
+            }
+        }
     }
 
     /// Deletes an installed asset, whatever shape it took on disk.
@@ -189,9 +238,17 @@ impl Downloader {
         // A free function rather than a closure: the running total is read while
         // the directory walk below is still adding to it.
         fn drop_file(path: PathBuf) -> Result<u64> {
-            match fs::metadata(&path) {
+            match fs::symlink_metadata(&path) {
                 Ok(meta) => {
-                    let size = meta.len();
+                    // A library picked by its loader name is a link; the
+                    // versioned file it names is what takes the disk.
+                    let size = match fs::read_link(&path) {
+                        Ok(target) if meta.file_type().is_symlink() => match path.parent() {
+                            Some(directory) => drop_file(directory.join(target))?,
+                            None => 0,
+                        },
+                        _ => meta.len(),
+                    };
                     fs::remove_file(&path).with_context(|| format!("remove {}", path.display()))?;
                     Ok(size)
                 }
@@ -377,7 +434,7 @@ impl Downloader {
         let target = self.path_of(asset);
         fetch(&self.http, asset, &target, cell, self.cancel.clone()).await?;
         if let Some(flavour) = asset.unzip_into {
-            extract_zip(&target, &self.root.join("runtime").join(flavour))?;
+            extract_archive(&target, &self.root.join("runtime").join(flavour))?;
         }
         Ok(())
     }
@@ -428,7 +485,7 @@ impl Downloader {
             let mut guard = progress.lock().await;
             let error = match outcome {
                 Ok(()) => match asset.unzip_into {
-                    Some(flavour) => extract_zip(&target, &root.join("runtime").join(flavour)).err().map(|error| error.to_string()),
+                    Some(flavour) => extract_archive(&target, &root.join("runtime").join(flavour)).err().map(|error| error.to_string()),
                     None => None,
                 },
                 Err(error) => Some(error.to_string()),
@@ -461,6 +518,23 @@ async fn fetch(
     let plan = crate::chunked::probe(http, asset.url).await?;
     if plan.total > 0 {
         crate::sizes::learn(asset.url, plan.total);
+        // another program of timoncool's has it: taken from there, by copy too when it is on another drive
+        let (to, total) = (target.to_path_buf(), plan.total);
+        let taken = tokio::task::spawn_blocking(move || {
+            let (source, app) = to.file_name().and_then(|name| studio_hub_client::neighbors::find_file(name, total, to.parent().and_then(Path::file_name)))?;
+            Some((studio_hub_client::neighbors::take_file(&source, &to, true, |_| true), app))
+        })
+        .await
+        .ok()
+        .flatten();
+        match taken {
+            Some((Ok(()), app)) => {
+                note_taken(asset.id, target, &app);
+                return Ok(());
+            }
+            Some((Err(error), app)) => report_take_failure(target, &app, &error),
+            None => {}
+        }
     }
 
     let part = target.with_extension("part");
@@ -494,8 +568,45 @@ async fn fetch(
     Ok(())
 }
 
-/// Unpacks a release zip. Entries are flattened into `destination` because the
-/// releases nest their binaries one or two directories deep.
+/// Says once per file why a neighbour's copy could not be taken: the setup screen asks every second.
+pub(crate) fn report_take_failure(target: &Path, app: &str, error: &io::Error) {
+    static SAID: std::sync::Mutex<Vec<PathBuf>> = std::sync::Mutex::new(Vec::new());
+    let mut said = SAID.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if !said.iter().any(|known| known == target) {
+        said.push(target.to_path_buf());
+        eprintln!("[ERROR] {} was not taken from {app}: {error}", target.display());
+    }
+}
+
+/// A model taken from another program instead of being downloaded: which program, and the file's name.
+#[derive(Clone, Debug, Serialize)]
+pub struct Taken {
+    pub app: String,
+    pub file: String,
+}
+
+/// What was taken from another program in this run, by asset or component id: the panels say "taken from ...".
+fn taken() -> &'static std::sync::Mutex<std::collections::BTreeMap<String, Taken>> {
+    static TAKEN: std::sync::OnceLock<std::sync::Mutex<std::collections::BTreeMap<String, Taken>>> = std::sync::OnceLock::new();
+    TAKEN.get_or_init(Default::default)
+}
+
+pub(crate) fn note_taken(id: &str, file: &Path, app: &str) {
+    eprintln!("[OK] {id} taken from {app} instead of downloading");
+    let file = file.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
+    taken().lock().unwrap_or_else(|poisoned| poisoned.into_inner()).insert(id.to_string(), Taken { app: app.to_string(), file });
+}
+
+pub(crate) fn taken_from(id: &str) -> Option<String> {
+    taken().lock().unwrap_or_else(|poisoned| poisoned.into_inner()).get(id).map(|taken| taken.app.clone())
+}
+
+/// Everything taken from another program in this run, for the setup screen.
+pub(crate) fn taken_all() -> std::collections::BTreeMap<String, Taken> {
+    taken().lock().unwrap_or_else(|poisoned| poisoned.into_inner()).clone()
+}
+
+
 /// Downloads a whole archive with the resumable downloader and extracts the
 /// asset's named files, reporting progress into the shared cell.
 async fn download_and_extract_named(
@@ -535,32 +646,55 @@ async fn download_and_extract_named(
     extracted
 }
 
-/// Pulls named files out of a local archive, flattened into the destination.
-/// A name with a `/` is the entry's path inside the archive - packages carry
-/// the same file for several architectures - and a bare name matches any
-/// entry of that name. The archive stays where it is; the caller deletes it.
 fn extract_named_local(archive: &Path, wanted: &[&str], destination: &Path) -> Result<()> {
-    let file = fs::File::open(archive).with_context(|| format!("open {}", archive.display()))?;
-    let mut zip = zip::ZipArchive::new(file).with_context(|| format!("read {}", archive.display()))?;
+    let format = archive_format(archive)?;
     let mut found: Vec<&str> = Vec::new();
-    for index in 0..zip.len() {
-        let mut entry = zip.by_index(index).context("read zip entry")?;
-        let Some(path) = entry.enclosed_name().map(|path| path.to_string_lossy().replace('\\', "/")) else {
-            continue;
-        };
-        let name = path.rsplit('/').next().unwrap_or(&path).to_string();
-        let Some(candidate) = wanted.iter().copied().find(|candidate| {
-            if candidate.contains('/') { candidate.eq_ignore_ascii_case(&path) } else { candidate.eq_ignore_ascii_case(&name) }
-        }) else {
-            continue;
-        };
-        let target = destination.join(&name);
-        let partial = target.with_extension("part");
-        let mut out = fs::File::create(&partial).with_context(|| format!("create {}", partial.display()))?;
-        io::copy(&mut entry, &mut out).with_context(|| format!("extract {path}"))?;
-        drop(out);
-        fs::rename(&partial, &target).with_context(|| format!("publish {}", target.display()))?;
-        found.push(candidate);
+    if format == ArchiveFormat::Zip {
+        let file = fs::File::open(archive).with_context(|| format!("open {}", archive.display()))?;
+        let mut zip = zip::ZipArchive::new(file).with_context(|| format!("read {}", archive.display()))?;
+        for index in 0..zip.len() {
+            let mut entry = zip.by_index(index).context("read zip entry")?;
+            let Some(path) = entry.enclosed_name().map(|path| path.to_string_lossy().replace('\\', "/")) else {
+                continue;
+            };
+            let name = path.rsplit('/').next().unwrap_or(&path).to_string();
+            let Some(candidate) = wanted.iter().copied().find(|candidate| {
+                if candidate.contains('/') { candidate.eq_ignore_ascii_case(&path) } else { candidate.eq_ignore_ascii_case(&name) }
+            }) else {
+                continue;
+            };
+            let mode = entry.unix_mode();
+            write_entry(&mut entry, &destination.join(&name), mode)?;
+            found.push(candidate);
+        }
+    } else {
+        // A library is asked for by the name the loader looks up,
+        // `libcublas.so.12`; the archive carries it as the versioned file that
+        // name links to, which lands under its own name with the link beside it.
+        let mut links: Vec<(&str, String)> = Vec::new();
+        for entry in open_tar(archive, format)?.entries().with_context(|| format!("read {}", archive.display()))? {
+            let mut entry = entry.with_context(|| format!("read {}", archive.display()))?;
+            if !entry.header().entry_type().is_file() {
+                continue;
+            }
+            let path = entry.path().context("read tar entry")?.to_string_lossy().replace('\\', "/");
+            let name = path.rsplit('/').next().unwrap_or(&path).to_string();
+            let Some(candidate) = wanted.iter().copied().find(|candidate| name == *candidate || name.starts_with(&format!("{candidate}."))) else {
+                continue;
+            };
+            if found.contains(&candidate) {
+                continue;
+            }
+            let mode = entry.header().mode().ok();
+            write_entry(&mut entry, &destination.join(&name), mode)?;
+            if name != candidate {
+                links.push((candidate, name));
+            }
+            found.push(candidate);
+        }
+        for (candidate, name) in links {
+            link_beside(&destination.join(candidate), &name)?;
+        }
     }
     let missing: Vec<&str> = wanted.iter().copied().filter(|candidate| !found.contains(candidate)).collect();
     if !missing.is_empty() {
@@ -574,31 +708,132 @@ pub fn picked_file_name(entry: &str) -> &str {
     entry.rsplit('/').next().unwrap_or(entry)
 }
 
-pub fn extract_zip(archive: &Path, destination: &Path) -> Result<()> {
+/// Unpacks a release archive, zip or tar. Entries are flattened into
+/// `destination` because the releases nest their binaries one or two
+/// directories deep.
+pub fn extract_archive(archive: &Path, destination: &Path) -> Result<()> {
     // Packages ship every architecture they support; only this one belongs
     // here, and flattening the rest would overwrite it with an ARM build.
-    const FOREIGN: [&str; 4] = ["arm64", "win-x86", "linux", "osx"];
+    const FOREIGN: [&str; 4] = ["arm64", "win-x86", if cfg!(windows) { "linux" } else { "win-x64" }, "osx"];
     fs::create_dir_all(destination).with_context(|| format!("create {}", destination.display()))?;
-    let file = fs::File::open(archive).with_context(|| format!("open {}", archive.display()))?;
-    let mut zip = zip::ZipArchive::new(file).with_context(|| format!("read {}", archive.display()))?;
-    for index in 0..zip.len() {
-        let mut entry = zip.by_index(index).context("read zip entry")?;
-        if entry.is_dir() {
-            continue;
+    match archive_format(archive)? {
+        ArchiveFormat::Zip => {
+            let file = fs::File::open(archive).with_context(|| format!("open {}", archive.display()))?;
+            let mut zip = zip::ZipArchive::new(file).with_context(|| format!("read {}", archive.display()))?;
+            for index in 0..zip.len() {
+                let mut entry = zip.by_index(index).context("read zip entry")?;
+                if entry.is_dir() {
+                    continue;
+                }
+                let Some(path) = entry.enclosed_name() else { continue };
+                let inside = path.to_string_lossy().to_ascii_lowercase();
+                if FOREIGN.iter().any(|other| inside.contains(other)) {
+                    continue;
+                }
+                let Some(name) = path.file_name().map(|name| name.to_owned()) else {
+                    continue;
+                };
+                let mode = entry.unix_mode();
+                write_entry(&mut entry, &destination.join(name), mode)?;
+            }
         }
-        let Some(path) = entry.enclosed_name() else { continue };
-        let inside = path.to_string_lossy().to_ascii_lowercase();
-        if FOREIGN.iter().any(|other| inside.contains(other)) {
-            continue;
+        format => {
+            // A tar carries the libraries and programs among headers and build
+            // files; the loader's short names are links to the versioned file.
+            let mut links: Vec<(String, String)> = Vec::new();
+            for entry in open_tar(archive, format)?.entries().with_context(|| format!("read {}", archive.display()))? {
+                let mut entry = entry.with_context(|| format!("read {}", archive.display()))?;
+                let path = entry.path().context("read tar entry")?.to_string_lossy().replace('\\', "/");
+                let name = path.rsplit('/').next().unwrap_or(&path).to_string();
+                let kind = entry.header().entry_type();
+                let mode = entry.header().mode().ok();
+                let executable = mode.is_some_and(|mode| mode & 0o111 != 0);
+                if kind.is_symlink() && is_shared_library(&name) {
+                    let target = entry.link_name().ok().flatten().map(|target| target.to_string_lossy().replace('\\', "/")).unwrap_or_default();
+                    links.push((name, target.rsplit('/').next().unwrap_or(&target).to_string()));
+                } else if kind.is_file() && (is_shared_library(&name) || executable) {
+                    write_entry(&mut entry, &destination.join(&name), mode)?;
+                }
+            }
+            // A link may name another link, in whatever order the archive lists them.
+            while !links.is_empty() {
+                let (ready, waiting): (Vec<_>, Vec<_>) = links.into_iter().partition(|(_, target)| destination.join(target).is_file());
+                if ready.is_empty() {
+                    bail!("{} links {} to files it does not contain", archive.display(), waiting.iter().map(|(name, _)| name.as_str()).collect::<Vec<_>>().join(", "));
+                }
+                for (name, target) in ready {
+                    link_beside(&destination.join(&name), &target)?;
+                }
+                links = waiting;
+            }
         }
-        let Some(name) = path.file_name().map(|name| name.to_owned()) else {
-            continue;
-        };
-        let target = destination.join(name);
-        let mut out = fs::File::create(&target).with_context(|| format!("create {}", target.display()))?;
-        io::copy(&mut entry, &mut out).with_context(|| format!("extract {}", target.display()))?;
     }
     fs::remove_file(archive).ok();
+    Ok(())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ArchiveFormat {
+    Zip,
+    TarGz,
+    TarXz,
+}
+
+/// An archive's format by its first bytes: the file on disk is named after the
+/// download, not after what it is.
+fn archive_format(archive: &Path) -> Result<ArchiveFormat> {
+    let mut head = [0u8; 6];
+    let read = io::Read::read(&mut fs::File::open(archive).with_context(|| format!("open {}", archive.display()))?, &mut head)?;
+    Ok(match &head[..read] {
+        [0x1f, 0x8b, ..] => ArchiveFormat::TarGz,
+        [0xfd, b'7', b'z', b'X', b'Z', 0x00] => ArchiveFormat::TarXz,
+        _ => ArchiveFormat::Zip,
+    })
+}
+
+fn open_tar(archive: &Path, format: ArchiveFormat) -> Result<tar::Archive<Box<dyn io::Read>>> {
+    let file = io::BufReader::new(fs::File::open(archive).with_context(|| format!("open {}", archive.display()))?);
+    let reader: Box<dyn io::Read> = match format {
+        ArchiveFormat::TarGz => Box::new(flate2::read::GzDecoder::new(file)),
+        _ => Box::new(lzma_rust2::XzReader::new(file, true)),
+    };
+    Ok(tar::Archive::new(reader))
+}
+
+/// `libcublas.so.12`, `libcublas.so.12.9.2.10`, `libonnxruntime.so`.
+fn is_shared_library(name: &str) -> bool {
+    name.ends_with(".so") || name.contains(".so.")
+}
+
+/// Writes an archive entry through a partial file, keeping its permission
+/// bits where the system has them: a program unpacked without them does not run.
+fn write_entry(entry: &mut impl io::Read, target: &Path, mode: Option<u32>) -> Result<()> {
+    let partial = target.with_file_name(format!("{}.part", target.file_name().unwrap_or_default().to_string_lossy()));
+    let mut out = fs::File::create(&partial).with_context(|| format!("create {}", partial.display()))?;
+    io::copy(entry, &mut out).with_context(|| format!("extract {}", target.display()))?;
+    drop(out);
+    #[cfg(unix)]
+    if let Some(mode) = mode {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&partial, fs::Permissions::from_mode(mode & 0o777)).with_context(|| format!("set permissions of {}", partial.display()))?;
+    }
+    #[cfg(not(unix))]
+    let _ = mode;
+    fs::rename(&partial, target).with_context(|| format!("publish {}", target.display()))
+}
+
+/// Gives the file `target` beside `link` the name `link` as well; a copy where
+/// there are no symbolic links.
+fn link_beside(link: &Path, target: &str) -> Result<()> {
+    match fs::remove_file(link) {
+        Ok(()) => {}
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error).with_context(|| format!("replace {}", link.display())),
+    }
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(target, link).with_context(|| format!("link {} to {target}", link.display()))?;
+    #[cfg(not(unix))]
+    fs::copy(link.with_file_name(target), link).with_context(|| format!("copy {target} to {}", link.display()))?;
     Ok(())
 }
 
@@ -693,6 +928,81 @@ mod tests {
         assert_eq!(fs::read_to_string(root.join("out").join("DirectML.dll")).unwrap(), "win");
         assert_eq!(fs::read_to_string(root.join("out").join("readme.txt")).unwrap(), "notes");
         assert!(extract_named_local(&archive, &["bin/arm64-win/DirectML.dll"], &root.join("out")).is_err());
+        fs::remove_dir_all(&root).ok();
+    }
+
+    /// A Linux release archive as NVIDIA and Microsoft ship them: one versioned
+    /// library, the loader's names as links to it, a program, and headers.
+    fn linux_archive(root: &Path) -> PathBuf {
+        let archive = root.join("package.part-archive");
+        let encoder = flate2::write::GzEncoder::new(fs::File::create(&archive).unwrap(), flate2::Compression::fast());
+        let mut tar = tar::Builder::new(encoder);
+        let mut add = |path: &str, mode: u32, body: &[u8]| {
+            let mut header = tar::Header::new_gnu();
+            header.set_size(body.len() as u64);
+            header.set_mode(mode);
+            header.set_cksum();
+            tar.append_data(&mut header, path, body).unwrap();
+        };
+        add("pkg/lib/libfoo.so.1.2.3", 0o755, b"library");
+        add("pkg/bin/tool", 0o755, b"program");
+        add("pkg/include/foo.h", 0o644, b"header");
+        for (link, target) in [("pkg/lib/libfoo.so", "libfoo.so.1"), ("pkg/lib/libfoo.so.1", "libfoo.so.1.2.3")] {
+            let mut header = tar::Header::new_gnu();
+            header.set_entry_type(tar::EntryType::Symlink);
+            header.set_size(0);
+            header.set_mode(0o777);
+            tar.append_link(&mut header, link, target).unwrap();
+        }
+        tar.into_inner().unwrap().finish().unwrap();
+        archive
+    }
+
+    #[test]
+    fn a_tar_unpacks_its_libraries_and_programs_with_the_loader_names() {
+        let root = std::env::temp_dir().join(format!("downloads-{}", uuid::Uuid::now_v7()));
+        fs::create_dir_all(&root).unwrap();
+        let archive = linux_archive(&root);
+        extract_archive(&archive, &root.join("out")).unwrap();
+        for name in ["libfoo.so.1.2.3", "libfoo.so.1", "libfoo.so"] {
+            assert_eq!(fs::read_to_string(root.join("out").join(name)).unwrap(), "library", "{name}");
+        }
+        assert_eq!(fs::read_to_string(root.join("out").join("tool")).unwrap(), "program");
+        assert!(!root.join("out").join("foo.h").exists());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_ne!(fs::metadata(root.join("out").join("tool")).unwrap().permissions().mode() & 0o111, 0);
+        }
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn a_library_picked_from_a_tar_by_its_loader_name_lands_with_that_name() {
+        let root = std::env::temp_dir().join(format!("downloads-{}", uuid::Uuid::now_v7()));
+        fs::create_dir_all(root.join("out")).unwrap();
+        let archive = linux_archive(&root);
+        extract_named_local(&archive, &["libfoo.so.1"], &root.join("out")).unwrap();
+        assert_eq!(fs::read_to_string(root.join("out").join("libfoo.so.1")).unwrap(), "library");
+        assert!(root.join("out").join("libfoo.so.1.2.3").is_file());
+        assert!(!root.join("out").join("tool").exists());
+        assert!(extract_named_local(&archive, &["libbar.so.1"], &root.join("out")).is_err());
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn removing_a_picked_library_takes_the_file_its_name_links_to() {
+        let root = std::env::temp_dir().join(format!("downloads-{}", uuid::Uuid::now_v7()));
+        let downloader = Downloader::new(root.clone());
+        let runtime = Asset { id: "test-runtime", kind: AssetKind::Runtime, unzip_into: Some("cuda"), pick: &["libfoo.so.1"], ..asset() };
+        fs::create_dir_all(downloader.picked_into(&runtime)).unwrap();
+        let archive = linux_archive(&root);
+        extract_named_local(&archive, runtime.pick, &downloader.picked_into(&runtime)).unwrap();
+        assert!(downloader.is_installed(&runtime));
+        assert_eq!(downloader.remove(&runtime).unwrap(), "library".len() as u64);
+        assert!(!downloader.runtime_dir("cuda").join("libfoo.so.1.2.3").exists());
+        assert!(!downloader.is_installed(&runtime));
         fs::remove_dir_all(&root).ok();
     }
 }

@@ -1,3 +1,4 @@
+import { NumberField } from '../NumberField';
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AudioLines, Disc3, ExternalLink, Plus, SlidersVertical } from 'lucide-react';
@@ -143,7 +144,7 @@ export const PlayerExtraButtons: React.FC<{ layout?: ExtrasLayout }> = ({ layout
             </button>
             <label className="mt-2 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
               <span>{t('winampScale')}</span>
-              <span className="font-mono normal-case text-zinc-700 dark:text-zinc-200">{Math.round(settings.scale * 100)}%</span>
+              <NumberField value={Math.round(settings.scale * 100)} min={Math.round(SCALE_RANGE.min * 100)} max={Math.round(SCALE_RANGE.max * 100)} step={1} label={t('winampScale')} format={number => `${number}%`} onChange={number => setWinampSettings({ scale: number / 100 })} className="w-12" />
             </label>
             <input
               type="range"

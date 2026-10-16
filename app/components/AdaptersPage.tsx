@@ -1,3 +1,4 @@
+import { NumberField } from './NumberField';
 import { saveFile } from '../services/saveFile';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Check, CheckSquare, ChevronDown, Download, ExternalLink, FolderOpen, Heart, Layers, Loader2, Pencil, Search, Square, Trash2, X } from 'lucide-react';
@@ -268,7 +269,7 @@ const InstalledCard: React.FC<{
                 <div key={slot} className="mt-2">
                   <div className="flex items-baseline justify-between text-[11px] text-zinc-600 dark:text-zinc-300">
                     <span>{slotLabel(tt, slots, slot)}</span>
-                    <span className="tabular-nums">{(scales[slot] ?? 1).toFixed(2)}</span>
+                    <NumberField value={scales[slot] ?? 1} min={range[0]} max={range[1]} step={0.05} label={slotLabel(tt, slots, slot)} onChange={value => setScales(current => ({ ...current, [slot]: value }))} />
                   </div>
                   <input
                     type="range"

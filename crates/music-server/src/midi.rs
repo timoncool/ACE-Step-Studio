@@ -33,16 +33,14 @@ fn source() -> &'static Source {
 /// The name every release folder of the transcriber starts with.
 const TOOL_FOLDER: &str = "music-midi";
 
-/// The transcriber that ships inside the macOS app bundle
-/// (`Contents/Resources/resources/music-midi/music-midi`); the downloadable
+/// The transcriber that ships inside the macOS app bundle and the Linux
+/// packages, in `resources/music-midi` beside the engine; the downloadable
 /// archive is a Windows build.
 fn bundled_tool() -> Option<PathBuf> {
-    if !cfg!(target_os = "macos") {
+    if cfg!(windows) {
         return None;
     }
-    let executable = std::env::current_exe().ok()?;
-    let contents = executable.parent()?.parent()?;
-    let tool = contents.join("Resources").join("resources").join(TOOL_FOLDER).join(TOOL_FOLDER);
+    let tool = crate::engine_bundle_root().parent()?.join(TOOL_FOLDER).join(TOOL_FOLDER);
     tool.is_file().then_some(tool)
 }
 
@@ -243,6 +241,20 @@ pub struct Run {
     pub error: Option<String>,
     /// The MIDI file on this computer, once written.
     pub file: Option<String>,
+    /// The set this track belongs to, when several were asked for at once.
+    pub batch: Option<Batch>,
+}
+
+/// Several library tracks turned into MIDI one after another.
+#[derive(Debug, Clone, Serialize)]
+pub struct Batch {
+    /// How many of the set are finished, made or failed.
+    pub done: usize,
+    pub total: usize,
+    /// The tracks still waiting, in order.
+    pub queued: Vec<String>,
+    /// Each track that failed, by its title, with the reason.
+    pub failed: Vec<String>,
 }
 
 impl Run {

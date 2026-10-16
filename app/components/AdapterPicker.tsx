@@ -1,3 +1,4 @@
+import { NumberField } from './NumberField';
 import React, { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Layers, Plus, X } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
@@ -101,7 +102,7 @@ export const AdapterPicker: React.FC<AdapterPickerProps> = ({ value, onChange, o
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400" title={tt(`adapterRoleHint_${roleOf(slot)}`)}>
                       {roleOf(slot) ? tt(`adapterRole_${roleOf(slot)}`) : slot}
                     </span>
-                    <span className="text-[11px] tabular-nums text-zinc-600 dark:text-zinc-300">{scale.toFixed(2)}</span>
+                    <NumberField value={scale} min={range[0]} max={range[1]} step={0.05} label={`${adapter ? localized(adapter.name, language) : use.id} · ${roleOf(slot) ? tt(`adapterRole_${roleOf(slot)}`) : slot}`} onChange={value => setScale(use.id, slot, value)} />
                   </div>
                   <input
                     type="range"
