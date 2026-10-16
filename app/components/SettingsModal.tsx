@@ -10,6 +10,7 @@ import { EngineSettings } from './EngineSettings';
 import { SetupGate } from './SetupGate';
 import { CoverTemplateSettings } from './CoverTemplateSettings';
 import { AgentPanel } from './AgentPanel';
+import { FileTagSettings } from './FileTagSettings';
 import { HubSettings } from './HubSettings';
 import { STUDIO, STUDIO_REPO_URL } from '../studio';
 import { issueReportUrl, type ReportFacts } from '../services/issueReport';
@@ -83,7 +84,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
     { id: 'agent', label: t('agentSection'), hint: t('agentSectionHint'), icon: <Plug size={16} /> },
     { id: 'covers', label: t('coversSection'), hint: t('coversSectionHint'), icon: <ImageIcon size={16} /> },
     { id: 'interface', label: t('appearance'), hint: t('interfaceSectionHint'), icon: <Monitor size={16} /> },
-    { id: 'privacy', label: t('hubTelemetryTitle'), hint: t('hubSettingsHint'), icon: <BarChart3 size={16} /> },
+    { id: 'privacy', label: t('privacySection'), hint: t('privacySectionHint'), icon: <BarChart3 size={16} /> },
     { id: 'about', label: t('about'), hint: t('aboutSectionHint'), icon: <Info size={16} /> },
   ];
 
@@ -160,7 +161,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
             {section === 'engine' && <EngineSettings />}
             {section === 'cloud' && <ProviderSettings />}
             {section === 'agent' && <AgentPanel />}
-            {section === 'privacy' && <HubSettings />}
+            {section === 'privacy' && <div className="space-y-8"><HubSettings /><FileTagSettings /></div>}
 
             {section === 'interface' && (
               <div className="max-w-lg space-y-6">

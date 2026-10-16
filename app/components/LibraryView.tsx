@@ -19,7 +19,7 @@ interface LibraryViewProps {
   isPlaying: boolean;
   onCreatePlaylist: () => void;
   onSelectPlaylist: (playlist: Playlist) => void;
-  onImported?: () => void;
+  onImported?: (count: number) => void;
   likedSongIds: Set<string>;
   onToggleLike: (songId: string) => void;
   onAddToPlaylist: (songs: Song | Song[]) => void;
@@ -55,23 +55,25 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     const importInput = useRef<HTMLInputElement | null>(null);
 
     /// Imports an existing MP3, WAV, FLAC or OGG into the local library. The service
-    /// stores the media and the row atomically, rolling both back on failure.
+    /// stores the media and the row atomically, rolling both back on failure, and names
+    /// the track by the file's own title tag before its file name.
     const importAudio = async (files: FileList | null) => {
         if (!files || files.length === 0) return;
         setImporting(true);
         setImportError(null);
         try {
+            let done = 0;
             for (const file of Array.from(files)) {
                 const form = new FormData();
                 form.append('audio', file, file.name);
-                form.append('title', file.name.replace(/\.[^.]+$/, ''));
                 const response = await fetch('/v1/library/import', { method: 'POST', body: form });
                 if (!response.ok) {
                     const body = await response.json().catch(() => null);
                     throw new Error(body?.error || `${file.name}: import failed (${response.status})`);
                 }
+                done += 1;
             }
-            onImported?.();
+            onImported?.(done);
         } catch (reason) {
             setImportError(reason instanceof Error ? reason.message : 'Import failed.');
         } finally {

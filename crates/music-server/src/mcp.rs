@@ -450,6 +450,7 @@ const JOURNAL: &[(&str, &str, &str)] = &[
     ("karaoke_settings_set", "updated", "settings"),
     ("separator_settings_set", "updated", "settings"),
     ("cover_templates_set", "updated", "settings"),
+    ("library_file_tags_set", "updated", "settings"),
     ("assistant_set", "updated", "settings"),
     ("openrouter_set_key", "updated", "settings"),
 ];
@@ -1550,14 +1551,26 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "library_import_audio",
-                description: "Add an audio file from this computer to the library.",
+                description: "Add an audio file from this computer to the library. Without a title it takes the file's own title tag, else its name; the file's lyrics come with it, and a track one of the studios made brings its style and note, and from this studio also what it was made with, so it can be made again.",
                 schema: || object(json!({ "path": { "type": "string" }, "title": { "type": "string" } }), &["path"]),
                 call: |args| {
                     let path = PathBuf::from(text(args, "path")?);
-                    let title = args.get("title").and_then(Value::as_str).map(str::to_string).unwrap_or_else(|| path.file_stem().map(|stem| stem.to_string_lossy().into_owned()).unwrap_or_default());
+                    let fields = args.get("title").and_then(Value::as_str).map(|title| vec![("title".to_string(), title.to_string())]).unwrap_or_default();
                     let name = file_name(&path);
-                    Ok(Call { method: Method::POST, path: "/v1/library/import".into(), payload: Payload::Form { fields: vec![("title".into(), title)], files: vec![("audio".into(), path, name)] } })
+                    Ok(Call { method: Method::POST, path: "/v1/library/import".into(), payload: Payload::Form { fields, files: vec![("audio".into(), path, name)] } })
                 },
+            },
+            Tool {
+                name: "library_file_tags_get",
+                description: "Whether the studio writes each track's note, style and generation settings into its file (settings: true, the default) besides the title, lyrics, cover, genre and tempo it always writes.",
+                schema: nothing,
+                call: |_| get("/v1/library/file-tags".into()),
+            },
+            Tool {
+                name: "library_file_tags_set",
+                description: "Turn writing each track's note, style and generation settings into its file on (settings: true) or off; every stored track is tagged again in the background.",
+                schema: || object(json!({ "settings": { "type": "boolean" } }), &["settings"]),
+                call: |args| send(Method::PUT, "/v1/library/file-tags".into(), json!({ "settings": args.get("settings").and_then(Value::as_bool).unwrap_or(true) })),
             },
             Tool {
                 name: "playlist_list",

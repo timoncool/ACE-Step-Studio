@@ -72,6 +72,8 @@ use tower::ServiceExt;
 use tower_http::{services::ServeFile, set_header::SetResponseHeaderLayer, trace::TraceLayer};
 
 const PRIMARY_MUSIC_ENGINE_ID: &str = model_manager::ENGINE_ID;
+/// The program id of CONTRACT.md: the hub registration and the maker named in a track's settings tag.
+const PROGRAM_ID: &str = "ace";
 
 #[derive(Clone)]
 struct AppState {
@@ -116,6 +118,8 @@ struct AppState {
     separation_config: Arc<RwLock<separation::SeparationConfig>>,
     /// Draw a cover as soon as a track is finished.
     cover_auto: Arc<RwLock<bool>>,
+    /// Write a track's note, style and generation settings into its file.
+    file_tags_settings: Arc<RwLock<bool>>,
     /// How a track without a cover of its own looks, and whether that look is
     /// written into the track.
     cover_look: Arc<RwLock<cover_art::CoverLook>>,
@@ -527,6 +531,8 @@ struct PersistedStudioSettings {
     #[serde(default)]
     cover_look: Option<cover_art::CoverLook>,
     #[serde(default)]
+    file_tags_settings: Option<bool>,
+    #[serde(default)]
     proxy: Option<net::ProxySettings>,
     /// Access from other computers, off unless turned on.
     #[serde(default)]
@@ -851,6 +857,9 @@ pub async fn serve() -> anyhow::Result<()> {
         cover_auto: Arc::new(RwLock::new(
             persisted.as_ref().and_then(|settings| settings.cover_auto).unwrap_or(false),
         )),
+        file_tags_settings: Arc::new(RwLock::new(
+            persisted.as_ref().and_then(|settings| settings.file_tags_settings).unwrap_or(true),
+        )),
         cover_look: Arc::new(RwLock::new(
             persisted.as_ref().and_then(|settings| settings.cover_look.clone()).unwrap_or_default().checked(),
         )),
@@ -1052,6 +1061,7 @@ pub async fn serve() -> anyhow::Result<()> {
         .route("/v1/library/songs/{id}/cover/auto", post(draw_cover_now))
         .route("/v1/activity", get(read_activity))
         .route("/v1/cover-templates", get(read_cover_templates).put(write_cover_templates))
+        .route("/v1/library/file-tags", get(read_file_tags).put(write_file_tags))
         .route("/v1/cover-templates/render", post(render_cover_template))
         .route("/v1/openrouter/completions", post(create_openrouter_completion))
         .route("/v1/library/songs", get(library_songs).post(create_library_song))
@@ -1224,14 +1234,15 @@ struct NoteInput {
     note: String,
 }
 
-/// The person's own note on a song, kept with it.
+/// The person's own note on a song, kept with it and in its file's comment.
 async fn set_library_song_note(State(state): State<AppState>, Path(id): Path<String>, Json(input): Json<NoteInput>) -> Result<Json<library::Song>, (StatusCode, Json<ApiError>)> {
-    state
+    let song = state
         .library
         .set_song_note(&id, &input.note)
         .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
-        .map(Json)
-        .ok_or_else(|| api_error(StatusCode::NOT_FOUND, "Song not found".into()))
+        .ok_or_else(|| api_error(StatusCode::NOT_FOUND, "Song not found".into()))?;
+    tag_stored_song(&state, &id).await;
+    Ok(Json(song))
 }
 
 /// The thumbs-up: set or take back, kept with the song.
@@ -3488,6 +3499,38 @@ async fn write_cover_templates(
     })))
 }
 
+#[derive(Deserialize)]
+struct FileTagsRequest {
+    settings: bool,
+}
+
+/// Whether the tracks' files carry their note, style and generation settings.
+async fn read_file_tags(State(state): State<AppState>) -> Json<Value> {
+    Json(serde_json::json!({ "settings": *state.file_tags_settings.read().await }))
+}
+
+/// Turns the note, style and settings in the tracks' files on or off; every stored track is tagged again.
+async fn write_file_tags(State(state): State<AppState>, Json(request): Json<FileTagsRequest>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    let changed = std::mem::replace(&mut *state.file_tags_settings.write().await, request.settings) != request.settings;
+    persist_studio_settings(&state)
+        .await
+        .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    if changed {
+        let state = state.clone();
+        tokio::spawn(async move {
+            match state.library.list_songs() {
+                Ok(songs) => {
+                    for song in songs {
+                        tag_stored_song(&state, &song.id).await;
+                    }
+                }
+                Err(error) => eprintln!("[ERROR] the library did not list its tracks for tagging: {error:#}"),
+            }
+        });
+    }
+    Ok(Json(serde_json::json!({ "settings": request.settings })))
+}
+
 /// The prompt a template turns into for one track, exactly as it would be sent.
 async fn render_cover_template(
     State(state): State<AppState>,
@@ -3531,12 +3574,15 @@ async fn library_cover(State(state): State<AppState>, Path(id): Path<String>) ->
 }
 
 
-/// Writes ID3 tags onto a stored MP3 from what the library knows about it.
+/// Writes tags onto a stored track from what the library knows about it; its
+/// note, style and settings only while the studio is set to write them.
 ///
-/// Called after a track is stored, after its cover changes, after it is renamed
-/// and once at start for tracks stored before the studio tagged anything.
+/// Called after a track is stored, after its cover or note changes, after it is
+/// renamed, once at start for tracks stored before the studio tagged anything
+/// and for every track when the setting changes.
 /// Failure is logged and never fails the request: an untagged track still
 /// plays, a lost one does not.
+
 async fn tag_stored_song(state: &AppState, song_id: &str) {
     let Ok(Some(song)) = state.library.get_song(song_id) else { return };
     // `audio_path` is a full path, not a filename: resolve it the way playback
@@ -3546,6 +3592,8 @@ async fn tag_stored_song(state: &AppState, song_id: &str) {
         return;
     }
     let cover_file = state.library.cover_path_for_song(&song).map(|(path, media_type)| (path, media_type.to_string()));
+    let own = *state.file_tags_settings.read().await;
+    let text = |value: &str| Some(value.trim().to_string()).filter(|value| !value.is_empty());
     let tags = tagging::TrackTags {
         title: song.title.clone(),
         album: music_core::studio().name.clone(),
@@ -3555,6 +3603,9 @@ async fn tag_stored_song(state: &AppState, song_id: &str) {
         lyrics: Some(song.lyrics.clone()).filter(|value| !value.trim().is_empty()),
         bpm: tagging::bpm_from_caption(&song.caption),
         cover: None,
+        comment: own.then(|| song.metadata.get("note").and_then(Value::as_str).and_then(text)).flatten(),
+        style: own.then(|| text(&song.caption)).flatten(),
+        settings: own.then(|| tagging::settings_json(PROGRAM_ID, &song.engine_id, &song.generation_settings)).flatten(),
     };
     let shown = audio_path.display().to_string();
     // reading the cover and rewriting the file are blocking file work
@@ -3571,8 +3622,9 @@ async fn tag_stored_song(state: &AppState, song_id: &str) {
 }
 
 /// Tracks stored before the studio tagged anything carry no tag, and a download
-/// of one lands in a player as an untitled file: each is tagged once, in the
-/// background, when the service starts. Serving a track never writes to it.
+/// of one lands in a player as an untitled file; tracks stored before it wrote
+/// their style carry none while the studio is set to write it. Each is tagged
+/// once, in the background, when the service starts. Serving a track never writes to it.
 async fn tag_untagged_songs(state: AppState) {
     let songs = match state.library.list_songs() {
         Ok(songs) => songs,
@@ -3581,14 +3633,19 @@ async fn tag_untagged_songs(state: AppState) {
             return;
         }
     };
+    let own = *state.file_tags_settings.read().await;
     for song in songs {
         let Some(path) = state.library.media_path_for_song(&song) else { continue };
         if !tagging::taggable(&path) {
             continue;
         }
+        let wants_style = own && song.source != "audio_import" && !song.caption.trim().is_empty();
         // reads the tag, not the audio
-        let untagged = matches!(tokio::task::spawn_blocking(move || tagging::is_tagged(&path)).await, Ok(Ok(false)));
-        if untagged {
+        let behind = matches!(
+            tokio::task::spawn_blocking(move || Ok::<bool, anyhow::Error>(!tagging::is_tagged(&path)? || (wants_style && !tagging::carries_style(&path)?))).await,
+            Ok(Ok(true))
+        );
+        if behind {
             tag_stored_song(&state, &song.id).await;
         }
     }
@@ -3945,10 +4002,21 @@ async fn import_library_audio(State(state): State<AppState>, mut multipart: Mult
     }
     let filename = filename.ok_or_else(|| api_error(StatusCode::BAD_REQUEST, "audio file is required".into()))?;
     let extension = std::path::Path::new(&filename).extension().and_then(|value| value.to_str()).unwrap_or_default().to_owned();
-    let title = title.filter(|value| !value.trim().is_empty()).unwrap_or_else(|| std::path::Path::new(&filename).file_stem().and_then(|value| value.to_str()).unwrap_or("Imported audio").to_owned());
     let audio = audio.ok_or_else(|| api_error(StatusCode::BAD_REQUEST, "audio file is required".into()))?;
+    // What the form leaves out comes from the file's own tags: any file's title and words, and
+    // from a track a studio made its style, the person's note and what it was made with.
+    let tags = tagging::read_tags(&audio);
+    let title = title.filter(|value| !value.trim().is_empty()).or(tags.title).unwrap_or_else(|| std::path::Path::new(&filename).file_stem().and_then(|value| value.to_str()).unwrap_or("Imported audio").to_owned());
+    if lyrics.trim().is_empty() { lyrics = tags.lyrics.unwrap_or_default(); }
+    let ours = tags.style.is_some() || tags.settings.is_some();
+    if caption.trim().is_empty() { caption = tags.style.unwrap_or_default(); }
     let duration = library::audio_duration_seconds(&audio, &extension.to_ascii_lowercase(), None);
-    let song = state.library.import_audio_song(library::AudioImportInput { title, caption, lyrics, metadata: serde_json::json!({"imported_filename": filename, "duration_seconds": duration}), generation_settings: Value::Null, engine_id: "imported-audio".into(), profile_id: None, source: "audio_import".into(), audio_extension: extension, audio }).map_err(|e| api_error(StatusCode::BAD_REQUEST, e.to_string()))?.song;
+    let mut metadata = serde_json::json!({"imported_filename": filename, "duration_seconds": duration});
+    if let Some(note) = tags.comment.filter(|_| ours) { metadata["note"] = Value::String(note); }
+    // the settings fill the form only in the studio that made them
+    let settings = tags.settings.filter(|document| document["app"].as_str() == Some(PROGRAM_ID));
+    let generation_settings = settings.map(|document| document["settings"].clone()).unwrap_or(Value::Null);
+    let song = state.library.import_audio_song(library::AudioImportInput { title, caption, lyrics, metadata, generation_settings, engine_id: "imported-audio".into(), profile_id: None, source: "audio_import".into(), audio_extension: extension, audio }).map_err(|e| api_error(StatusCode::BAD_REQUEST, e.to_string()))?.song;
     Ok((StatusCode::CREATED, Json(song)))
 }
 async fn update_library_song(State(state):State<AppState>,Path(id):Path<String>,Json(input):Json<library::SongInput>)->Result<Json<library::Song>,(StatusCode,Json<ApiError>)>{
@@ -4917,7 +4985,7 @@ fn start_hub() -> Option<studio_hub_client::Hub> {
     )
     .to_ascii_lowercase();
     let config = studio_hub_client::HubConfig {
-        app: "ace".into(),
+        app: PROGRAM_ID.into(),
         version: studio_version().to_string(),
         data_dir: studio_data_root().unwrap_or_else(|| PathBuf::from(".")),
         http: net::client(),
@@ -5016,6 +5084,7 @@ async fn persist_studio_settings(state: &AppState) -> anyhow::Result<()> {
         cover_template_default: state.cover_template_default.read().await.clone(),
         separation: Some(state.separation_config.read().await.clone()),
         cover_auto: Some(*state.cover_auto.read().await),
+        file_tags_settings: Some(*state.file_tags_settings.read().await),
         cover_look: Some(state.cover_look.read().await.clone()),
         proxy: Some(net::current()),
         network: Some(remote::current()),
@@ -8739,6 +8808,7 @@ mod tests {
             cover_templates: Some(cover_prompt::default_templates()),
             cover_auto: Some(true),
             cover_look: None,
+            file_tags_settings: None,
             proxy: None,
             network: None,
             separation: Some(separation::SeparationConfig::default()),
