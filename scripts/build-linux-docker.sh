@@ -46,8 +46,12 @@ if [ "${1:-}" = "--inside" ]; then
   midi=desktop/src-tauri/resources/music-midi/music-midi
   if ldd "$midi" | grep -i 'not found'; then echo "[ERROR] the MIDI transcriber misses libraries"; exit 1; fi
   version="$(node -p "require('./desktop/src-tauri/tauri.conf.json').version")"
-  cp "$(find /cache/target/release/bundle/deb -name '*.deb' | head -n 1)" "/out/ACE-Step-Studio-${version}-linux-amd64.deb"
-  cp "$(find /cache/target/release/bundle/appimage -name '*.AppImage' | head -n 1)" "/out/ACE-Step-Studio-${version}-linux-x86_64.AppImage"
+  # the cache keeps the packages of earlier versions: take this version's by name
+  deb="$(find /cache/target/release/bundle/deb -name "*_${version}_amd64.deb" | head -n 1)"
+  appimage="$(find /cache/target/release/bundle/appimage -name "*_${version}_amd64.AppImage" | head -n 1)"
+  [ -f "$deb" ] && [ -f "$appimage" ] || { echo "[ERROR] no ${version} package in the bundle folder"; exit 1; }
+  cp "$deb" "/out/ACE-Step-Studio-${version}-linux-amd64.deb"
+  cp "$appimage" "/out/ACE-Step-Studio-${version}-linux-x86_64.AppImage"
   ls -la /out/*.deb /out/*.AppImage
   echo "[OK] ACE-Step-Studio ${version} for Linux"
   exit 0
