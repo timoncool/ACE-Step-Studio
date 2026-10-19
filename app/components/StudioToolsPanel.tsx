@@ -9,6 +9,7 @@ import { MidiTool } from './midi/MidiTool';
 import { MidiEditor } from './midi/MidiEditor';
 import { useI18n } from '../context/I18nContext';
 import { saveFile } from '../services/saveFile';
+import { tempoAndKey } from '../services/songDownload';
 import { DevicePicker } from './DevicePicker';
 import { transcribeWithNativeOpenRouter } from '../services/nativeOpenRouter';
 import { apiUrl } from '../services/apiBase';
@@ -405,7 +406,12 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
                     </div>
                     <button
                       type="button"
-                      onClick={() => void saveFile(`${songs.find(song => song.id === songId)?.title ?? 'track'} - ${stem}.wav`, { url })}
+                      onClick={() => {
+                        const song = songs.find(candidate => candidate.id === songId);
+                        const metadata = (song?.metadata ?? {}) as Record<string, unknown>;
+                        const tempoKey = tempoAndKey(metadata.bpm, metadata.key_scale ?? metadata.keyScale);
+                        void saveFile(`${song?.title ?? 'track'} - ${stem}${tempoKey ? ` - ${tempoKey}` : ''}.wav`, { url });
+                      }}
                       className="shrink-0 text-zinc-400 hover:text-pink-500"
                       title={t('download')}
                     >
