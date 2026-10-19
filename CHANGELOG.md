@@ -6,6 +6,7 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- **An agent sees the window as you do.** Through the studio's MCP it now sees folded sections (open or closed) and the options of open lists, reads a field by its own label rather than by the options inside it, and a field it fills while the window is in the background saves as after your own click.
 - **A source or reference the library no longer has is cleared, not sent.** Repeat prompt and a track's own settings could name a track this library does not hold (deleted, or made on another computer): the list showed none, the request still carried it and the song failed with "the track is not in the library". The form now drops it and says so.
 - **Long sources no longer hit the engine's 256 MB limit.** A source goes to the engine as 24-bit audio instead of 32-bit float, and a reference with a kept latent goes as its latent alone, the only part the engine reads; a long cover with a long reference failed with "413 Payload Too Large".
 - **LoRA preparation says which song does not fit and why.** A song longer than the model's 24576 tokens (prompt, score and audio together) passed preparation and failed at its end with "prepared manifest failed reader roundtrip"; the trainer now names the song and its sizes, and a roundtrip failure carries the reader's reason ([#110](https://github.com/timoncool/YuE2-Studio/issues/110)).
