@@ -802,7 +802,7 @@ fn open_tar(archive: &Path, format: ArchiveFormat) -> Result<tar::Archive<Box<dy
 
 /// `libcublas.so.12`, `libcublas.so.12.9.2.10`, `libonnxruntime.so`.
 fn is_shared_library(name: &str) -> bool {
-    name.ends_with(".so") || name.contains(".so.")
+    name.ends_with(".so") || name.contains(".so.") || name.ends_with(".dylib")
 }
 
 /// Writes an archive entry through a partial file, keeping its permission

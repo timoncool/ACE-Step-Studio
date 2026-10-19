@@ -168,7 +168,7 @@ fn whisper_words_from_json(text: &str) -> Vec<(f64, String)> {
 }
 
 pub const ASSETS: &[Asset] = &[
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(windows)]
     Asset {
         id: "whisper-engine",
         label: "Whisper (faster-whisper standalone)",
@@ -182,7 +182,7 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "Purfview's build of faster-whisper: word timestamps, on the card or the processor.",
     },
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(windows)]
     Asset {
         id: "whisper-cublas",
         label: "NVIDIA cuBLAS 11.11 (for Whisper)",
@@ -196,7 +196,7 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "CTranslate2 is built against CUDA 11; without these the card is never used.",
     },
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(windows)]
     Asset {
         id: "whisper-cudnn",
         label: "NVIDIA cuDNN 8.9 (for Whisper)",
@@ -750,7 +750,7 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "Token table.",
     },
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(windows)]
     Asset {
         id: "onnxruntime-cuda",
         label: "ONNX Runtime 1.30.0 · CUDA",
@@ -764,7 +764,7 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: Some(2),
         note: "Runs the separator on an NVIDIA card instead of the processor. Needs CUDA 12.",
     },
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(windows)]
     Asset {
         id: "cuda-cublas",
         label: "NVIDIA cuBLAS 12.9",
@@ -778,7 +778,7 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "The linear algebra the CUDA provider is built on.",
     },
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(windows)]
     Asset {
         id: "cuda-cudart",
         label: "NVIDIA CUDA runtime 12.9",
@@ -792,7 +792,7 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "The CUDA runtime itself.",
     },
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(windows)]
     Asset {
         id: "cuda-cufft",
         label: "NVIDIA cuFFT 11.4",
@@ -806,7 +806,7 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "The transforms the provider uses for spectral work.",
     },
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(windows)]
     Asset {
         id: "cuda-cudnn",
         label: "NVIDIA cuDNN 9.25",
@@ -832,7 +832,7 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "The convolution kernels the separator spends its time in.",
     },
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(windows)]
     Asset {
         id: "onnxruntime",
         label: "ONNX Runtime 1.30.0",
@@ -846,10 +846,24 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "Parakeet runs on this; it is loaded at run time, not linked in.",
     },
+    #[cfg(target_os = "macos")]
+    Asset {
+        id: "onnxruntime",
+        label: "ONNX Runtime 1.30.0",
+        kind: AssetKind::Runtime,
+        url: "https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-osx-arm64-1.30.0.tgz",
+        relative_path: "runtime/onnxruntime.tgz",
+        bytes: 42_373_116,
+        unzip_into: Some("onnx"),
+        marker: "libonnxruntime",
+        pick: &[],
+        vram_gb: None,
+        note: "Parakeet runs on this; it is loaded at run time, not linked in.",
+    },
     // The card path for every card that is not an NVIDIA one running CUDA:
     // DirectML over DirectX 12. 1.24.4 is the last DirectML build Microsoft
     // publishes; it speaks the same API level (24) as the builds above.
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(windows)]
     Asset {
         id: "onnxruntime-directml",
         label: "ONNX Runtime 1.24.4 · DirectML",
@@ -863,7 +877,7 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "Runs karaoke's Parakeet and the tempo model on an AMD or Intel card through DirectX 12.",
     },
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(windows)]
     Asset {
         id: "directml",
         label: "DirectML 1.15.4",
@@ -993,7 +1007,14 @@ pub const ASSETS: &[Asset] = &[
 
 /// The file names of this platform's ONNX Runtime and of the libraries its
 /// CUDA provider loads.
-#[cfg(not(target_os = "linux"))]
+#[cfg(target_os = "macos")]
+mod libraries {
+    pub const ORT: &str = "libonnxruntime.dylib";
+    pub const ORT_SHARED: &str = "libonnxruntime_providers_shared.dylib";
+    pub const CUDA: &[&str] = &[];
+}
+
+#[cfg(windows)]
 mod libraries {
     pub const ORT: &str = "onnxruntime.dll";
     pub const ORT_SHARED: &str = "onnxruntime_providers_shared.dll";
@@ -1010,7 +1031,9 @@ mod libraries {
 
 /// The CUDA provider's parts, in the order they are used: `karaoke_set` and the
 /// separator build their card path out of these.
-#[cfg(not(target_os = "linux"))]
+#[cfg(target_os = "macos")]
+pub const CUDA_ASSETS: &[&str] = &[];
+#[cfg(windows)]
 pub const CUDA_ASSETS: &[&str] = &["onnxruntime-cuda", "cuda-cudart", "cuda-cublas", "cuda-cufft", "cuda-cudnn"];
 #[cfg(target_os = "linux")]
 pub const CUDA_ASSETS: &[&str] = &["onnxruntime-cuda", "cuda-cudart", "cuda-cublas", "cuda-cufft", "cuda-curand", "cuda-cudnn"];

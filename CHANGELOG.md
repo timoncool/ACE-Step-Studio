@@ -6,6 +6,7 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- **Karaoke and stems on a Mac.** The Mac build downloaded the Windows ONNX Runtime and could not load it; it now takes Microsoft's macOS arm64 build, runs Parakeet and the separator on the processor, and the app may load that library (it is signed by Microsoft, not with the app). Whisper and the CUDA and DirectML parts are not offered on a Mac, where they cannot run ([YuE2-Studio #105](https://github.com/timoncool/YuE2-Studio/issues/105)).
 - **A download Hugging Face does not answer says why and what to do.** The error kept only "error sending request" and lost the cause (the name not found, a timeout, a refused connection); it now names it, and when the model comes from Hugging Face it points to Settings - Network, which can take models from the HF-Mirror instead.
 - **Karaoke that cannot start says why and ends.** An ONNX Runtime the studio could not load stopped the recogniser with a panic: the karaoke stayed "running" for ever and every later try answered "Mutex poisoned" until a restart. The library is now loaded before any work and a failure is that work's error, with the library's path; a recogniser that stops ends its karaoke as failed ([YuE2-Studio #106](https://github.com/timoncool/YuE2-Studio/issues/106)).
 - **The song details button is back on wide windows.** 3.6.0 hid it on the create page whenever the details could sit beside the list; it shows at every width again ([YuE2-Studio #99](https://github.com/timoncool/YuE2-Studio/issues/99)).
