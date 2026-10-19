@@ -1012,6 +1012,7 @@ pub async fn serve() -> anyhow::Result<()> {
         .route("/v1/processing/vst/editor", post(open_vst_editor))
         .route("/v1/adapters", get(list_adapters))
         .route("/v1/adapters/import", post(import_adapter))
+        .route("/v1/adapters/import-folder", post(import_adapter_folder))
         .route("/v1/adapters/cancel", post(cancel_adapter_download))
         .route("/v1/adapters/install", post(install_catalog_adapters))
         .route("/v1/adapters/hub", get(search_hub_adapters))
@@ -1886,6 +1887,38 @@ async fn import_adapter(
         .import(&name, files, adapters::Origin::Imported)
         .map_err(|e| api_error(StatusCode::BAD_REQUEST, e.to_string()))?;
     Ok((StatusCode::CREATED, Json(meta)))
+}
+
+/// Takes LoRAs from a folder the user keeps them in for every program - ComfyUI's, a trainer's -
+/// without copying them: a folder the window picks, or the one an agent names.
+async fn import_adapter_folder(State(state): State<AppState>, body: axum::body::Bytes) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    let named = serde_json::from_slice::<Value>(&body).ok().and_then(|value| value.get("path").and_then(Value::as_str).map(std::path::PathBuf::from));
+    let picked = match named {
+        Some(folder) => Some(folder),
+        None => tokio::task::spawn_blocking(|| rfd::FileDialog::new().set_title("Folder with LoRA").pick_folder())
+            .await
+            .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?,
+    };
+    let Some(folder) = picked else {
+        return Ok(Json(serde_json::json!({ "picked": false, "imported": [] })));
+    };
+    if !folder.is_dir() {
+        return Err(api_error(StatusCode::BAD_REQUEST, format!("{} is not a folder", folder.display())));
+    }
+    let library = state.adapters.clone();
+    let searched = folder.clone();
+    let imported = tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<Value>> {
+        let mut imported = Vec::new();
+        for (name, files) in adapters::found_in(&searched, 2) {
+            let (meta, copied) = library.import_linked(&name, &files, adapters::Origin::Imported)?;
+            imported.push(serde_json::json!({ "id": meta.id, "name": name, "copied": copied }));
+        }
+        Ok(imported)
+    })
+    .await
+    .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
+    .map_err(|error| api_error(StatusCode::BAD_REQUEST, format!("{error:#}")))?;
+    Ok(Json(serde_json::json!({ "picked": true, "folder": folder.display().to_string(), "imported": imported })))
 }
 
 async fn update_adapter(

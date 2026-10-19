@@ -427,6 +427,7 @@ const JOURNAL: &[(&str, &str, &str)] = &[
     ("lora_install_catalog", "installed", "lora"),
     ("lora_install_hf", "installed", "lora"),
     ("lora_import_files", "installed", "lora"),
+    ("lora_import_folder", "installed", "lora"),
     ("lora_update", "updated", "lora"),
     ("lora_delete", "deleted", "lora"),
     ("lora_export_comfyui", "exported", "lora"),
@@ -2058,6 +2059,12 @@ fn tools() -> &'static [Tool] {
                 description: "Open a VST3 plugin's own window for the user to set it; state_id keeps its settings for the chain.",
                 schema: || object(json!({ "path": { "type": "string" }, "state_id": { "type": "string" } }), &["path"]),
                 call: |args| post("/v1/processing/vst/editor".into(), args.clone()),
+            },
+            Tool {
+                name: "lora_import_folder",
+                description: "Install every LoRA of a folder on this computer and its subfolders without copying it: a folder with adapter_config.json is one LoRA, elsewhere each .safetensors is one; files are hard-linked, and copied only from another drive (copied: true says which).",
+                schema: || object(json!({ "path": { "type": "string", "description": "the folder, e.g. the LoRA folder ComfyUI or a trainer uses" } }), &["path"]),
+                call: |args| post("/v1/adapters/import-folder".into(), json!({ "path": text(args, "path")? })),
             },
             Tool {
                 name: "lora_import_files",

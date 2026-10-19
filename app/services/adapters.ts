@@ -182,6 +182,14 @@ export async function importAdapter(name: string, files: File[]): Promise<Instal
   return body;
 }
 
+/** LoRAs from a folder the user picks in a system dialog, linked in without a copy. */
+export async function importAdapterFolder(): Promise<{ picked: boolean; imported: Array<{ id: string; name: string; copied: boolean }> }> {
+  const response = await fetch('/v1/adapters/import-folder', { method: 'POST' });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error || `LoRA folder: HTTP ${response.status}`);
+  return body;
+}
+
 export async function updateAdapter(id: string, patch: { name?: string; trigger?: string; scales?: Record<string, number> }): Promise<void> {
   const response = await fetch(`/v1/adapters/${encodeURIComponent(id)}`, {
     method: 'PATCH',

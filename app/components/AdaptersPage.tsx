@@ -28,6 +28,7 @@ import {
   localized,
   megabytes,
   updateAdapter,
+  importAdapterFolder,
 } from '../services/adapters';
 
 /**
@@ -493,6 +494,27 @@ export function AdaptersPage(): React.ReactElement {
     }
   }, [state]);
 
+  const importFolder = async () => {
+    setImporting(true);
+    setError(null);
+    try {
+      const answer = await importAdapterFolder();
+      if (!answer.picked) return;
+      setTab('installed');
+      const copied = answer.imported.filter(entry => entry.copied).map(entry => entry.name);
+      const message = answer.imported.length === 0
+        ? t('adaptersFolderNone')
+        : `${t('adaptersFolderImported').replace('{count}', String(answer.imported.length))}${copied.length ? ` ${t('adaptersFolderCopied').replace('{names}', copied.join(', '))}` : ''}`;
+      window.dispatchEvent(new CustomEvent('yue:toast', { detail: { message, type: answer.imported.length ? 'success' : 'info' } }));
+      window.dispatchEvent(new CustomEvent('yue:adapters-changed'));
+      await refresh();
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : String(problem));
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const importFiles = async (files: File[]) => {
     if (files.length === 0) return;
     setImporting(true);
@@ -625,6 +647,10 @@ export function AdaptersPage(): React.ReactElement {
                 <button type="button" onClick={() => filePicker.current?.click()} disabled={importing} className={`${PRIMARY} shrink-0`}>
                   {importing ? <Loader2 size={14} className="animate-spin" /> : <FolderOpen size={14} />}
                   {importing ? t('adaptersImporting') : t('adaptersImport')}
+                </button>
+                <button type="button" onClick={() => void importFolder()} disabled={importing} className={`${PRIMARY} shrink-0`} title={t('adaptersFolderHint')}>
+                  <FolderOpen size={14} />
+                  {t('adaptersFolder')}
                 </button>
                 <input
                   ref={filePicker}
