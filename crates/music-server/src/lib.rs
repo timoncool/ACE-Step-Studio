@@ -7944,16 +7944,13 @@ fn song_audio_and_latent(state: &AppState, song_id: &str) -> anyhow::Result<(Vec
     Ok((audio, latent))
 }
 
-/// A reference track as the engine takes its timbre: a kept latent is the
-/// timbre itself and the engine reads no audio beside it, so the audio goes
-/// only when there is no latent.
 fn reference_timbre(state: &AppState, song_id: &str) -> anyhow::Result<(Option<Vec<u8>>, Option<Vec<u8>>)> {
-    state.library.get_song(song_id)?.with_context(|| format!("the track {song_id} is not in the library"))?;
     if let Ok(latent) = std::fs::read(latent_path(state, song_id)) {
+        state.library.get_song(song_id)?.with_context(|| format!("the track {song_id} is not in the library"))?;
         return Ok((None, Some(latent)));
     }
-    let (audio, latent) = song_audio_and_latent(state, song_id)?;
-    Ok((Some(audio), latent))
+    let (audio, _) = song_audio_and_latent(state, song_id)?;
+    Ok((Some(audio), None))
 }
 
 /// A recording as the engine can read it. The engine's own readers take MP3
