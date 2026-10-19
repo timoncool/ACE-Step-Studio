@@ -570,6 +570,10 @@ async fn fetch(
 
 /// Says once per file why a neighbour's copy could not be taken: the setup screen asks every second.
 pub(crate) fn report_take_failure(target: &Path, app: &str, error: &io::Error) {
+    // a link does not cross drives; installing takes such a file by copy
+    if error.kind() == io::ErrorKind::CrossesDevices {
+        return;
+    }
     static SAID: std::sync::Mutex<Vec<PathBuf>> = std::sync::Mutex::new(Vec::new());
     let mut said = SAID.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     if !said.iter().any(|known| known == target) {
@@ -744,6 +748,10 @@ pub fn extract_archive(archive: &Path, destination: &Path) -> Result<()> {
             for entry in open_tar(archive, format)?.entries().with_context(|| format!("read {}", archive.display()))? {
                 let mut entry = entry.with_context(|| format!("read {}", archive.display()))?;
                 let path = entry.path().context("read tar entry")?.to_string_lossy().replace('\\', "/");
+                // a macOS package's debug symbols carry the library's own file name
+                if path.contains(".dSYM/") {
+                    continue;
+                }
                 let name = path.rsplit('/').next().unwrap_or(&path).to_string();
                 let kind = entry.header().entry_type();
                 let mode = entry.header().mode().ok();
@@ -802,7 +810,7 @@ fn open_tar(archive: &Path, format: ArchiveFormat) -> Result<tar::Archive<Box<dy
 
 /// `libcublas.so.12`, `libcublas.so.12.9.2.10`, `libonnxruntime.so`.
 fn is_shared_library(name: &str) -> bool {
-    name.ends_with(".so") || name.contains(".so.")
+    name.ends_with(".so") || name.contains(".so.") || name.ends_with(".dylib")
 }
 
 /// Writes an archive entry through a partial file, keeping its permission

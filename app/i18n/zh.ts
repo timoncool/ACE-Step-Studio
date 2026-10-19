@@ -1116,7 +1116,7 @@ export const zh = {
     'pollinations.resetDefaults': '重置默认',
 
     // Cover regeneration modal
-    'coverRegen.openTooltip': '重新生成封面',
+    'coverRegen.openTooltip': '更换封面',
     'coverRegen.title': '重新生成封面',
     'coverRegen.model': '模型',
     'coverRegen.modelsLoading': '正在加载模型…',

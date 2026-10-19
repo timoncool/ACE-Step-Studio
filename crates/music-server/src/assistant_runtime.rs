@@ -13,7 +13,6 @@
 //! install after their publisher re-uploaded them.
 
 use std::fs;
-use std::io;
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -122,6 +121,7 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: Some(15),
         note: "As close to the original as a quantisation gets. For a card that has nothing else to do.",
     },
+    #[cfg(windows)]
     Asset {
         id: "llama-cuda",
         label: "llama.cpp runtime (CUDA 13.4)",
@@ -134,6 +134,7 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "Needs the CUDA runtime companion below.",
     },
+    #[cfg(windows)]
     Asset {
         id: "llama-cuda-runtime",
         label: "CUDA runtime for llama.cpp",
@@ -148,6 +149,7 @@ pub const ASSETS: &[Asset] = &[
     },
     // CUDA 13 runs Turing (GTX 16, RTX 20) and newer on driver 580 or later;
     // an older card or driver takes llama.cpp's CUDA 12.4 build instead
+    #[cfg(windows)]
     Asset {
         id: "llama-cuda12",
         label: "llama.cpp runtime (CUDA 12.4)",
@@ -160,6 +162,7 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "For cards and drivers CUDA 13 does not run: GTX 900 and 10, Tesla V100, drivers before 580. Needs the CUDA runtime companion below.",
     },
+    #[cfg(windows)]
     Asset {
         id: "llama-cuda12-runtime",
         label: "CUDA 12 runtime for llama.cpp",
@@ -174,6 +177,7 @@ pub const ASSETS: &[Asset] = &[
     },
     // Every other card - AMD, Intel, an NVIDIA card CUDA does not run on -
     // takes llama.cpp's Vulkan build through the card's own driver
+    #[cfg(windows)]
     Asset {
         id: "llama-vulkan",
         label: "llama.cpp runtime (Vulkan)",
@@ -186,6 +190,7 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "For AMD and Intel cards, and NVIDIA cards CUDA does not run on: the card through Vulkan.",
     },
+    #[cfg(windows)]
     Asset {
         id: "llama-cpu",
         label: "llama.cpp runtime (CPU)",
@@ -198,12 +203,107 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "For machines without a graphics card, or for choosing the processor. Slow, but it works.",
     },
+    #[cfg(target_os = "linux")]
+    Asset {
+        id: "llama-cuda",
+        label: "llama.cpp runtime (CUDA 13.4)",
+        kind: AssetKind::Runtime,
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-ubuntu-cuda-13.4-x64.tar.gz",
+        relative_path: "runtime/llama-cuda.tar.gz",
+        bytes: 152_868_922,
+        unzip_into: Some("cuda"),
+        marker: "llama-server",
+        vram_gb: None,
+        note: "Needs the CUDA runtime companion below.",
+    },
+    #[cfg(target_os = "linux")]
+    Asset {
+        id: "llama-cuda-runtime",
+        label: "CUDA runtime for llama.cpp",
+        kind: AssetKind::Runtime,
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/cudart-llama-b11236-bin-ubuntu-cuda-13.4-x64.tar.gz",
+        relative_path: "runtime/cudart.tar.gz",
+        bytes: 440_236_534,
+        unzip_into: Some("cuda"),
+        marker: "libcudart",
+        vram_gb: None,
+        note: "The CUDA libraries llama.cpp links against.",
+    },
+    #[cfg(target_os = "linux")]
+    Asset {
+        id: "llama-cuda12",
+        label: "llama.cpp runtime (CUDA 12.8)",
+        kind: AssetKind::Runtime,
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-ubuntu-cuda-12.8-x64.tar.gz",
+        relative_path: "runtime/llama-cuda12.tar.gz",
+        bytes: 172_237_886,
+        unzip_into: Some("cuda12"),
+        marker: "llama-server",
+        vram_gb: None,
+        note: "For cards and drivers CUDA 13 does not run: GTX 900 and 10, Tesla V100, drivers before 580. Needs the CUDA runtime companion below.",
+    },
+    #[cfg(target_os = "linux")]
+    Asset {
+        id: "llama-cuda12-runtime",
+        label: "CUDA 12 runtime for llama.cpp",
+        kind: AssetKind::Runtime,
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/cudart-llama-b11236-bin-ubuntu-cuda-12.8-x64.tar.gz",
+        relative_path: "runtime/cudart12.tar.gz",
+        bytes: 594_377_263,
+        unzip_into: Some("cuda12"),
+        marker: "libcudart",
+        vram_gb: None,
+        note: "The CUDA 12 libraries llama.cpp links against.",
+    },
+    #[cfg(target_os = "linux")]
+    Asset {
+        id: "llama-vulkan",
+        label: "llama.cpp runtime (Vulkan)",
+        kind: AssetKind::Runtime,
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-ubuntu-vulkan-x64.tar.gz",
+        relative_path: "runtime/llama-vulkan.tar.gz",
+        bytes: 31_351_800,
+        unzip_into: Some("vulkan"),
+        marker: "llama-server",
+        vram_gb: None,
+        note: "For AMD and Intel cards, and NVIDIA cards CUDA does not run on: the card through Vulkan.",
+    },
+    #[cfg(target_os = "linux")]
+    Asset {
+        id: "llama-cpu",
+        label: "llama.cpp runtime (CPU)",
+        kind: AssetKind::Runtime,
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-ubuntu-x64.tar.gz",
+        relative_path: "runtime/llama-cpu.tar.gz",
+        bytes: 17_406_283,
+        unzip_into: Some("cpu"),
+        marker: "llama-server",
+        vram_gb: None,
+        note: "For machines without a graphics card, or for choosing the processor. Slow, but it works.",
+    },
+    #[cfg(target_os = "macos")]
+    Asset {
+        id: "llama-cpu",
+        label: "llama.cpp runtime (Metal)",
+        kind: AssetKind::Runtime,
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-macos-arm64.tar.gz",
+        relative_path: "runtime/llama-cpu.tar.gz",
+        bytes: 11_761_043,
+        unzip_into: Some("cpu"),
+        marker: "llama-server",
+        vram_gb: None,
+        note: "Runs on the Mac's own graphics through Metal, in the memory it shares with the processor.",
+    },
 ];
 
 /// The llama.cpp build this machine's card runs: CUDA 13 on Turing and newer
 /// with driver 580 or later, CUDA 12 on anything older CUDA still runs,
-/// Vulkan on every other card; none without a card.
+/// Vulkan on every other card; none without a card, and none on a Mac, whose
+/// one build runs on its graphics through Metal by itself.
 pub fn card_flavour() -> Option<&'static str> {
+    if cfg!(target_os = "macos") {
+        return None;
+    }
     match crate::cuda_build::current() {
         Some(crate::cuda_build::CudaBuild::Cuda12) => Some("cuda12"),
         Some(_) => Some("cuda"),
@@ -499,7 +599,7 @@ impl AssistantRuntime {
             let target = self.path_of(asset);
             let outcome = match download_asset(&self.http, asset, &target, &self.state, base, self.cancel.clone()).await {
                 Ok(()) => match asset.unzip_into {
-                    Some(flavour) => extract_zip(&target, &self.root.join("runtime").join(flavour)),
+                    Some(flavour) => crate::downloads::extract_archive(&target, &self.root.join("runtime").join(flavour)),
                     None => Ok(()),
                 },
                 Err(error) => Err(error),
@@ -557,7 +657,7 @@ impl AssistantRuntime {
             match outcome {
                 Ok(()) => {
                     let extraction = match asset.unzip_into {
-                        Some(flavour) => extract_zip(&target, &root.join("runtime").join(flavour)),
+                        Some(flavour) => crate::downloads::extract_archive(&target, &root.join("runtime").join(flavour)),
                         None => Ok(()),
                     };
                     if let Some(progress) = guard.download.as_mut() {
@@ -626,6 +726,9 @@ impl AssistantRuntime {
 
         let port = free_port()?;
         let mut command = Command::new(&binary);
+        if let Some(path) = music_core::process::own_libraries_first(&binary) {
+            command.env("LD_LIBRARY_PATH", path);
+        }
         command
             .arg("--model")
             .arg(&model_path)
@@ -773,28 +876,6 @@ async fn download_asset(
         bail!("{} has {size} bytes, the server said {}", asset.label, plan.total);
     }
     fs::rename(&part, target).with_context(|| format!("publish {}", target.display()))?;
-    Ok(())
-}
-
-/// Extracts a llama.cpp release zip. Entries are flattened into `destination`
-/// because the releases nest their binaries one directory deep.
-fn extract_zip(archive: &Path, destination: &Path) -> Result<()> {
-    fs::create_dir_all(destination).with_context(|| format!("create {}", destination.display()))?;
-    let file = fs::File::open(archive).with_context(|| format!("open {}", archive.display()))?;
-    let mut zip = zip::ZipArchive::new(file).with_context(|| format!("read {}", archive.display()))?;
-    for index in 0..zip.len() {
-        let mut entry = zip.by_index(index).context("read zip entry")?;
-        if entry.is_dir() {
-            continue;
-        }
-        let Some(name) = entry.enclosed_name().and_then(|path| path.file_name().map(|name| name.to_owned())) else {
-            continue;
-        };
-        let target = destination.join(name);
-        let mut out = fs::File::create(&target).with_context(|| format!("create {}", target.display()))?;
-        io::copy(&mut entry, &mut out).with_context(|| format!("extract {}", target.display()))?;
-    }
-    fs::remove_file(archive).ok();
     Ok(())
 }
 

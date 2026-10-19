@@ -2,6 +2,21 @@
 
 What changed, newest first. Dates are release dates.
 
+## 2026-10-20 — 3.6.1
+
+### Fixed
+
+- **An agent sees the window as you do.** Through the studio's MCP it now sees folded sections (open or closed) and the options of open lists, reads a field by its own label rather than by the options inside it, and a field it fills while the window is in the background saves as after your own click.
+- **A source or reference the library no longer has is cleared, not sent.** Repeat prompt and a track's own settings could name a track this library does not hold (deleted, or made on another computer): the list showed none, the request still carried it and the song failed with "the track is not in the library". The form now drops it and says so.
+- **Long sources no longer hit the engine's 256 MB limit.** A source goes to the engine as 24-bit audio instead of 32-bit float, and a reference with a kept latent goes as its latent alone, the only part the engine reads; a long cover with a long reference failed with "413 Payload Too Large".
+- **LoRA preparation says which song does not fit and why.** A song longer than the model's 24576 tokens (prompt, score and audio together) passed preparation and failed at its end with "prepared manifest failed reader roundtrip"; the trainer now names the song and its sizes, and a roundtrip failure carries the reader's reason ([#110](https://github.com/timoncool/YuE2-Studio/issues/110)).
+- **Karaoke and stems on a Mac.** The Mac build downloaded the Windows ONNX Runtime and could not load it; it now takes Microsoft's macOS arm64 build, runs Parakeet and the separator on the processor, and the app may load that library (it is signed by Microsoft, not with the app). Whisper and the CUDA and DirectML parts are not offered on a Mac, where they cannot run ([YuE2-Studio #105](https://github.com/timoncool/YuE2-Studio/issues/105)).
+- **A download Hugging Face does not answer says why and what to do.** The error kept only "error sending request" and lost the cause (the name not found, a timeout, a refused connection); it now names it, and when the model comes from Hugging Face it points to Settings - Network, which can take models from the HF-Mirror instead.
+- **Karaoke that cannot start says why and ends.** An ONNX Runtime the studio could not load stopped the recogniser with a panic: the karaoke stayed "running" for ever and every later try answered "Mutex poisoned" until a restart. The library is now loaded before any work and a failure is that work's error, with the library's path; a recogniser that stops ends its karaoke as failed ([YuE2-Studio #106](https://github.com/timoncool/YuE2-Studio/issues/106)).
+- **The song details button is back on wide windows.** 3.6.0 hid it on the create page whenever the details could sit beside the list; it shows at every width again ([YuE2-Studio #99](https://github.com/timoncool/YuE2-Studio/issues/99)).
+- **The Linux AppImage starts its engine again.** The AppImage put the MIDI tool's older ggml library on the path every program inherits, so the engine loaded it instead of its own and stopped at once ("undefined symbol: ggml_prec_set_acc"). Every program the studio starts now loads the libraries beside it first: the engine, the writing assistant, the trainer, Audio to MIDI and the karaoke recogniser ([YuE2-Studio #97](https://github.com/timoncool/YuE2-Studio/issues/97)). Thanks to angelside, who found the cause.
+- **The writing assistant works on Linux.** It downloaded the Windows builds of llama.cpp and could never start; it now takes llama.cpp's Linux builds for the processor, Vulkan and CUDA ([YuE2-Studio #114](https://github.com/timoncool/YuE2-Studio/issues/114)).
+
 ## 2026-10-16 — 3.6.0
 
 ### Added

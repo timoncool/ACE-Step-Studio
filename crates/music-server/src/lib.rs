@@ -1587,7 +1587,7 @@ async fn assistant_runtime_remove(
     // is on disk, and the model that was chosen with it.
     let ids: Vec<String> = if request.asset_id == "managed" || request.asset_id == "cuda" || request.asset_id == "cpu" {
         let chosen = state.assistant.read().await.managed_model.clone();
-        ["llama-cuda", "llama-cuda-runtime", "llama-cuda12", "llama-cuda12-runtime", "llama-vulkan", "llama-cpu"].iter().map(|id| id.to_string()).chain(chosen).collect()
+        ["llama-cuda", "llama-cuda-runtime", "llama-cuda12", "llama-cuda12-runtime", "llama-vulkan", "llama-cpu"].iter().filter(|id| assistant_runtime::asset(id).is_some()).map(|id| id.to_string()).chain(chosen).collect()
     } else {
         vec![request.asset_id.clone()]
     };
@@ -3246,10 +3246,7 @@ async fn time_lyrics_for(state: AppState, song_id: String) {
             let path = std::path::PathBuf::from(&audio);
             match tokio::task::spawn_blocking(move || sync.parakeet_words(config.runtime, config.whisper_model.as_deref(), &path)).await {
                 Ok(result) => result,
-                Err(error) => {
-                    eprintln!("no karaoke for {song_id}: {error}");
-                    return;
-                }
+                Err(error) => Err(anyhow::anyhow!("the recogniser stopped: {error}")),
             }
         }
         lyrics_sync::AsrProvider::Whisper => {
@@ -3259,10 +3256,7 @@ async fn time_lyrics_for(state: AppState, song_id: String) {
             let lyrics = song.lyrics.clone();
             match tokio::task::spawn_blocking(move || sync.whisper_words(&config, &path, None, &lyrics)).await {
                 Ok(result) => result,
-                Err(error) => {
-                    eprintln!("no karaoke for {song_id}: {error}");
-                    return;
-                }
+                Err(error) => Err(anyhow::anyhow!("the recogniser stopped: {error}")),
             }
         }
         lyrics_sync::AsrProvider::OpenRouter => {
@@ -6731,6 +6725,9 @@ async fn transcribe_to_midi(state: &AppState, size: &'static midi::Size, audio: 
     let tool = state.midi.tool();
     let device = midi_device(&*state.engine_options.read().await);
     let mut command = tokio::process::Command::new(&tool);
+    if let Some(path) = music_core::process::own_libraries_first(&tool) {
+        command.env("LD_LIBRARY_PATH", path);
+    }
     command
         .arg("--device")
         .arg(device)
@@ -7896,8 +7893,8 @@ async fn ace_job(state: &AppState, run: AceRun) -> anyhow::Result<Vec<CompletedS
         sources.src_latents = latent;
     }
     if let Some(id) = &reference_song_id {
-        let (audio, latent) = song_audio_and_latent(state, id)?;
-        sources.ref_audio = Some(audio);
+        let (audio, latent) = reference_timbre(state, id)?;
+        sources.ref_audio = audio;
         sources.ref_latents = latent;
     }
     set_job(state, &job_id, |job| job.message = "The DiT is rendering the song.".into()).await;
@@ -7947,13 +7944,23 @@ fn song_audio_and_latent(state: &AppState, song_id: &str) -> anyhow::Result<(Vec
     Ok((audio, latent))
 }
 
+fn reference_timbre(state: &AppState, song_id: &str) -> anyhow::Result<(Option<Vec<u8>>, Option<Vec<u8>>)> {
+    if let Ok(latent) = std::fs::read(latent_path(state, song_id)) {
+        state.library.get_song(song_id)?.with_context(|| format!("the track {song_id} is not in the library"))?;
+        return Ok((None, Some(latent)));
+    }
+    let (audio, _) = song_audio_and_latent(state, song_id)?;
+    Ok((Some(audio), None))
+}
+
 /// A recording as the engine can read it. The engine's own readers take MP3
 /// and only some WAVs (16- and 24-bit PCM, float), while the library takes any
 /// file the studio decodes, so every recording is decoded here and goes as a
-/// 32-bit float WAV.
+/// 24-bit WAV: the library keeps nothing finer, and the engine refuses a
+/// request body over 256 MB.
 fn engine_audio(path: &std::path::Path) -> anyhow::Result<Vec<u8>> {
     let audio = audio_pcm::decode_stereo(path).with_context(|| format!("decode {}", path.display()))?;
-    audio_pcm::wav_f32_bytes(&audio)
+    audio_pcm::wav24_bytes(&audio)
 }
 
 /// The engine's latent of a rendered track, beside its audio.

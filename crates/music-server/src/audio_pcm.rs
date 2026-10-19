@@ -79,18 +79,23 @@ pub fn wav_f32_bytes(audio: &audio_post::Stereo) -> Result<Vec<u8>> {
     Ok(bytes.into_inner())
 }
 
-/// Writes stereo as 24-bit PCM WAV, samples past full scale clipped there.
 pub fn write_wav24(path: &Path, audio: &audio_post::Stereo) -> Result<()> {
+    std::fs::write(path, wav24_bytes(audio)?).with_context(|| format!("write {}", path.display()))
+}
+
+/// Stereo as a 24-bit PCM WAV in memory, samples past full scale clipped there.
+pub fn wav24_bytes(audio: &audio_post::Stereo) -> Result<Vec<u8>> {
     const FULL: f32 = 8_388_607.0;
     let spec = hound::WavSpec { channels: 2, sample_rate: audio.rate, bits_per_sample: 24, sample_format: hound::SampleFormat::Int };
-    let mut out = hound::WavWriter::create(path, spec).with_context(|| format!("create {}", path.display()))?;
+    let mut bytes = std::io::Cursor::new(Vec::new());
+    let mut out = hound::WavWriter::new(&mut bytes, spec)?;
     for frame in 0..audio.frames() {
         for sample in [audio.left[frame], audio.right[frame]] {
             out.write_sample((sample.clamp(-1.0, 1.0) * FULL).round() as i32)?;
         }
     }
     out.finalize().context("finish writing the WAV")?;
-    Ok(())
+    Ok(bytes.into_inner())
 }
 
 /// Writes stereo as 32-bit IEEE float WAV, at its own rate and unclipped.

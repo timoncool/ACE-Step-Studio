@@ -2975,6 +2975,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4050469837a6ff301cd14c1f8f24f88549e6d548f24f64e2148eb0f72cebc51f"
 
 [[package]]
+name = "lzma-rust2"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fde178a3caf126c440fa15628147772d8ee590a39477d711353fbe2e58a73a5b"
+dependencies = [
+ "sha2 0.11.0",
+]
+
+[[package]]
 name = "machine-uid"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3240,6 +3249,7 @@ dependencies = [
  "hyper-util",
  "include_dir",
  "lofty",
+ "lzma-rust2",
  "music-core",
  "music-engine",
  "ort",
@@ -3256,6 +3266,7 @@ dependencies = [
  "studio-hub-client",
  "symphonia",
  "sysinfo",
+ "tar",
  "tempfile",
  "tokio",
  "tokio-stream",
@@ -6032,7 +6043,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",

@@ -99,6 +99,9 @@ pub fn hear_batch(
     std::fs::write(&list, listing.join("\n"))?;
 
     let mut command = Command::new(exe);
+    if let Some(path) = music_core::process::own_libraries_first(exe) {
+        command.env("LD_LIBRARY_PATH", path);
+    }
     command
         .arg("--models")
         .arg(moss)

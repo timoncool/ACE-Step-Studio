@@ -1320,7 +1320,6 @@ function AppContent() {
                 onMidiMany={transcribeManyToMidi}
                 onOpenCoverRegen={openCoverRegen}
                 onShowDetails={handleShowDetails}
-                detailsBesideList
                 onDeleteMany={handleDeleteSongs}
                 onSongUpdate={handleSongUpdate}
                 onCancelJob={generations.cancel}

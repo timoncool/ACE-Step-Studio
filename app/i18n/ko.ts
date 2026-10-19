@@ -1116,7 +1116,7 @@ export const ko = {
     'pollinations.resetDefaults': '기본값으로 재설정',
 
     // Cover regeneration modal
-    'coverRegen.openTooltip': '커버 재생성',
+    'coverRegen.openTooltip': '커버 변경',
     'coverRegen.title': '커버 재생성',
     'coverRegen.model': '모델',
     'coverRegen.modelsLoading': '모델 불러오는 중…',

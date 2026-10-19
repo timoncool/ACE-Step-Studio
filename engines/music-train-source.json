@@ -1,12 +1,13 @@
 {
   "repository": "https://github.com/timoncool/HOT-Step-CPP.git",
-  "commit": "91e92a8aeeac5e800c8810e7b2e7fafbebaca3fc",
+  "commit": "ee7286d14232b48ace3b6eed0fcf3048081ef0d1",
   "license": "MIT",
   "source_dir": "engine",
   "target": "ace-train",
   "shipped_as": "music-train.exe",
-  "release_tag": "music-train-91e92a8a",
+  "release_tag": "music-train-ee7286d1",
   "asset": "music-train-cuda-windows-x64.zip",
-  "bytes": 132276708,
+  "bytes": 132312464,
+  "caption_bytes": 3758513,
   "cuda_architectures": "75-real;80-real;86-real;89-real;90-real;120a-real;120-virtual"
 }

@@ -30,9 +30,12 @@ export function useBridgeCommand(command: string, handler: Handler): void {
 
 // ---------------------------------------------------------------- what is on screen
 
-const INTERACTIVE = 'button, a[href], input, textarea, select, [role="button"], [role="tab"], [role="menuitem"], [role="checkbox"], [role="switch"], [role="slider"], [contenteditable="true"], [data-mcp-context]';
+const INTERACTIVE = 'button, a[href], input, textarea, select, summary, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="checkbox"], [role="switch"], [role="slider"], [contenteditable="true"], [data-mcp-context]';
 
 function visible(element: Element): boolean {
+  // a closed <details> keeps a box for its content, though nothing but its summary is drawn
+  const folded = element.closest('details:not([open])');
+  if (folded && !element.closest('summary')) return false;
   const box = element.getBoundingClientRect();
   if (box.width === 0 || box.height === 0) return false;
   const style = getComputedStyle(element);
@@ -60,15 +63,41 @@ function nearbyText(element: Element): string {
   return '';
 }
 
+/// A <label>'s own words, without the text of the fields it wraps (a list's options, a field's value).
+function labelText(tag: HTMLLabelElement): string {
+  const copy = tag.cloneNode(true) as HTMLElement;
+  copy.querySelectorAll("select, textarea, input, button, [role='listbox']").forEach((field) => field.remove());
+  const parts: string[] = [];
+  const walker = document.createTreeWalker(copy, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) parts.push(node.textContent ?? '');
+  return parts.join(' ').replace(/\s+/g, ' ').trim();
+}
+
 function label(element: Element): string {
-  const own = element.getAttribute('aria-label') || element.getAttribute('title') || '';
+  const named = (element.getAttribute('aria-labelledby') ?? '').split(/\s+/).filter(Boolean)
+    .map((id) => document.getElementById(id)?.textContent ?? '').join(' ').replace(/\s+/g, ' ').trim();
+  if (named) return named.slice(0, 80);
+  const own = element.getAttribute('aria-label') || '';
   if (own) return own.slice(0, 80);
+  const title = element.getAttribute('title') || '';
   if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) {
-    const tied = element.labels?.[0]?.textContent?.replace(/\s+/g, ' ').trim();
-    return (tied || nearbyText(element) || element.getAttribute('placeholder') || '').slice(0, 80);
+    const tied = element.labels?.[0] ? labelText(element.labels[0]) : '';
+    return (tied || title || nearbyText(element) || element.getAttribute('placeholder') || '').slice(0, 80);
   }
   const text = (element.textContent || '').replace(/\s+/g, ' ').trim();
-  return (text || iconName(element) || nearbyText(element)).slice(0, 80);
+  return (text || title || iconName(element) || nearbyText(element)).slice(0, 80);
+}
+
+/// A window in the background gets no focus events from focus() and blur(), so the bridge sends them: a field that
+/// saves on blur saves, and a list that opens on focus opens, as with the user's own click.
+function focusIn(element: HTMLElement): void {
+  element.focus();
+  if (!document.hasFocus()) element.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+}
+
+function focusOut(element: HTMLElement): void {
+  element.blur();
+  if (!document.hasFocus()) element.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
 }
 
 let nextRef = 1;
@@ -104,7 +133,7 @@ function readPage(): string {
       if (seen.has(element) || !visible(element)) continue;
       seen.add(element);
       const tag = element.tagName.toLowerCase();
-      const kind = element.getAttribute('role') || (tag === 'input' ? `input ${(element as HTMLInputElement).type}` : tag);
+      const kind = element.getAttribute('role') || (tag === 'input' ? `input ${(element as HTMLInputElement).type}` : tag === 'summary' ? 'section' : tag);
       const context = element.closest('[data-mcp-context]')?.getAttribute('data-mcp-context');
       if (context) {
         const row = rows.get(context) ?? { at: lines.length, parts: [] };
@@ -129,6 +158,8 @@ function readPage(): string {
       }
       const pressed = element.getAttribute('aria-checked') ?? element.getAttribute('aria-pressed') ?? element.getAttribute('aria-selected');
       if (pressed) parts.push(pressed === 'true' ? 'on' : 'off');
+      const folding = tag === 'summary' ? element.closest('details') : null;
+      if (folding) parts.push(folding.open ? 'open' : 'closed');
       if ((element as HTMLButtonElement).disabled) parts.push('disabled');
       lines.push(parts.join(' '));
     }
@@ -211,10 +242,10 @@ const builtIn: Record<string, Handler> = {
   },
   async type(args) {
     const element = find(args);
-    element.focus();
+    focusIn(element);
     setValue(element, String(args.value ?? ''));
     if (args.submit) element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-    element.blur();
+    focusOut(element);
     await settle();
     return { text: 'Typed.' };
   },

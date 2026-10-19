@@ -82,6 +82,20 @@ pub fn ensure_dies_with_parent(command: &mut std::process::Command) {
     }
 }
 
+/// The library search path a bundled program starts with on Linux: its own folder first, so it loads the libraries
+/// beside it and not another version of the same name an AppImage put on the inherited path (the MIDI tool's older
+/// ggml in `usr/lib`). None on other systems, where nothing is inherited this way.
+pub fn own_libraries_first(program: impl AsRef<std::path::Path>) -> Option<std::ffi::OsString> {
+    if !cfg!(target_os = "linux") {
+        return None;
+    }
+    let mut paths = vec![program.as_ref().parent()?.to_path_buf()];
+    if let Some(inherited) = std::env::var_os("LD_LIBRARY_PATH") {
+        paths.extend(std::env::split_paths(&inherited));
+    }
+    std::env::join_paths(paths).ok()
+}
+
 /// One job for the whole process, created the first time a child needs it.
 #[cfg(windows)]
 fn job() -> isize {

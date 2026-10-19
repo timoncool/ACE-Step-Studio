@@ -339,7 +339,10 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const serviceDown = setupQuery.isError;
   const [catalog, setCatalog] = useState<EngineCatalog | null>(null);
   // the songs a cover or a repaint can start from: the library the window already holds
-  const library: LibrarySong[] = useLibrarySongs().data ?? NO_LIBRARY;
+  const libraryQuery = useLibrarySongs();
+  const librarySongs = libraryQuery.data;
+  const libraryFetching = libraryQuery.isFetching;
+  const library: LibrarySong[] = librarySongs ?? NO_LIBRARY;
   const assistantQuery = useAssistantStatus<{ available?: boolean }>();
   const assistantReady = !assistantQuery.isError && assistantQuery.data?.available === true;
   const [assisting, setAssisting] = useState<'all' | 'lyrics' | 'prompt' | 'sections' | null>(null);
@@ -748,6 +751,24 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     setSourceSong(id);
     setTask(current => (id ? (current === 'text2music' ? 'cover' : current) : 'text2music'));
   };
+
+  // a list shows no song for an id it lacks, while the request would still send it; the cached list may
+  // predate a track imported elsewhere, so it is read again once before the choice is dropped
+  const rereadFor = useRef('');
+  useEffect(() => {
+    if (!librarySongs || libraryFetching) return;
+    const gone = (id: string) => id !== '' && !librarySongs.some(song => song.id === id);
+    const missing = [sourceSong, referenceSong].filter(gone).join('|');
+    if (!missing) return;
+    if (rereadFor.current !== missing) {
+      rereadFor.current = missing;
+      libraryChanged();
+      return;
+    }
+    if (gone(sourceSong)) chooseSource('');
+    if (gone(referenceSong)) setReferenceSong('');
+    setError(tt('aceSongGone'));
+  }, [librarySongs, libraryFetching, sourceSong, referenceSong]);
 
   /** Puts a file of the user's into the library and picks it as the source or the reference. */
   const upload = async (target: 'source' | 'reference', file: File) => {

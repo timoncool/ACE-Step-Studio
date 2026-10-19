@@ -1116,7 +1116,7 @@ export const ja = {
     'pollinations.resetDefaults': 'デフォルトに戻す',
 
     // Cover regeneration modal
-    'coverRegen.openTooltip': 'カバーを再生成',
+    'coverRegen.openTooltip': 'カバーを変更',
     'coverRegen.title': 'カバーの再生成',
     'coverRegen.model': 'モデル',
     'coverRegen.modelsLoading': 'モデルを読み込み中…',

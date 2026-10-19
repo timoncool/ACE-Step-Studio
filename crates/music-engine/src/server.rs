@@ -322,6 +322,9 @@ impl ServerSupervisor {
         }
 
         let mut command = Command::new(&self.config.executable);
+        if let Some(path) = music_core::process::own_libraries_first(&self.config.executable) {
+            command.env("LD_LIBRARY_PATH", path);
+        }
         command
             .arg("--models")
             .arg(&self.config.models_root)

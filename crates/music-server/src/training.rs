@@ -336,6 +336,8 @@ struct TrainerSource {
     asset: String,
     /// Size of the released archive.
     bytes: u64,
+    /// Size of the captioner's archive in the same release.
+    caption_bytes: u64,
 }
 
 fn trainer_source() -> &'static TrainerSource {
@@ -438,7 +440,7 @@ fn listen_pack() -> &'static [Asset] {
                 kind: AssetKind::Runtime,
                 url: leak(format!("https://github.com/timoncool/YuE2-Studio/releases/download/{}/ace-caption-windows-x64.zip", source.release_tag)),
                 relative_path: "ace-caption-windows-x64.zip",
-                bytes: 3_161_266,
+                bytes: source.caption_bytes,
                 unzip_into: Some(trainer_folder()),
                 marker: CAPTIONER,
                 pick: &CAPTIONER_PICK,
@@ -1251,6 +1253,9 @@ impl Training {
             }
             log.write_all(format!("==== {}\n", stage.id).as_bytes()).await?;
             let mut command = tokio::process::Command::new(trainer);
+            if let Some(path) = music_core::process::own_libraries_first(trainer) {
+                command.env("LD_LIBRARY_PATH", path);
+            }
             command
                 .args(&stage.args)
                 .current_dir(run_dir)
