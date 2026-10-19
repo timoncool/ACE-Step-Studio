@@ -1121,7 +1121,7 @@ export const en = {
     'pollinations.resetDefaults': 'Reset to defaults',
 
     // Cover regeneration modal
-    'coverRegen.openTooltip': 'Regenerate cover',
+    'coverRegen.openTooltip': 'Change cover',
     'coverRegen.title': 'Regenerate cover',
     'coverRegen.model': 'Model',
     'coverRegen.modelsLoading': 'Loading models…',

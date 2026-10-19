@@ -1120,7 +1120,7 @@ export const ru = {
     'pollinations.resetDefaults': 'Сбросить к умолчаниям',
 
     // Cover regeneration modal
-    'coverRegen.openTooltip': 'Перегенерировать обложку',
+    'coverRegen.openTooltip': 'Изменить обложку',
     'coverRegen.title': 'Перегенерация обложки',
     'coverRegen.model': 'Модель',
     'coverRegen.modelsLoading': 'Загрузка моделей…',
