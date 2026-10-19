@@ -1,13 +1,13 @@
 {
   "repository": "https://github.com/timoncool/HOT-Step-CPP.git",
-  "commit": "3e7a077875652fa93529bc2c97efad74a1943352",
+  "commit": "ee7286d14232b48ace3b6eed0fcf3048081ef0d1",
   "license": "MIT (code); MuScriptor weights CC BY-NC 4.0",
   "source_dir": "engine",
   "target": "ace-midi",
   "shipped_as": "music-midi.exe",
   "macos_build": "scripts/build-midi-runtime.sh",
-  "release_tag": "music-midi-3e7a0778-r2",
-  "asset": "music-midi-windows-x64.zip",
-  "bytes": 126180169,
+  "release_tag": "hotstep-tools-ee7286d1",
+  "asset": "hotstep-tools-cuda-windows-x64.zip",
+  "bytes": 132678221,
   "cuda_architectures": "75-real;80-real;86-real;89-real;90-real;120a-real;120-virtual"
 }

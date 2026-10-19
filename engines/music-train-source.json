@@ -5,9 +5,9 @@
   "source_dir": "engine",
   "target": "ace-train",
   "shipped_as": "music-train.exe",
-  "release_tag": "music-train-ee7286d1",
-  "asset": "music-train-cuda-windows-x64.zip",
-  "bytes": 132312464,
-  "caption_bytes": 3758513,
+  "release_tag": "hotstep-tools-ee7286d1",
+  "asset": "hotstep-tools-cuda-windows-x64.zip",
+  "bytes": 132678221,
+  "caption_bytes": 3758520,
   "cuda_architectures": "75-real;80-real;86-real;89-real;90-real;120a-real;120-virtual"
 }
