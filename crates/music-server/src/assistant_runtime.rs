@@ -13,7 +13,6 @@
 //! install after their publisher re-uploaded them.
 
 use std::fs;
-use std::io;
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -126,9 +125,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-cuda",
         label: "llama.cpp runtime (CUDA 13.4)",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-win-cuda-13.4-x64.zip",
+        url: if cfg!(target_os = "linux") { "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-ubuntu-cuda-13.4-x64.tar.gz" } else { "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-win-cuda-13.4-x64.zip" },
         relative_path: "runtime/llama-cuda.zip",
-        bytes: 153_540_960,
+        bytes: if cfg!(target_os = "linux") { 152_868_922 } else { 153_540_960 },
         unzip_into: Some("cuda"),
         marker: "llama-server",
         vram_gb: None,
@@ -138,11 +137,11 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-cuda-runtime",
         label: "CUDA runtime for llama.cpp",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/cudart-llama-bin-win-cuda-13.4-x64.zip",
+        url: if cfg!(target_os = "linux") { "https://github.com/ggml-org/llama.cpp/releases/download/b11236/cudart-llama-b11236-bin-ubuntu-cuda-13.4-x64.tar.gz" } else { "https://github.com/ggml-org/llama.cpp/releases/download/b11236/cudart-llama-bin-win-cuda-13.4-x64.zip" },
         relative_path: "runtime/cudart.zip",
-        bytes: 423_535_356,
+        bytes: if cfg!(target_os = "linux") { 440_236_534 } else { 423_535_356 },
         unzip_into: Some("cuda"),
-        marker: "cudart64",
+        marker: if cfg!(target_os = "linux") { "libcudart" } else { "cudart64" },
         vram_gb: None,
         note: "The CUDA libraries llama.cpp links against.",
     },
@@ -150,11 +149,11 @@ pub const ASSETS: &[Asset] = &[
     // an older card or driver takes llama.cpp's CUDA 12.4 build instead
     Asset {
         id: "llama-cuda12",
-        label: "llama.cpp runtime (CUDA 12.4)",
+        label: if cfg!(target_os = "linux") { "llama.cpp runtime (CUDA 12.8)" } else { "llama.cpp runtime (CUDA 12.4)" },
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-win-cuda-12.4-x64.zip",
+        url: if cfg!(target_os = "linux") { "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-ubuntu-cuda-12.8-x64.tar.gz" } else { "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-win-cuda-12.4-x64.zip" },
         relative_path: "runtime/llama-cuda12.zip",
-        bytes: 264_523_826,
+        bytes: if cfg!(target_os = "linux") { 172_237_886 } else { 264_523_826 },
         unzip_into: Some("cuda12"),
         marker: "llama-server",
         vram_gb: None,
@@ -164,11 +163,11 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-cuda12-runtime",
         label: "CUDA 12 runtime for llama.cpp",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/cudart-llama-bin-win-cuda-12.4-x64.zip",
+        url: if cfg!(target_os = "linux") { "https://github.com/ggml-org/llama.cpp/releases/download/b11236/cudart-llama-b11236-bin-ubuntu-cuda-12.8-x64.tar.gz" } else { "https://github.com/ggml-org/llama.cpp/releases/download/b11236/cudart-llama-bin-win-cuda-12.4-x64.zip" },
         relative_path: "runtime/cudart12.zip",
-        bytes: 391_443_627,
+        bytes: if cfg!(target_os = "linux") { 594_377_263 } else { 391_443_627 },
         unzip_into: Some("cuda12"),
-        marker: "cudart64",
+        marker: if cfg!(target_os = "linux") { "libcudart" } else { "cudart64" },
         vram_gb: None,
         note: "The CUDA 12 libraries llama.cpp links against.",
     },
@@ -178,9 +177,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-vulkan",
         label: "llama.cpp runtime (Vulkan)",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-win-vulkan-x64.zip",
+        url: if cfg!(target_os = "linux") { "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-ubuntu-vulkan-x64.tar.gz" } else { "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-win-vulkan-x64.zip" },
         relative_path: "runtime/llama-vulkan.zip",
-        bytes: 33_064_176,
+        bytes: if cfg!(target_os = "linux") { 31_351_800 } else { 33_064_176 },
         unzip_into: Some("vulkan"),
         marker: "llama-server",
         vram_gb: None,
@@ -190,9 +189,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-cpu",
         label: "llama.cpp runtime (CPU)",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-win-cpu-x64.zip",
+        url: if cfg!(target_os = "linux") { "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-ubuntu-x64.tar.gz" } else { "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-win-cpu-x64.zip" },
         relative_path: "runtime/llama-cpu.zip",
-        bytes: 19_160_483,
+        bytes: if cfg!(target_os = "linux") { 17_406_283 } else { 19_160_483 },
         unzip_into: Some("cpu"),
         marker: "llama-server",
         vram_gb: None,
@@ -499,7 +498,7 @@ impl AssistantRuntime {
             let target = self.path_of(asset);
             let outcome = match download_asset(&self.http, asset, &target, &self.state, base, self.cancel.clone()).await {
                 Ok(()) => match asset.unzip_into {
-                    Some(flavour) => extract_zip(&target, &self.root.join("runtime").join(flavour)),
+                    Some(flavour) => crate::downloads::extract_archive(&target, &self.root.join("runtime").join(flavour)),
                     None => Ok(()),
                 },
                 Err(error) => Err(error),
@@ -557,7 +556,7 @@ impl AssistantRuntime {
             match outcome {
                 Ok(()) => {
                     let extraction = match asset.unzip_into {
-                        Some(flavour) => extract_zip(&target, &root.join("runtime").join(flavour)),
+                        Some(flavour) => crate::downloads::extract_archive(&target, &root.join("runtime").join(flavour)),
                         None => Ok(()),
                     };
                     if let Some(progress) = guard.download.as_mut() {
@@ -776,28 +775,6 @@ async fn download_asset(
         bail!("{} has {size} bytes, the server said {}", asset.label, plan.total);
     }
     fs::rename(&part, target).with_context(|| format!("publish {}", target.display()))?;
-    Ok(())
-}
-
-/// Extracts a llama.cpp release zip. Entries are flattened into `destination`
-/// because the releases nest their binaries one directory deep.
-fn extract_zip(archive: &Path, destination: &Path) -> Result<()> {
-    fs::create_dir_all(destination).with_context(|| format!("create {}", destination.display()))?;
-    let file = fs::File::open(archive).with_context(|| format!("open {}", archive.display()))?;
-    let mut zip = zip::ZipArchive::new(file).with_context(|| format!("read {}", archive.display()))?;
-    for index in 0..zip.len() {
-        let mut entry = zip.by_index(index).context("read zip entry")?;
-        if entry.is_dir() {
-            continue;
-        }
-        let Some(name) = entry.enclosed_name().and_then(|path| path.file_name().map(|name| name.to_owned())) else {
-            continue;
-        };
-        let target = destination.join(name);
-        let mut out = fs::File::create(&target).with_context(|| format!("create {}", target.display()))?;
-        io::copy(&mut entry, &mut out).with_context(|| format!("extract {}", target.display()))?;
-    }
-    fs::remove_file(archive).ok();
     Ok(())
 }
 

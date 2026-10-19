@@ -2,6 +2,13 @@
 
 What changed, newest first. Dates are release dates.
 
+## Unreleased
+
+### Fixed
+
+- **The Linux AppImage starts its engine again.** The AppImage put the MIDI tool's older ggml library on the path every program inherits, so the engine loaded it instead of its own and stopped at once ("undefined symbol: ggml_prec_set_acc"). Every program the studio starts now loads the libraries beside it first: the engine, the writing assistant, the trainer, Audio to MIDI and the karaoke recogniser ([YuE2-Studio #97](https://github.com/timoncool/YuE2-Studio/issues/97)). Thanks to angelside, who found the cause.
+- **The writing assistant works on Linux.** It downloaded the Windows builds of llama.cpp and could never start; it now takes llama.cpp's Linux builds for the processor, Vulkan and CUDA ([YuE2-Studio #114](https://github.com/timoncool/YuE2-Studio/issues/114)).
+
 ## 2026-10-16 — 3.6.0
 
 ### Added
