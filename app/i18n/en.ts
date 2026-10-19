@@ -1258,6 +1258,8 @@ export const en = {
     coverLookAi: 'AI generation',
     coverLookAiHint: 'Every new track gets a cover generated through OpenRouter from the default template below. It needs a connected OpenRouter key (Settings → Providers) and is paid, at the chosen model\'s price. Tracks already made are left as they are. Until the cover is ready, or if it fails, the track wears a photo for its style.',
     coverLookPatterns: 'Pattern style',
+    coverLookUnique: 'Unique pattern of each song',
+    coverLookUniqueHint: 'The shapes come from the song’s lyrics (a song without lyrics, its title), the colours from its style, out of the pattern style’s own palette: songs of one style share the colours, and new lyrics draw new shapes.',
     coverLookPhotoExamples: 'Examples',
     coverKeep: 'Save the cover into the track',
     coverKeepHint: 'The photo or pattern is stored with the track and written into the MP3, so a player shows it after the download. Off, it is only shown here.',

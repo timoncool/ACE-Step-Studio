@@ -1253,6 +1253,8 @@ export const ja = {
     coverLookAi: 'AI 生成',
     coverLookAiHint: '新しい曲ごとに、下の既定テンプレートから OpenRouter でカバーを生成します。OpenRouter のキー接続が必要で（設定 → プロバイダー）、選んだモデルの料金がかかります。既存の曲はそのままです。カバーができるまで、または失敗したときは、スタイルに合う写真を使います。',
     coverLookPatterns: '模様のスタイル',
+    coverLookUnique: '曲ごとのユニークな模様',
+    coverLookUniqueHint: '形は歌詞から（歌詞のない曲はタイトルから）、色はその曲のスタイルから、選んだ模様スタイル自身の配色の中で決まります。同じスタイルの曲は色がそろい、歌詞を変えると形が変わります。',
     coverLookPhotoExamples: '例',
     coverKeep: 'カバーを曲に保存する',
     coverKeepHint: '写真や模様を曲と一緒に保存し MP3 にも書き込むので、ダウンロード後もプレーヤーに表示されます。オフにするとスタジオ内で描くだけです。',

@@ -1253,6 +1253,8 @@ export const zh = {
     coverLookAi: 'AI 生成',
     coverLookAiHint: '每首新曲目都会通过 OpenRouter 按下方默认模板生成封面。需要连接 OpenRouter 密钥（设置 → 提供方），按所选模型付费。已完成的曲目保持不变。封面生成前或失败时，曲目使用符合风格的照片。',
     coverLookPatterns: '图案样式',
+    coverLookUnique: '每首歌独有的图案',
+    coverLookUniqueHint: '形状来自歌词（没有歌词的歌曲取自标题），颜色来自它的风格，取自所选图案样式自身的配色：同一风格的歌曲颜色相同，新的歌词画出新的形状。',
     coverLookPhotoExamples: '示例',
     coverKeep: '将封面保存到曲目',
     coverKeepHint: '照片或图案随曲目保存并写入 MP3，下载后播放器也能显示。关闭后只在工作室中绘制。',

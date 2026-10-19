@@ -1253,6 +1253,8 @@ export const ko = {
     coverLookAi: 'AI 생성',
     coverLookAiHint: '새 트랙마다 아래 기본 템플릿으로 OpenRouter를 통해 커버를 생성합니다. OpenRouter 키 연결이 필요하며(설정 → 제공자), 고른 모델 요금이 부과됩니다. 이미 만든 트랙은 그대로 둡니다. 커버가 나오기 전이나 실패하면 스타일에 맞는 사진을 씁니다.',
     coverLookPatterns: '무늬 스타일',
+    coverLookUnique: '곡마다 고유한 패턴',
+    coverLookUniqueHint: '모양은 가사에서(가사가 없는 곡은 제목에서), 색은 곡의 스타일에서 선택한 패턴 스타일 자체의 팔레트 안에서 정해집니다. 같은 스타일의 곡은 색이 같고, 가사가 바뀌면 모양이 바뀝니다.',
     coverLookPhotoExamples: '예시',
     coverKeep: '커버를 트랙에 저장',
     coverKeepHint: '사진이나 무늬를 트랙과 함께 저장하고 MP3에도 기록하므로 내려받은 뒤에도 플레이어에 보입니다. 끄면 스튜디오 안에서만 그려집니다.',

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { apiUrl } from '../services/apiBase';
-import { DEFAULT_COVER_PATTERN, isCoverPattern, patternArt } from '../services/coverArt';
-import { coverSeed } from '../services/songStems';
+import { DEFAULT_COVER_PATTERN, isCoverPattern, patternArt, uniqueCover } from '../services/coverArt';
+import { coverSeed, uniqueSource } from '../services/songStems';
 import { useCoverLook } from '../services/studioQueries';
 import type { Song } from '../types';
 
@@ -18,6 +18,8 @@ interface AlbumCoverProps {
   coverUrl?: string;
   /** The look's photograph for a track whose placeholder is not written into it. */
   placeholderUrl?: string;
+  /** What the track's unique pattern is drawn from, when the look draws one. */
+  unique?: { style: string; lyrics: string; title: string };
 }
 
 const SIZES: Record<NonNullable<AlbumCoverProps['size']>, string> = {
@@ -30,10 +32,15 @@ const SIZES: Record<NonNullable<AlbumCoverProps['size']>, string> = {
 };
 
 /** A cover: the track's pattern underneath, a photograph or its own picture over it. */
-export const AlbumCover: React.FC<AlbumCoverProps> = ({ seed, size = 'md', className = '', children, coverUrl, placeholderUrl }) => {
+export const AlbumCover: React.FC<AlbumCoverProps> = ({ seed, size = 'md', className = '', children, coverUrl, placeholderUrl, unique }) => {
   const look = useCoverLook().data;
   const pattern = isCoverPattern(look?.pattern) ? look.pattern : DEFAULT_COVER_PATTERN;
-  const art = useMemo(() => patternArt(seed, pattern), [seed, pattern]);
+  const drawUnique = look?.unique === true && unique !== undefined;
+  const art = useMemo(() => {
+    if (!drawUnique || !unique) return patternArt(seed, pattern);
+    const drawn = uniqueCover(pattern, unique.style, unique.lyrics, unique.title);
+    return patternArt(drawn.seed, pattern, 256, drawn.colors);
+  }, [seed, pattern, drawUnique, unique?.style, unique?.lyrics, unique?.title]);
   // a written placeholder arrives as the track's cover; until then its pattern shows
   // the address names the look, so a changed look is not answered from the cache
   const source = coverUrl || (look?.photo && !look.keep && placeholderUrl ? `${placeholderUrl}?look=${encodeURIComponent(look.pattern)}` : '');
@@ -61,9 +68,10 @@ export const AlbumCover: React.FC<AlbumCoverProps> = ({ seed, size = 'md', class
 
 /** A song's cover wherever a song is shown: its own picture, else its placeholder,
  *  drawn from the song a stem was separated from so a stem wears its song's. */
-export const SongCover: React.FC<Omit<AlbumCoverProps, 'seed' | 'coverUrl' | 'placeholderUrl'> & { song: Pick<Song, 'id' | 'title' | 'derived' | 'coverUrl'> }> = ({ song, ...cover }) => (
+export const SongCover: React.FC<Omit<AlbumCoverProps, 'seed' | 'coverUrl' | 'placeholderUrl' | 'unique'> & { song: Pick<Song, 'id' | 'title' | 'derived' | 'coverUrl' | 'style' | 'lyrics'> }> = ({ song, ...cover }) => (
   <AlbumCover
     seed={coverSeed(song)}
+    unique={uniqueSource(song)}
     coverUrl={song.coverUrl}
     placeholderUrl={apiUrl(`/v1/library/songs/${encodeURIComponent(song.id)}/cover/placeholder`)}
     {...cover}

@@ -51,10 +51,38 @@ const BACKDROPS = ['b6e3f4', 'c0aede', 'd1d4f9', 'ffd5dc', 'ffdfbf'];
 const styles = new Map<CoverPattern, Style>();
 const drawn = new Map<string, string>();
 
+/** FNV-1a over the UTF-8 bytes; the service's `cover_art.rs` computes the same. */
+function fnv1a(text: string): number {
+  let hash = 0x811c9dc5;
+  for (const byte of new TextEncoder().encode(text)) hash = Math.imul(hash ^ byte, 0x01000193) >>> 0;
+  return hash;
+}
+
+export interface UniqueCover {
+  seed: string;
+  /** `{slot}Color` and the one colour of the style's palette taken for it. */
+  colors: Record<string, string[]>;
+}
+
+/** A track's unique pattern in a style: the words (a track without words, its
+ *  title) draw the shapes, the music style picks each colour from the pattern
+ *  style's own palette - as the service draws the one it writes into the track. */
+export function uniqueCover(pattern: CoverPattern, style: string, lyrics: string, title: string): UniqueCover {
+  const words = lyrics.trim() || title.trim();
+  const colors: Record<string, string[]> = {};
+  const slots = (DEFINITIONS[pattern] as { colors?: Record<string, { contrastTo?: string; values?: string[] }> }).colors ?? {};
+  for (const [slot, color] of Object.entries(slots)) {
+    // a colour picked against another is the style's own choice
+    if (color.contrastTo || !color.values?.length) continue;
+    colors[`${slot}Color`] = [color.values[fnv1a(`${style.trim()}\u0000${slot}`) % color.values.length].replace(/^#/, '')];
+  }
+  return { seed: words, colors };
+}
+
 /** The pattern for a seed, as a data URI an <img>, a background or a tag can take;
  *  a video's background asks for it as wide as its frame, so it stays sharp. */
-export function patternArt(seed: string, pattern: CoverPattern = DEFAULT_COVER_PATTERN, size = 256): string {
-  const key = `${pattern}\u0000${size}\u0000${seed}`;
+export function patternArt(seed: string, pattern: CoverPattern = DEFAULT_COVER_PATTERN, size = 256, colors: Record<string, string[]> = {}): string {
+  const key = `${pattern}\u0000${size}\u0000${seed}\u0000${JSON.stringify(colors)}`;
   const known = drawn.get(key);
   if (known) return known;
   let style = styles.get(pattern);
@@ -62,7 +90,7 @@ export function patternArt(seed: string, pattern: CoverPattern = DEFAULT_COVER_P
     style = new Style(DEFINITIONS[pattern]);
     styles.set(pattern, style);
   }
-  const art = new Avatar(style, { seed, size, ...(SEE_THROUGH.has(pattern) ? { backgroundColor: BACKDROPS } : {}) }).toDataUri();
+  const art = new Avatar(style, { seed, size, ...(SEE_THROUGH.has(pattern) ? { backgroundColor: BACKDROPS } : {}), ...colors }).toDataUri();
   drawn.set(key, art);
   return art;
 }

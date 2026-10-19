@@ -2355,8 +2355,8 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "cover_look_set",
-                description: "Choose what tracks without a cover of their own wear: photo true for a photo for the style, false for a pattern; pattern names the pattern style; keep saves the picture into the track's file.",
-                schema: || object(json!({ "photo": { "type": "boolean" }, "pattern": { "type": "string" }, "keep": { "type": "boolean" } }), &[]),
+                description: "Choose what tracks without a cover of their own wear: photo true for a photo for the style, false for a pattern; pattern names the pattern style; unique draws each track's pattern from its own words (the shapes) and music style (the colours) instead of its id; keep saves the picture into the track's file.",
+                schema: || object(json!({ "photo": { "type": "boolean" }, "pattern": { "type": "string" }, "unique": { "type": "boolean" }, "keep": { "type": "boolean" } }), &[]),
                 call: |args| send(Method::PUT, "/v1/covers/look".into(), args.clone()),
             },
             Tool {

@@ -271,7 +271,7 @@ export const CoverTemplateSettings: React.FC = () => {
     }
   }, [auto]);
 
-  const changeLook = (next: Partial<Pick<CoverLook, 'photo' | 'pattern' | 'keep'>>) => {
+  const changeLook = (next: Partial<Pick<CoverLook, 'photo' | 'pattern' | 'unique' | 'keep'>>) => {
     setProblem(null);
     changeCoverLook(next).catch(reason => setProblem(reasonOf(reason)));
   };
@@ -305,11 +305,11 @@ export const CoverTemplateSettings: React.FC = () => {
       {look && mode && (
         <>
           <div className="grid grid-cols-3 gap-2">
-            <button type="button" aria-pressed={mode === 'photo'} onClick={() => choose('photo')} className={option(mode === 'photo')}>
-              <ImageIcon size={13} />{t('coverLookPhoto')}
-            </button>
             <button type="button" aria-pressed={mode === 'pattern'} onClick={() => choose('pattern')} className={option(mode === 'pattern')}>
               <Palette size={13} />{t('coverLookPattern')}
+            </button>
+            <button type="button" aria-pressed={mode === 'photo'} onClick={() => choose('photo')} className={option(mode === 'photo')}>
+              <ImageIcon size={13} />{t('coverLookPhoto')}
             </button>
             <button type="button" aria-pressed={mode === 'ai'} onClick={() => choose('ai')} className={option(mode === 'ai')}>
               <Sparkles size={13} />{t('coverLookAi')}
@@ -336,6 +336,18 @@ export const CoverTemplateSettings: React.FC = () => {
                   </button>
                 ))}
               </div>
+              <label className="mt-3 flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={look.unique}
+                  onChange={event => changeLook({ unique: event.target.checked })}
+                  className="mt-0.5 h-4 w-4 accent-pink-500"
+                />
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-zinc-900 dark:text-white">{t('coverLookUnique')}</span>
+                  <span className="mt-0.5 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('coverLookUniqueHint')}</span>
+                </span>
+              </label>
             </div>
           )}
           {mode === 'ai' && (

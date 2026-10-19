@@ -1409,6 +1409,17 @@ fn derivation(from: &library::Song, tool: &str, settings: Value) -> Value {
 }
 
 /// The track a derived track was made from, and by which tool.
+/// The style, words and title a track's unique pattern is drawn from: a stem's
+/// are its song's, so it wears the same pattern.
+fn unique_texts(state: &AppState, song: &library::Song) -> anyhow::Result<(String, String, String)> {
+    if let Some((from, "stems")) = derived_from(song) {
+        if let Some(parent) = state.library.get_song(from)? {
+            return Ok((parent.caption, parent.lyrics, parent.title));
+        }
+    }
+    Ok((song.caption.clone(), song.lyrics.clone(), song.title.clone()))
+}
+
 fn derived_from(song: &library::Song) -> Option<(&str, &str)> {
     let derived = song.metadata.get("derived")?;
     Some((derived.get("from")?.as_str()?, derived.get("tool")?.as_str()?))
@@ -3666,6 +3677,8 @@ struct CoverLookRequest {
     #[serde(default)]
     pattern: Option<String>,
     #[serde(default)]
+    unique: Option<bool>,
+    #[serde(default)]
     keep: Option<bool>,
 }
 
@@ -3674,6 +3687,7 @@ async fn cover_look_reply(state: &AppState) -> Value {
     serde_json::json!({
         "photo": look.photo,
         "pattern": look.pattern,
+        "unique": look.unique,
         "keep": look.keep,
         "patterns": cover_art::PATTERNS,
         "problem": state.cover_problem.read().await.clone(),
@@ -3700,6 +3714,9 @@ async fn write_cover_look(
         }
         if let Some(pattern) = request.pattern {
             look.pattern = pattern;
+        }
+        if let Some(unique) = request.unique {
+            look.unique = unique;
         }
         if let Some(keep) = request.keep {
             look.keep = keep;
@@ -3754,6 +3771,13 @@ async fn placeholder_image(
             }
         }
     }
+    if look.unique {
+        let (style, lyrics, title) = unique_texts(state, song)?;
+        let label = cover_art::Unique::label(&look.pattern, &style, &lyrics, &title);
+        let unique = cover_art::unique(&look.pattern, &style, &lyrics, &title);
+        let image = tokio::task::spawn_blocking(move || unique.png(cover_art::KEPT_SIZE)).await.context("the pattern drawing stopped")??;
+        return Ok((image, "image/png", label, None));
+    }
     let pattern = look.pattern.clone();
     let label = format!("pattern:{pattern}");
     let image = tokio::task::spawn_blocking(move || cover_art::pattern_png(&pattern, &seed, cover_art::KEPT_SIZE))
@@ -3778,7 +3802,13 @@ async fn pin_placeholder(state: &AppState, song_id: &str) -> anyhow::Result<bool
         }
         return Ok(removed);
     }
-    if pinned.as_deref() == Some(look.label().as_str()) {
+    let wanted = if !look.photo && look.unique {
+        let (style, lyrics, title) = unique_texts(state, &song)?;
+        cover_art::Unique::label(&look.pattern, &style, &lyrics, &title)
+    } else {
+        look.label()
+    };
+    if pinned.as_deref() == Some(wanted.as_str()) {
         return Ok(false);
     }
     // a stem wears its song's cover: it takes the song's, drawn for the song first
@@ -4031,6 +4061,19 @@ async fn update_library_song(State(state):State<AppState>,Path(id):Path<String>,
     let song = state.library.update_song(&id,input).map_err(|e|api_error(StatusCode::BAD_REQUEST,e.to_string()))?.ok_or_else(||api_error(StatusCode::NOT_FOUND,"Song not found".into()))?;
     // A rename is a title change, and the file carries the title.
     tag_stored_song(&state, &id).await;
+    // a unique pattern is drawn from the style and the words: a new one of either draws it again, the stems' too
+    if state.cover_look.read().await.unique {
+        let state = state.clone();
+        let id = id.clone();
+        tokio::spawn(async move {
+            let stems: Vec<String> = state.library.list_songs().map(|songs| songs.into_iter().filter(|song| derived_from(song) == Some((id.as_str(), "stems"))).map(|song| song.id).collect()).unwrap_or_default();
+            for song_id in std::iter::once(id.clone()).chain(stems) {
+                if let Err(error) = pin_placeholder(&state, &song_id).await {
+                    eprintln!("[ERROR] could not draw the unique pattern of {song_id} again: {error:#}");
+                }
+            }
+        });
+    }
     Ok(Json(song))
 }
 /// Removes a song and its files; a file that cannot go (a player holds it)
