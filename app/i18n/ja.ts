@@ -1619,6 +1619,8 @@ export const ja = {
     karaokeOpenRouterManual: 'モデル ID',
     karaokeOpenRouterHint: 'タイムスタンプを返すのは OpenAI 互換プロバイダー（OpenAI・Groq・Together の Whisper 系）だけです。ほかのモデルはテキストのみで拒否されます。課金はあなたのキーに。',
     karaokeMake: 'カラオケを作成',
+    lyricsOverlayNeedsKaraoke: '歌詞は曲のカラオケのタイミングに合わせて動画に表示されますが、この曲にはまだありません。',
+    lyricsOverlayNeedsSetup: 'カラオケのタイミングがまだ入っていません：設定 → モデル → 任意の追加機能 → カラオケのタイミング。',
     karaokeMaking: 'タイミング調整中…',
     karaokeReady: 'カラオケができました',
     willDownload: 'ダウンロードが必要',

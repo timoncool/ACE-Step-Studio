@@ -1624,6 +1624,8 @@ export const en = {
     karaokeOpenRouterManual: 'Model id',
     karaokeOpenRouterHint: 'Timings come back only from OpenAI-compatible providers - the Whisper family on OpenAI, Groq or Together. Other models answer with text alone and are refused. Billed to your key.',
     karaokeMake: 'Make karaoke',
+    lyricsOverlayNeedsKaraoke: 'The words appear in the video as they are sung, timed by the song’s karaoke, and this song has none yet.',
+    lyricsOverlayNeedsSetup: 'Karaoke timing is not set up yet: Settings → Models → Optional extras → Karaoke timings.',
     karaokeMaking: 'Timing…',
     karaokeReady: 'Karaoke ready',
     willDownload: 'needs a download of',

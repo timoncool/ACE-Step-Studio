@@ -1619,6 +1619,8 @@ export const ko = {
     karaokeOpenRouterManual: '모델 ID',
     karaokeOpenRouterHint: '타임스탬프는 OpenAI 호환 제공자(OpenAI, Groq, Together 의 Whisper 계열)만 반환합니다. 다른 모델은 텍스트만 주므로 거부됩니다. 요금은 사용자 키로 청구됩니다.',
     karaokeMake: '노래방 만들기',
+    lyricsOverlayNeedsKaraoke: '가사는 노래의 노래방 타이밍에 맞춰 영상에 나타나는데, 이 곡에는 아직 없습니다.',
+    lyricsOverlayNeedsSetup: '노래방 타이밍이 아직 설치되지 않았습니다: 설정 → 모델 → 선택 추가 기능 → 노래방 타이밍.',
     karaokeMaking: '타이밍 맞추는 중…',
     karaokeReady: '노래방 준비됨',
     willDownload: '다운로드 필요',

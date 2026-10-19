@@ -1619,6 +1619,8 @@ export const zh = {
     karaokeOpenRouterManual: '模型 ID',
     karaokeOpenRouterHint: '只有兼容 OpenAI 的提供方会返回时间戳——OpenAI、Groq 或 Together 上的 Whisper 系列。其他模型只返回文本，会被拒绝。按你的密钥计费。',
     karaokeMake: '生成卡拉OK',
+    lyricsOverlayNeedsKaraoke: '歌词按演唱时间显示在视频中，依据歌曲的卡拉OK 时间轴，而这首歌还没有。',
+    lyricsOverlayNeedsSetup: '卡拉OK 时间轴尚未安装：设置 → 模型 → 可选附加 → 卡拉OK 时间轴。',
     karaokeMaking: '正在对齐…',
     karaokeReady: '卡拉OK 已就绪',
     willDownload: '需要下载',

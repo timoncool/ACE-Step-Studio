@@ -4,6 +4,10 @@ What changed, newest first. Dates are release dates.
 
 ## Unreleased
 
+### Added
+
+- **Lyrics in a video clip, found where they are.** The video screen's Text tab always shows the lyrics overlay: a song without karaoke timing gets a button that makes it there, and the overlay turns on when it is done; without karaoke set up it says where to set it up. Until now the overlay section was hidden for such a song ([#118](https://github.com/timoncool/YuE2-Studio/issues/118)).
+
 ### Fixed
 
 - **The training page says where to install the card runtime.** When preparation measures tempo on the processor, its notice now names the way to the graphics-card ONNX Runtime: Settings → Models → Optional extras → Karaoke timings → Graphics card.
