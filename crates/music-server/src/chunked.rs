@@ -136,14 +136,19 @@ pub async fn probe(http: &reqwest::Client, url: &str) -> Result<Plan> {
         match probe_once(http, url).await {
             Ok(plan) => return Ok(plan),
             Err(error) if error.is::<Refused>() => return Err(error),
-            Err(error) => last = error.to_string(),
+            Err(error) => last = format!("{error:#}"),
         }
         // Hugging Face answers 429 when it has had enough for the moment, and
         // a busy hour is not a broken download. Without this the whole install
         // died on the first refusal, with nothing to retry it.
         tokio::time::sleep(std::time::Duration::from_millis(500 << attempt.min(7))).await;
     }
-    Err(anyhow!("could not start {url} after {RETRIES} attempts: {last}"))
+    let mirror = if url.contains("://huggingface.co/") {
+        ". Hugging Face did not answer from this network: Settings - Network can take models from the HF-Mirror instead"
+    } else {
+        ""
+    };
+    Err(anyhow!("could not start {url} after {RETRIES} attempts: {last}{mirror}"))
 }
 
 /// Sends one request, waiting out a server that is only busy.
