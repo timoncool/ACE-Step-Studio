@@ -1366,24 +1366,26 @@ impl LyricsSync {
     /// Binds `ort` to this machine's runtime - once per process, before
     /// anything touches `ort`, or it binds to whatever `onnxruntime.dll` the
     /// system happens to have - and says which card the bound build reaches.
-    /// None when no runtime is installed. Every piece of work on ONNX asks
-    /// here first, so all of it runs on the one build that was bound.
-    pub fn bind_ort(&self) -> Option<Option<OnnxCard>> {
+    /// Every piece of work on ONNX asks here first, so all of it runs on the
+    /// one build that was bound. The library is loaded here, not on first use:
+    /// one this process cannot load (another system's build, a signature macOS
+    /// refuses) is then an error of the work that needed it, where `ort` would
+    /// panic and stay unusable until the studio restarts.
+    pub fn bind_ort(&self) -> Result<Option<OnnxCard>> {
         static BOUND: std::sync::OnceLock<Option<OnnxCard>> = std::sync::OnceLock::new();
         if let Some(card) = BOUND.get() {
-            return Some(*card);
+            return Ok(*card);
         }
-        let (library, card) = self.machine_runtime()?;
-        Some(*BOUND.get_or_init(|| {
-            point_ort_at(&library, card);
-            card
-        }))
+        let (library, card) = self.machine_runtime().ok_or_else(|| anyhow!("the ONNX Runtime library is not installed"))?;
+        point_ort_at(&library, card);
+        drop(ort::init_from(&library).map_err(|error| anyhow!("load ONNX Runtime {}: {error}", library.display()))?);
+        Ok(*BOUND.get_or_init(|| card))
     }
 
     /// The card work set to `runtime` runs on, with the machine's runtime
     /// bound first; none is the processor.
     pub fn onnx_card(&self, runtime: OnnxFlavour) -> Result<Option<OnnxCard>> {
-        let bound = self.bind_ort().ok_or_else(|| anyhow!("the ONNX Runtime library is not installed"))?;
+        let bound = self.bind_ort()?;
         Ok(if matches!(runtime, OnnxFlavour::Cpu) { None } else { bound })
     }
 

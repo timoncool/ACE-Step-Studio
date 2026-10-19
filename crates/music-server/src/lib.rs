@@ -3246,10 +3246,7 @@ async fn time_lyrics_for(state: AppState, song_id: String) {
             let path = std::path::PathBuf::from(&audio);
             match tokio::task::spawn_blocking(move || sync.parakeet_words(config.runtime, config.whisper_model.as_deref(), &path)).await {
                 Ok(result) => result,
-                Err(error) => {
-                    eprintln!("no karaoke for {song_id}: {error}");
-                    return;
-                }
+                Err(error) => Err(anyhow::anyhow!("the recogniser stopped: {error}")),
             }
         }
         lyrics_sync::AsrProvider::Whisper => {
@@ -3259,10 +3256,7 @@ async fn time_lyrics_for(state: AppState, song_id: String) {
             let lyrics = song.lyrics.clone();
             match tokio::task::spawn_blocking(move || sync.whisper_words(&config, &path, None, &lyrics)).await {
                 Ok(result) => result,
-                Err(error) => {
-                    eprintln!("no karaoke for {song_id}: {error}");
-                    return;
-                }
+                Err(error) => Err(anyhow::anyhow!("the recogniser stopped: {error}")),
             }
         }
         lyrics_sync::AsrProvider::OpenRouter => {

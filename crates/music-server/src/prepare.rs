@@ -444,7 +444,9 @@ async fn run(state: &AppState, job: &Job) -> anyhow::Result<()> {
     settle_pending(&state.training, job, &shared, can_listen, Passed::Nothing);
 
     // Binds the machine's ONNX Runtime before anything loads a session
-    state.lyrics_sync.bind_ort();
+    if let Err(error) = state.lyrics_sync.bind_ort() {
+        eprintln!("[ERROR] preparation runs without ONNX Runtime: {error:#}");
+    }
 
     // One model on the card at a time: Whisper, then MOSS, then the assistant
     let lyric_items: Vec<&training::DatasetItem> = items.iter().filter(|item| job.lyrics && item.lyrics_state == LyricsState::Wanted).collect();

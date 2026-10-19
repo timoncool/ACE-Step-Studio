@@ -6,6 +6,7 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- **Karaoke that cannot start says why and ends.** An ONNX Runtime the studio could not load stopped the recogniser with a panic: the karaoke stayed "running" for ever and every later try answered "Mutex poisoned" until a restart. The library is now loaded before any work and a failure is that work's error, with the library's path; a recogniser that stops ends its karaoke as failed ([YuE2-Studio #106](https://github.com/timoncool/YuE2-Studio/issues/106)).
 - **The song details button is back on wide windows.** 3.6.0 hid it on the create page whenever the details could sit beside the list; it shows at every width again ([YuE2-Studio #99](https://github.com/timoncool/YuE2-Studio/issues/99)).
 - **The Linux AppImage starts its engine again.** The AppImage put the MIDI tool's older ggml library on the path every program inherits, so the engine loaded it instead of its own and stopped at once ("undefined symbol: ggml_prec_set_acc"). Every program the studio starts now loads the libraries beside it first: the engine, the writing assistant, the trainer, Audio to MIDI and the karaoke recogniser ([YuE2-Studio #97](https://github.com/timoncool/YuE2-Studio/issues/97)). Thanks to angelside, who found the cause.
 - **The writing assistant works on Linux.** It downloaded the Windows builds of llama.cpp and could never start; it now takes llama.cpp's Linux builds for the processor, Vulkan and CUDA ([YuE2-Studio #114](https://github.com/timoncool/YuE2-Studio/issues/114)).
