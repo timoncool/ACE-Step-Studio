@@ -67,7 +67,10 @@ function nearbyText(element: Element): string {
 function labelText(tag: HTMLLabelElement): string {
   const copy = tag.cloneNode(true) as HTMLElement;
   copy.querySelectorAll("select, textarea, input, button, [role='listbox']").forEach((field) => field.remove());
-  return (copy.textContent || '').replace(/\s+/g, ' ').trim();
+  const parts: string[] = [];
+  const walker = document.createTreeWalker(copy, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) parts.push(node.textContent ?? '');
+  return parts.join(' ').replace(/\s+/g, ' ').trim();
 }
 
 function label(element: Element): string {
