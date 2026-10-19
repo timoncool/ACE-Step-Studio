@@ -2,6 +2,12 @@
 
 What changed, newest first. Dates are release dates.
 
+## Unreleased
+
+### Fixed
+
+- **A computer's memory as its box says it.** The studio counted RAM in 10⁹-byte gigabytes, so a 32 GB computer read 34 GB (in the issue form too); memory is now counted in 2³⁰-byte gigabytes, as video memory already was, and so are the model sets' needs.
+
 ## 2026-10-20 — 3.6.1
 
 ### Fixed

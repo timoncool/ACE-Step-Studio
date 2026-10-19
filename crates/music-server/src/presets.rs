@@ -4,6 +4,9 @@ use music_core::{Capability, ExecutionMode, StudioConfiguration};
 use serde::Serialize;
 use sysinfo::System;
 
+/// Bytes in the gigabyte memory is counted in: a "32 GB" computer has 32 × 2³⁰ bytes, not 32 × 10⁹.
+const GIB: f64 = (1u64 << 30) as f64;
+
 #[derive(Clone, Copy)]
 pub struct Preset {
     pub id: &'static str,
@@ -74,7 +77,7 @@ fn probe() -> &'static Hardware {
     HARDWARE.get_or_init(|| {
         let mut system = System::new();
         system.refresh_memory();
-        let total_ram_gb = system.total_memory() as f64 / 1_000_000_000.0;
+        let total_ram_gb = system.total_memory() as f64 / GIB;
         let (gpu_name, total_vram_gb) = nvidia_smi().or_else(other_card).unwrap_or_else(|| ("No NVIDIA GPU detected".into(), 0.0));
         let has_gpu = total_vram_gb > 0.0;
         let (recommended, reason) = recommend_for_hardware(&gpu_name, total_vram_gb, total_ram_gb, crate::model_manager::profile_weights_bytes);
@@ -106,7 +109,7 @@ pub fn ram_needed_gb(profile: &str, weights_bytes: u64, total_vram_gb: f64) -> f
     if on_card {
         SYSTEM_RAM_GB + LOADING_RAM_GB
     } else {
-        weights_bytes as f64 / 1_000_000_000.0 + WORK_RAM_GB + SYSTEM_RAM_GB
+        weights_bytes as f64 / GIB + WORK_RAM_GB + SYSTEM_RAM_GB
     }
 }
 
@@ -239,7 +242,7 @@ fn display_adapter() -> Option<(String, f64)> {
     let ram = Command::new("sysctl").args(["-n", "hw.memsize"]).output().ok().and_then(|output| {
         std::str::from_utf8(&output.stdout).ok().and_then(|value| value.trim().parse::<u64>().ok())
     })?;
-    Some((chip, ram as f64 / 1_000_000_000.0))
+    Some((chip, ram as f64 / GIB))
 }
 
 /// The chip name from `system_profiler -json SPDisplaysDataType`: the value of
