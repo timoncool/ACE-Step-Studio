@@ -744,6 +744,10 @@ pub fn extract_archive(archive: &Path, destination: &Path) -> Result<()> {
             for entry in open_tar(archive, format)?.entries().with_context(|| format!("read {}", archive.display()))? {
                 let mut entry = entry.with_context(|| format!("read {}", archive.display()))?;
                 let path = entry.path().context("read tar entry")?.to_string_lossy().replace('\\', "/");
+                // a macOS package's debug symbols carry the library's own file name
+                if path.contains(".dSYM/") {
+                    continue;
+                }
                 let name = path.rsplit('/').next().unwrap_or(&path).to_string();
                 let kind = entry.header().entry_type();
                 let mode = entry.header().mode().ok();

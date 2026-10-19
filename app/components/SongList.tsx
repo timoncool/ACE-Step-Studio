@@ -48,7 +48,6 @@ interface SongListProps {
     onMidiMany?: (songs: Song[]) => void;
     /** Inside another page, which scrolls and names the list itself. */
     embedded?: boolean;
-    /** Choosing a song already opens its details beside the list on a wide window, so the button is for narrow ones. */
     /** The song whose details are open, so its button shows it. */
     detailsSongId?: string | null;
     /** Where the chosen order is remembered, and which orders the list offers. */
