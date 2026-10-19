@@ -2849,6 +2849,12 @@ mod tests {
     }
 
     #[test]
+    fn every_tool_is_in_the_skill() {
+        let missing: Vec<&str> = tools().iter().map(|tool| tool.name).filter(|name| !SKILL.contains(&format!("`{name}`"))).collect();
+        assert!(missing.is_empty(), "docs/mcp-skill.md does not name {missing:?}");
+    }
+
+    #[test]
     fn every_tool_has_a_unique_name_and_an_object_schema() {
         let mut names: Vec<&str> = tools().iter().map(|tool| tool.name).collect();
         let count = names.len();
