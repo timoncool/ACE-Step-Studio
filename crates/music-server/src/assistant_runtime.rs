@@ -626,6 +626,9 @@ impl AssistantRuntime {
 
         let port = free_port()?;
         let mut command = Command::new(&binary);
+        if let Some(path) = music_core::process::own_libraries_first(&binary) {
+            command.env("LD_LIBRARY_PATH", path);
+        }
         command
             .arg("--model")
             .arg(&model_path)

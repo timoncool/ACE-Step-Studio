@@ -1657,6 +1657,9 @@ impl LyricsSync {
         cancel: &AtomicBool,
     ) -> Result<()> {
         let mut command = Command::new(binary);
+        if let Some(path) = music_core::process::own_libraries_first(binary) {
+            command.env("LD_LIBRARY_PATH", path);
+        }
         command
             .args(wavs)
             .arg("--model")

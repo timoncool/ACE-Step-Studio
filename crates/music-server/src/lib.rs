@@ -6731,6 +6731,9 @@ async fn transcribe_to_midi(state: &AppState, size: &'static midi::Size, audio: 
     let tool = state.midi.tool();
     let device = midi_device(&*state.engine_options.read().await);
     let mut command = tokio::process::Command::new(&tool);
+    if let Some(path) = music_core::process::own_libraries_first(&tool) {
+        command.env("LD_LIBRARY_PATH", path);
+    }
     command
         .arg("--device")
         .arg(device)
