@@ -7893,8 +7893,8 @@ async fn ace_job(state: &AppState, run: AceRun) -> anyhow::Result<Vec<CompletedS
         sources.src_latents = latent;
     }
     if let Some(id) = &reference_song_id {
-        let (audio, latent) = song_audio_and_latent(state, id)?;
-        sources.ref_audio = Some(audio);
+        let (audio, latent) = reference_timbre(state, id)?;
+        sources.ref_audio = audio;
         sources.ref_latents = latent;
     }
     set_job(state, &job_id, |job| job.message = "The DiT is rendering the song.".into()).await;
@@ -7944,13 +7944,26 @@ fn song_audio_and_latent(state: &AppState, song_id: &str) -> anyhow::Result<(Vec
     Ok((audio, latent))
 }
 
+/// A reference track as the engine takes its timbre: a kept latent is the
+/// timbre itself and the engine reads no audio beside it, so the audio goes
+/// only when there is no latent.
+fn reference_timbre(state: &AppState, song_id: &str) -> anyhow::Result<(Option<Vec<u8>>, Option<Vec<u8>>)> {
+    state.library.get_song(song_id)?.with_context(|| format!("the track {song_id} is not in the library"))?;
+    if let Ok(latent) = std::fs::read(latent_path(state, song_id)) {
+        return Ok((None, Some(latent)));
+    }
+    let (audio, latent) = song_audio_and_latent(state, song_id)?;
+    Ok((Some(audio), latent))
+}
+
 /// A recording as the engine can read it. The engine's own readers take MP3
 /// and only some WAVs (16- and 24-bit PCM, float), while the library takes any
 /// file the studio decodes, so every recording is decoded here and goes as a
-/// 32-bit float WAV.
+/// 24-bit WAV: the library keeps nothing finer, and the engine refuses a
+/// request body over 256 MB.
 fn engine_audio(path: &std::path::Path) -> anyhow::Result<Vec<u8>> {
     let audio = audio_pcm::decode_stereo(path).with_context(|| format!("decode {}", path.display()))?;
-    audio_pcm::wav_f32_bytes(&audio)
+    audio_pcm::wav24_bytes(&audio)
 }
 
 /// The engine's latent of a rendered track, beside its audio.
