@@ -731,6 +731,12 @@ struct AssistantConfig {
     /// How hard a reasoning model should think, in OpenRouter's own terms:
     /// minimal, low, medium, high, xhigh, max - or none.
     reasoning_effort: Option<String>,
+    /// Which agent CLI answers; empty means the first one detected.
+    cli_agent: Option<String>,
+    /// Model override for that CLI; empty means its configured model.
+    cli_model: Option<String>,
+    /// Explicit executable for that CLI; empty means PATH.
+    cli_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -745,6 +751,8 @@ enum AssistantProvider {
     /// The agent connected over MCP: the studio asks it what it would ask its
     /// own model, with the same instructions and answer schema.
     Agent,
+    /// An agent CLI on this machine, run headless for one draft.
+    Cli,
 }
 
 impl AssistantConfig {
@@ -766,6 +774,8 @@ impl AssistantConfig {
                 self.managed_model.as_deref().is_some_and(|model| !model.trim().is_empty())
                     || self.managed_path.as_deref().is_some_and(|path| !path.trim().is_empty())
             }
+            // Install state is probed in `assistant_available`, not here.
+            AssistantProvider::Cli => self.cli_agent.as_deref().is_none_or(|id| providers::cli_agent::find_kind(id.trim()).is_some()),
         }
     }
 }
@@ -964,6 +974,7 @@ pub async fn serve() -> anyhow::Result<()> {
         .route("/v1/network/proxy/test", post(test_proxy))
         .route("/v1/assistant/status", get(assistant_status).put(update_assistant_settings))
         .route("/v1/assistant/local-models", get(assistant_local_models))
+        .route("/v1/assistant/cli-agents", get(assistant_cli_agents))
         .route("/v1/assistant/local-key", post(set_local_server_key))
         .route("/v1/assistant/write", post(assistant_write))
         .route("/v1/assistant/write/stream", post(assistant_write_stream))
@@ -4206,7 +4217,7 @@ async fn update_configuration(
                             assistant.openrouter_model = Some(model);
                         }
                     }
-                    ExecutionMode::Local if assistant.provider == AssistantProvider::Agent => {}
+                    ExecutionMode::Local if matches!(assistant.provider, AssistantProvider::Agent | AssistantProvider::Cli) => {}
                     ExecutionMode::Local => {
                         // Whichever local shape is set up: a managed model the
                         // studio downloaded, or a server the user runs.
@@ -5291,6 +5302,9 @@ async fn assistant_status(State(state): State<AppState>) -> Json<Value> {
         "local_model": config.local_model,
         "local_api_key_set": credentials::local_server_key().is_some(),
         "openrouter_model": config.openrouter_model,
+        "cli_agent": config.cli_agent,
+        "cli_model": config.cli_model,
+        "cli_path": config.cli_path,
     }))
 }
 
@@ -5309,6 +5323,19 @@ fn assistant_available(config: &AssistantConfig, runtime: &assistant_runtime::Ru
                 .is_some_and(|path| !path.trim().is_empty() && std::path::Path::new(path.trim()).is_file());
             has_runtime && (downloaded || own_file)
         }
+        AssistantProvider::Cli => {
+            if !config.available() {
+                return false;
+            }
+            if let Some(path) = config.cli_path.as_deref().map(str::trim).filter(|path| !path.is_empty()) {
+                return std::path::Path::new(path).is_file();
+            }
+            let detected = providers::cli_agent::detect();
+            match config.cli_agent.as_deref().map(str::trim).filter(|id| !id.is_empty()) {
+                Some(id) => detected.iter().any(|cli| cli.id == id),
+                None => !detected.is_empty(),
+            }
+        }
         _ => config.available(),
     }
 }
@@ -5324,6 +5351,9 @@ struct AssistantSettingsRequest {
     managed_model: Option<Option<String>>,
     managed_path: Option<Option<String>>,
     reasoning_effort: Option<Option<String>>,
+    cli_agent: Option<Option<String>>,
+    cli_model: Option<Option<String>>,
+    cli_path: Option<Option<String>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -5363,6 +5393,14 @@ async fn assistant_local_models(
         .map(|list| list.iter().filter_map(|item| item.get("id").and_then(Value::as_str).map(str::to_string)).collect())
         .unwrap_or_default();
     Ok(Json(serde_json::json!({ "models": models })))
+}
+
+/// Known agent CLIs with install state.
+async fn assistant_cli_agents() -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    let agents = tokio::task::spawn_blocking(providers::cli_agent::list)
+        .await
+        .map_err(|_| api_error(StatusCode::BAD_GATEWAY, "detecting the agent CLIs failed".into()))?;
+    Ok(Json(serde_json::json!({ "agents": agents })))
 }
 
 /// A request to the user's own server with its key, when one is stored. The
@@ -5422,8 +5460,16 @@ async fn update_assistant_settings(
             managed_model: incoming.managed_model.unwrap_or(current.managed_model),
             managed_path: incoming.managed_path.unwrap_or(current.managed_path),
             reasoning_effort: incoming.reasoning_effort.unwrap_or(current.reasoning_effort),
+            cli_agent: incoming.cli_agent.unwrap_or(current.cli_agent).map(|id| id.trim().to_string()).filter(|id| !id.is_empty()),
+            cli_model: incoming.cli_model.unwrap_or(current.cli_model),
+            cli_path: incoming.cli_path.unwrap_or(current.cli_path),
         }
     };
+    if let Some(id) = request.cli_agent.as_deref() {
+        if providers::cli_agent::find_kind(id).is_none() {
+            return Err(api_error(StatusCode::BAD_REQUEST, format!("unknown agent CLI: {id}")));
+        }
+    }
     if request.provider == AssistantProvider::Local {
         let base = request.local_base_url.as_deref().unwrap_or_default();
         let url = reqwest::Url::parse(base)
@@ -5997,6 +6043,65 @@ async fn assistant_write_stream(
             return;
         }
 
+        // Unlike the connected agent, a CLI run can be stopped.
+        if config.provider == AssistantProvider::Cli {
+            let selected = match tokio::task::spawn_blocking({
+                let config = config.clone();
+                move || select_cli_agent(&config)
+            })
+            .await
+            {
+                Ok(selected) => selected,
+                Err(_) => Err("detecting the agent CLIs failed".to_string()),
+            };
+            let (kind, resolved) = match selected {
+                Ok(selected) => selected,
+                Err(error) => {
+                    emit(sender.clone(), serde_json::json!({ "error": error })).await;
+                    return;
+                }
+            };
+            let model = format!("cli:{}", kind.id);
+            emit(sender.clone(), serde_json::json!({ "stage": "sent", "model": model })).await;
+            request_log::asked("assistant", &model, system.chars().count() + user.chars().count());
+            let started = std::time::Instant::now();
+            let mut run = match providers::cli_agent::spawn(kind, &resolved, &system, &user, config.cli_model.as_deref()).await {
+                Ok(run) => run,
+                Err(failure) => {
+                    request_log::failed("assistant", &model, &failure.message());
+                    emit(sender.clone(), serde_json::json!({ "error": failure.message() })).await;
+                    return;
+                }
+            };
+            let answer = tokio::select! {
+                _ = sender.closed() => {
+                    request_log::failed("assistant", &model, "stopped by the user");
+                    run.kill().await;
+                    return;
+                }
+                answer = run.run_to_completion() => answer,
+            };
+            match answer {
+                Ok(text) => {
+                    request_log::answered("assistant", &model, 200, started.elapsed().as_secs_f64(), text.chars().count());
+                    emit(sender.clone(), serde_json::json!({ "stage": "writing" })).await;
+                    emit(sender.clone(), serde_json::json!({ "delta": text })).await;
+                    match assistant::parse_draft(&text, &required) {
+                        Ok(draft) => emit(sender.clone(), serde_json::json!({ "stage": "done", "text": text, "draft": draft })).await,
+                        Err(error) => {
+                            request_log::unusable("assistant", &model, &error.to_string(), &text);
+                            emit(sender.clone(), serde_json::json!({ "error": format!("the {} answer does not fit the schema: {error}", kind.display_name) })).await;
+                        }
+                    }
+                }
+                Err(failure) => {
+                    request_log::failed("assistant", &model, &failure.message());
+                    emit(sender.clone(), serde_json::json!({ "error": failure.message() })).await;
+                }
+            }
+            return;
+        }
+
         // Where the request goes, and with which model.
         let (base, model, key): (String, String, Option<String>) = match config.provider {
             AssistantProvider::OpenRouter => {
@@ -6297,6 +6402,21 @@ fn assist_target_name(target: assistant::AssistTarget) -> String {
     serde_json::to_value(target).ok().and_then(|value| value.as_str().map(str::to_string)).unwrap_or_default()
 }
 
+/// Blocking (it probes the machine): callers run it on the blocking pool.
+fn select_cli_agent(config: &AssistantConfig) -> Result<(&'static providers::cli_agent::Kind, providers::cli_agent::ResolvedCli), String> {
+    let kind = match config.cli_agent.as_deref().map(str::trim).filter(|id| !id.is_empty()) {
+        Some(id) => providers::cli_agent::find_kind(id).ok_or_else(|| format!("unknown agent CLI: {id}"))?,
+        None => {
+            let first = providers::cli_agent::detect().into_iter().next().ok_or_else(|| {
+                "No agent CLI is installed. Install one - Claude Code, Codex, opencode, agy or Muse Code - or pick another assistant.".to_string()
+            })?;
+            providers::cli_agent::find_kind(first.id).expect("detection only reports known kinds")
+        }
+    };
+    let resolved = providers::cli_agent::resolve(kind, config.cli_path.as_deref())?;
+    Ok((kind, resolved))
+}
+
 /// One question to the writing assistant and its answer as text; a schema,
 /// when given, holds a local model to that shape of JSON.
 async fn assistant_ask(
@@ -6319,6 +6439,33 @@ async fn assistant_ask(
     }
     if config.provider == AssistantProvider::Agent {
         return mcp::ask_agent(system, user, schema, &assist_target_name(target)).await.map_err(|error| api_error(StatusCode::BAD_GATEWAY, error));
+    }
+
+    if config.provider == AssistantProvider::Cli {
+        let selected = tokio::task::spawn_blocking({
+            let config = config.clone();
+            move || select_cli_agent(&config)
+        })
+        .await
+        .map_err(|_| api_error(StatusCode::BAD_GATEWAY, "detecting the agent CLIs failed".into()))?
+        .map_err(|error| api_error(StatusCode::BAD_GATEWAY, error))?;
+        let (kind, resolved) = selected;
+        let model = format!("cli:{}", kind.id);
+        request_log::asked("assistant", &model, system.chars().count() + user.chars().count());
+        let started = std::time::Instant::now();
+        let mut run = providers::cli_agent::spawn(kind, &resolved, system, user, config.cli_model.as_deref())
+            .await
+            .map_err(|failure| {
+                request_log::failed("assistant", &model, &failure.message());
+                api_error(StatusCode::BAD_GATEWAY, failure.message())
+            })?;
+        return run.run_to_completion().await.map_err(|failure| {
+            request_log::failed("assistant", &model, &failure.message());
+            api_error(StatusCode::BAD_GATEWAY, failure.message())
+        }).map(|text| {
+            request_log::answered("assistant", &model, 200, started.elapsed().as_secs_f64(), text.chars().count());
+            text
+        });
     }
 
     let response: Value = match config.provider {
@@ -6413,6 +6560,7 @@ async fn assistant_ask(
         }
         AssistantProvider::None => unreachable!("availability was checked above"),
         AssistantProvider::Agent => unreachable!("the agent answered above"),
+        AssistantProvider::Cli => unreachable!("the CLI answered above"),
     };
 
     assistant::content_of(&response).map_err(|error| {
@@ -7300,9 +7448,10 @@ async fn capabilities(State(state): State<AppState>) -> Json<CapabilitiesRespons
     let whisper_installed = state.lyrics_sync.whisper_binary().is_some();
     let assistant = state.assistant.read().await.clone();
     let assistant_installed = assistant.available();
+    let cli_agents = tokio::task::spawn_blocking(providers::cli_agent::detect).await.unwrap_or_default();
     let catalog = state.openrouter_catalog.read().await;
     Json(CapabilitiesResponse {
-        engines: capability_engines_with(catalog.catalog.as_ref(), primary_installed, parakeet_installed, whisper_installed, assistant_installed),
+        engines: capability_engines_with(catalog.catalog.as_ref(), primary_installed, parakeet_installed, whisper_installed, assistant_installed, &cli_agents),
     })
 }
 
@@ -7310,7 +7459,7 @@ fn capability_engines(
     catalog: Option<&providers::openrouter::CapabilityCatalog>,
     primary_installed: bool,
 ) -> Vec<EngineDescriptor> {
-    capability_engines_with(catalog, primary_installed, false, false, false)
+    capability_engines_with(catalog, primary_installed, false, false, false, &[])
 }
 
 /// The engines the studio can offer, including the local ones it only has when
@@ -7323,6 +7472,7 @@ fn capability_engines_with(
     parakeet_installed: bool,
     whisper_installed: bool,
     assistant_installed: bool,
+    cli_agents: &[providers::cli_agent::Detected],
 ) -> Vec<EngineDescriptor> {
     let mut openrouter_capabilities = vec![
         Capability::SpeechToText,
@@ -7332,7 +7482,7 @@ fn capability_engines_with(
     if catalog.is_some_and(|catalog| catalog.models_for(Capability::MusicGeneration).next().is_some()) {
         openrouter_capabilities.push(Capability::MusicGeneration);
     }
-    vec![
+    let mut engines = vec![
         EngineDescriptor {
             id: PRIMARY_MUSIC_ENGINE_ID.into(),
             display_name: format!("{} ({})", music_core::studio().artist, music_engine::server::executable_name()),
@@ -7370,7 +7520,17 @@ fn capability_engines_with(
             execution_mode: ExecutionMode::OpenRouter,
             installed: false,
         },
-    ]
+    ];
+    for cli in cli_agents {
+        engines.push(EngineDescriptor {
+            id: format!("cli-{}", cli.id),
+            display_name: format!("{} (agent CLI)", cli.display_name),
+            capabilities: vec![Capability::PromptEnhancement],
+            execution_mode: ExecutionMode::Local,
+            installed: true,
+        });
+    }
+    engines
 }
 
 /// Gets the writing assistant off the graphics card before the engine needs it.
@@ -8554,6 +8714,49 @@ fn api_error(status: StatusCode, error: String) -> (StatusCode, Json<ApiError>) 
 mod tests {
 
     #[test]
+    fn detected_clis_join_capabilities_as_local_writers() {
+        let detected = vec![
+            providers::cli_agent::Detected {
+                id: "claude",
+                display_name: "Claude Code",
+                path: "C:/tools/claude.exe".into(),
+                version: "2.1.0".into(),
+                default_model: Some("opus".into()),
+                features: Vec::new(),
+            },
+            providers::cli_agent::Detected {
+                id: "muse",
+                display_name: "Muse Code",
+                path: "C:/tools/muse.exe".into(),
+                version: "1.4.0".into(),
+                default_model: None,
+                features: Vec::new(),
+            },
+        ];
+        let engines = capability_engines_with(None, false, false, false, false, &detected);
+        assert_eq!(engines.len(), 7);
+        let claude = engines.iter().find(|engine| engine.id == "cli-claude").expect("the detected CLI is listed");
+        assert_eq!(claude.display_name, "Claude Code (agent CLI)");
+        assert_eq!(claude.capabilities, vec![Capability::PromptEnhancement]);
+        assert_eq!(claude.execution_mode, ExecutionMode::Local);
+        assert!(claude.installed);
+        assert!(engines.iter().any(|engine| engine.id == "cli-muse"));
+    }
+
+    #[test]
+    fn the_cli_provider_round_trips_through_settings() {
+        let provider: AssistantProvider = serde_json::from_value(serde_json::json!("cli")).expect("the engine id the UI sends");
+        assert_eq!(provider, AssistantProvider::Cli);
+        assert_eq!(serde_json::to_value(AssistantProvider::Cli).unwrap(), serde_json::json!("cli"));
+        let chosen = AssistantConfig { provider: AssistantProvider::Cli, cli_agent: Some("codex".into()), ..Default::default() };
+        assert!(chosen.available());
+        let unknown = AssistantConfig { provider: AssistantProvider::Cli, cli_agent: Some("nope".into()), ..Default::default() };
+        assert!(!unknown.available());
+        let auto = AssistantConfig { provider: AssistantProvider::Cli, ..Default::default() };
+        assert!(auto.available());
+    }
+
+    #[test]
     fn a_recogniser_variant_weighs_every_file_it_brings() {
         let fp32 = karaoke_variant_bytes(lyrics_sync::PARAKEET_FP32).unwrap();
         assert!(fp32 > 2_000_000_000, "the fp32 graph comes with its 2.4 GB of weights: {fp32}");
@@ -8802,7 +9005,7 @@ mod tests {
     fn persisted_settings_round_trip_a_complete_custom_component_selection() {
         let settings = PersistedStudioSettings {
             engine_options: EngineOptions { keep_loaded: true, max_batch: Some(2), ..EngineOptions::default() },
-            assistant: AssistantConfig { provider: AssistantProvider::Local, local_base_url: Some("http://127.0.0.1:8080/v1".into()), local_model: Some("gemma".into()), openrouter_model: None, managed_model: None, managed_path: None, reasoning_effort: None },
+            assistant: AssistantConfig { provider: AssistantProvider::Local, local_base_url: Some("http://127.0.0.1:8080/v1".into()), local_model: Some("gemma".into()), openrouter_model: None, managed_model: None, managed_path: None, reasoning_effort: None, cli_agent: None, cli_model: None, cli_path: None },
             configuration: initial_configuration(),
             // Karaoke is off by default and has to survive a restart the same
             // way the assistant does.

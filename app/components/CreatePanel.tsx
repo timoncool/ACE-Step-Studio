@@ -17,6 +17,7 @@ import type { AdapterUse } from '../services/adapters';
 import { randomExample, randomIdea, someGenres } from '../services/examples';
 import { apiUrl } from '../services/apiBase';
 import { SCHEDULERS, SOLVERS } from '../services/aceEngine';
+import { explainCliFailure } from '../services/cliFailure';
 
 /**
  * The ACE-Step 1.5 request form.
@@ -711,7 +712,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       return body;
     } catch (reason) {
       const cancelled = reason instanceof DOMException && reason.name === 'AbortError';
-      if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason));
+      if (!cancelled) setError(explainCliFailure(reason instanceof Error ? reason.message : String(reason), t));
       return null;
     } finally {
       assistRun.current = null;
@@ -739,7 +740,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       setLyrics(body.lyrics);
     } catch (reason) {
       const cancelled = reason instanceof DOMException && reason.name === 'AbortError';
-      if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason));
+      if (!cancelled) setError(explainCliFailure(reason instanceof Error ? reason.message : String(reason), t));
     } finally {
       assistRun.current = null;
       setAssisting(null);

@@ -60,3 +60,6 @@ uuid.workspace = true
 zip.workspace = true
 tar.workspace = true
 lzma-rust2.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys.workspace = true

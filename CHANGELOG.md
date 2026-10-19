@@ -6,6 +6,7 @@ What changed, newest first. Dates are release dates.
 
 ### Added
 
+- **Your own agent CLI writes the words.** Settings - Models - Writing assistant - Agent (CLI): Claude Code, Codex, opencode, Antigravity or Muse Code installed on this computer writes on your own account with it, one hidden run per draft, without tools; the panel shows which are installed, how to install and sign in, and tests one with a short draft. Antigravity runs only sandboxed. Agents see the CLIs with `assistant_cli_agents` (from [YuE2 Studio #112](https://github.com/timoncool/YuE2-Studio/pull/112), thanks to GuilhermeAmado).
 - **An agent reaches everything the studio does.** A test now holds every route of the studio to a tool or to a written reason, and the agent gains what it lacked: the network proxy (get, set, test), access from the network, the Activity journal, the look of tracks without a cover, photo and pattern covers and photo search, video background search, a song's note, its own MIDI file, a playlist by itself, the graphics cards and the downloadable parts' state.
 - **Lyrics in a video clip, found where they are.** The video screen's Text tab always shows the lyrics overlay: a song without karaoke timing gets a button that makes it there, and the overlay turns on when it is done; without karaoke set up it says where to set it up. Until now the overlay section was hidden for such a song ([#118](https://github.com/timoncool/YuE2-Studio/issues/118)).
 

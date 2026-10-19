@@ -344,8 +344,8 @@ export const OptionalGroup: React.FC<{
                 if (serverField && engine === 'local') {
                   return null;
                 }
-                // the connected agent needs neither a key nor a download
-                if (engine === 'agent') {
+                // the connected agent and an agent CLI need neither a key nor a download
+                if (engine === 'agent' || engine === 'cli') {
                   return null;
                 }
                 return (
@@ -1125,6 +1125,7 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
                 { id: 'local', label: t('assistantLocal'), device: false, byAddress: true },
                 { id: 'open_router', label: 'OpenRouter', device: false },
                 { id: 'agent', label: t('assistantAgent'), device: false },
+                { id: 'cli', label: t('assistantCli'), device: false },
                 { id: 'none', label: t('assistantDisabled'), device: false },
               ]}
               settingsUrl="/v1/assistant/status"

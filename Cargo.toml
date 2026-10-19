@@ -40,7 +40,7 @@ flate2 = "1"
 zip = { version = "8", default-features = false, features = ["deflate"] }
 tar = "0.4"
 lzma-rust2 = { version = "0.21", default-features = false, features = ["std", "optimization", "xz"] }
-windows-sys = { version = "0.61", features = ["Win32_System_JobObjects", "Win32_System_Threading", "Win32_Security", "Win32_Foundation"] }
+windows-sys = { version = "0.61", features = ["Win32_System_JobObjects", "Win32_System_Threading", "Win32_Security", "Win32_Foundation", "Win32_System_Registry"] }
 uuid = { version = "1.16", features = ["serde", "v7"] }
 
 [profile.dev]
