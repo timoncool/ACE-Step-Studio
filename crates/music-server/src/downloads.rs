@@ -570,6 +570,10 @@ async fn fetch(
 
 /// Says once per file why a neighbour's copy could not be taken: the setup screen asks every second.
 pub(crate) fn report_take_failure(target: &Path, app: &str, error: &io::Error) {
+    // a link does not cross drives; installing takes such a file by copy
+    if error.kind() == io::ErrorKind::CrossesDevices {
+        return;
+    }
     static SAID: std::sync::Mutex<Vec<PathBuf>> = std::sync::Mutex::new(Vec::new());
     let mut said = SAID.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     if !said.iter().any(|known| known == target) {
