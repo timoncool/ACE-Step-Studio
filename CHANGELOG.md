@@ -16,11 +16,13 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
-- **The training page says where to install the card runtime.** When preparation measures tempo on the processor, its notice now names the way to the graphics-card ONNX Runtime: Settings → Models → Optional extras → Karaoke timings → Graphics card.
+- **The training page says where to install the card runtime.** When preparation measures tempo on the processor, its notice now names the way to the graphics-card ONNX Runtime for this machine's card: Settings → Models → Optional extras → Split into stems → Graphics card on NVIDIA, Karaoke timings → Graphics card on AMD and Intel (DirectML).
 - **A computer's memory as its box says it.** The studio counted RAM in 10⁹-byte gigabytes, so a 32 GB computer read 34 GB (in the issue form too); memory is now counted in 2³⁰-byte gigabytes, as video memory already was, and so are the model sets' needs.
 
 ### Changed
 
+- **Karaoke's Parakeet on transcribe.cpp.** Parakeet v3 and Parakeet Ultra run as GGUF Q8_0 on transcribe.cpp, the engine Dub Studio and Speech Studio use, instead of ONNX Runtime: its CUDA build on an NVIDIA card with a CUDA 13 driver, its Vulkan build on any other card (and on Linux without the system's CUDA 13 cuBLAS), its processor build without a card; on a Mac Metal on Apple silicon and the processor on Intel. The files have Dub Studio's names and folders, so one program's copy serves the others, and the model leaves the graphics card when a recognition ends, so the card is the music engine's again. A saved fp32 choice becomes Parakeet v3 (full weights are not kept), and the ONNX Parakeet folders of 3.6 and earlier are removed at start.
+- **Whisper on the graphics card keeps int8 weights** (int8_float16) instead of float16.
 - **Audio to MIDI and the training pack are one download.** The MIDI transcriber, the trainer and the captioner come from one HOT-Step build that shares its graphics-card libraries, in one folder: 133 MB once instead of 126 and 132 MB apart, and installing either one installs both ([YuE2 Studio #104](https://github.com/timoncool/YuE2-Studio/issues/104)).
 
 ## 2026-10-20 — 3.6.1

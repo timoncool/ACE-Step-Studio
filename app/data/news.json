@@ -1,5 +1,41 @@
 [
   {
+    "id": "ace-step-studio-3-7-0",
+    "date": "2026-10-20",
+    "title": {
+      "en": "ACE-Step Studio 3.7.0",
+      "ru": "ACE-Step Studio 3.7.0",
+      "zh": "ACE-Step Studio 3.7.0",
+      "ja": "ACE-Step Studio 3.7.0",
+      "ko": "ACE-Step Studio 3.7.0"
+    },
+    "body": {
+      "en": "Cleaner vocals, your own agent writing the lyrics, LoRA from your own folder, and karaoke on the engine of Dub Studio and Speech Studio.\n\n- **Cleaner vocals with Mel-Band RoFormer** (Q8_0) in Settings - Models - Stems, beside HT-Demucs.\n- **LoRA from your own folder, without a copy:** the LoRAs you keep for ComfyUI or a trainer are taken in place.\n- **Your own agent CLI writes the words:** Claude Code, Codex, opencode, Antigravity or Muse Code on this computer writes lyrics and styles.\n- **Stems named with tempo and key,** a unique cover pattern for every song, and lyrics in a video clip one click away.\n- **Karaoke on transcribe.cpp:** Parakeet v3 and Ultra as GGUF Q8_0 on CUDA, Vulkan, the processor and, again, on a Mac (Metal on Apple silicon); files shared with Dub Studio and Speech Studio, and the card freed after each recognition.\n- **One download for Audio to MIDI and training,** and Whisper on the card keeps int8 weights.\n- **Fixed** (with what 3.6.1 had prepared): the Linux engine and karaoke, memory counted as the box says, a reset prompt that keeps its length and format, and Show in folder on Linux and macOS.\n\nThe whole family moved to 3.7.0: YuE2 Studio, MiniMax Music3 Studio and ACE-Step Studio - one core, three models, the links below.",
+      "ru": "Чище вокал, свой агент пишет текст, LoRA из своей папки, а караоке — на движке Dub Studio и Speech Studio.\n\n- **Чище вокал с Mel-Band RoFormer** (Q8_0) в Настройки - Модели - Стемы, рядом с HT-Demucs.\n- **LoRA из своей папки без копии:** LoRA, которые лежат у вас для ComfyUI или тренера, берутся на месте.\n- **Свой агент CLI пишет текст:** Claude Code, Codex, opencode, Antigravity или Muse Code на этом компьютере пишут слова и стили.\n- **Стемы с темпом и тональностью в имени,** уникальный узор обложки у каждой песни и текст в клипе в один клик.\n- **Караоке на transcribe.cpp:** Parakeet v3 и Ultra в GGUF Q8_0 на CUDA, Vulkan, процессоре и снова на Mac (Metal на Apple silicon); файлы общие с Dub Studio и Speech Studio, видеокарта освобождается после каждого распознавания.\n- **Одна закачка для «Аудио в MIDI» и обучения,** а Whisper на видеокарте держит веса int8.\n- **Исправлено** (вместе с подготовленным для 3.6.1): движок и караоке на Linux, память по «коробочным» гигабайтам, сброс промпта с сохранением длины и формата, «Показать в папке» на Linux и macOS.\n\nВся семья перешла на 3.7.0: YuE2 Studio, MiniMax Music3 Studio и ACE-Step Studio - одно ядро, три модели, ссылки ниже.",
+      "zh": "更干净的人声、用你自己的代理写歌词、从自己的文件夹使用 LoRA，卡拉OK 改用 Dub Studio 与 Speech Studio 的引擎。\n\n- **用 Mel-Band RoFormer 分离更干净的人声**（Q8_0）：设置 - 模型 - 分轨，与 HT-Demucs 并列。\n- **从你自己的文件夹使用 LoRA，无需复制：**你为 ComfyUI 或训练器保存的 LoRA 原地使用。\n- **你自己的代理 CLI 写歌词：**本机上的 Claude Code、Codex、opencode、Antigravity 或 Muse Code 来写歌词和风格。\n- **分轨文件名带速度与调性，**每首歌独特的封面图案，视频中的歌词一键加入。\n- **卡拉OK 改用 transcribe.cpp：**Parakeet v3 与 Ultra（GGUF Q8_0）可在 CUDA、Vulkan、处理器上运行，Mac 上也重新可用（Apple 芯片用 Metal）；文件与 Dub Studio、Speech Studio 共用，每次识别后释放显卡。\n- **「音频转 MIDI」与训练合并为一个下载，**显卡上的 Whisper 保持 int8 权重。\n- **修复**（包括为 3.6.1 准备的内容）：Linux 上的引擎与卡拉OK、按包装标示计算内存、重置提示词时保留时长与格式、Linux 与 macOS 上的「在文件夹中显示」。\n\n整个家族升级到 3.7.0：YuE2 Studio、MiniMax Music3 Studio 与 ACE-Step Studio——同一内核，三个模型，链接见下方。",
+      "ja": "よりクリアなボーカル、自分のエージェントが歌詞を書き、自分のフォルダの LoRA、カラオケは Dub Studio と Speech Studio のエンジンで。\n\n- **Mel-Band RoFormer でよりクリアなボーカル**（Q8_0）：設定 - モデル - ステム、HT-Demucs と並んで。\n- **自分のフォルダの LoRA をコピーなしで：**ComfyUI やトレーナー用に置いている LoRA をその場で使います。\n- **自分のエージェント CLI が歌詞を書く：**このPCの Claude Code、Codex、opencode、Antigravity、Muse Code が歌詞とスタイルを書きます。\n- **ステムのファイル名にテンポとキー、**曲ごとのユニークなカバー模様、動画の歌詞はワンクリック。\n- **カラオケは transcribe.cpp で：**Parakeet v3 と Ultra（GGUF Q8_0）を CUDA、Vulkan、プロセッサーで、Mac でも再び（Apple シリコンは Metal）；ファイルは Dub Studio・Speech Studio と共有、認識のたびにグラフィックカードを解放。\n- **「オーディオ→MIDI」と学習が1つのダウンロードに、**グラフィックカード上の Whisper は int8 の重みのまま。\n- **修正**（3.6.1 向けに用意した内容も含む）：Linux のエンジンとカラオケ、箱の表記どおりのメモリ表示、長さと形式を保つプロンプトのリセット、Linux と macOS の「フォルダに表示」。\n\nファミリー全体が 3.7.0 に：YuE2 Studio、MiniMax Music3 Studio、ACE-Step Studio——ひとつのコア、三つのモデル、リンクは下に。",
+      "ko": "더 깨끗한 보컬, 내 에이전트가 쓰는 가사, 내 폴더의 LoRA, 그리고 Dub Studio·Speech Studio 엔진으로 도는 노래방.\n\n- **Mel-Band RoFormer로 더 깨끗한 보컬**(Q8_0): 설정 - 모델 - 스템, HT-Demucs 옆에.\n- **내 폴더의 LoRA를 복사 없이:** ComfyUI나 트레이너용으로 둔 LoRA를 그 자리에서 씁니다.\n- **내 에이전트 CLI가 가사를 씁니다:** 이 컴퓨터의 Claude Code, Codex, opencode, Antigravity, Muse Code가 가사와 스타일을 씁니다.\n- **스템 이름에 템포와 키,** 곡마다 고유한 커버 패턴, 영상 속 가사는 한 번의 클릭으로.\n- **노래방은 transcribe.cpp로:** Parakeet v3와 Ultra(GGUF Q8_0)를 CUDA, Vulkan, 프로세서에서, Mac에서도 다시(Apple 실리콘은 Metal); 파일은 Dub Studio·Speech Studio와 공유하고, 인식할 때마다 그래픽 카드를 비웁니다.\n- **오디오→MIDI와 학습을 하나의 다운로드로,** 그래픽 카드의 Whisper는 int8 가중치를 유지합니다.\n- **수정**(3.6.1에 준비한 내용 포함): Linux 엔진과 노래방, 상자 표기대로의 메모리, 길이와 형식을 지키는 프롬프트 초기화, Linux와 macOS의 폴더에서 보기.\n\n패밀리 전체가 3.7.0으로: YuE2 Studio, MiniMax Music3 Studio, ACE-Step Studio — 하나의 코어, 세 개의 모델, 링크는 아래에."
+    },
+    "tags": [
+      "ACE-Step",
+      "3.7.0"
+    ],
+    "links": [
+      {
+        "label": "YuE2 Studio",
+        "url": "https://timoncool.github.io/YuE2-Studio/"
+      },
+      {
+        "label": "MiniMax Music3 Studio",
+        "url": "https://timoncool.github.io/MiniMax-Music3-Studio/"
+      },
+      {
+        "label": "ACE-Step Studio",
+        "url": "https://timoncool.github.io/ACE-Step-Studio/"
+      }
+    ]
+  },
+  {
     "id": "ace-step-studio-3-6-0",
     "date": "2026-10-16",
     "title": {
