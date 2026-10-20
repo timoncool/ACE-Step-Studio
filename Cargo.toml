@@ -33,7 +33,8 @@ tokio = { version = "1.44", features = ["macros", "rt-multi-thread", "signal", "
 tokio-stream = { version = "0.1", features = ["sync", "time"] }
 tower-http = { version = "0.7", features = ["cors", "trace", "fs", "set-header"] }
 include_dir = "0.7"
-parakeet-rs = { version = "0.3.8", default-features = false, features = ["load-dynamic"] }
+# transcribe.cpp for karaoke, the binding Dub Studio and Speech Studio share (dub-studio crates/dub-tcpp)
+dub-tcpp = { git = "https://github.com/timoncool/dub-studio", rev = "6fa3877dbf0d3084d6da1bff8191ef869072a9d4" }
 ort = { version = "=2.0.0-rc.13", default-features = false, features = ["load-dynamic", "api-24", "cuda", "directml"] }
 symphonia = { version = "0.6", default-features = false, features = ["mp3", "wav", "pcm", "isomp4", "aac", "flac", "ogg", "vorbis", "aiff", "alac", "all-meta", "opt-simd"] }
 flate2 = "1"

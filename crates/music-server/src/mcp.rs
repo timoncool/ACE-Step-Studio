@@ -1862,7 +1862,7 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "karaoke_settings_set",
-                description: "Choose the recogniser used for karaoke and for dataset lyrics: enabled, provider (parakeet, whisper, openrouter), whisper_model, openrouter_model, runtime (cpu, cuda).",
+                description: "Choose the recogniser used for karaoke and for dataset lyrics: enabled, provider (parakeet, whisper, openrouter), whisper_model (for parakeet: parakeet-tdt-int8 is Parakeet v3, parakeet-ultra-int8 is Ultra, both on transcribe.cpp), openrouter_model, runtime (cpu, or cuda for the card: transcribe.cpp runs CUDA on an NVIDIA card, Vulkan on any other).",
                 schema: || object(json!({ "enabled": { "type": "boolean" }, "provider": { "type": "string" }, "whisper_model": { "type": "string" }, "openrouter_model": { "type": "string" }, "runtime": { "type": "string" } }), &[]),
                 call: |args| send(Method::PUT, "/v1/karaoke/status".into(), args.clone()),
             },

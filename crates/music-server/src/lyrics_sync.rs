@@ -10,7 +10,8 @@
 //!
 //!   * **Whisper** - whisper.cpp run as a sidecar. It writes LRC itself, and
 //!     the CUDA build is preferred over the CPU one when both are installed.
-//!   * **Parakeet** - the NVIDIA TDT model, the same one Dub Studio uses.
+//!   * **Parakeet** - the NVIDIA TDT model on transcribe.cpp (CUDA, Vulkan or
+//!     the processor), the same one Dub Studio and Speech Studio use.
 //!   * **OpenRouter** - a cloud model, billed to the user's own key, asked for
 //!     verbose output because plain text carries no timings.
 
@@ -21,8 +22,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use anyhow::{anyhow, bail, Context, Result};
 use serde::{Deserialize, Serialize};
-
-use parakeet_rs::Transcriber;
 
 pub use crate::downloads::Asset;
 use crate::downloads::{AssetKind, Downloader};
@@ -59,6 +58,14 @@ pub struct LyricsSyncConfig {
 impl LyricsSyncConfig {
     pub fn available(&self) -> bool {
         self.enabled && self.provider != AsrProvider::None
+    }
+
+    /// A choice the dropdown no longer offers, as the one it became: fp32 Parakeet is the v3 model.
+    pub fn migrated(mut self) -> Self {
+        if self.whisper_model.as_deref() == Some(PARAKEET_FP32) {
+            self.whisper_model = Some(PARAKEET_V3.to_string());
+        }
+        self
     }
 }
 
@@ -592,163 +599,75 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "Part of the model above.",
     },
+    // Parakeet on transcribe.cpp, the files Dub Studio and Speech Studio fetch under the same names, so one
+    // program's copy serves the others; addresses and sizes are the shared binding's.
     Asset {
-        id: "parakeet-tdt-int8",
-        label: "Parakeet TDT 0.6B v3 (int8)",
+        id: PARAKEET_V3,
+        label: "Parakeet TDT 0.6B v3 (Q8_0)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/encoder-model.int8.onnx",
-        relative_path: "models/parakeet/encoder-model.int8.onnx",
-        bytes: 652_183_999,
+        url: dub_tcpp::MODELS[0].download.url,
+        relative_path: "models/asr-gguf-parakeet-v3/parakeet-tdt-0.6b-v3-Q8_0.gguf",
+        bytes: dub_tcpp::MODELS[0].download.size,
         unzip_into: None,
         marker: "",
         pick: &[],
-        vram_gb: Some(2),
-        note: "The encoder; the decoder and vocabulary come with it.",
+        vram_gb: Some(1),
+        note: "NVIDIA's recogniser, the one Dub Studio uses: 25 European languages, the time of each word.",
     },
-    // The fp32 encoder, exactly as Dub Studio fetches it: the graph and its
-    // weights are two files, and the weights are the 2.4 GB half.
     Asset {
-        id: "parakeet-tdt-fp32",
-        label: "Parakeet TDT 0.6B v3 (fp32)",
+        id: PARAKEET_ULTRA,
+        label: "Parakeet Ultra 0.6B (Q8_0)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/encoder-model.onnx",
-        relative_path: "models/parakeet-fp32/encoder-model.onnx",
-        bytes: 41_770_866,
+        url: dub_tcpp::MODELS[1].download.url,
+        relative_path: "models/asr-gguf-parakeet-ultra/parakeet-ultra-Q8_0.gguf",
+        bytes: dub_tcpp::MODELS[1].download.size,
         unzip_into: None,
         marker: "",
         pick: &[],
-        vram_gb: Some(4),
-        note: "Full precision: heavier than int8, and the most accurate of the two.",
+        vram_gb: Some(1),
+        note: "Moondream's post-trained Parakeet v3: fewer wrong words in Russian and in noise.",
     },
+    #[cfg(any(windows, target_os = "linux"))]
     Asset {
-        id: "parakeet-tdt-fp32-weights",
-        label: "Parakeet fp32 weights",
-        kind: AssetKind::Model,
-        url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/encoder-model.onnx.data",
-        relative_path: "models/parakeet-fp32/encoder-model.onnx.data",
-        bytes: 2_435_420_160,
+        id: "transcribe-engine",
+        label: "transcribe.cpp (CUDA)",
+        kind: AssetKind::Runtime,
+        url: dub_tcpp::Build::Cuda.download().url,
+        relative_path: TCPP_CUDA,
+        bytes: dub_tcpp::Build::Cuda.download().size,
         unzip_into: None,
         marker: "",
         pick: &[],
         vram_gb: None,
-        note: "The weights the fp32 graph points at.",
+        note: "Runs Parakeet on an NVIDIA card.",
     },
+    #[cfg(any(windows, target_os = "linux"))]
     Asset {
-        id: "parakeet-decoder",
-        label: "Parakeet decoder",
-        kind: AssetKind::Model,
-        url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/decoder_joint-model.int8.onnx",
-        relative_path: "models/parakeet/decoder_joint-model.int8.onnx",
-        bytes: 18_202_004,
+        id: "transcribe-engine-vulkan",
+        label: "transcribe.cpp (Vulkan)",
+        kind: AssetKind::Runtime,
+        url: dub_tcpp::Build::Vulkan.download().url,
+        relative_path: TCPP_VULKAN,
+        bytes: dub_tcpp::Build::Vulkan.download().size,
         unzip_into: None,
         marker: "",
         pick: &[],
         vram_gb: None,
-        note: "Required alongside the Parakeet encoder.",
+        note: "Runs Parakeet on an AMD or Intel card, or an NVIDIA card CUDA does not run on.",
     },
+    #[cfg(any(windows, target_os = "linux"))]
     Asset {
-        id: "parakeet-features",
-        label: "Parakeet feature extractor",
-        kind: AssetKind::Model,
-        url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/nemo128.onnx",
-        relative_path: "models/parakeet/nemo128.onnx",
-        bytes: 139_764,
+        id: "transcribe-engine-cpu",
+        label: "transcribe.cpp (processor)",
+        kind: AssetKind::Runtime,
+        url: dub_tcpp::Build::Cpu.download().url,
+        relative_path: TCPP_CPU,
+        bytes: dub_tcpp::Build::Cpu.download().size,
         unzip_into: None,
         marker: "",
         pick: &[],
         vram_gb: None,
-        note: "The mel front end the encoder expects.",
-    },
-    Asset {
-        id: "parakeet-vocab",
-        label: "Parakeet vocabulary",
-        kind: AssetKind::Model,
-        url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/vocab.txt",
-        relative_path: "models/parakeet/vocab.txt",
-        bytes: 93_939,
-        unzip_into: None,
-        marker: "",
-        pick: &[],
-        vram_gb: None,
-        note: "Token table.",
-    },
-    Asset {
-        id: "parakeet-config",
-        label: "Parakeet configuration",
-        kind: AssetKind::Model,
-        url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/config.json",
-        relative_path: "models/parakeet/config.json",
-        bytes: 97,
-        unzip_into: None,
-        marker: "",
-        pick: &[],
-        vram_gb: None,
-        note: "Token table.",
-    },
-    Asset {
-        id: "parakeet-ultra-int8",
-        label: "Parakeet Ultra 0.6B (int8)",
-        kind: AssetKind::Model,
-        url: "https://huggingface.co/Masterx/parakeet-tdt-0.6b-ultra-onnx/resolve/99b09f030a5a6efeaa13cf2cf54592100ce2c3f1/encoder-model.int8.onnx",
-        relative_path: "models/parakeet-ultra/encoder-model.int8.onnx",
-        bytes: 652_183_214,
-        unzip_into: None,
-        marker: "",
-        pick: &[],
-        vram_gb: Some(2),
-        note: "Moondream's post-trained Parakeet v3, quantized: fewer wrong words in Russian and in noise. The decoder and vocabulary come with it.",
-    },
-    Asset {
-        id: "parakeet-ultra-decoder",
-        label: "Parakeet Ultra decoder",
-        kind: AssetKind::Model,
-        url: "https://huggingface.co/Masterx/parakeet-tdt-0.6b-ultra-onnx/resolve/99b09f030a5a6efeaa13cf2cf54592100ce2c3f1/decoder_joint-model.int8.onnx",
-        relative_path: "models/parakeet-ultra/decoder_joint-model.int8.onnx",
-        bytes: 18_202_004,
-        unzip_into: None,
-        marker: "",
-        pick: &[],
-        vram_gb: None,
-        note: "Required alongside the Parakeet Ultra encoder.",
-    },
-    Asset {
-        id: "parakeet-ultra-vocab",
-        label: "Parakeet Ultra vocabulary",
-        kind: AssetKind::Model,
-        url: "https://huggingface.co/Masterx/parakeet-tdt-0.6b-ultra-onnx/resolve/99b09f030a5a6efeaa13cf2cf54592100ce2c3f1/vocab.txt",
-        relative_path: "models/parakeet-ultra/vocab.txt",
-        bytes: 93_939,
-        unzip_into: None,
-        marker: "",
-        pick: &[],
-        vram_gb: None,
-        note: "Token table.",
-    },
-    Asset {
-        id: "parakeet-fp32-decoder",
-        label: "Parakeet decoder (fp32)",
-        kind: AssetKind::Model,
-        url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/decoder_joint-model.onnx",
-        relative_path: "models/parakeet-fp32/decoder_joint-model.onnx",
-        bytes: 72_520_893,
-        unzip_into: None,
-        marker: "",
-        pick: &[],
-        vram_gb: None,
-        note: "The decoder of the full-precision encoder, beside it.",
-    },
-    Asset {
-        id: "parakeet-fp32-vocab",
-        label: "Parakeet vocabulary (fp32 folder)",
-        kind: AssetKind::Model,
-        url: "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main/vocab.txt",
-        relative_path: "models/parakeet-fp32/vocab.txt",
-        bytes: 93_939,
-        unzip_into: None,
-        marker: "",
-        pick: &[],
-        vram_gb: None,
-        note: "Token table.",
+        note: "Runs Parakeet on the processor: slower, the same words.",
     },
     #[cfg(windows)]
     Asset {
@@ -1038,7 +957,8 @@ pub const CUDA_ASSETS: &[&str] = &["onnxruntime-cuda", "cuda-cudart", "cuda-cubl
 #[cfg(target_os = "linux")]
 pub const CUDA_ASSETS: &[&str] = &["onnxruntime-cuda", "cuda-cudart", "cuda-cublas", "cuda-cufft", "cuda-curand", "cuda-cudnn"];
 
-/// Everything the DirectML path needs, in the order it is used.
+/// Everything the DirectML path needs, in the order it is used: the tests that run ONNX work through it.
+#[cfg(test)]
 pub const DIRECTML_ASSETS: [&str; 2] = ["onnxruntime-directml", "directml"];
 
 /// Which build of the ONNX Runtime to load.
@@ -1090,18 +1010,17 @@ pub enum OnnxCard {
     DirectMl,
 }
 
-/// The words Parakeet hears in one track, each with the second it starts.
-fn parakeet_transcribe(model: &mut parakeet_rs::ParakeetTDT, audio: &Path) -> Result<Vec<(f64, String)>> {
+/// The words Parakeet hears in one track, each with the second it starts. `language` is a hint the model takes
+/// only when it knows it; none, or one it does not, leaves the language to it.
+fn parakeet_transcribe(asr: &std::sync::Mutex<dub_tcpp::TcppAsr>, model: &dub_tcpp::Model, audio: &Path, language: Option<&str>) -> Result<Vec<(f64, String)>> {
     let samples = crate::audio_pcm::decode_mono_16k(audio).with_context(|| format!("decode {} for recognition", audio.display()))?;
-    let result = model
-        .transcribe_samples(samples, 16_000, 1, Some(parakeet_rs::TimestampMode::Words))
-        .map_err(|error| anyhow!("Parakeet transcription failed: {error}"))?;
-    let words: Vec<(f64, String)> = result
-        .tokens
+    let language = language.filter(|language| dub_tcpp::knows(model, language)).unwrap_or("");
+    let heard = asr.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).words(&samples, language).map_err(|error| anyhow!("Parakeet transcription failed: {error}"))?;
+    let words: Vec<(f64, String)> = heard
         .into_iter()
-        .filter_map(|token| {
-            let text = token.text.trim().to_string();
-            (!text.is_empty()).then_some((token.start as f64, text))
+        .filter_map(|word| {
+            let text = word.word.trim().to_string();
+            (!text.is_empty()).then_some((word.start, text))
         })
         .collect();
     if words.is_empty() {
@@ -1114,11 +1033,6 @@ fn parakeet_transcribe(model: &mut parakeet_rs::ParakeetTDT, audio: &Path) -> Re
 /// NVIDIA card - where the studio takes the fastest card.
 #[cfg(test)]
 static DIRECTML_ADAPTER: std::sync::OnceLock<i32> = std::sync::OnceLock::new();
-
-/// Parakeet's sessions on the card, or no configuration for the processor.
-fn parakeet_config(card: Option<OnnxCard>) -> Option<parakeet_rs::ExecutionConfig> {
-    card.map(|card| parakeet_rs::ExecutionConfig::new().with_custom_configure(move |builder| Ok(with_card(builder, Some(card)).0)))
-}
 
 /// Puts a session on the card a path reaches: CUDA, or DirectML with what it
 /// requires - no memory pattern, one operator at a time - on the fastest card
@@ -1233,27 +1147,62 @@ fn preload(library: &Path) {
     }
 }
 
-/// Every Parakeet file, because the model is useless without all of them.
-pub const PARAKEET_ASSET_IDS: [&str; 5] =
-    ["parakeet-tdt-int8", "parakeet-decoder", "parakeet-features", "parakeet-vocab", "parakeet-config"];
-
-/// The same recogniser at full precision, in a folder of its own: the encoder
-/// is a graph plus a separate weights file, beside its own decoder and vocabulary.
-pub const PARAKEET_FP32: &str = "parakeet-tdt-fp32";
-pub const PARAKEET_FP32_ASSET_IDS: [&str; 4] = ["parakeet-tdt-fp32", "parakeet-tdt-fp32-weights", "parakeet-fp32-decoder", "parakeet-fp32-vocab"];
-
-/// Parakeet Ultra, a variant of its own in a folder of its own: choosing it
-/// leaves the v3 files where they are.
+/// The dropdown's Parakeet ids, as settings have held them since the ONNX builds: the v3 model, Ultra, and the
+/// fp32 choice of before, which is the v3 model now that full weights are not kept.
+pub const PARAKEET_V3: &str = "parakeet-tdt-int8";
 pub const PARAKEET_ULTRA: &str = "parakeet-ultra-int8";
-pub const PARAKEET_ULTRA_ASSET_IDS: [&str; 3] = ["parakeet-ultra-int8", "parakeet-ultra-decoder", "parakeet-ultra-vocab"];
+pub const PARAKEET_FP32: &str = "parakeet-tdt-fp32";
 
-/// The files and the folder of the Parakeet the dropdown names.
-pub fn parakeet_variant(model: Option<&str>) -> (&'static [&'static str], &'static str) {
-    match model {
-        Some(PARAKEET_ULTRA) => (&PARAKEET_ULTRA_ASSET_IDS, "parakeet-ultra"),
-        Some(PARAKEET_FP32) => (&PARAKEET_FP32_ASSET_IDS, "parakeet-fp32"),
-        _ => (&PARAKEET_ASSET_IDS, "parakeet"),
+/// The folders of the ONNX Parakeet of 3.6 and earlier, under the karaoke folder.
+const RETIRED_PARAKEET: [&str; 3] = ["models/parakeet", "models/parakeet-fp32", "models/parakeet-ultra"];
+
+/// Where each transcribe.cpp build lands in the karaoke folder: `dub_tcpp::engine_dir` and its library.
+#[cfg(windows)]
+const TCPP_CUDA: &str = "models/transcribe-engine/transcribe_engine.dll";
+#[cfg(windows)]
+const TCPP_VULKAN: &str = "models/transcribe-engine-vulkan/transcribe_engine.dll";
+#[cfg(windows)]
+const TCPP_CPU: &str = "models/transcribe-engine-cpu/transcribe_engine.dll";
+#[cfg(target_os = "linux")]
+const TCPP_CUDA: &str = "models/transcribe-engine/libtranscribe_engine.so";
+#[cfg(target_os = "linux")]
+const TCPP_VULKAN: &str = "models/transcribe-engine-vulkan/libtranscribe_engine.so";
+#[cfg(target_os = "linux")]
+const TCPP_CPU: &str = "models/transcribe-engine-cpu/libtranscribe_engine.so";
+
+/// The transcribe.cpp model the dropdown names.
+pub fn parakeet_model(variant: Option<&str>) -> &'static dub_tcpp::Model {
+    let id = if variant == Some(PARAKEET_ULTRA) { "parakeet-ultra" } else { "parakeet-v3" };
+    dub_tcpp::model(id).expect("the shared binding carries both Parakeets")
+}
+
+/// The asset of the model the dropdown names.
+pub fn parakeet_model_asset(variant: Option<&str>) -> &'static str {
+    if variant == Some(PARAKEET_ULTRA) { PARAKEET_ULTRA } else { PARAKEET_V3 }
+}
+
+/// The engine build this machine runs Parakeet on: the processor when chosen, CUDA on a card and driver CUDA 13
+/// runs on (the build is CUDA 13), Vulkan on any other card, the processor without one. None on a Mac, which has no
+/// build.
+pub fn parakeet_build(runtime: OnnxFlavour) -> Option<dub_tcpp::Build> {
+    if cfg!(target_os = "macos") {
+        return None;
     }
+    let cuda = crate::cuda_build::current();
+    Some(if matches!(runtime, OnnxFlavour::Cpu) {
+        dub_tcpp::Build::Cpu
+    } else if cuda == Some(crate::cuda_build::CudaBuild::Cuda13) {
+        dub_tcpp::Build::Cuda
+    } else if cuda.is_some() || crate::presets::display_card().is_some() {
+        dub_tcpp::Build::Vulkan
+    } else {
+        dub_tcpp::Build::Cpu
+    })
+}
+
+/// The files Parakeet runs from on this machine: its engine build and the model the dropdown names.
+pub fn parakeet_assets(runtime: OnnxFlavour, variant: Option<&str>) -> Vec<&'static str> {
+    parakeet_build(runtime).map(|build| vec![build.dir(), parakeet_model_asset(variant)]).unwrap_or_default()
 }
 
 pub fn asset(id: &str) -> Option<&'static Asset> {
@@ -1280,11 +1229,56 @@ pub struct SyncStatus {
 
 pub struct LyricsSync {
     downloader: Downloader,
+    /// Where the music engine's cuBLAS 13 is, which transcribe.cpp's CUDA build imports.
+    cuda_libraries: std::sync::OnceLock<PathBuf>,
 }
 
 impl LyricsSync {
     pub fn new(data_root: &Path) -> Self {
-        Self { downloader: Downloader::new(data_root.join("karaoke")) }
+        Self { downloader: Downloader::new(data_root.join("karaoke")), cuda_libraries: std::sync::OnceLock::new() }
+    }
+
+    /// Removes the Parakeet models of before transcribe.cpp (ONNX: v3 int8, fp32, Ultra), which nothing reads any
+    /// more, so they keep no gigabytes that no row of the models page shows - as Dub Studio does. A link (another
+    /// program's folder linked in) loses only the link; a hard-linked file stays with the program that shares it.
+    pub fn remove_retired_parakeet(&self) {
+        for folder in RETIRED_PARAKEET {
+            let path = self.downloader.root().join(folder);
+            let Ok(meta) = fs::symlink_metadata(&path) else { continue };
+            let removed = if meta.file_type().is_symlink() { fs::remove_dir(&path).or_else(|_| fs::remove_file(&path)) } else { fs::remove_dir_all(&path) };
+            match removed {
+                Ok(()) => eprintln!("removed the retired Parakeet {}", path.display()),
+                Err(error) => eprintln!("[ERROR] could not remove the retired Parakeet {}: {error}", path.display()),
+            }
+        }
+    }
+
+    /// The folder of the cuBLAS 13 the music engine runs on: transcribe.cpp's CUDA build takes links to it.
+    pub fn set_cuda_libraries(&self, folder: PathBuf) {
+        self.cuda_libraries.set(folder).ok();
+    }
+
+    /// Windows looks for a library's imports beside it: the CUDA build gets links to the engine's cuBLAS 13, no
+    /// copies, unless the files are on PATH already.
+    fn link_tcpp_cuda(&self, engine_dir: &Path) -> Result<()> {
+        if !cfg!(windows) {
+            return Ok(());
+        }
+        let on_path = |name: &str| std::env::var_os("PATH").is_some_and(|path| std::env::split_paths(&path).any(|dir| dir.join(name).is_file()));
+        for name in crate::engine_runtime::CUDA13_LIBRARIES {
+            let target = engine_dir.join(name);
+            if target.is_file() || on_path(name) {
+                continue;
+            }
+            let source = self.cuda_libraries.get().map(|folder| folder.join(name)).filter(|source| source.is_file());
+            let Some(source) = source else {
+                bail!("transcribe.cpp on the card needs {name}, which comes with the music engine's CUDA 13 runtime: download it in Settings - Local engine, or choose the processor");
+            };
+            if fs::hard_link(&source, &target).is_err() {
+                fs::copy(&source, &target).with_context(|| format!("copy {} beside transcribe.cpp", source.display()))?;
+            }
+        }
+        Ok(())
     }
 
     pub fn downloader(&self) -> &Downloader {
@@ -1317,13 +1311,10 @@ impl LyricsSync {
             .collect()
     }
 
-    /// Parakeet needs every one of its files and the ONNX Runtime library.
-    pub fn parakeet_ready(&self, model: Option<&str>) -> bool {
-        self.onnxruntime_library().is_some()
-            && parakeet_variant(model)
-                .0
-                .iter()
-                .all(|id| asset(id).is_some_and(|asset| self.downloader.is_installed(asset)))
+    /// Parakeet runs here: this machine's engine build and the model the dropdown names are on disk.
+    pub fn parakeet_ready(&self, runtime: OnnxFlavour, model: Option<&str>) -> bool {
+        let wanted = parakeet_assets(runtime, model);
+        !wanted.is_empty() && wanted.iter().all(|id| asset(id).is_some_and(|asset| self.downloader.is_installed(asset)))
     }
 
     /// Whether the Whisper model the configuration names is actually on disk.
@@ -1335,19 +1326,30 @@ impl LyricsSync {
         self.whisper_model_path(config).is_some_and(|path| path.is_dir())
     }
 
-    /// Any Parakeet whole on disk, whichever variant.
+    /// Any Parakeet whole on disk, whichever build and variant.
     pub fn parakeet_any_ready(&self) -> bool {
-        self.installed_parakeet().is_some()
+        let installed = |id: &str| asset(id).is_some_and(|asset| self.downloader.is_installed(asset));
+        dub_tcpp::Build::ALL.iter().any(|build| installed(build.dir())) && [PARAKEET_V3, PARAKEET_ULTRA].iter().any(|id| installed(id))
     }
 
-    /// A Parakeet whole on disk, the v3 int8 first: the dropdown id to choose when
-    /// the one chosen is not there.
-    pub fn installed_parakeet(&self) -> Option<&'static str> {
-        ["parakeet-tdt-int8", PARAKEET_ULTRA, PARAKEET_FP32].into_iter().find(|model| self.parakeet_ready(Some(model)))
+    /// A Parakeet whole on disk for this machine's build, v3 first: the dropdown id to choose when the one chosen is
+    /// not there.
+    pub fn installed_parakeet(&self, runtime: OnnxFlavour) -> Option<&'static str> {
+        [PARAKEET_V3, PARAKEET_ULTRA].into_iter().find(|model| self.parakeet_ready(runtime, Some(model)))
     }
 
-    pub fn parakeet_dir(&self, model: Option<&str>) -> PathBuf {
-        self.downloader.root().join("models").join(parakeet_variant(model).1)
+    /// The loaded Parakeet of this machine's build and the dropdown's model: one load serves every track until
+    /// another build or model is asked for.
+    fn load_parakeet(&self, runtime: OnnxFlavour, variant: Option<&str>) -> Result<(std::sync::Arc<std::sync::Mutex<dub_tcpp::TcppAsr>>, &'static dub_tcpp::Model)> {
+        let build = parakeet_build(runtime).ok_or_else(|| anyhow!("Parakeet has no transcribe.cpp build for this system: choose Whisper"))?;
+        let root = self.downloader.root().join("models");
+        let model = parakeet_model(variant);
+        let engine = dub_tcpp::engine_dir(&root, build);
+        if build == dub_tcpp::Build::Cuda {
+            self.link_tcpp_cuda(&engine)?;
+        }
+        let asr = dub_tcpp::shared(&engine, &dub_tcpp::model_path(&root, model)).map_err(|error| anyhow!("load Parakeet: {error}"))?;
+        Ok((asr, model))
     }
 
     /// `ort` loads this at run time; linking it would tie the build to one
@@ -1437,7 +1439,7 @@ impl LyricsSync {
         let ready = match config.provider {
             AsrProvider::None => false,
             AsrProvider::Whisper => whisper_binary.is_some() && self.whisper_model_path(config).is_some(),
-            AsrProvider::Parakeet => self.parakeet_ready(config.whisper_model.as_deref()),
+            AsrProvider::Parakeet => self.parakeet_ready(config.runtime, config.whisper_model.as_deref()),
             AsrProvider::OpenRouter => config.openrouter_model.as_deref().is_some_and(|model| !model.trim().is_empty()),
         };
         SyncStatus {
@@ -1455,20 +1457,11 @@ impl LyricsSync {
         }
     }
 
-    /// Runs Parakeet in this process and returns the words it hears, each with
-    /// the second it starts. Same stack Dub Studio uses: parakeet-rs over ONNX
-    /// Runtime, loaded from the DLL beside the models rather than linked in.
+    /// Runs Parakeet in this process and returns the words it hears, each with the second it starts: transcribe.cpp
+    /// on this machine's build, as Dub Studio and Speech Studio run it.
     pub fn parakeet_words(&self, runtime: OnnxFlavour, variant: Option<&str>, audio: &Path) -> Result<Vec<(f64, String)>> {
-        let mut model = self.load_parakeet(self.onnx_card(runtime)?, variant)?;
-        parakeet_transcribe(&mut model, audio)
-    }
-
-    /// Parakeet on the card, or on the processor when there is none.
-    fn load_parakeet(&self, card: Option<OnnxCard>, variant: Option<&str>) -> Result<parakeet_rs::ParakeetTDT> {
-        if !self.parakeet_ready(variant) {
-            bail!("the Parakeet model is not fully downloaded");
-        }
-        parakeet_rs::ParakeetTDT::from_pretrained(self.parakeet_dir(variant), parakeet_config(card)).map_err(|error| anyhow!("load Parakeet: {error}"))
+        let (asr, model) = self.load_parakeet(runtime, variant)?;
+        parakeet_transcribe(&asr, model, audio, None)
     }
 
     /// The words of several tracks from one load of the recogniser: Parakeet
@@ -1490,8 +1483,8 @@ impl LyricsSync {
         };
         match config.provider {
             AsrProvider::Parakeet => {
-                let mut model = match self.onnx_card(config.runtime).and_then(|card| self.load_parakeet(card, config.whisper_model.as_deref())) {
-                    Ok(model) => model,
+                let (asr, model) = match self.load_parakeet(config.runtime, config.whisper_model.as_deref()) {
+                    Ok(loaded) => loaded,
                     Err(error) => {
                         failed(heard, error);
                         return Recognised::OnDevice;
@@ -1501,7 +1494,7 @@ impl LyricsSync {
                     if cancel.load(Ordering::Relaxed) {
                         return Recognised::OnDevice;
                     }
-                    heard(index, parakeet_transcribe(&mut model, path));
+                    heard(index, parakeet_transcribe(&asr, model, path, language));
                 }
                 Recognised::OnDevice
             }
@@ -1700,7 +1693,7 @@ impl LyricsSync {
             .arg("--word_timestamps")
             .arg("True")
             .arg("--compute_type")
-            .arg(if on_card { "float16" } else { "int8" })
+            .arg(if on_card { "int8_float16" } else { "int8" })
             .arg("--device")
             .arg(if on_card { "cuda" } else { "cpu" })
             .arg("--beep_off")
@@ -2350,9 +2343,13 @@ Third");
                     || entry.url.contains(CUDART_BUILD)
                     || entry.url.contains(CUDNN_BUILD)
                     || entry.url.contains(CUFFT_BUILD)
-                    || entry.url.contains(CURAND_BUILD);
+                    || entry.url.contains(CURAND_BUILD)
+                    || entry.url.contains("/transcribe.cpp/releases/download/engine-");
                 assert!(pinned, "{} is not pinned to a release", entry.id);
-                assert!(!entry.marker.is_empty(), "{} has no proof of extraction", entry.id);
+                // a single library is downloaded as it is, not unpacked
+                if entry.unzip_into.is_some() {
+                    assert!(!entry.marker.is_empty(), "{} has no proof of extraction", entry.id);
+                }
             }
         }
     }
@@ -2371,6 +2368,42 @@ Third");
 #[cfg(test)]
 mod live_recognition {
     use super::*;
+
+    #[test]
+    fn the_onnx_parakeet_goes_and_transcribe_cpp_stays() {
+        let root = tempfile::tempdir().unwrap();
+        let sync = LyricsSync::new(root.path());
+        let karaoke = root.path().join("karaoke");
+        for folder in RETIRED_PARAKEET {
+            fs::create_dir_all(karaoke.join(folder)).unwrap();
+            fs::write(karaoke.join(folder).join("encoder-model.int8.onnx"), b"x").unwrap();
+        }
+        let kept = karaoke.join("models/asr-gguf-parakeet-v3/parakeet-tdt-0.6b-v3-Q8_0.gguf");
+        fs::create_dir_all(kept.parent().unwrap()).unwrap();
+        fs::write(&kept, b"x").unwrap();
+        sync.remove_retired_parakeet();
+        assert!(RETIRED_PARAKEET.iter().all(|folder| !karaoke.join(folder).exists()));
+        assert!(kept.is_file());
+        sync.remove_retired_parakeet();
+    }
+
+    #[test]
+    fn karaoke_files_land_where_the_shared_binding_looks() {
+        let root = Path::new("karaoke-root").join("models");
+        for (variant, id) in [(None, PARAKEET_V3), (Some(PARAKEET_ULTRA), PARAKEET_ULTRA), (Some(PARAKEET_FP32), PARAKEET_V3)] {
+            let model = parakeet_model(variant);
+            assert_eq!(parakeet_model_asset(variant), id);
+            let asset = asset(id).unwrap();
+            assert_eq!(Path::new("karaoke-root").join(asset.relative_path), dub_tcpp::model_path(&root, model));
+            assert_eq!((asset.url, asset.bytes), (model.download.url, model.download.size));
+        }
+        #[cfg(any(windows, target_os = "linux"))]
+        for build in dub_tcpp::Build::ALL {
+            let asset = asset(build.dir()).unwrap();
+            assert_eq!(Path::new("karaoke-root").join(asset.relative_path), dub_tcpp::engine_dir(&root, build).join(dub_tcpp::LIBRARY));
+            assert_eq!((asset.url, asset.bytes), (build.download().url, build.download().size));
+        }
+    }
 
     /// The whole recognition path against a real installation, when one is
     /// pointed at: decode, run the recogniser, read its JSON, get words with
@@ -2452,7 +2485,7 @@ mod live_recognition {
     fn parakeet_hears_a_real_track() {
         let (Some(root), Some(track)) = (std::env::var_os("STUDIO_TEST_DATA_ROOT"), std::env::var_os("STUDIO_TEST_TRACK")) else { return };
         let sync = LyricsSync::new(std::path::Path::new(&root));
-        assert!(sync.parakeet_ready(None), "Parakeet is not installed");
+        assert!(sync.parakeet_ready(OnnxFlavour::Auto, None), "Parakeet is not installed");
         let words = sync.parakeet_words(OnnxFlavour::Auto, None, std::path::Path::new(&track)).expect("recognition");
         let heard: Vec<&str> = words.iter().map(|(_, word)| word.as_str()).collect();
         eprintln!("heard {} words: {}", words.len(), heard.join(" "));
@@ -2528,27 +2561,26 @@ mod directml_live {
         assert_eq!(on_card, on_processor, "the card hears another tempo or key");
     }
 
-    /// Parakeet on the card beside the processor: how much of the song's own
-    /// lyrics each hears, in order, from `STUDIO_TEST_LYRICS`.
+    /// Parakeet on each transcribe.cpp build, from the karaoke folder of `STUDIO_TEST_DATA_ROOT`: how much of the song's own
+    /// lyrics (`STUDIO_TEST_LYRICS`) each hears in order, and how long it takes. `GGML_VK_VISIBLE_DEVICES` picks the card
+    /// Vulkan runs on.
     #[test]
-    #[ignore = "downloads DirectML; needs STUDIO_TEST_DATA_ROOT, STUDIO_TEST_TRACK, STUDIO_TEST_LYRICS and STUDIO_TEST_PARAKEET"]
-    fn parakeet_runs_through_directml() {
-        let card = directml();
+    #[ignore = "needs STUDIO_TEST_DATA_ROOT with the three engine builds, STUDIO_TEST_TRACK and STUDIO_TEST_LYRICS"]
+    fn parakeet_hears_the_lyrics_on_every_build() {
+        let root = env_path("STUDIO_TEST_DATA_ROOT").join("karaoke").join("models");
         let track = env_path("STUDIO_TEST_TRACK");
-        let parakeet = env_path("STUDIO_TEST_PARAKEET");
         let lyrics = std::fs::read_to_string(env_path("STUDIO_TEST_LYRICS")).expect("the lyrics");
         let sung = words_of(lyrics.lines().filter(|line| !line.trim_start().starts_with('[')).flat_map(str::split_whitespace));
-        let hear = |card: Option<OnnxCard>| {
+        let model = parakeet_model(None);
+        for build in dub_tcpp::Build::ALL {
             let started = Instant::now();
-            let mut model = parakeet_rs::ParakeetTDT::from_pretrained(&parakeet, parakeet_config(card)).expect("load Parakeet");
-            let words = parakeet_transcribe(&mut model, &track).expect("recognition");
+            let asr = dub_tcpp::shared(&dub_tcpp::engine_dir(&root, build), &dub_tcpp::model_path(&root, model)).expect("load Parakeet");
+            let words = parakeet_transcribe(&asr, model, &track, None).expect("recognition");
             let heard = words_of(words.iter().map(|(_, word)| word.as_str()));
-            (in_order(&sung, &heard), started.elapsed().as_secs_f64())
-        };
-        let (processor, processor_time) = hear(None);
-        let (on_card, card_time) = hear(card);
-        eprintln!("Parakeet hears {:.0}% of the lyrics in order on the card in {card_time:.1} s, {:.0}% on the processor in {processor_time:.1} s", on_card * 100.0, processor * 100.0);
-        assert!(on_card >= processor - 0.05, "the card hears the lyrics worse than the processor");
+            let share = in_order(&sung, &heard);
+            eprintln!("Parakeet on {build:?}: {:.0}% of the lyrics in order, {:.1} s\n  {}", share * 100.0, started.elapsed().as_secs_f64(), heard.join(" "));
+            assert!(share > 0.5, "{build:?} hears too little of the lyrics");
+        }
     }
 
     /// Words without punctuation, in lower case.

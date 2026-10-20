@@ -174,7 +174,7 @@ Code, save [docs/mcp-skill.md](docs/mcp-skill.md) as `~/.claude/skills/ace-step-
   shown as JSON or saved to a file; the engine's stage, step and time left on the card while it
   renders; video export from 1080p to 240p with AAC from 128 to 320 kbps; quitting while a song is
   made asks first, and a song the studio was closed on starts again; karaoke can recognise words
-  with Parakeet Ultra int8, Moondream's fine-tune of Parakeet.
+  with Parakeet Ultra, Moondream's fine-tune of Parakeet.
 
 ## Compose and edit MIDI
 
@@ -264,7 +264,7 @@ the fixes back as a pull request.** The studio keeps its data in `~/.local/share
 | Style by ear · MOSS-Music | CUDA | processor | processor |
 | Tempo and key · Beat This!, S-KEY | CUDA | DirectML | processor |
 | Stems · HT-Demucs | CUDA | processor | processor |
-| Karaoke timing · Parakeet | CUDA | DirectML | processor |
+| Karaoke timing · Parakeet | CUDA | Vulkan | processor |
 | Karaoke timing · Whisper | CUDA | processor | processor |
 | Writing assistant · llama.cpp | CUDA | Vulkan | processor |
 | Audio to MIDI · MuScriptor | CUDA | processor | processor |
@@ -279,10 +279,10 @@ The main, tested path is an NVIDIA card.
 - On AMD and Intel cards stems are separated on the processor: the HT-Demucs model does not
   run through DirectML (out of memory on a 2 GB integrated card, over 20 GB and minutes for
   30 seconds of audio on a 24 GB one).
-- Karaoke's Parakeet and the tempo and key models reach any DirectX 12 card through
-  DirectML. Its runtime - ONNX Runtime 1.24.4 DirectML and DirectML 1.15.4, about 215 MB -
-  comes with the card path; the studio loads its own DirectML rather than the older copy
-  inside Windows.
+- Karaoke's Parakeet runs on transcribe.cpp, the engine Dub Studio and Speech Studio use: its
+  CUDA build on an NVIDIA card with a CUDA 13 driver, its Vulkan build on any other card, its
+  processor build without one. The tempo and key models reach any DirectX 12 card through
+  DirectML where that runtime is installed.
 - "Auto" in a device choice takes the card when its runtime is installed, and the processor
   otherwise. The same table is in the studio, under Settings → Models.
 

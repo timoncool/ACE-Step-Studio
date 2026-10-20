@@ -917,7 +917,7 @@ pub async fn serve() -> anyhow::Result<()> {
             &studio_data_root().unwrap_or_else(|| std::path::PathBuf::from(".")),
         )),
         lyrics_sync_config: Arc::new(RwLock::new(
-            persisted.as_ref().map(|settings| settings.lyrics_sync.clone()).unwrap_or_default(),
+            persisted.as_ref().map(|settings| settings.lyrics_sync.clone().migrated()).unwrap_or_default(),
         )),
         hub: start_hub(),
     };
@@ -927,6 +927,11 @@ pub async fn serve() -> anyhow::Result<()> {
         if let Err(error) = persist_studio_settings(&state).await {
             eprintln!("[ERROR] the key made for access from the network was not saved and changes at the next start: {error:#}");
         }
+    }
+    state.lyrics_sync.set_cuda_libraries(state.engine_runtime.library_dir());
+    {
+        let sync = state.lyrics_sync.clone();
+        tokio::task::spawn_blocking(move || sync.remove_retired_parakeet());
     }
     prepare::resume(&state);
     tokio::spawn(resume_unfinished_jobs(state.clone()));
@@ -1602,17 +1607,6 @@ async fn separation_assets(State(state): State<AppState>) -> Json<Value> {
 #[derive(Debug, Deserialize)]
 struct InstallSeparationAssetRequest {
     asset_id: String,
-}
-
-/// The runtime parts work set to `runtime` needs on this machine's card:
-/// CUDA's on an NVIDIA card that runs it, DirectML's on any other card,
-/// none on the processor.
-fn card_assets(runtime: lyrics_sync::OnnxFlavour) -> &'static [&'static str] {
-    match runtime.card() {
-        Some(lyrics_sync::OnnxCard::Cuda) => lyrics_sync::CUDA_ASSETS,
-        Some(lyrics_sync::OnnxCard::DirectMl) => &lyrics_sync::DIRECTML_ASSETS,
-        None => &[],
-    }
 }
 
 /// Whether separation runs on this card: CUDA only. HT-Demucs's ONNX export
@@ -3339,7 +3333,7 @@ async fn read_activity(State(state): State<AppState>) -> Json<Value> {
 /// carries on.
 async fn ensure_local_recogniser(state: &AppState, config: &lyrics_sync::LyricsSyncConfig, song_id: &str) -> bool {
     let ready = |state: &AppState| match config.provider {
-        lyrics_sync::AsrProvider::Parakeet => state.lyrics_sync.parakeet_ready(config.whisper_model.as_deref()),
+        lyrics_sync::AsrProvider::Parakeet => state.lyrics_sync.parakeet_ready(config.runtime, config.whisper_model.as_deref()),
         lyrics_sync::AsrProvider::Whisper => {
             state.lyrics_sync.whisper_binary().is_some() && state.lyrics_sync.whisper_model_ready(config)
         }
@@ -3350,10 +3344,9 @@ async fn ensure_local_recogniser(state: &AppState, config: &lyrics_sync::LyricsS
     }
 
     let missing: Vec<&'static lyrics_sync::Asset> = match config.provider {
-        lyrics_sync::AsrProvider::Parakeet => lyrics_sync::parakeet_variant(config.whisper_model.as_deref())
-            .0
-            .iter()
-            .filter_map(|id| lyrics_sync::asset(id))
+        lyrics_sync::AsrProvider::Parakeet => lyrics_sync::parakeet_assets(config.runtime, config.whisper_model.as_deref())
+            .into_iter()
+            .filter_map(lyrics_sync::asset)
             .filter(|asset| !state.lyrics_sync.downloader().is_installed(asset))
             .collect(),
         // Whatever the chosen recogniser is made of, by the same reckoning the
@@ -4398,7 +4391,7 @@ async fn update_configuration(
         match selection.capability {
             Capability::SpeechToText => {
                 let mut sync = state.lyrics_sync_config.write().await;
-                let installed_parakeet = state.lyrics_sync.installed_parakeet();
+                let installed_parakeet = state.lyrics_sync.installed_parakeet(sync.runtime);
                 sync.provider = match selection.mode {
                     ExecutionMode::OpenRouter => lyrics_sync::AsrProvider::OpenRouter,
                     ExecutionMode::Local => match selection.local_engine.as_deref() {
@@ -4410,7 +4403,7 @@ async fn update_configuration(
                     },
                 };
                 // picked because some Parakeet is there: the one named must be that one
-                if sync.provider == lyrics_sync::AsrProvider::Parakeet && selection.local_engine.is_none() && !state.lyrics_sync.parakeet_ready(sync.whisper_model.as_deref()) {
+                if sync.provider == lyrics_sync::AsrProvider::Parakeet && selection.local_engine.is_none() && !state.lyrics_sync.parakeet_ready(sync.runtime, sync.whisper_model.as_deref()) {
                     sync.whisper_model = installed_parakeet.map(String::from);
                 }
                 if selection.mode == ExecutionMode::OpenRouter {
@@ -5894,15 +5887,10 @@ async fn karaoke_status(State(state): State<AppState>) -> Json<Value> {
     Json(value)
 }
 
-/// What choosing this recogniser model downloads: its own file and the ones that come with it
-/// (a Parakeet encoder's decoder, vocabulary and, for fp32, its weights; a Whisper model's folder).
+/// What choosing this recogniser model downloads: a Parakeet's one file, a Whisper model's folder.
 fn karaoke_variant_bytes(id: &str) -> Option<u64> {
-    let files: Vec<&'static lyrics_sync::Asset> = if id.starts_with("parakeet-") {
-        let (ids, _) = lyrics_sync::parakeet_variant(Some(id));
-        if !ids.first().is_some_and(|first| *first == id) {
-            return None;
-        }
-        ids.iter().filter_map(|id| lyrics_sync::asset(id)).collect()
+    let files: Vec<&'static lyrics_sync::Asset> = if [lyrics_sync::PARAKEET_V3, lyrics_sync::PARAKEET_ULTRA].contains(&id) {
+        lyrics_sync::asset(id).into_iter().collect()
     } else if let Some(size) = id.strip_prefix("whisper-").filter(|_| lyrics_sync::asset(id).is_some_and(|asset| asset.vram_gb.is_some())) {
         let prefix = format!("models/whisper/faster-whisper-{size}/");
         lyrics_sync::ASSETS.iter().filter(|asset| asset.relative_path.starts_with(&prefix)).collect()
@@ -5987,11 +5975,8 @@ fn karaoke_set(name: &str, device: lyrics_sync::OnnxFlavour, whisper_model: Opti
     let mut wanted: Vec<String> = Vec::new();
     match name {
         "parakeet" => {
-            wanted.push("onnxruntime".into());
-            wanted.extend(card_assets(device).iter().map(|id| id.to_string()));
-            // The precision is chosen the same way a Whisper model is: through
-            // the dropdown, which names one of the encoders.
-            wanted.extend(lyrics_sync::parakeet_variant(whisper_model).0.iter().map(|id| id.to_string()));
+            // the transcribe.cpp build this machine runs and the model the dropdown names
+            wanted.extend(lyrics_sync::parakeet_assets(device, whisper_model).into_iter().map(String::from));
         }
         "whisper" => {
             // One binary whichever device is chosen; the card needs CUDA 11's
@@ -8978,11 +8963,10 @@ mod tests {
 
     #[test]
     fn a_recogniser_variant_weighs_every_file_it_brings() {
-        let fp32 = karaoke_variant_bytes(lyrics_sync::PARAKEET_FP32).unwrap();
-        assert!(fp32 > 2_000_000_000, "the fp32 graph comes with its 2.4 GB of weights: {fp32}");
-        let ultra = karaoke_variant_bytes(lyrics_sync::PARAKEET_ULTRA).unwrap();
-        assert!(ultra > lyrics_sync::asset(lyrics_sync::PARAKEET_ULTRA).unwrap().bytes);
-        assert!(karaoke_variant_bytes("parakeet-decoder").is_none(), "only an encoder is a choice");
+        assert_eq!(karaoke_variant_bytes(lyrics_sync::PARAKEET_ULTRA), Some(dub_tcpp::model("parakeet-ultra").unwrap().download.size));
+        assert_eq!(karaoke_variant_bytes(lyrics_sync::PARAKEET_V3), Some(dub_tcpp::model("parakeet-v3").unwrap().download.size));
+        assert!(karaoke_variant_bytes(lyrics_sync::PARAKEET_FP32).is_none(), "fp32 is no choice of its own any more");
+        assert!(karaoke_variant_bytes("transcribe-engine").is_none());
         assert!(karaoke_variant_bytes("onnxruntime").is_none());
     }
 

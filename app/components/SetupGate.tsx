@@ -73,7 +73,7 @@ type Profile = {
 
 type Catalog = { engine_id: string; recommended_profile_id: string; profiles: Profile[]; components: ModelComponent[] };
 
-// variant_bytes: what choosing this model downloads with it (a Parakeet encoder's decoder and weights, a Whisper folder).
+// variant_bytes: what choosing this model downloads with it (a Parakeet's one file, a Whisper folder).
 type OptionalAsset = { id: string; label: string; bytes: number; note: string; installed: boolean; kind: 'model' | 'runtime'; vram_gb?: number | null; variant_bytes?: number; taken_from?: string | null };
 // with_model: the chosen model's files are already in bytes, as the karaoke set counts them.
 type SetProgress = { bytes: number; installed_bytes: number; ready: boolean; files: number; with_model?: boolean };
@@ -102,7 +102,7 @@ type EngineChoice = { id: string; label: string; device?: boolean; byAddress?: b
  * One optional capability.
  *
  * A capability is a choice of engine and a choice of what it runs on - not a
- * list of files. Parakeet is six downloads and a runtime, Whisper is two, and
+ * list of files. Parakeet is a model and an engine build, Whisper is two, and
  * which two depends on the card; nobody should have to work that out from file
  * names. `engines` turns the group into that choice, and the whole set is
  * installed and removed by one button.
@@ -266,9 +266,8 @@ export const OptionalGroup: React.FC<{
     // vocabulary - and only the weights are a choice. The rest carry no VRAM
     // figure, which is how they are told apart here.
     if (engine === 'whisper') return asset.id.startsWith('whisper-') && asset.vram_gb != null;
-    // Parakeet comes in several variants; the rest of their files come with them, so
-    // only the encoders are a choice.
-    if (engine === 'parakeet') return asset.id === 'parakeet-tdt-int8' || asset.id === 'parakeet-ultra-int8' || asset.id === 'parakeet-tdt-fp32';
+    // Parakeet comes as v3 and Ultra; the engine build follows the card, so only the models are a choice.
+    if (engine === 'parakeet') return asset.id === 'parakeet-tdt-int8' || asset.id === 'parakeet-ultra-int8';
     if (engine === 'open_router') return false;
     return true;
   });
@@ -420,9 +419,9 @@ export const OptionalGroup: React.FC<{
                           // ready by reading it back. Saving it only for Whisper
                           // is why a downloaded Gemma still counted as no
                           // assistant at all.
-                          // Parakeet's two precisions are chosen through the
-                          // same field the recogniser reads for Whisper - which
-                          // is how the server decides which encoder to fetch.
+                          // Parakeet's two models are chosen through the same
+                          // field the recogniser reads for Whisper - which is
+                          // how the server decides which model to fetch.
                           const field =
                             engine === 'whisper' || engine === 'parakeet'
                               ? 'whisper_model'
@@ -618,7 +617,7 @@ type Path = 'cuda' | 'vulkan' | 'directml' | 'cpu' | 'none';
 
 /**
  * What runs where in this studio, as the code decides it: the engine walks
- * CUDA, Vulkan and the processor; the ONNX parts take CUDA or DirectML;
+ * CUDA, Vulkan and the processor, and so does transcribe.cpp; the ONNX parts take CUDA or DirectML;
  * the rest has a CUDA build and a processor one.
  */
 const WHERE_IT_RUNS: { part: TranslationKey; name: string; nvidia: Path; other: Path; none: Path }[] = [
@@ -627,7 +626,7 @@ const WHERE_IT_RUNS: { part: TranslationKey; name: string; nvidia: Path; other: 
   { part: 'hubPartListen', name: 'MOSS-Music', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
   { part: 'hubPartTempoKey', name: 'Beat This!, S-KEY', nvidia: 'cuda', other: 'directml', none: 'cpu' },
   { part: 'hubPartStems', name: 'HT-Demucs', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
-  { part: 'hubPartKaraoke', name: 'Parakeet', nvidia: 'cuda', other: 'directml', none: 'cpu' },
+  { part: 'hubPartKaraoke', name: 'Parakeet', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
   { part: 'hubPartKaraoke', name: 'Whisper', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
   { part: 'hubPartAssistant', name: 'llama.cpp', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
   { part: 'hubPartMidi', name: 'MuScriptor', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
