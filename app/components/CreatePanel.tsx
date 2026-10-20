@@ -97,6 +97,13 @@ const keptDuration = (): string => {
     return '';
   }
 };
+/** The file format last chosen by hand, kept between sessions like the duration. */
+const keptFormat = (): AceCreateRequest['output_format'] => {
+  try {
+    const kept = window.localStorage.getItem('studio.createFormat');
+    return kept === 'mp3' || kept === 'wav32' ? kept : 'flac';
+  } catch { return 'flac'; }
+};
 const MAX_TAKES = 9;
 
 /** What the chosen DiT is, which decides its defaults. */
@@ -321,7 +328,11 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const [randomizeSeed, setRandomizeSeed] = useState(true);
   const [seed, setSeed] = useState('');
   const [mp3Bitrate, setMp3Bitrate] = useState('320');
-  const [format, setFormat] = useState<AceCreateRequest['output_format']>('flac');
+  const [format, setFormat] = useState<AceCreateRequest['output_format']>(keptFormat);
+  const chooseFormat = (value: AceCreateRequest['output_format']) => {
+    setFormat(value);
+    try { window.localStorage.setItem('studio.createFormat', value); } catch { /* kept until a reload */ }
+  };
   const [models, setModels] = useState<Partial<Record<'synth_model' | 'lm_model' | 'vae', string>>>({});
   const [adapters, setAdapters] = useState<AdapterUse[]>([]);
   const [groups, setGroups] = useState<Record<string, string>>({});
@@ -480,7 +491,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     setLatentShift(''); setLatentRescale(''); setLmTemperature(''); setLmCfg(''); setLmTopP(''); setLmTopK(''); setRepPenalty(''); setRepMode(''); setRepWindow(''); setDryBase(''); setDryMinLen('');
     setLmNegative(''); setLmSeed(''); setSongs(''); setTakes(''); setSeed(''); setRandomizeSeed(true);
     setCoverStrength(''); setCoverNoise(''); setRepaintStart(''); setRepaintEnd('');
-    setMp3Bitrate('320'); setFormat('flac'); setModels({});
+    setMp3Bitrate('320'); chooseFormat('flac'); setModels({});
     setCfgStart(''); setCfgEnd(''); setRetakeVariance(''); setRetakeSeed(''); setFadeIn(''); setFadeOut(''); setBulk('');
   };
 
@@ -1598,7 +1609,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
                         </select>
                       </Field>
                       <Field label={t('outputFormat')}>
-                        <select value={format} onChange={event => setFormat(event.target.value as AceCreateRequest['output_format'])} className={CONTROL}>
+                        <select value={format} onChange={event => chooseFormat(event.target.value as AceCreateRequest['output_format'])} className={CONTROL}>
                           <option value="flac">FLAC</option>
                           <option value="mp3">MP3</option>
                           <option value="wav32">WAV (32-bit float)</option>
