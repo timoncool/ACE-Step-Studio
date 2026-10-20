@@ -3392,7 +3392,10 @@ async fn ensure_local_recogniser(state: &AppState, config: &lyrics_sync::LyricsS
             tokio::time::sleep(std::time::Duration::from_millis(700)).await;
         }
     }
-    ready(state)
+    // the download was this record's work: done or failed here, so no caller leaves it "downloading"
+    let now_ready = ready(state);
+    note_activity(state, song_id, &title, "karaoke", if now_ready { "done" } else { "failed" }, (!now_ready).then(|| "karaoke.model-missing".to_string())).await;
+    now_ready
 }
 
 async fn time_lyrics_for(state: AppState, song_id: String) {
@@ -6061,12 +6064,6 @@ async fn create_song_karaoke(
     if !config.available() {
         return Err(api_error(StatusCode::CONFLICT, "karaoke.off".into()));
     }
-    // Pressing the button on a track is the instruction to time it. If the
-    // chosen local recogniser is not on disk yet, that is a download to start,
-    // not a refusal to hand back.
-    if !ensure_local_recogniser(&state, &config, &id).await {
-        return Err(api_error(StatusCode::CONFLICT, "karaoke.model-missing".into()));
-    }
     let song = state
         .library
         .get_song(&id)
@@ -6079,6 +6076,12 @@ async fn create_song_karaoke(
         .ok_or_else(|| api_error(StatusCode::BAD_REQUEST, "this track has no audio to listen to".into()))?;
     if !auto_title::has_sung_lines(&song.lyrics) {
         return Err(api_error(StatusCode::BAD_REQUEST, "karaoke.instrumental".into()));
+    }
+    // Pressing the button on a track is the instruction to time it. If the
+    // chosen local recogniser is not on disk yet, that is a download to start,
+    // not a refusal to hand back.
+    if !ensure_local_recogniser(&state, &config, &id).await {
+        return Err(api_error(StatusCode::CONFLICT, "karaoke.model-missing".into()));
     }
 
     let words = match config.provider {

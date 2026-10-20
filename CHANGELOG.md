@@ -16,6 +16,7 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- **Karaoke on an instrumental no longer hangs on "downloading"**: the studio checked the song after fetching the recogniser and left that download's line running when it then refused the track; the song is checked first, and a finished download ends its line.
 - **A long step no longer gets the engine restarted** ([YuE2 Studio #129](https://github.com/timoncool/YuE2-Studio/issues/129)): an engine inside a long step does not answer its health check in time, and the studio took that for a crash and restarted it, losing the song; while a job is running and the engine process is alive, it is at work.
 - **Auto stays on the graphics card after a silent engine exit** ([YuE2 Studio #127](https://github.com/timoncool/YuE2-Studio/issues/127), [#128](https://github.com/timoncool/YuE2-Studio/pull/128) by ramishi): an exit with no device error in its log (out of memory, a kill, a slow start) no longer moves Auto to the processor for the rest of the session.
 - **The create form keeps its words** ([ACE-Step Studio #54](https://github.com/timoncool/ACE-Step-Studio/issues/54)): the name, the style and the lyrics stay across restarts, as the length and the file format do, until Reset clears them.
