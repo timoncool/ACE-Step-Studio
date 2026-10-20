@@ -280,9 +280,10 @@ The main, tested path is an NVIDIA card.
   run through DirectML (out of memory on a 2 GB integrated card, over 20 GB and minutes for
   30 seconds of audio on a 24 GB one).
 - Karaoke's Parakeet runs on transcribe.cpp, the engine Dub Studio and Speech Studio use: its
-  CUDA build on an NVIDIA card with a CUDA 13 driver, its Vulkan build on any other card, its
-  processor build without one. The tempo and key models reach any DirectX 12 card through
-  DirectML where that runtime is installed.
+  CUDA build on an NVIDIA card with a CUDA 13 driver (on Linux when the system has CUDA 13's
+  cuBLAS), its Vulkan build on any other card, its processor build without one; on a Mac, Metal
+  on Apple silicon and the processor on Intel. The tempo and key models reach any DirectX 12 card through
+  DirectML, whose runtime comes with karaoke's card path.
 - "Auto" in a device choice takes the card when its runtime is installed, and the processor
   otherwise. The same table is in the studio, under Settings → Models.
 

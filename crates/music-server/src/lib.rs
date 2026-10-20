@@ -3423,7 +3423,7 @@ async fn time_lyrics_for(state: AppState, song_id: String) {
         lyrics_sync::AsrProvider::Parakeet => {
             let sync = state.lyrics_sync.clone();
             let path = std::path::PathBuf::from(&audio);
-            match tokio::task::spawn_blocking(move || sync.parakeet_words(config.runtime, config.whisper_model.as_deref(), &path)).await {
+            match tokio::task::spawn_blocking(move || sync.parakeet_words(config.runtime, config.whisper_model.as_deref(), &path, None)).await {
                 Ok(result) => result,
                 Err(error) => Err(anyhow::anyhow!("the recogniser stopped: {error}")),
             }
@@ -5975,7 +5975,13 @@ fn karaoke_set(name: &str, device: lyrics_sync::OnnxFlavour, whisper_model: Opti
     let mut wanted: Vec<String> = Vec::new();
     match name {
         "parakeet" => {
-            // the transcribe.cpp build this machine runs and the model the dropdown names
+            // the transcribe.cpp build this machine runs and the model the dropdown names; on a card CUDA does not
+            // run, DirectML comes with it for the tempo model, as before transcribe.cpp (on NVIDIA, separation brings
+            // the CUDA runtime)
+            if device.card() == Some(lyrics_sync::OnnxCard::DirectMl) {
+                wanted.push("onnxruntime".into());
+                wanted.extend(lyrics_sync::DIRECTML_ASSETS.iter().map(|id| id.to_string()));
+            }
             wanted.extend(lyrics_sync::parakeet_assets(device, whisper_model).into_iter().map(String::from));
         }
         "whisper" => {
@@ -6081,7 +6087,8 @@ async fn create_song_karaoke(
         lyrics_sync::AsrProvider::Parakeet => {
             let sync = state.lyrics_sync.clone();
             let path = std::path::PathBuf::from(&audio);
-            tokio::task::spawn_blocking(move || sync.parakeet_words(config.runtime, config.whisper_model.as_deref(), &path))
+            let language = request.language.clone();
+            tokio::task::spawn_blocking(move || sync.parakeet_words(config.runtime, config.whisper_model.as_deref(), &path, language.as_deref()))
                 .await
                 .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
         }

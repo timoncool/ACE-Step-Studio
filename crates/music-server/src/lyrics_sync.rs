@@ -669,6 +669,20 @@ pub const ASSETS: &[Asset] = &[
         vram_gb: None,
         note: "Runs Parakeet on the processor: slower, the same words.",
     },
+    #[cfg(target_os = "macos")]
+    Asset {
+        id: "transcribe-engine-cpu",
+        label: "transcribe.cpp (Metal)",
+        kind: AssetKind::Runtime,
+        url: dub_tcpp::Build::Cpu.download().url,
+        relative_path: TCPP_CPU,
+        bytes: dub_tcpp::Build::Cpu.download().size,
+        unzip_into: None,
+        marker: "",
+        pick: &[],
+        vram_gb: None,
+        note: "Runs Parakeet on the Mac: Metal on Apple silicon, the processor on Intel.",
+    },
     #[cfg(windows)]
     Asset {
         id: "onnxruntime-cuda",
@@ -957,8 +971,7 @@ pub const CUDA_ASSETS: &[&str] = &["onnxruntime-cuda", "cuda-cudart", "cuda-cubl
 #[cfg(target_os = "linux")]
 pub const CUDA_ASSETS: &[&str] = &["onnxruntime-cuda", "cuda-cudart", "cuda-cublas", "cuda-cufft", "cuda-curand", "cuda-cudnn"];
 
-/// Everything the DirectML path needs, in the order it is used: the tests that run ONNX work through it.
-#[cfg(test)]
+/// Everything the DirectML path needs, in the order it is used.
 pub const DIRECTML_ASSETS: [&str; 2] = ["onnxruntime-directml", "directml"];
 
 /// Which build of the ONNX Runtime to load.
@@ -1169,6 +1182,8 @@ const TCPP_CUDA: &str = "models/transcribe-engine/libtranscribe_engine.so";
 const TCPP_VULKAN: &str = "models/transcribe-engine-vulkan/libtranscribe_engine.so";
 #[cfg(target_os = "linux")]
 const TCPP_CPU: &str = "models/transcribe-engine-cpu/libtranscribe_engine.so";
+#[cfg(target_os = "macos")]
+const TCPP_CPU: &str = "models/transcribe-engine-cpu/libtranscribe_engine.dylib";
 
 /// The transcribe.cpp model the dropdown names.
 pub fn parakeet_model(variant: Option<&str>) -> &'static dub_tcpp::Model {
@@ -1182,22 +1197,38 @@ pub fn parakeet_model_asset(variant: Option<&str>) -> &'static str {
 }
 
 /// The engine build this machine runs Parakeet on: the processor when chosen, CUDA on a card and driver CUDA 13
-/// runs on (the build is CUDA 13), Vulkan on any other card, the processor without one. None on a Mac, which has no
-/// build.
+/// runs on (the build is CUDA 13; on Linux only when the system has its cuBLAS), Vulkan on any other card, the
+/// processor without one. A Mac has one build, in the processor's place: Metal and the processor on Apple silicon,
+/// the processor on Intel.
 pub fn parakeet_build(runtime: OnnxFlavour) -> Option<dub_tcpp::Build> {
     if cfg!(target_os = "macos") {
+        return Some(dub_tcpp::Build::Cpu);
+    }
+    if !cfg!(any(windows, target_os = "linux")) {
         return None;
     }
     let cuda = crate::cuda_build::current();
     Some(if matches!(runtime, OnnxFlavour::Cpu) {
         dub_tcpp::Build::Cpu
     } else if cuda == Some(crate::cuda_build::CudaBuild::Cuda13) {
-        dub_tcpp::Build::Cuda
+        if cfg!(target_os = "linux") && !system_library("libcublas.so.13") { dub_tcpp::Build::Vulkan } else { dub_tcpp::Build::Cuda }
     } else if cuda.is_some() || crate::presets::display_card().is_some() {
         dub_tcpp::Build::Vulkan
     } else {
         dub_tcpp::Build::Cpu
     })
+}
+
+/// Whether Linux's loader finds `name` without help: the CUDA build of transcribe.cpp looks for cuBLAS beside itself
+/// and then where the system keeps libraries, as the music engine does, and the studio downloads none for Linux.
+fn system_library(name: &str) -> bool {
+    static FOUND: std::sync::OnceLock<std::collections::HashMap<String, bool>> = std::sync::OnceLock::new();
+    let probe = |name: &str| {
+        let listed = std::env::var_os("LD_LIBRARY_PATH").is_some_and(|path| std::env::split_paths(&path).any(|dir| dir.join(name).is_file()));
+        let cached = fs::read("/etc/ld.so.cache").is_ok_and(|cache| cache.windows(name.len()).any(|bytes| bytes == name.as_bytes()));
+        listed || cached || ["/lib", "/usr/lib", "/lib64", "/usr/lib64", "/usr/lib/x86_64-linux-gnu"].iter().any(|dir| Path::new(dir).join(name).is_file())
+    };
+    FOUND.get_or_init(|| ["libcublas.so.13"].into_iter().map(|library| (library.to_string(), probe(library))).collect()).get(name).copied().unwrap_or_else(|| probe(name))
 }
 
 /// The files Parakeet runs from on this machine: its engine build and the model the dropdown names.
@@ -1338,10 +1369,10 @@ impl LyricsSync {
         [PARAKEET_V3, PARAKEET_ULTRA].into_iter().find(|model| self.parakeet_ready(runtime, Some(model)))
     }
 
-    /// The loaded Parakeet of this machine's build and the dropdown's model: one load serves every track until
-    /// another build or model is asked for.
+    /// The loaded Parakeet of this machine's build and the dropdown's model: one load serves every track of a run;
+    /// the run unloads it after, so the card is the music engine's again.
     fn load_parakeet(&self, runtime: OnnxFlavour, variant: Option<&str>) -> Result<(std::sync::Arc<std::sync::Mutex<dub_tcpp::TcppAsr>>, &'static dub_tcpp::Model)> {
-        let build = parakeet_build(runtime).ok_or_else(|| anyhow!("Parakeet has no transcribe.cpp build for this system: choose Whisper"))?;
+        let build = parakeet_build(runtime).ok_or_else(|| anyhow!("transcribe.cpp has no build for this system: choose Whisper"))?;
         let root = self.downloader.root().join("models");
         let model = parakeet_model(variant);
         let engine = dub_tcpp::engine_dir(&root, build);
@@ -1459,9 +1490,12 @@ impl LyricsSync {
 
     /// Runs Parakeet in this process and returns the words it hears, each with the second it starts: transcribe.cpp
     /// on this machine's build, as Dub Studio and Speech Studio run it.
-    pub fn parakeet_words(&self, runtime: OnnxFlavour, variant: Option<&str>, audio: &Path) -> Result<Vec<(f64, String)>> {
+    pub fn parakeet_words(&self, runtime: OnnxFlavour, variant: Option<&str>, audio: &Path, language: Option<&str>) -> Result<Vec<(f64, String)>> {
         let (asr, model) = self.load_parakeet(runtime, variant)?;
-        parakeet_transcribe(&asr, model, audio, None)
+        let words = parakeet_transcribe(&asr, model, audio, language);
+        drop(asr);
+        dub_tcpp::unload();
+        words
     }
 
     /// The words of several tracks from one load of the recogniser: Parakeet
@@ -1492,10 +1526,13 @@ impl LyricsSync {
                 };
                 for (index, path) in audio.iter().enumerate() {
                     if cancel.load(Ordering::Relaxed) {
-                        return Recognised::OnDevice;
+                        break;
                     }
                     heard(index, parakeet_transcribe(&asr, model, path, language));
                 }
+                // the card is the music engine's between recognitions
+                drop(asr);
+                dub_tcpp::unload();
                 Recognised::OnDevice
             }
             AsrProvider::Whisper => match self.whisper_many(config, audio, language, heard, cancel) {
@@ -2397,6 +2434,12 @@ mod live_recognition {
             assert_eq!(Path::new("karaoke-root").join(asset.relative_path), dub_tcpp::model_path(&root, model));
             assert_eq!((asset.url, asset.bytes), (model.download.url, model.download.size));
         }
+        #[cfg(target_os = "macos")]
+        {
+            assert_eq!(parakeet_build(OnnxFlavour::Auto), Some(dub_tcpp::Build::Cpu));
+            let asset = asset(dub_tcpp::Build::Cpu.dir()).unwrap();
+            assert_eq!(Path::new("karaoke-root").join(asset.relative_path), dub_tcpp::engine_dir(&root, dub_tcpp::Build::Cpu).join(dub_tcpp::LIBRARY));
+        }
         #[cfg(any(windows, target_os = "linux"))]
         for build in dub_tcpp::Build::ALL {
             let asset = asset(build.dir()).unwrap();
@@ -2469,7 +2512,7 @@ mod live_recognition {
             return;
         };
         let sync = LyricsSync::new(std::path::Path::new(&root));
-        let words = sync.parakeet_words(OnnxFlavour::Auto, None, std::path::Path::new(&track)).expect("recognition");
+        let words = sync.parakeet_words(OnnxFlavour::Auto, None, std::path::Path::new(&track), None).expect("recognition");
         let lyrics = std::fs::read_to_string(lyrics).expect("lyrics file");
         for (at, word) in &words {
             eprintln!("W {at:7.2} {word}");
@@ -2486,7 +2529,7 @@ mod live_recognition {
         let (Some(root), Some(track)) = (std::env::var_os("STUDIO_TEST_DATA_ROOT"), std::env::var_os("STUDIO_TEST_TRACK")) else { return };
         let sync = LyricsSync::new(std::path::Path::new(&root));
         assert!(sync.parakeet_ready(OnnxFlavour::Auto, None), "Parakeet is not installed");
-        let words = sync.parakeet_words(OnnxFlavour::Auto, None, std::path::Path::new(&track)).expect("recognition");
+        let words = sync.parakeet_words(OnnxFlavour::Auto, None, std::path::Path::new(&track), None).expect("recognition");
         let heard: Vec<&str> = words.iter().map(|(_, word)| word.as_str()).collect();
         eprintln!("heard {} words: {}", words.len(), heard.join(" "));
         assert!(!words.is_empty(), "nothing was recognised");

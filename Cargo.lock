@@ -547,7 +547,7 @@ dependencies = [
 [[package]]
 name = "dub-tcpp"
 version = "2.0.0"
-source = "git+https://github.com/timoncool/dub-studio?rev=6fa3877dbf0d3084d6da1bff8191ef869072a9d4#6fa3877dbf0d3084d6da1bff8191ef869072a9d4"
+source = "git+https://github.com/timoncool/dub-studio?rev=e3373d99a4830f8fe068713685f7b807e373c29e#e3373d99a4830f8fe068713685f7b807e373c29e"
 dependencies = [
  "libloading 0.9.0",
 ]
