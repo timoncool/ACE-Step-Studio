@@ -2,7 +2,7 @@
 
 What changed, newest first. Dates are release dates.
 
-## Unreleased
+## 2026-10-21 — 3.7.0
 
 ### Added
 
@@ -28,7 +28,7 @@ What changed, newest first. Dates are release dates.
 - **Whisper on the graphics card keeps int8 weights** (int8_float16) instead of float16.
 - **Audio to MIDI and the training pack are one download.** The MIDI transcriber, the trainer and the captioner come from one HOT-Step build that shares its graphics-card libraries, in one folder: 133 MB once instead of 126 and 132 MB apart, and installing either one installs both ([YuE2 Studio #104](https://github.com/timoncool/YuE2-Studio/issues/104)).
 
-## 2026-10-20 — 3.6.1
+## 3.6.1 — not released on its own; its fixes are part of 3.7.0
 
 ### Fixed
 
