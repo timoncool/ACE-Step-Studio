@@ -98,6 +98,15 @@ const keptDuration = (): string => {
   }
 };
 /** The file format last chosen by hand, kept between sessions like the duration. */
+/** The words of the form (name, style, lyrics), kept across restarts until Reset clears them. */
+const DRAFT_KEY = 'studio.createDraft';
+function keptDraft(): Record<string, string> {
+  try {
+    const kept: unknown = JSON.parse(window.localStorage.getItem(DRAFT_KEY) ?? '{}');
+    return kept && typeof kept === 'object' ? (kept as Record<string, string>) : {};
+  } catch { return {}; }
+}
+
 const keptFormat = (): AceCreateRequest['output_format'] => {
   try {
     const kept = window.localStorage.getItem('studio.createFormat');
@@ -252,9 +261,12 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const { t } = useI18n();
   const tt = t as unknown as (key: string) => string;
 
-  const [name, setName] = useState('');
-  const [caption, setCaption] = useState('');
-  const [lyrics, setLyrics] = useState('');
+  const [name, setName] = useState(() => keptDraft().name ?? '');
+  const [caption, setCaption] = useState(() => keptDraft().caption ?? '');
+  const [lyrics, setLyrics] = useState(() => keptDraft().lyrics ?? '');
+  useEffect(() => {
+    try { window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ name, caption, lyrics })); } catch { /* kept until a reload */ }
+  }, [name, caption, lyrics]);
   const [instrumental, setInstrumental] = useState(false);
   const [language, setLanguage] = useState('en');
   // a language picked by hand, or brought by a request, is not overruled by the lyric's script

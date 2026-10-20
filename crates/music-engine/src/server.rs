@@ -433,6 +433,12 @@ impl ServerSupervisor {
         Ok(StopOutcome { was_running: true, graceful: false })
     }
 
+    /// Whether the engine this supervisor started is still a running process: one inside a long step can miss a
+    /// health probe and still be at work.
+    pub fn process_alive(&mut self) -> bool {
+        self.child.as_mut().is_some_and(|child| matches!(child.try_wait(), Ok(None)))
+    }
+
     fn clear_exited_child(&mut self) -> Result<()> {
         let exited = self
             .child

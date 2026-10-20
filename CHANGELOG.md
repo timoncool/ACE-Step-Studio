@@ -16,6 +16,9 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- **A long step no longer gets the engine restarted** ([YuE2 Studio #129](https://github.com/timoncool/YuE2-Studio/issues/129)): an engine inside a long step does not answer its health check in time, and the studio took that for a crash and restarted it, losing the song; while a job is running and the engine process is alive, it is at work.
+- **Auto stays on the graphics card after a silent engine exit** ([YuE2 Studio #127](https://github.com/timoncool/YuE2-Studio/issues/127), [#128](https://github.com/timoncool/YuE2-Studio/pull/128) by ramishi): an exit with no device error in its log (out of memory, a kill, a slow start) no longer moves Auto to the processor for the rest of the session.
+- **The create form keeps its words** ([ACE-Step Studio #54](https://github.com/timoncool/ACE-Step-Studio/issues/54)): the name, the style and the lyrics stay across restarts, as the length and the file format do, until Reset clears them.
 - **The training page says where to install the card runtime.** When preparation measures tempo on the processor, its notice now names the way to the graphics-card ONNX Runtime for this machine's card: Settings → Models → Optional extras → Split into stems → Graphics card on NVIDIA, Karaoke timings → Graphics card on AMD and Intel (DirectML).
 - **A computer's memory as its box says it.** The studio counted RAM in 10⁹-byte gigabytes, so a 32 GB computer read 34 GB (in the issue form too); memory is now counted in 2³⁰-byte gigabytes, as video memory already was, and so are the model sets' needs.
 
