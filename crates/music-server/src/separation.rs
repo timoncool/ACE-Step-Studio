@@ -35,6 +35,18 @@ pub struct SeparationConfig {
     /// How much neighbouring segments share. More overlap means more passes
     /// and a smoother seam; a quarter is the model's own reference setting.
     pub overlap: f64,
+    /// Which separator runs: HT-Demucs for six stems, Mel-Band RoFormer for the
+    /// vocals and the rest. It also separates the vocals the vocals-only mode
+    /// and training take.
+    pub engine: Engine,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Engine {
+    #[default]
+    Htdemucs,
+    Roformer,
 }
 
 impl Default for SeparationConfig {
@@ -45,6 +57,7 @@ impl Default for SeparationConfig {
             runtime: crate::lyrics_sync::OnnxFlavour::Auto,
             stems: STEMS.iter().map(|stem| (*stem).to_string()).collect(),
             overlap: OVERLAP,
+            engine: Engine::Htdemucs,
         }
     }
 }
@@ -81,6 +94,82 @@ pub const MODEL: Asset = Asset {
     note: "Six stems: drums, bass, other, vocals, guitar, piano. MIT-licensed, runs on the studio's ONNX Runtime.",
 };
 
+/// The stems Mel-Band RoFormer leaves: the voice, and the mix without it.
+pub const ROFORMER_STEMS: [&str; 2] = ["vocals", "instrumental"];
+
+/// Mel-Band RoFormer voc_fv6 (GaboxR67) in GGUF Q8_0, as Dub Studio separates with it.
+pub const ROFORMER_MODEL: Asset = Asset {
+    id: "roformer",
+    label: "Mel-Band RoFormer voc_fv6 (Q8_0)",
+    kind: AssetKind::Model,
+    url: "https://huggingface.co/chenmozhijin/BSRoformer-GGUF/resolve/df802a6773d25ba6ef785ff619daa3e510503168/GaboxR67/MelBandRoformers/melbandroformers/vocals/voc_fv6-Q8_0.gguf",
+    relative_path: "models/bsroformer/voc_fv6-Q8_0.gguf",
+    bytes: 251_707_744,
+    unzip_into: None,
+    marker: "",
+    pick: &[],
+    vram_gb: Some(2),
+    note: "The vocals and the rest, cleaner than HT-Demucs: Dub Studio's separator, run by BSRoformer.cpp.",
+};
+
+/// BSRoformer.cpp (chenmozhijin), the CUDA build and the processor build, as Dub Studio ships them.
+#[cfg(windows)]
+pub const ROFORMER_ENGINE: Asset = Asset {
+    id: "bsroformer-engine",
+    label: "BSRoformer.cpp (CUDA)",
+    kind: AssetKind::Runtime,
+    url: "https://github.com/chenmozhijin/BSRoformer.cpp/releases/download/v0.1.0/BSRoformer-windows-cuda-13.1.0.zip",
+    relative_path: "bsroformer-cuda.zip",
+    bytes: 164_990_561,
+    unzip_into: Some("bsroformer"),
+    marker: "bs_roformer-cli",
+    pick: &[],
+    vram_gb: None,
+    note: "Runs Mel-Band RoFormer on an NVIDIA card, with the engine's cuBLAS 13.",
+};
+#[cfg(windows)]
+pub const ROFORMER_ENGINE_CPU: Asset = Asset {
+    id: "bsroformer-engine-cpu",
+    label: "BSRoformer.cpp (processor)",
+    kind: AssetKind::Runtime,
+    url: "https://github.com/chenmozhijin/BSRoformer.cpp/releases/download/v0.1.0/BSRoformer-windows-x64-msvc.zip",
+    relative_path: "bsroformer-cpu.zip",
+    bytes: 671_031,
+    unzip_into: Some("bsroformer-cpu"),
+    marker: "bs_roformer-cli",
+    pick: &[],
+    vram_gb: None,
+    note: "Runs Mel-Band RoFormer on the processor: slower, the same result.",
+};
+#[cfg(target_os = "linux")]
+pub const ROFORMER_ENGINE: Asset = Asset {
+    id: "bsroformer-engine",
+    label: "BSRoformer.cpp (CUDA)",
+    kind: AssetKind::Runtime,
+    url: "https://github.com/chenmozhijin/BSRoformer.cpp/releases/download/v0.1.0/BSRoformer-linux-cuda-13.1.0.tar.xz",
+    relative_path: "bsroformer-cuda.tar.xz",
+    bytes: 239_527_692,
+    unzip_into: Some("bsroformer"),
+    marker: "bs_roformer-cli",
+    pick: &[],
+    vram_gb: None,
+    note: "Runs Mel-Band RoFormer on an NVIDIA card.",
+};
+#[cfg(target_os = "linux")]
+pub const ROFORMER_ENGINE_CPU: Asset = Asset {
+    id: "bsroformer-engine-cpu",
+    label: "BSRoformer.cpp (processor)",
+    kind: AssetKind::Runtime,
+    url: "https://github.com/chenmozhijin/BSRoformer.cpp/releases/download/v0.1.0/BSRoformer-linux-x64-cpu.tar.xz",
+    relative_path: "bsroformer-cpu.tar.xz",
+    bytes: 640_204,
+    unzip_into: Some("bsroformer-cpu"),
+    marker: "bs_roformer-cli",
+    pick: &[],
+    vram_gb: None,
+    note: "Runs Mel-Band RoFormer on the processor: slower, the same result.",
+};
+
 /// Owns the separation model's directory and the runs that use it.
 pub struct Separator {
     downloader: Downloader,
@@ -107,6 +196,77 @@ impl Separator {
     /// runtime that executes it.
     pub fn ready(&self, runtime: Option<&Path>) -> bool {
         self.is_installed() && runtime.is_some()
+    }
+
+
+    /// The BSRoformer.cpp build for the card or the processor, where this platform has one.
+    pub fn roformer_engine(gpu: bool) -> Option<&'static Asset> {
+        #[cfg(any(windows, target_os = "linux"))]
+        {
+            Some(if gpu { &ROFORMER_ENGINE } else { &ROFORMER_ENGINE_CPU })
+        }
+        #[cfg(not(any(windows, target_os = "linux")))]
+        {
+            let _ = gpu;
+            None
+        }
+    }
+
+    pub fn roformer_cli(&self, gpu: bool) -> Option<PathBuf> {
+        let engine = Self::roformer_engine(gpu)?;
+        let name = if cfg!(windows) { "bs_roformer-cli.exe" } else { "bs_roformer-cli" };
+        Some(self.downloader.runtime_dir(engine.unzip_into?).join(name))
+    }
+
+    /// Mel-Band RoFormer can run: its model, the engine build for the card or the processor, and for the card the
+    /// cuBLAS that build loads.
+    pub fn roformer_installed(&self, gpu: bool) -> bool {
+        self.downloader.is_installed(&ROFORMER_MODEL)
+            && Self::roformer_engine(gpu).is_some_and(|engine| self.downloader.is_installed(engine))
+            && (!gpu || self.cuda_libraries_found())
+    }
+
+    /// The CUDA build's cuBLAS 13 where the Windows loader looks: beside the program, or on PATH.
+    fn cuda_libraries_found(&self) -> bool {
+        if !cfg!(windows) {
+            return true;
+        }
+        let Some(folder) = self.roformer_cli(true).and_then(|cli| cli.parent().map(Path::to_path_buf)) else { return false };
+        let on_path = |name: &str| std::env::var_os("PATH").is_some_and(|path| std::env::split_paths(&path).any(|dir| dir.join(name).is_file()));
+        crate::engine_runtime::CUDA13_LIBRARIES.iter().all(|name| folder.join(name).is_file() || on_path(name))
+    }
+
+    /// The CUDA build imports the cuBLAS 13 the music engine already has beside it; Windows
+    /// looks for a library in the program's folder, so it gets links to those files, no copies.
+    pub fn link_cuda_libraries(&self, from: &Path) -> Result<()> {
+        let Some(cli) = self.roformer_cli(true) else { return Ok(()) };
+        let Some(folder) = cli.parent() else { return Ok(()) };
+        for name in crate::engine_runtime::CUDA13_LIBRARIES {
+            let (source, target) = (from.join(name), folder.join(name));
+            if target.is_file() || !source.is_file() {
+                continue;
+            }
+            if std::fs::hard_link(&source, &target).is_err() {
+                std::fs::copy(&source, &target).with_context(|| format!("copy {} beside BSRoformer.cpp", source.display()))?;
+            }
+        }
+        Ok(())
+    }
+
+    /// The vocals and the rest of interleaved 44.1 kHz stereo, through Dub Studio's separator.
+    pub fn separate_roformer(&self, samples: &[f32], gpu: bool) -> Result<(Vec<f32>, Vec<f32>)> {
+        let cli = self.roformer_cli(gpu).context("Mel-Band RoFormer has no build for this platform")?;
+        let work = tempfile::tempdir()?;
+        let mix = work.path().join("mix.wav");
+        let stereo = audio_post::Stereo {
+            rate: SAMPLE_RATE,
+            left: samples.iter().step_by(CHANNELS).copied().collect(),
+            right: samples.iter().skip(1).step_by(CHANNELS).copied().collect(),
+        };
+        crate::audio_pcm::write_wav_f32(&mix, &stereo)?;
+        let separated = dub_sep::separate(&mix, &work.path().join("stems"), &cli, &self.downloader.path_of(&ROFORMER_MODEL))
+            .map_err(|error| anyhow::anyhow!("Mel-Band RoFormer: {error}"))?;
+        Ok((crate::audio_pcm::decode_stereo_44k(&separated.vocals)?, crate::audio_pcm::decode_stereo_44k(&separated.instrumental)?))
     }
 }
 

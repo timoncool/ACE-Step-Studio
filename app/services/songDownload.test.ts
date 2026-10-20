@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Song } from '../types';
-import { songFileName } from './songDownload';
+import { songFileName, tempoAndKey } from './songDownload';
 
 const song = (extra: Partial<Song> = {}) => ({ id: 's', title: 'Северный ветер', ...extra }) as Song;
 
@@ -17,5 +17,13 @@ describe('songFileName', () => {
 
   it('keeps the name legal on Windows', () => {
     expect(songFileName(song({ title: 'A/B: "test"?' }), 'audio/flac')).toBe('A_B_ _test__.flac');
+  });
+});
+
+describe('tempo and key in a stem file name', () => {
+  it('names the song tempo and key it knows', () => {
+    expect(tempoAndKey(109, 'D major')).toBe('109 BPM, D major');
+    expect(tempoAndKey(0, 'A minor')).toBe('A minor');
+    expect(tempoAndKey(undefined, undefined)).toBe('');
   });
 });

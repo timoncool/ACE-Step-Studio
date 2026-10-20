@@ -36,6 +36,9 @@ pub struct CoverLook {
     pub photo: bool,
     #[serde(default = "default_pattern")]
     pub pattern: String,
+    /// Each track draws the pattern from its own words and style instead of its id.
+    #[serde(default)]
+    pub unique: bool,
     /// The placeholder is written into the track as its cover, and into an
     /// MP3's tags, so a player shows it after the file is saved.
     #[serde(default = "on")]
@@ -52,7 +55,7 @@ fn default_pattern() -> String {
 
 impl Default for CoverLook {
     fn default() -> Self {
-        Self { photo: true, pattern: default_pattern(), keep: true }
+        Self { photo: true, pattern: default_pattern(), unique: false, keep: true }
     }
 }
 
@@ -87,13 +90,70 @@ pub fn cover_seed(song: &crate::library::Song) -> String {
 const SEE_THROUGH: [&str; 2] = ["identicon", "rings"];
 const BACKDROPS: [&str; 5] = ["b6e3f4", "c0aede", "d1d4f9", "ffd5dc", "ffdfbf"];
 
+/// FNV-1a over the UTF-8 bytes; the window's `coverArt.ts` computes the same.
+fn fnv1a(text: &str) -> u32 {
+    text.bytes().fold(0x811c_9dc5u32, |hash, byte| (hash ^ u32::from(byte)).wrapping_mul(0x0100_0193))
+}
+
+/// The words a unique pattern's shapes come from: a track without words, its title.
+fn words<'a>(lyrics: &'a str, title: &'a str) -> &'a str {
+    if lyrics.trim().is_empty() { title.trim() } else { lyrics.trim() }
+}
+
+/// A track's unique pattern in a style: the words draw the shapes, the music
+/// style picks each colour from the pattern style's own palette. A new style
+/// keeps the shapes in new colours; new words keep the colours in new shapes.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Unique {
+    pub pattern: String,
+    pub seed: String,
+    /// `{slot}Color` and the one colour of the palette taken for it.
+    pub colors: Vec<(String, String)>,
+}
+
+pub fn unique(pattern: &str, style: &str, lyrics: &str, title: &str) -> Unique {
+    let style = style.trim();
+    let definition: serde_json::Value = dicebear_styles::get(pattern).and_then(|text| serde_json::from_str(text).ok()).unwrap_or_default();
+    let mut colors = Vec::new();
+    if let Some(slots) = definition["colors"].as_object() {
+        for (slot, color) in slots {
+            // a colour picked against another is the style's own choice
+            if color.get("contrastTo").is_some() {
+                continue;
+            }
+            let Some(values) = color["values"].as_array().filter(|values| !values.is_empty()) else { continue };
+            let value = values[fnv1a(&format!("{style}\u{0}{slot}")) as usize % values.len()].as_str().unwrap_or_default();
+            colors.push((format!("{slot}Color"), value.trim_start_matches('#').to_owned()));
+        }
+    }
+    Unique { pattern: pattern.to_owned(), seed: words(lyrics, title).to_owned(), colors }
+}
+
+impl Unique {
+    /// What the placeholder is recorded as: a changed style or text draws it again.
+    pub fn label(pattern: &str, style: &str, lyrics: &str, title: &str) -> String {
+        format!("pattern:{pattern}:{:08x}{:08x}", fnv1a(style.trim()), fnv1a(words(lyrics, title)))
+    }
+
+    pub fn png(&self, size: u32) -> Result<Vec<u8>> {
+        rasterise(&draw(&self.pattern, &self.seed, size, &self.colors)?, size)
+    }
+}
+
 /// A pattern for a seed, as SVG.
 pub fn pattern_svg(pattern: &str, seed: &str, size: u32) -> Result<String> {
+    draw(pattern, seed, size, &[])
+}
+
+fn draw(pattern: &str, seed: &str, size: u32, colors: &[(String, String)]) -> Result<String> {
     let definition = dicebear_styles::get(pattern).ok_or_else(|| anyhow!("there is no cover pattern '{pattern}'"))?;
     let style = dicebear_core::Style::from_str(definition).with_context(|| format!("read the cover pattern {pattern}"))?;
     let mut options = serde_json::json!({ "seed": seed, "size": size });
     if SEE_THROUGH.contains(&pattern) {
         options["backgroundColor"] = serde_json::json!(BACKDROPS);
+    }
+    for (option, color) in colors {
+        options[option] = serde_json::json!([color]);
     }
     let avatar = dicebear_core::Avatar::new(&style, options).with_context(|| format!("draw the cover pattern {pattern}"))?;
     Ok(avatar.to_svg().to_owned())
@@ -101,8 +161,11 @@ pub fn pattern_svg(pattern: &str, seed: &str, size: u32) -> Result<String> {
 
 /// A pattern for a seed as the PNG that is written into a track.
 pub fn pattern_png(pattern: &str, seed: &str, size: u32) -> Result<Vec<u8>> {
-    let svg = pattern_svg(pattern, seed, size)?;
-    let tree = resvg::usvg::Tree::from_str(&svg, &resvg::usvg::Options::default()).context("read the pattern's SVG")?;
+    rasterise(&pattern_svg(pattern, seed, size)?, size)
+}
+
+fn rasterise(svg: &str, size: u32) -> Result<Vec<u8>> {
+    let tree = resvg::usvg::Tree::from_str(svg, &resvg::usvg::Options::default()).context("read the pattern's SVG")?;
     let mut pixmap = resvg::tiny_skia::Pixmap::new(size, size).ok_or_else(|| anyhow!("a {size}px canvas for the pattern"))?;
     resvg::render(&tree, resvg::tiny_skia::Transform::default(), &mut pixmap.as_mut());
     pixmap.encode_png().context("encode the pattern as PNG")
@@ -546,6 +609,34 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_unique_pattern_takes_its_shapes_from_the_words_and_its_colours_from_the_style() {
+        let night = unique("squircles", "dark synthwave, male vocal", "[Verse 1]\nneon on the glass", "Night");
+        let restyled = unique("squircles", "indie pop, warm female vocal", "[Verse 1]\nneon on the glass", "Night");
+        let rewritten = unique("squircles", "dark synthwave, male vocal", "[Verse 1]\nriver in the morning", "Night");
+        assert_eq!(night.seed, restyled.seed, "the same words draw the same shapes");
+        assert_ne!(night.colors, restyled.colors, "another style colours them otherwise");
+        assert_eq!(night.colors, rewritten.colors, "other words keep the style's colours");
+        assert_ne!(night.seed, rewritten.seed);
+        let palette: serde_json::Value = serde_json::from_str(dicebear_styles::get("squircles").unwrap()).unwrap();
+        for (option, color) in &night.colors {
+            let slot = option.trim_end_matches("Color");
+            let values: Vec<String> = palette["colors"][slot]["values"].as_array().unwrap().iter().map(|value| value.as_str().unwrap().trim_start_matches('#').to_owned()).collect();
+            assert!(values.contains(color), "{option} {color} comes from the style's own palette");
+        }
+        assert!(!night.colors.iter().any(|(option, _)| option == "shapeColor"), "a colour the style picks against another stays its own");
+        assert_eq!(unique("waves", "pop", "", "Untitled").seed, "Untitled", "a track without words takes its title");
+        assert!(night.png(64).unwrap().starts_with(b"\x89PNG"));
+        assert_ne!(Unique::label("squircles", "pop", "words", "t"), Unique::label("squircles", "rock", "words", "t"));
+    }
+
+    /// The window draws the same: `coverArt.test.ts` holds these colours too.
+    #[test]
+    fn a_unique_pattern_has_the_colours_the_window_draws() {
+        let night = unique("waves", "dark synthwave, male vocal", "neon on the glass", "Night");
+        assert_eq!(night.colors, vec![("backgroundColor".to_owned(), "be185d".to_owned())]);
+    }
+
+    #[test]
     fn every_pattern_draws_the_same_picture_for_the_same_seed() {
         for pattern in PATTERNS {
             let first = pattern_svg(pattern, "night", 64).unwrap();
@@ -573,7 +664,7 @@ mod tests {
         let look: CoverLook = serde_json::from_value(serde_json::json!({ "pattern": "adventurer" })).unwrap();
         assert!(look.photo && look.keep, "photo and keeping are on unless turned off");
         assert_eq!(look.checked().pattern, "waves");
-        assert_eq!(CoverLook { photo: false, pattern: "blobs".into(), keep: true }.label(), "pattern:blobs");
+        assert_eq!(CoverLook { photo: false, pattern: "blobs".into(), unique: false, keep: true }.label(), "pattern:blobs");
     }
 
     #[test]

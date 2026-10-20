@@ -358,7 +358,7 @@ fn annotations(name: &str) -> Value {
     // a verb that changes something outweighs a noun that reads
     const CHANGES: &[&str] = &["install", "import", "remove", "delete", "refresh", "create", "update", "start", "cancel", "select", "download", "apply", "restart"];
     // reads whose names the rules above miss: create_form names the create page
-    const READ_NAMES: &[&str] = &["lyrics_find", "cover_prompt_render", "studio_wait", "engine_presets_get", "assistant_requests_wait", "ui_console", "song_defaults", "create_form_get", "library_liked"];
+    const READ_NAMES: &[&str] = &["assistant_cli_agents", "system_gpus", "cover_scenes", "cover_photos_search", "video_backgrounds_search", "network_proxy_test", "journal_read", "lyrics_find", "cover_prompt_render", "studio_wait", "engine_presets_get", "assistant_requests_wait", "ui_console", "song_defaults", "create_form_get", "library_liked"];
     // writes over what was stored, so the earlier content is gone: a client asks first
     const OVERWRITES: &[&str] = &["library_song_update", "playlist_update", "dataset_update", "dataset_song_update", "dataset_song_describe", "dataset_prepare", "lora_update", "stems_split", "karaoke_make", "midi_transcribe", "cover_draw", "cover_set_from_file", "openrouter_set_key"];
     let changes = CHANGES.iter().any(|verb| name.split('_').any(|word| word == *verb));
@@ -376,6 +376,13 @@ fn annotations(name: &str) -> Value {
 /// controls, answers that store nothing and the service's upkeep leave no line;
 /// a test holds every other tool to this list.
 const JOURNAL: &[(&str, &str, &str)] = &[
+    ("network_proxy_set", "updated", "settings"),
+    ("network_access_set", "updated", "settings"),
+    ("cover_look_set", "updated", "settings"),
+    ("midi_set", "updated", "midi"),
+    ("library_song_note_set", "updated", "song"),
+    ("song_cover_photo_set", "updated", "cover"),
+    ("song_cover_pattern_set", "updated", "cover"),
     ("song_create", "started", "generation"),
     ("song_replay", "started", "generation"),
     ("song_job_cancel", "cancelled", "generation"),
@@ -420,6 +427,7 @@ const JOURNAL: &[(&str, &str, &str)] = &[
     ("lora_install_catalog", "installed", "lora"),
     ("lora_install_hf", "installed", "lora"),
     ("lora_import_files", "installed", "lora"),
+    ("lora_import_folder", "installed", "lora"),
     ("lora_update", "updated", "lora"),
     ("lora_delete", "deleted", "lora"),
     ("lora_export_comfyui", "exported", "lora"),
@@ -1629,7 +1637,7 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "stems_split",
-                description: "Split a library song into six stems (drums, bass, other, vocals, guitar, piano) with HT-Demucs. Each stem becomes a track of the library made from the song (made_from, made_by stems), replacing the stems of an earlier split; stems_get names them. A stem is not split again: split the song it came from. Wait with studio_wait until stems.",
+                description: "Split a library song into stems with the chosen separator: six (drums, bass, other, vocals, guitar, piano) with HT-Demucs, or vocals and instrumental with Mel-Band RoFormer (separator_settings_get names it). Each stem becomes a track of the library made from the song (made_from, made_by stems), replacing the stems of an earlier split; stems_get names them. A stem is not split again: split the song it came from. Wait with studio_wait until stems.",
                 schema: || id_only("song_id", "library song id"),
                 call: |args| post(format!("/v1/library/songs/{}/stems", segment(&text(args, "song_id")?)), json!({})),
             },
@@ -1794,8 +1802,8 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "assistant_set",
-                description: "Choose the writing assistant: provider none, local (an OpenAI-compatible server at local_base_url with local_model), managed (a model the studio runs: managed_model, or a GGUF at managed_path) or openrouter (openrouter_model); reasoning_effort off, minimal, low, medium or high.",
-                schema: || object(json!({ "provider": { "type": "string", "enum": ["none", "local", "managed", "openrouter"] }, "local_base_url": { "type": "string" }, "local_model": { "type": "string" }, "managed_model": { "type": "string" }, "managed_path": { "type": "string" }, "openrouter_model": { "type": "string" }, "reasoning_effort": { "type": "string" } }), &[]),
+                description: "Choose the writing assistant: provider none, local (an OpenAI-compatible server at local_base_url with local_model), managed (a model the studio runs: managed_model, or a GGUF at managed_path), openrouter (openrouter_model), agent (the connected MCP agent) or cli (an agent CLI on this machine: cli_agent, cli_model, cli_path); reasoning_effort off, minimal, low, medium or high.",
+                schema: || object(json!({ "provider": { "type": "string", "enum": ["none", "local", "managed", "openrouter", "agent", "cli"] }, "local_base_url": { "type": "string" }, "local_model": { "type": "string" }, "managed_model": { "type": "string" }, "managed_path": { "type": "string" }, "openrouter_model": { "type": "string" }, "cli_agent": { "type": "string" }, "cli_model": { "type": "string" }, "cli_path": { "type": "string" }, "reasoning_effort": { "type": "string" } }), &[]),
                 call: |args| send(Method::PUT, "/v1/assistant/status".into(), args.clone()),
             },
             Tool {
@@ -1803,6 +1811,12 @@ fn tools() -> &'static [Tool] {
                 description: "The models an OpenAI-compatible local server (LM Studio, Ollama...) at base offers.",
                 schema: || id_only("base", "the server's base URL, e.g. http://127.0.0.1:1234/v1"),
                 call: |args| get(format!("/v1/assistant/local-models?base={}", segment(&text(args, "base")?))),
+            },
+            Tool {
+                name: "assistant_cli_agents",
+                description: "The agent CLIs the cli assistant can run (Claude Code, Codex, opencode, Antigravity, Muse Code): which are installed, where, their version and default model, and how to install and sign in to the others.",
+                schema: || object(json!({}), &[]),
+                call: |_| get("/v1/assistant/cli-agents".into()),
             },
             Tool {
                 name: "assistant_runtime",
@@ -1848,7 +1862,7 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "karaoke_settings_set",
-                description: "Choose the recogniser used for karaoke and for dataset lyrics: enabled, provider (parakeet, whisper, openrouter), whisper_model, openrouter_model, runtime (cpu, cuda).",
+                description: "Choose the recogniser used for karaoke and for dataset lyrics: enabled, provider (parakeet, whisper, openrouter), whisper_model (for parakeet: parakeet-tdt-int8 is Parakeet v3, parakeet-ultra-int8 is Ultra, both on transcribe.cpp), openrouter_model, runtime (cpu, or cuda for the card: transcribe.cpp runs CUDA on an NVIDIA card, Vulkan on any other).",
                 schema: || object(json!({ "enabled": { "type": "boolean" }, "provider": { "type": "string" }, "whisper_model": { "type": "string" }, "openrouter_model": { "type": "string" }, "runtime": { "type": "string" } }), &[]),
                 call: |args| send(Method::PUT, "/v1/karaoke/status".into(), args.clone()),
             },
@@ -1920,7 +1934,7 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "separator_settings_set",
-                description: "Save separator settings: the object as separator_settings_get returns it, with your changes.",
+                description: "Save separator settings: the object as separator_settings_get returns it, with your changes. engine htdemucs splits six stems; roformer (Mel-Band RoFormer, Dub Studio's separator) splits the vocals and the instrumental, more cleanly, and also separates the vocals of training; install it with separator_install after choosing it.",
                 schema: || json!({ "type": "object" }),
                 call: |args| send(Method::PUT, "/v1/separation/settings".into(), args.clone()),
             },
@@ -2045,6 +2059,12 @@ fn tools() -> &'static [Tool] {
                 description: "Open a VST3 plugin's own window for the user to set it; state_id keeps its settings for the chain.",
                 schema: || object(json!({ "path": { "type": "string" }, "state_id": { "type": "string" } }), &["path"]),
                 call: |args| post("/v1/processing/vst/editor".into(), args.clone()),
+            },
+            Tool {
+                name: "lora_import_folder",
+                description: "Install every LoRA of a folder on this computer and its subfolders without copying it: a folder with adapter_config.json is one LoRA, elsewhere each .safetensors is one; files are hard-linked, and copied only from another drive (copied: true says which).",
+                schema: || object(json!({ "path": { "type": "string", "description": "the folder, e.g. the LoRA folder ComfyUI or a trainer uses" } }), &["path"]),
+                call: |args| post("/v1/adapters/import-folder".into(), json!({ "path": text(args, "path")? })),
             },
             Tool {
                 name: "lora_import_files",
@@ -2251,6 +2271,136 @@ fn tools() -> &'static [Tool] {
                 description: "Remove a finished training run and its checkpoints.",
                 schema: || id_only("run_id", "training run id"),
                 call: |args| send(Method::DELETE, format!("/v1/training/runs/{}", segment(&text(args, "run_id")?)), json!({})),
+            },
+            Tool {
+                name: "network_proxy_get",
+                description: "How the studio reaches the internet: no proxy, the system's, or a proxy address of a kind (http, https, socks5, socks4); with why a saved address cannot be used, when it cannot.",
+                schema: nothing,
+                call: |_| get("/v1/network/proxy".into()),
+            },
+            Tool {
+                name: "network_proxy_set",
+                description: "Set how the studio reaches the internet, as Settings - Network does: mode off, system or custom (with address and kind). Test it first with network_proxy_test.",
+                schema: || object(json!({ "mode": { "type": "string", "enum": ["off", "system", "custom"] }, "address": { "type": "string", "description": "host:port of a custom proxy" }, "kind": { "type": "string", "enum": ["http", "https", "socks5", "socks4"] } }), &["mode", "kind"]),
+                call: |args| send(Method::PUT, "/v1/network/proxy".into(), args.clone()),
+            },
+            Tool {
+                name: "network_proxy_test",
+                description: "Try a proxy setting without keeping it: says whether Hugging Face and OpenRouter answer through it.",
+                schema: || object(json!({ "mode": { "type": "string", "enum": ["off", "system", "custom"] }, "address": { "type": "string" }, "kind": { "type": "string", "enum": ["http", "https", "socks5", "socks4"] } }), &["mode", "kind"]),
+                call: |args| post("/v1/network/proxy/test".into(), args.clone()),
+            },
+            Tool {
+                name: "network_access_get",
+                description: "Whether the studio can be opened from other computers and phones, its address there and the access key, as Settings - Network shows.",
+                schema: nothing,
+                call: |_| get("/v1/network".into()),
+            },
+            Tool {
+                name: "network_access_set",
+                description: "Turn access from the network on or off (enabled), or make a new access key (new_key: every browser signed in with the old one is out). It takes effect when the studio is opened again.",
+                schema: || object(json!({ "enabled": { "type": "boolean" }, "new_key": { "type": "boolean" } }), &[]),
+                call: |args| send(Method::PUT, "/v1/network".into(), args.clone()),
+            },
+            Tool {
+                name: "runtime_status",
+                description: "Whether a downloadable part is installed and what it would download: midi (the Audio to MIDI transcriber), training_pack (the trainer and its models) or training_listen (the recognisers that hear a dataset).",
+                schema: || object(json!({ "part": { "type": "string", "enum": ["midi", "training_pack", "training_listen"] } }), &["part"]),
+                call: |args| get(match text(args, "part")?.as_str() {
+                    "midi" => "/v1/midi/runtime".into(),
+                    "training_pack" => "/v1/training/pack/runtime".into(),
+                    "training_listen" => "/v1/training/listen/runtime".into(),
+                    other => return Err(format!("no part '{other}': midi, training_pack or training_listen")),
+                }),
+            },
+            Tool {
+                name: "midi_set",
+                description: "Give a library song the MIDI file at path, in place of the one Audio to MIDI made, as the MIDI editor saves it.",
+                schema: || object(json!({ "song_id": { "type": "string" }, "path": { "type": "string", "description": "a .mid file on this computer" } }), &["song_id", "path"]),
+                call: |args| {
+                    use base64::Engine;
+                    let path = text(args, "path")?;
+                    let data = std::fs::read(&path).map_err(|error| format!("read {path}: {error}"))?;
+                    send(Method::PUT, format!("/v1/library/songs/{}/midi", segment(&text(args, "song_id")?)), json!({ "data": base64::engine::general_purpose::STANDARD.encode(data) }))
+                },
+            },
+            Tool {
+                name: "system_gpus",
+                description: "The NVIDIA cards of this computer and the one the studio computes on, as Settings - Local engine lists them.",
+                schema: nothing,
+                call: |_| get("/v1/system/gpus".into()),
+            },
+            Tool {
+                name: "library_song_note_set",
+                description: "Write a library song's note (empty clears it), as the note field of its details does; the note goes into its file as the comment.",
+                schema: || object(json!({ "song_id": { "type": "string" }, "note": { "type": "string" } }), &["song_id", "note"]),
+                call: |args| send(Method::PUT, format!("/v1/library/songs/{}/note", segment(&text(args, "song_id")?)), json!({ "note": args.get("note").and_then(Value::as_str).unwrap_or_default() })),
+            },
+            Tool {
+                name: "journal_read",
+                description: "The Activity page: what agents changed and what the studio said, newest first.",
+                schema: nothing,
+                call: |_| get("/v1/journal".into()),
+            },
+            Tool {
+                name: "journal_clear",
+                description: "Clear the Activity page, as its Clear button does.",
+                schema: nothing,
+                call: |_| send(Method::DELETE, "/v1/journal".into(), json!({})),
+            },
+            Tool {
+                name: "journal_remove",
+                description: "Remove one line of the Activity page by its id (from journal_read).",
+                schema: || object(json!({ "id": { "type": "integer" } }), &["id"]),
+                call: |args| send(Method::DELETE, format!("/v1/journal/{}", args.get("id").and_then(Value::as_i64).ok_or("'id' is required")?), json!({})),
+            },
+            Tool {
+                name: "cover_look_get",
+                description: "What a track without a cover of its own wears (a photo for its style or a pattern, the pattern's style) and whether that picture is saved into the track, as Settings - Cover art shows.",
+                schema: nothing,
+                call: |_| get("/v1/covers/look".into()),
+            },
+            Tool {
+                name: "cover_look_set",
+                description: "Choose what tracks without a cover of their own wear: photo true for a photo for the style, false for a pattern; pattern names the pattern style; unique draws each track's pattern from its own words (the shapes) and music style (the colours) instead of its id; keep saves the picture into the track's file.",
+                schema: || object(json!({ "photo": { "type": "boolean" }, "pattern": { "type": "string" }, "unique": { "type": "boolean" }, "keep": { "type": "boolean" } }), &[]),
+                call: |args| send(Method::PUT, "/v1/covers/look".into(), args.clone()),
+            },
+            Tool {
+                name: "cover_scenes",
+                description: "The photo scenes the studio would search for a style (genre, mood, instruments), as the cover picker suggests them.",
+                schema: || object(json!({ "style": { "type": "string" } }), &["style"]),
+                call: |args| get(format!("/v1/media/scenes?style={}", segment(&text(args, "style")?))),
+            },
+            Tool {
+                name: "cover_photos_search",
+                description: "Free CC0 photos for a cover found by words (q), from Wikimedia Commons; from pages through the results. song_cover_photo_set puts one on a song.",
+                schema: || object(json!({ "q": { "type": "string" }, "from": { "type": "integer" } }), &["q"]),
+                call: |args| get(format!("/v1/media/photos?q={}&from={}", segment(&text(args, "q")?), args.get("from").and_then(Value::as_u64).unwrap_or(0))),
+            },
+            Tool {
+                name: "video_backgrounds_search",
+                description: "Free video backgrounds for a clip found by words (q); from pages through the results. video_set puts one in the video editor.",
+                schema: || object(json!({ "q": { "type": "string" }, "from": { "type": "integer" } }), &["q"]),
+                call: |args| get(format!("/v1/media/videos?q={}&from={}", segment(&text(args, "q")?), args.get("from").and_then(Value::as_u64).unwrap_or(0))),
+            },
+            Tool {
+                name: "song_cover_photo_set",
+                description: "Put a photo from cover_photos_search on a library song as its cover (image: the photo's address, page: its page).",
+                schema: || object(json!({ "song_id": { "type": "string" }, "image": { "type": "string" }, "page": { "type": "string" } }), &["song_id", "image"]),
+                call: |args| post(format!("/v1/library/songs/{}/cover/photo", segment(&text(args, "song_id")?)), body_without(args, &["song_id"])),
+            },
+            Tool {
+                name: "song_cover_pattern_set",
+                description: "Put a pattern on a library song as its cover: pattern names the style (cover_look_get lists them), seed makes it this song's own.",
+                schema: || object(json!({ "song_id": { "type": "string" }, "pattern": { "type": "string" }, "seed": { "type": "string" } }), &["song_id", "pattern", "seed"]),
+                call: |args| post(format!("/v1/library/songs/{}/cover/pattern", segment(&text(args, "song_id")?)), body_without(args, &["song_id"])),
+            },
+            Tool {
+                name: "playlist_get",
+                description: "One playlist with its songs in their order.",
+                schema: || id_only("playlist_id", "playlist id"),
+                call: |args| get(format!("/v1/library/playlists/{}", segment(&text(args, "playlist_id")?))),
             },
         ]
     })
@@ -2712,6 +2862,12 @@ mod tests {
     }
 
     #[test]
+    fn every_tool_is_in_the_skill() {
+        let missing: Vec<&str> = tools().iter().map(|tool| tool.name).filter(|name| !SKILL.contains(&format!("`{name}`"))).collect();
+        assert!(missing.is_empty(), "docs/mcp-skill.md does not name {missing:?}");
+    }
+
+    #[test]
     fn every_tool_has_a_unique_name_and_an_object_schema() {
         let mut names: Vec<&str> = tools().iter().map(|tool| tool.name).collect();
         let count = names.len();
@@ -2849,6 +3005,9 @@ mod tests {
             "library_song_describe_style",
             "song_plan",
             "song_understand",
+            // the journal itself
+            "journal_clear",
+            "journal_remove",
             // the service's upkeep
             "engine_restart",
             "resources_rescan",
@@ -2905,6 +3064,171 @@ mod tests {
         assert!(local_origin(&HeaderMap::new()), "an agent sends no origin");
         assert!(from("http://127.0.0.1:3791") && from("http://localhost") && from("http://tauri.localhost") && from("tauri://localhost") && from("http://[::1]:8791"));
         assert!(!from("https://example.com") && !from("http://127.0.0.1.evil.com") && !from("null"));
+    }
+
+    // ---------------------------------------------------------------- the router, read from its source
+
+    /// The studio's routes: (METHOD, path pattern), the hub's own router aside.
+    fn router_routes() -> Vec<(String, String)> {
+        let source = include_str!("lib.rs").replace("\r\n", "\n");
+        let body = source.split("let app = Router::new()").nth(1).expect("the router").split(".merge(state.hub").next().unwrap();
+        let code: String = body.lines().map(|line| line.split("//").next().unwrap_or_default()).collect::<Vec<_>>().join("\n");
+        let mut routes = Vec::new();
+        for chunk in code.split(".route(").skip(1) {
+            let path = chunk.trim_start().strip_prefix('"').and_then(|rest| rest.split('"').next()).expect("a route's path").to_string();
+            let handlers = chunk.split(".layer(").next().unwrap();
+            for method in ["get", "post", "patch", "put", "delete"] {
+                let call = format!("{method}(");
+                let called = handlers.match_indices(&call).any(|(at, _)| !handlers[..at].chars().last().is_some_and(|c| c.is_alphanumeric() || c == '_'));
+                if called {
+                    routes.push((method.to_uppercase(), path.clone()));
+                }
+            }
+        }
+        routes
+    }
+
+    fn route_of(pattern: &str, path: &str) -> bool {
+        let path = path.split('?').next().unwrap_or_default();
+        let (wanted, given): (Vec<&str>, Vec<&str>) = (pattern.split('/').collect(), path.split('/').collect());
+        wanted.len() == given.len() && wanted.iter().zip(&given).all(|(part, value)| part.starts_with('{') && !value.is_empty() || part == value)
+    }
+
+    /// Routes an agent is not given, and why.
+    const NOT_TOOLS: &[(&str, &str, &str)] = &[
+        ("GET", "/health", "the service's identity for the desktop shell: initialize names the server and its version"),
+        ("POST", "/engine/pick-executable", "a file dialog for the person: engine_options_set takes the executable's path"),
+        ("GET", "/v1/engine/progress", "the starting page's progress stream: studio_status and engine_logs"),
+        ("GET", "/v1/proxy/image", "pictures from the internet relayed for the page"),
+        ("POST", "/v1/files/save", "a save dialog for the person: the tools write to the path the agent names"),
+        ("POST", "/v1/files/save/{id}", "a save dialog for the person: the tools write to the path the agent names"),
+        ("POST", "/v1/files/reveal", "shows a file in the person's file manager"),
+        ("GET", "/v1/skins", "the page's Winamp reads its skins here: winamp_skins asks the window for the same list"),
+        ("POST", "/v1/skins", "the page's upload of a .wsz: winamp_skin_add adds one from a path"),
+        ("GET", "/v1/skins/file/{name}", "a skin's file for the page's Winamp"),
+        ("POST", "/v1/assistant/local-key", "a key the person types for their own server; agents are not given keys"),
+        ("POST", "/v1/assistant/write/stream", "the page's streamed answer: assistant_write gives the whole one"),
+        ("GET", "/editor", "the MIDI editor's page: the window shows it"),
+        ("GET", "/editor/{*path}", "the MIDI editor's files: the window shows it"),
+        ("GET", "/v1/processing/preview", "audio for the page's preview player: processing_get names the result"),
+        ("GET", "/v1/training/datasets/{id}/items/{item}/audio", "audio for the page's player: dataset_song_files names the files"),
+        ("POST", "/v1/videos", "the video the page rendered, sent back to be kept: video_render renders and saves it"),
+        ("GET", "/v1/midi/notes", "the page's live piano roll while Audio to MIDI runs: studio_wait follows the job"),
+        ("GET", "/v1/library/songs/{id}/midi/file", "the .mid as a download for the page: midi_get gives the song's MIDI"),
+        ("GET", "/v1/adapters/{id}/comfyui", "the page's download of the file lora_export_comfyui writes to a path"),
+        ("GET", "/v1/library/songs/{id}/stems/{stem}", "a stem's audio for the page's player: stems_get names the files"),
+        ("POST", "/v1/library/songs", "a bare record without audio, kept for the old page: library_import_audio brings songs"),
+        ("POST", "/v1/journal", "the window's own messages; the lines of an agent's changes are written by the MCP server itself"),
+        ("GET", "/v1/library/media/{song_id}", "a song's audio for the page's player: library_song_files names the file"),
+        ("GET", "/v1/library/songs/{id}/cover", "a cover picture for the page: library_song_files names the file"),
+        ("GET", "/v1/library/songs/{id}/cover/placeholder", "the picture the page shows while a song has no cover"),
+    ];
+
+    /// What the composite tools read.
+    const COMPOSITE_ROUTES: &[(&str, &[(&str, &str)])] = &[
+        ("composite:status", &[("GET", "/v1/music/jobs"), ("GET", "/v1/activity"), ("GET", "/v1/training"), ("GET", "/v1/processing"), ("GET", "/v1/separation/status"), ("GET", "/v1/midi")]),
+        ("composite:wait", &[("GET", "/v1/music/jobs/x1"), ("GET", "/v1/music/jobs"), ("GET", "/v1/activity"), ("GET", "/v1/training"), ("GET", "/v1/processing"), ("GET", "/v1/separation/status"), ("GET", "/v1/midi")]),
+        ("composite:questions", &[]),
+        ("composite:answer", &[]),
+        ("composite:equalizer_export", &[]),
+        ("composite:winamp_skin_add", &[]),
+    ];
+
+    /// Arguments for every property of a tool, and one set more for each other choice of an enum.
+    fn samples(tool: &Tool, file: &std::path::Path, image: &std::path::Path) -> Vec<Value> {
+        let schema = (tool.schema)();
+        let properties = schema["properties"].as_object().cloned().unwrap_or_default();
+        let sample = |name: &str, property: &Value| -> Value {
+            if let Some(first) = property["enum"].as_array().and_then(|choices| choices.first()) {
+                return first.clone();
+            }
+            let kind = match &property["type"] {
+                Value::Array(kinds) => kinds[0].as_str().unwrap_or("string").to_string(),
+                other => other.as_str().unwrap_or("string").to_string(),
+            };
+            match (kind.as_str(), name) {
+                ("integer", _) => json!(1),
+                ("number", _) => json!(1.5),
+                ("boolean", _) => json!(true),
+                ("array", _) if property["items"]["type"] == "integer" => json!([1]),
+                ("array", _) => json!(["x1"]),
+                ("object", _) => json!({}),
+                (_, name) if tool.name.contains("folder") && name.contains("path") => json!(file.parent().unwrap_or(file).to_string_lossy()),
+                (_, name) if (name.contains("art") || name.contains("image") || name.contains("cover")) && name.contains("path") => json!(image.to_string_lossy()),
+                (_, name) if name.contains("path") || name == "file" || name == "folder" => json!(file.to_string_lossy()),
+                _ => json!("x1"),
+            }
+        };
+        let base: serde_json::Map<String, Value> = properties.iter().map(|(name, property)| (name.clone(), sample(name, property))).collect();
+        let mut all = vec![Value::Object(base.clone())];
+        for (name, property) in &properties {
+            for choice in property["enum"].as_array().into_iter().flatten().skip(1) {
+                let mut other = base.clone();
+                other.insert(name.clone(), choice.clone());
+                all.push(Value::Object(other));
+            }
+        }
+        all
+    }
+
+    /// The routes a tool reaches: (METHOD, path); the window's commands reach none.
+    fn reached_by(tool: &Tool, file: &std::path::Path, image: &std::path::Path, refused: &mut Vec<String>) -> Vec<(String, String)> {
+        let mut reached = Vec::new();
+        for args in samples(tool, file, image) {
+            let call = match (tool.call)(&args) {
+                Ok(call) => call,
+                Err(problem) => {
+                    refused.push(format!("{} refused {args}: {problem}", tool.name));
+                    continue;
+                }
+            };
+            if matches!(call.payload, Payload::Window { .. }) {
+                continue;
+            }
+            match COMPOSITE_ROUTES.iter().find(|(path, _)| *path == call.path) {
+                Some((_, reads)) => reached.extend(reads.iter().map(|(method, path)| (method.to_string(), path.to_string()))),
+                None => {
+                    assert!(!call.path.starts_with("composite:"), "{} is a composite this test does not know", tool.name);
+                    reached.push((call.method.to_string(), call.path.clone()));
+                }
+            }
+        }
+        reached
+    }
+
+    #[test]
+    fn every_route_is_a_tool() {
+        let folder = tempfile::tempdir().unwrap();
+        let file = folder.path().join("song.wav");
+        std::fs::write(&file, b"x").unwrap();
+        let image = folder.path().join("cover.png");
+        std::fs::write(&image, b"x").unwrap();
+        let mut refused = Vec::new();
+        let routes = router_routes();
+        assert!(routes.len() > 100, "the router read: {routes:?}");
+        let mut covered = vec![false; routes.len()];
+        for tool in tools() {
+            for (method, path) in reached_by(tool, &file, &image, &mut refused) {
+                let found: Vec<usize> = routes.iter().enumerate().filter(|(_, (m, p))| *m == method && route_of(p, &path)).map(|(at, _)| at).collect();
+                assert!(!found.is_empty(), "{} calls {method} {path}, a route the studio does not have", tool.name);
+                for at in found {
+                    covered[at] = true;
+                }
+            }
+        }
+        assert!(refused.is_empty(), "tools that refused the test's arguments, so their routes are not seen: {refused:#?}");
+        let by_tool = covered.clone();
+        let mut stale = Vec::new();
+        for (method, path) in NOT_TOOLS.iter().map(|(method, path, _)| (method, path)) {
+            let at = routes.iter().position(|(m, p)| m == method && p == path).unwrap_or_else(|| panic!("{method} {path} of NOT_TOOLS is not a route of the studio"));
+            if by_tool[at] {
+                stale.push(format!("{method} {path}"));
+            }
+            covered[at] = true;
+        }
+        assert!(stale.is_empty(), "these routes of NOT_TOOLS are reached by a tool: drop them from NOT_TOOLS: {stale:?}");
+        let missing: Vec<String> = routes.iter().zip(&covered).filter(|(_, done)| !**done).map(|((method, path), _)| format!("{method} {path}")).collect();
+        assert!(missing.is_empty(), "these routes have no tool: give each one, or put it into NOT_TOOLS with why: {missing:?}");
     }
 
     #[tokio::test]

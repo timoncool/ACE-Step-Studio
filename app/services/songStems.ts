@@ -1,4 +1,5 @@
 import type { Song } from '../types';
+import { librarySongsNow } from './studioQueries';
 
 /** The stems a separation makes, in the order a mixer lists them. */
 const STEM_ORDER = ['vocals', 'drums', 'bass', 'guitar', 'piano', 'other'];
@@ -13,6 +14,13 @@ export function stemOf(song: Pick<Song, 'derived'>): string | null {
 /** What a track's placeholder cover - the stock photo or the pattern - is drawn from: a stem wears its song's. */
 export function coverSeed(song: Pick<Song, 'id' | 'title' | 'derived'>): string {
   return (stemOf(song) !== null && song.derived?.from) || song.id || song.title;
+}
+
+/** What a track's unique pattern is drawn from: a stem's are its song's, so it wears the same. */
+export function uniqueSource(song: Pick<Song, 'title' | 'derived' | 'style' | 'lyrics'>): { style: string; lyrics: string; title: string } {
+  const parent = stemOf(song) !== null && song.derived?.from ? librarySongsNow()?.find((candidate) => candidate.id === song.derived?.from) : undefined;
+  const source = parent ?? song;
+  return { style: source.style ?? '', lyrics: source.lyrics ?? '', title: source.title ?? '' };
 }
 
 const stemRank = (song: Song) => {

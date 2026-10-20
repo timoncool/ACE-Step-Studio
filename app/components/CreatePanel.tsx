@@ -17,6 +17,7 @@ import type { AdapterUse } from '../services/adapters';
 import { randomExample, randomIdea, someGenres } from '../services/examples';
 import { apiUrl } from '../services/apiBase';
 import { SCHEDULERS, SOLVERS } from '../services/aceEngine';
+import { explainCliFailure } from '../services/cliFailure';
 
 /**
  * The ACE-Step 1.5 request form.
@@ -95,6 +96,22 @@ const keptDuration = (): string => {
   } catch {
     return '';
   }
+};
+/** The file format last chosen by hand, kept between sessions like the duration. */
+/** The words of the form (name, style, lyrics), kept across restarts until Reset clears them. */
+const DRAFT_KEY = 'studio.createDraft';
+function keptDraft(): Record<string, string> {
+  try {
+    const kept: unknown = JSON.parse(window.localStorage.getItem(DRAFT_KEY) ?? '{}');
+    return kept && typeof kept === 'object' ? (kept as Record<string, string>) : {};
+  } catch { return {}; }
+}
+
+const keptFormat = (): AceCreateRequest['output_format'] => {
+  try {
+    const kept = window.localStorage.getItem('studio.createFormat');
+    return kept === 'mp3' || kept === 'wav32' ? kept : 'flac';
+  } catch { return 'flac'; }
 };
 const MAX_TAKES = 9;
 
@@ -244,9 +261,12 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const { t } = useI18n();
   const tt = t as unknown as (key: string) => string;
 
-  const [name, setName] = useState('');
-  const [caption, setCaption] = useState('');
-  const [lyrics, setLyrics] = useState('');
+  const [name, setName] = useState(() => keptDraft().name ?? '');
+  const [caption, setCaption] = useState(() => keptDraft().caption ?? '');
+  const [lyrics, setLyrics] = useState(() => keptDraft().lyrics ?? '');
+  useEffect(() => {
+    try { window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ name, caption, lyrics })); } catch { /* kept until a reload */ }
+  }, [name, caption, lyrics]);
   const [instrumental, setInstrumental] = useState(false);
   const [language, setLanguage] = useState('en');
   // a language picked by hand, or brought by a request, is not overruled by the lyric's script
@@ -320,7 +340,11 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const [randomizeSeed, setRandomizeSeed] = useState(true);
   const [seed, setSeed] = useState('');
   const [mp3Bitrate, setMp3Bitrate] = useState('320');
-  const [format, setFormat] = useState<AceCreateRequest['output_format']>('flac');
+  const [format, setFormat] = useState<AceCreateRequest['output_format']>(keptFormat);
+  const chooseFormat = (value: AceCreateRequest['output_format']) => {
+    setFormat(value);
+    try { window.localStorage.setItem('studio.createFormat', value); } catch { /* kept until a reload */ }
+  };
   const [models, setModels] = useState<Partial<Record<'synth_model' | 'lm_model' | 'vae', string>>>({});
   const [adapters, setAdapters] = useState<AdapterUse[]>([]);
   const [groups, setGroups] = useState<Record<string, string>>({});
@@ -479,7 +503,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     setLatentShift(''); setLatentRescale(''); setLmTemperature(''); setLmCfg(''); setLmTopP(''); setLmTopK(''); setRepPenalty(''); setRepMode(''); setRepWindow(''); setDryBase(''); setDryMinLen('');
     setLmNegative(''); setLmSeed(''); setSongs(''); setTakes(''); setSeed(''); setRandomizeSeed(true);
     setCoverStrength(''); setCoverNoise(''); setRepaintStart(''); setRepaintEnd('');
-    setMp3Bitrate('320'); setFormat('flac'); setModels({});
+    setMp3Bitrate('320'); chooseFormat('flac'); setModels({});
     setCfgStart(''); setCfgEnd(''); setRetakeVariance(''); setRetakeSeed(''); setFadeIn(''); setFadeOut(''); setBulk('');
   };
 
@@ -711,7 +735,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       return body;
     } catch (reason) {
       const cancelled = reason instanceof DOMException && reason.name === 'AbortError';
-      if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason));
+      if (!cancelled) setError(explainCliFailure(reason instanceof Error ? reason.message : String(reason), t));
       return null;
     } finally {
       assistRun.current = null;
@@ -739,7 +763,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       setLyrics(body.lyrics);
     } catch (reason) {
       const cancelled = reason instanceof DOMException && reason.name === 'AbortError';
-      if (!cancelled) setError(reason instanceof Error ? reason.message : String(reason));
+      if (!cancelled) setError(explainCliFailure(reason instanceof Error ? reason.message : String(reason), t));
     } finally {
       assistRun.current = null;
       setAssisting(null);
@@ -1597,7 +1621,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
                         </select>
                       </Field>
                       <Field label={t('outputFormat')}>
-                        <select value={format} onChange={event => setFormat(event.target.value as AceCreateRequest['output_format'])} className={CONTROL}>
+                        <select value={format} onChange={event => chooseFormat(event.target.value as AceCreateRequest['output_format'])} className={CONTROL}>
                           <option value="flac">FLAC</option>
                           <option value="mp3">MP3</option>
                           <option value="wav32">WAV (32-bit float)</option>

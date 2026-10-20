@@ -762,7 +762,7 @@ async fn listen_branch(state: &AppState, job: &Job, style_items: &[&training::Da
                 let _finished = Finished(finished);
                 let mut measurer = audio_facts::Measurer::load(&facts_dir, card).map_err(|error| format!("{error:#}"));
                 if matches!(&measurer, Ok(measurer) if !measurer.on_gpu) {
-                    update(&facts_shared, |status| status.notices.push("facts_on_cpu"));
+                    update(&facts_shared, |status| status.notices.push(if crate::lyrics_sync::OnnxFlavour::Auto.card() == Some(crate::lyrics_sync::OnnxCard::DirectMl) { "facts_on_cpu_directml" } else { "facts_on_cpu" }));
                 }
                 for (index, mono) in decoded {
                     let measured = match (&mut measurer, mono) {

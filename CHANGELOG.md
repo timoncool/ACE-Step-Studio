@@ -2,7 +2,34 @@
 
 What changed, newest first. Dates are release dates.
 
-## 2026-10-20 — 3.6.1
+## 2026-10-21 — 3.7.0
+
+### Added
+
+- **Cleaner vocals with Mel-Band RoFormer.** Settings - Models - Stems now offers Mel-Band RoFormer voc_fv6 (Q8_0), Dub Studio's separator run by BSRoformer.cpp, beside HT-Demucs: it splits a track into the vocals and the instrumental, more cleanly, and the vocals of training are separated with it too; on an NVIDIA card it runs on the engine's cuBLAS, elsewhere on the processor. HT-Demucs stays the default for six stems ([YuE2 Studio #108](https://github.com/timoncool/YuE2-Studio/issues/108)).
+- **LoRA from your own folder, without a copy.** LoRA page - Add from folder: every LoRA of a folder you keep for all your programs (ComfyUI, a trainer) and its subfolders is taken in place - a folder with adapter_config.json is one LoRA, elsewhere each .safetensors is one - by a hard link, copied only from another drive, and the studio says which; agents use `lora_import_folder` ([YuE2 Studio #98](https://github.com/timoncool/YuE2-Studio/issues/98)).
+- **A saved stem names its song's tempo and key.** A vocal or any other stem saved for a DAW is named like `Song - vocals - 109 BPM, D major.wav`, as the song records them ([YuE2 Studio #108](https://github.com/timoncool/YuE2-Studio/issues/108)).
+- **A unique pattern for every song.** Settings - Covers - Pattern - Unique pattern of each song: the shapes come from the song's lyrics (a song without lyrics, its title) and the colours from its style, out of the pattern style's own palette, so songs of one style share their colours and new lyrics draw new shapes; a changed style or text draws the pattern again. The choices now read Pattern, Photo, Generation; a photo for the style stays the default ([ACE-Step Studio #52](https://github.com/timoncool/ACE-Step-Studio/issues/52)).
+- **Your own agent CLI writes the words.** Settings - Models - Writing assistant - Agent (CLI): Claude Code, Codex, opencode, Antigravity or Muse Code installed on this computer writes on your own account with it, one hidden run per draft, without tools; the panel shows which are installed, how to install and sign in, and tests one with a short draft. Antigravity runs only sandboxed. Agents see the CLIs with `assistant_cli_agents` (from [YuE2 Studio #112](https://github.com/timoncool/YuE2-Studio/pull/112), thanks to GuilhermeAmado).
+- **An agent reaches everything the studio does.** A test now holds every route of the studio to a tool or to a written reason, and the agent gains what it lacked: the network proxy (get, set, test), access from the network, the Activity journal, the look of tracks without a cover, photo and pattern covers and photo search, video background search, a song's note, its own MIDI file, a playlist by itself, the graphics cards and the downloadable parts' state.
+- **Lyrics in a video clip, found where they are.** The video screen's Text tab always shows the lyrics overlay: a song without karaoke timing gets a button that makes it there, and the overlay turns on when it is done; without karaoke set up it says where to set it up. Until now the overlay section was hidden for such a song ([#118](https://github.com/timoncool/YuE2-Studio/issues/118)).
+
+### Fixed
+
+- **Karaoke on an instrumental no longer hangs on "downloading"**: the studio checked the song after fetching the recogniser and left that download's line running when it then refused the track; the song is checked first, and a finished download ends its line.
+- **A long step no longer gets the engine restarted** ([YuE2 Studio #129](https://github.com/timoncool/YuE2-Studio/issues/129)): an engine inside a long step does not answer its health check in time, and the studio took that for a crash and restarted it, losing the song; while a job is running and the engine process is alive, it is at work.
+- **Auto stays on the graphics card after a silent engine exit** ([YuE2 Studio #127](https://github.com/timoncool/YuE2-Studio/issues/127), [#128](https://github.com/timoncool/YuE2-Studio/pull/128) by ramishi): an exit with no device error in its log (out of memory, a kill, a slow start) no longer moves Auto to the processor for the rest of the session.
+- **The create form keeps its words** ([ACE-Step Studio #54](https://github.com/timoncool/ACE-Step-Studio/issues/54)): the name, the style and the lyrics stay across restarts, as the length and the file format do, until Reset clears them.
+- **The training page says where to install the card runtime.** When preparation measures tempo on the processor, its notice now names the way to the graphics-card ONNX Runtime for this machine's card: Settings → Models → Optional extras → Split into stems → Graphics card on NVIDIA, Karaoke timings → Graphics card on AMD and Intel (DirectML).
+- **A computer's memory as its box says it.** The studio counted RAM in 10⁹-byte gigabytes, so a 32 GB computer read 34 GB (in the issue form too); memory is now counted in 2³⁰-byte gigabytes, as video memory already was, and so are the model sets' needs.
+
+### Changed
+
+- **Karaoke's Parakeet on transcribe.cpp.** Parakeet v3 and Parakeet Ultra run as GGUF Q8_0 on transcribe.cpp, the engine Dub Studio and Speech Studio use, instead of ONNX Runtime: its CUDA build on an NVIDIA card with a CUDA 13 driver, its Vulkan build on any other card (and on Linux without the system's CUDA 13 cuBLAS), its processor build without a card; on a Mac Metal on Apple silicon and the processor on Intel. The files have Dub Studio's names and folders, so one program's copy serves the others, and the model leaves the graphics card when a recognition ends, so the card is the music engine's again. A saved fp32 choice becomes Parakeet v3 (full weights are not kept), and the ONNX Parakeet folders of 3.6 and earlier are removed at start.
+- **Whisper on the graphics card keeps int8 weights** (int8_float16) instead of float16.
+- **Audio to MIDI and the training pack are one download.** The MIDI transcriber, the trainer and the captioner come from one HOT-Step build that shares its graphics-card libraries, in one folder: 133 MB once instead of 126 and 132 MB apart, and installing either one installs both ([YuE2 Studio #104](https://github.com/timoncool/YuE2-Studio/issues/104)).
+
+## 3.6.1 — not released on its own; its fixes are part of 3.7.0
 
 ### Fixed
 

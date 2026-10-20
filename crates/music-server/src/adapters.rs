@@ -520,6 +520,72 @@ impl AdapterLibrary {
         Ok(meta)
     }
 
+/// The adapter already holding these files, by name, size and time of change: a hard link and a copy of a
+    /// file both keep them, so a folder taken twice gives its LoRAs once.
+    pub fn imported_from(&self, files: &[PathBuf]) -> Option<AdapterMeta> {
+        let same = |a: &Path, b: &Path| match (fs::metadata(a), fs::metadata(b)) {
+            (Ok(a), Ok(b)) => a.len() == b.len() && a.modified().ok() == b.modified().ok(),
+            _ => false,
+        };
+        let weights: Vec<&PathBuf> = files.iter().filter(|file| file.file_name().is_some_and(|name| name != "lora.json")).collect();
+        let entries = fs::read_dir(&self.root).ok()?;
+        entries.flatten().find_map(|entry| {
+            let id = entry.file_name().to_str()?.to_owned();
+            let meta = self.read_meta(&id).filter(|meta| meta.engine == self.engine)?;
+            weights.iter().all(|file| file.file_name().is_some_and(|name| same(file, &entry.path().join(name)))).then_some(meta)
+        })
+    }
+
+    /// Installs a LoRA from files on this computer without a second copy: each
+    /// file is hard-linked into the adapter's folder, and copied only where the
+    /// drive cannot link it. Says whether a copy was taken.
+    pub fn import_linked(&self, name: &str, files: &[PathBuf], origin: Origin) -> Result<(AdapterMeta, bool)> {
+        if !files.iter().any(|file| file.extension().is_some_and(|extension| extension == "safetensors")) {
+            bail!("an adapter needs at least one .safetensors file");
+        }
+        let id = format!("{}-{}", slug(name), &uuid::Uuid::now_v7().simple().to_string()[..8]);
+        let folder = self.folder(&id)?;
+        fs::create_dir_all(&folder)?;
+        let mut copied = false;
+        let mut trigger = None;
+        let placed = files.iter().try_for_each(|file| -> Result<()> {
+            let file_name = file.file_name().and_then(|value| value.to_str()).context("a file without a name")?;
+            if file_name == "lora.json" {
+                trigger = fs::read(file).ok().and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok()).and_then(|value| value.get("trigger").and_then(Value::as_str).map(str::to_owned));
+                return Ok(());
+            }
+            let target = folder.join(file_name);
+            if fs::hard_link(file, &target).is_err() {
+                fs::copy(file, &target).with_context(|| format!("copy {}", file.display()))?;
+                copied = true;
+            }
+            Ok(())
+        });
+        if let Err(error) = placed {
+            // the folder holds only this attempt's links and copies; the user's files stay where they are
+            fs::remove_dir_all(&folder).ok();
+            return Err(error);
+        }
+        let meta = AdapterMeta {
+            id,
+            engine: self.engine.clone(),
+            name: Text::Plain(name.trim().to_string()),
+            description: Text::default(),
+            kind: "other".into(),
+            trigger,
+            author: None,
+            page: None,
+            scales: BTreeMap::new(),
+            range: None,
+            model: None,
+            slots: Vec::new(),
+            origin,
+            created_at: now(),
+        };
+        self.write_meta(&meta)?;
+        Ok((meta, copied))
+    }
+
     pub fn update(&self, id: &str, patch: Patch) -> Result<AdapterMeta> {
         let mut meta = self.read_meta(id).with_context(|| format!("no adapter {id}"))?;
         if let Some(name) = patch.name.map(|name| name.trim().to_string()).filter(|name| !name.is_empty()) {
@@ -916,6 +982,45 @@ fn slug(name: &str) -> String {
     if slug.is_empty() { "adapter".into() } else { slug.chars().take(40).collect() }
 }
 
+/// The LoRAs in a folder and its subfolders, `depth` levels down: a folder with
+/// an `adapter_config.json` is one LoRA with its weights and configs, anywhere
+/// else every `.safetensors` is one LoRA named after its file.
+pub fn found_in(folder: &Path, depth: usize) -> Vec<(String, Vec<PathBuf>)> {
+    let Ok(entries) = fs::read_dir(folder) else { return Vec::new() };
+    let mut files = Vec::new();
+    let mut folders = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            folders.push(path);
+        } else {
+            files.push(path);
+        }
+    }
+    files.sort();
+    folders.sort();
+    let named = |path: &Path| path.file_name().and_then(|name| name.to_str()).map(str::to_owned).unwrap_or_default();
+    let mut found = Vec::new();
+    if files.iter().any(|file| named(file) == "adapter_config.json") {
+        let kept: Vec<PathBuf> = files.iter().filter(|file| matches!(named(file).as_str(), "adapter_config.json" | "lora.json") || named(file).ends_with(".safetensors")).cloned().collect();
+        if kept.iter().any(|file| named(file).ends_with(".safetensors")) {
+            found.push((named(folder), kept));
+        }
+    } else {
+        let config = files.iter().find(|file| named(file) == "lora.json").cloned();
+        for file in files.iter().filter(|file| named(file).ends_with(".safetensors")) {
+            let stem = file.file_stem().and_then(|stem| stem.to_str()).unwrap_or_default().to_owned();
+            found.push((stem, std::iter::once(file.clone()).chain(config.clone()).collect()));
+        }
+    }
+    if depth > 0 {
+        for child in folders {
+            found.extend(found_in(&child, depth - 1));
+        }
+    }
+    found
+}
+
 fn now() -> String {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0).to_string()
 }
@@ -959,6 +1064,35 @@ mod tests {
         assert_ne!(ar, nar);
         assert_eq!(ar, hub_adapter_id("monsterovich/yue2-steps-from-hell", "adapter-ar-195/lora.safetensors"));
         assert!(ar.starts_with("hf-lora-"));
+    }
+
+
+    #[test]
+    fn a_folder_of_loras_is_taken_without_a_copy() {
+        let root = std::env::temp_dir().join(format!("adapters-{}", uuid::Uuid::now_v7()));
+        let kept = root.join("comfyui").join("loras");
+        let peft = kept.join("bossa").join("checkpoint");
+        fs::create_dir_all(&peft).unwrap();
+        fs::write(kept.join("metal.safetensors"), b"weights").unwrap();
+        fs::write(kept.join("notes.txt"), b"not a lora").unwrap();
+        fs::write(peft.join("adapter_config.json"), b"{}").unwrap();
+        fs::write(peft.join("adapter_model.safetensors"), b"peft weights").unwrap();
+        let found = found_in(&kept, 2);
+        let names: Vec<&str> = found.iter().map(|(name, _)| name.as_str()).collect();
+        assert_eq!(names, ["metal", "checkpoint"], "a loose file is one LoRA, a folder with adapter_config.json is one");
+        assert_eq!(found[1].1.len(), 2, "the PEFT folder brings its config with its weights");
+        assert!(found_in(&kept, 0).iter().all(|(name, _)| name == "metal"), "subfolders are searched only as deep as asked");
+
+        let library = AdapterLibrary::new(&root.join("data"), "yue2");
+        let (meta, copied) = library.import_linked("metal", &found[0].1, Origin::Imported).unwrap();
+        assert!(!copied, "the same drive takes a hard link");
+        let linked = root.join("data").join("adapters").join(&meta.id).join("metal.safetensors");
+        assert_eq!(fs::read(&linked).unwrap(), b"weights");
+        fs::write(kept.join("metal.safetensors"), b"WEIGHTS").unwrap();
+        assert_eq!(fs::read(&linked).unwrap(), b"WEIGHTS", "a link, not a copy: both names are one file");
+        assert_eq!(library.imported_from(&found[0].1).map(|known| known.id), Some(meta.id), "the same folder taken again finds what it gave");
+        assert!(library.imported_from(&found[1].1).is_none());
+        fs::remove_dir_all(&root).ok();
     }
 
     fn library(label: &str) -> AdapterLibrary {

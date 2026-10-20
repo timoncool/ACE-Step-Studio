@@ -111,6 +111,8 @@ export interface CoverLook {
   /** A photograph that fits the track's style; off, the track's pattern. */
   photo: boolean;
   pattern: string;
+  /** Each track draws the pattern from its own words and music style instead of its id. */
+  unique: boolean;
   /** The placeholder is written into the track, and into an MP3's tags. */
   keep: boolean;
   patterns: string[];
@@ -140,7 +142,7 @@ export function coverLookNow(): CoverLook | undefined {
 }
 
 /** Changes the look; the service writes it into the tracks that wear the old one. */
-export async function changeCoverLook(change: Partial<Pick<CoverLook, 'photo' | 'pattern' | 'keep'>>): Promise<CoverLook> {
+export async function changeCoverLook(change: Partial<Pick<CoverLook, 'photo' | 'pattern' | 'unique' | 'keep'>>): Promise<CoverLook> {
   const response = await fetch('/v1/covers/look', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },

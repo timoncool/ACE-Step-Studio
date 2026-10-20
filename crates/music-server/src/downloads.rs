@@ -94,6 +94,9 @@ pub struct DownloadProgress {
 #[derive(Clone)]
 pub struct Downloader {
     root: PathBuf,
+    /// Where runtimes unpack, one folder per flavour: `root/runtime` unless
+    /// several capabilities share one build of a tool.
+    runtime_root: PathBuf,
     http: reqwest::Client,
     progress: Arc<Mutex<Option<DownloadProgress>>>,
     /// Raised to stop whatever is downloading. What has already arrived stays
@@ -104,8 +107,16 @@ pub struct Downloader {
 
 impl Downloader {
     pub fn new(root: PathBuf) -> Self {
+        let runtime_root = root.join("runtime");
+        Self::with_runtimes(root, runtime_root)
+    }
+
+    /// A downloader whose runtimes unpack under `runtime_root`, where another
+    /// capability's downloader finds the same build.
+    pub fn with_runtimes(root: PathBuf, runtime_root: PathBuf) -> Self {
         Self {
             root,
+            runtime_root,
             http: crate::net::download_client(),
             progress: Arc::new(Mutex::new(None)),
             cancel: Arc::new(std::sync::atomic::AtomicBool::new(false)),
@@ -121,7 +132,7 @@ impl Downloader {
     }
 
     pub fn runtime_dir(&self, flavour: &str) -> PathBuf {
-        self.root.join("runtime").join(flavour)
+        self.runtime_root.join(flavour)
     }
 
     /// Where an asset's picked files land. Without a flavour they land in the
@@ -260,7 +271,7 @@ impl Downloader {
         let mut freed = 0u64;
 
         if !asset.pick.is_empty() {
-            let destination = self.root.join("runtime").join(asset.unzip_into.unwrap_or("."));
+            let destination = self.runtime_root.join(asset.unzip_into.unwrap_or("."));
             for name in asset.pick {
                 freed += drop_file(destination.join(picked_file_name(name)))?;
             }
@@ -300,6 +311,23 @@ impl Downloader {
     /// The running download, but only if this panel started it.
     pub async fn active_for(&self, scope: &str) -> Option<DownloadProgress> {
         self.active().await.filter(|progress| progress.scope.as_deref() == Some(scope))
+    }
+
+    /// The panel's set failed after its files arrived: the step that completes it did not, and the panel shows the
+    /// reason as it shows a failed download.
+    pub async fn fail(&self, scope: &str, error: String) {
+        let mut progress = self.progress.lock().await;
+        let mut failed = progress.clone().filter(|active| active.scope.as_deref() == Some(scope)).unwrap_or(DownloadProgress {
+            asset_id: SET.to_string(),
+            scope: Some(scope.to_string()),
+            downloaded_bytes: 0,
+            total_bytes: 0,
+            done: true,
+            error: None,
+        });
+        failed.done = true;
+        failed.error = Some(error);
+        *progress = Some(failed);
     }
 
     /// Installs a whole set, several files at a time.
@@ -434,7 +462,7 @@ impl Downloader {
         let target = self.path_of(asset);
         fetch(&self.http, asset, &target, cell, self.cancel.clone()).await?;
         if let Some(flavour) = asset.unzip_into {
-            extract_archive(&target, &self.root.join("runtime").join(flavour))?;
+            extract_archive(&target, &self.runtime_dir(flavour))?;
         }
         Ok(())
     }
@@ -460,6 +488,7 @@ impl Downloader {
         self.cancel.store(false, std::sync::atomic::Ordering::Relaxed);
         let target = self.path_of(asset);
         let root = self.root.clone();
+        let runtime_root = self.runtime_root.clone();
         let http = self.http.clone();
         let progress = self.progress.clone();
         let cancel = self.cancel.clone();
@@ -470,7 +499,7 @@ impl Downloader {
             // not resume or retry, so a bad connection sat at nought bytes.
             if !asset.pick.is_empty() {
                 let destination = match asset.unzip_into {
-                    Some(flavour) => root.join("runtime").join(flavour),
+                    Some(flavour) => runtime_root.join(flavour),
                     None => root.clone(),
                 };
                 let outcome = download_and_extract_named(&http, asset, &destination, &progress, cancel).await;
@@ -485,7 +514,7 @@ impl Downloader {
             let mut guard = progress.lock().await;
             let error = match outcome {
                 Ok(()) => match asset.unzip_into {
-                    Some(flavour) => extract_archive(&target, &root.join("runtime").join(flavour)).err().map(|error| error.to_string()),
+                    Some(flavour) => extract_archive(&target, &runtime_root.join(flavour)).err().map(|error| error.to_string()),
                     None => None,
                 },
                 Err(error) => Some(error.to_string()),
@@ -913,6 +942,25 @@ mod tests {
 
         fs::write(downloader.runtime_dir("cuda").join("whisper-cli.exe"), b"x").unwrap();
         assert!(downloader.is_installed(&runtime));
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn capabilities_sharing_a_runtime_root_find_one_unpacked_build() {
+        let root = std::env::temp_dir().join(format!("downloads-{}", uuid::Uuid::now_v7()));
+        let shared = root.join("hotstep");
+        let midi = Downloader::with_runtimes(root.join("midi"), shared.clone());
+        let training = Downloader::with_runtimes(root.join("training"), shared.clone());
+        let tool = |id: &'static str, marker: &'static str| Asset { id, kind: AssetKind::Runtime, relative_path: "tools.zip", unzip_into: Some("hotstep-tools-1"), marker, ..asset() };
+        let transcriber = tool("music-midi", "music-midi.exe");
+        let trainer = tool("music-train", "music-train.exe");
+        assert_eq!(midi.runtime_dir("hotstep-tools-1"), training.runtime_dir("hotstep-tools-1"));
+        fs::create_dir_all(midi.runtime_dir("hotstep-tools-1")).unwrap();
+        for name in ["music-midi.exe", "music-train.exe", "ggml-cuda.dll"] {
+            fs::write(shared.join("hotstep-tools-1").join(name), b"x").unwrap();
+        }
+        assert!(midi.is_installed(&transcriber) && training.is_installed(&trainer));
+        assert_eq!(midi.path_of(&transcriber), root.join("midi").join("tools.zip"), "the archive downloads into the capability's own folder");
         fs::remove_dir_all(&root).ok();
     }
 

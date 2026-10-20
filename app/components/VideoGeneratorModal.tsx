@@ -19,6 +19,7 @@ import { DEFAULT_COVER_PATTERN, isCoverPattern, patternArt } from '../services/c
 import { coverSeed } from '../services/songStems';
 import { CoverRegenModal } from './CoverRegenModal';
 import type { CommonsPhoto, PickedMedia } from './CoverPicker';
+import { KaraokeAction } from './KaraokeAction';
 
 interface VideoGeneratorModalProps {
   isOpen: boolean;
@@ -2698,6 +2699,23 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                 {activeTab === 'text' && (
                     <div className="space-y-4">
                         {/* Lyrics Overlay Settings */}
+                        {song && lrcLinesRef.current.length === 0 && (
+                            <div className="bg-black/20 p-3 rounded-lg border border-white/5 space-y-2">
+                                <label className="text-xs font-bold text-zinc-500 uppercase">{t('lyricsOverlay')}</label>
+                                <p className="text-[11px] leading-4 text-zinc-400">{t('lyricsOverlayNeedsKaraoke')}</p>
+                                <KaraokeAction
+                                    song={song}
+                                    unavailable={<p className="text-[11px] leading-4 text-zinc-400">{t('lyricsOverlayNeedsSetup')}</p>}
+                                    onDone={(lrc) => {
+                                        import('../services/lrc-parser').then(({ parseLrc }) => {
+                                            lrcLinesRef.current = parseLrc(lrc);
+                                            setLyricsEnabled(true);
+                                        });
+                                        window.dispatchEvent(new CustomEvent('studio:library-changed'));
+                                    }}
+                                />
+                            </div>
+                        )}
                         {lrcLinesRef.current.length > 0 && (
                             <div className="bg-black/20 p-3 rounded-lg border border-white/5 space-y-3">
                                 <div className="flex items-center justify-between">

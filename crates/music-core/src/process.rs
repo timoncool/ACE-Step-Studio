@@ -39,6 +39,23 @@ pub fn adopt(child: &Child) {
 #[cfg(not(windows))]
 pub fn adopt(_child: &Child) {}
 
+/// `adopt` for a raw handle, for children a tokio spawn owns.
+#[cfg(windows)]
+pub fn adopt_handle(handle: isize) {
+    use windows_sys::Win32::System::JobObjects::AssignProcessToJobObject;
+
+    let job = job();
+    if job == 0 || handle == 0 {
+        return;
+    }
+    unsafe {
+        AssignProcessToJobObject(job as _, handle as _);
+    }
+}
+
+#[cfg(not(windows))]
+pub fn adopt_handle(_handle: isize) {}
+
 /// Wires up the spawn so the child cannot outlive this process.
 ///
 /// Call this on the `Command` immediately before `spawn`. On Linux it is the

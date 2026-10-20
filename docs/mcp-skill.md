@@ -222,31 +222,35 @@ move around. Check the result with `ui_screenshot`.
 
 ## Tools by area
 
-- **studio**: status, wait, system, capabilities, open data folder; **settings** get/set.
-- **models**: status, catalog, download, adopt (files already on disk), select, cancel,
-  remove; **engine**: options, presets, restart, logs.
-- **song**: create (playlist_id puts the made songs into a playlist), plan (ACE-Step's planner), understand (listen to a library song),
-  defaults (what a field left out becomes), job get/list/cancel, replay.
-- **writing**: guide, examples; **assistant**: write, sections, status, set, runtime,
-  models; requests wait and answer (when you are the assistant).
-- **library**: songs list (since/until), liked, song like, song get/update/delete/files,
-  import audio, versions, describe style (by ear: the caption, tempo, key and metre of a recording that came without them);
-  **playlist**: list/create/update/delete.
-- **cover**: draw, set from file, templates, prompt render; **karaoke**: make, delete,
-  settings; **recogniser**: install/remove; **stems**: split, get; **separator**: status,
-  install, settings; **midi**: status, transcribe, get, delete, install, remove, cancel;
-  **processing**: start, get, keep, discard, reference; **vst**.
-- **lora**: list, install from the catalogue, search Hugging Face, list a repository's
-  files, install from Hugging Face, import files, update, delete, export for ComfyUI (a trained LoRA as one file for ComfyUI's native ACE-Step 1.5).
-- **dataset**: create, add folder or library songs, import, get, update, delete, song
-  update/describe/delete/files, prepare (+ cancel, train after), take as is (no assistant: found lyrics kept as they are), reveal; **lyrics**: find;
-  **training**: status, start, continue, cancel, checkpoint install, run delete, packs.
-- **ui**: screenshot, read page, click, type, select, press key, scroll, navigate, open
-  settings, notify, console; **create_form**: get, set, submit; **player**: state, play,
-  pause, seek, next, previous, set (repeat none, all, one, or stop after the track); **equalizer**: get, set, import, export; **visualizer**:
-  get, set, presets; **winamp**: get, set, skins, skin add, museum; **video**: open, get, set,
-  render, play, pause, seek, close.
-- **openrouter**: status, key, catalog, log, complete, cover, transcribe.
+- **studio**: `studio_status`, `studio_wait`, `studio_system`, `resources_rescan` (models and LoRAs put in the folders by hand), `studio_capabilities`, `studio_open_data_folder` (in Explorer, for the user), `runtime_status` (midi, training pack, training listen), `system_gpus` (the cards and the one in use).
+- **settings**: `settings_get`, `settings_set`.
+- **network**: `network_proxy_get`, `network_proxy_set` (no proxy, the system's or your own), `network_proxy_test`, `network_access_get`, `network_access_set` (opening the studio from other computers, a new key).
+- **journal**: `journal_read` (the Activity page), `journal_clear`, `journal_remove`.
+- **models**: `models_status`, `models_catalog`, `models_download`, `models_adopt` (files already on disk), `models_select`, `models_cancel_download`, `models_remove`.
+- **engine**: `engine_options_get`, `engine_options_set`, `engine_restart`, `engine_presets_get`, `engine_preset_apply`, `engine_logs`.
+- **song**: `song_defaults` (what a field left out becomes), `song_create` (playlist_id puts the made songs into a playlist), `song_plan` (ACE-Step's planner), `song_understand` (listen to a library song), `song_job_get`, `song_jobs_list`, `song_job_cancel`, `song_replay`.
+- **writing**: `writing_guide`, `writing_examples`.
+- **assistant**: `assistant_requests_wait`, `assistant_request_answer` (when you are the assistant), `assistant_sections`, `assistant_write`, `assistant_status`, `assistant_set`, `assistant_local_models`, `assistant_cli_agents` (Claude Code, Codex, opencode, Antigravity, Muse Code: installed or how to install), `assistant_runtime`, `assistant_model_install`, `assistant_model_remove`, `assistant_cancel_download`, `assistant_start`, `assistant_stop`.
+- **library**: `library_songs_list` (since/until), `library_liked`, `library_song_like`, `library_song_get`, `library_song_update`, `library_song_delete`, `library_import_audio`, `library_file_tags_get`, `library_file_tags_set`, `library_song_files`, `library_version_select`, `library_version_delete`, `library_song_describe_style` (by ear: the caption, tempo, key and metre of a recording that came without them), `library_song_note_set` (the song's note).
+- **playlist**: `playlist_list`, `playlist_create`, `playlist_update`, `playlist_delete`, `playlist_get`.
+- **cover**: `cover_draw`, `cover_templates_get`, `cover_templates_set`, `cover_set_from_file`, `cover_prompt_render`, `cover_look_get`, `cover_look_set` (the photo or pattern of tracks without a cover, unique: each track's pattern drawn from its words and music style, kept in the file or not), `cover_scenes`, `cover_photos_search`, `video_backgrounds_search`, `song_cover_photo_set`, `song_cover_pattern_set`.
+- **karaoke**: `karaoke_make`, `karaoke_settings_get`, `karaoke_settings_set`, `recogniser_install`, `recogniser_remove`, `recogniser_cancel_download`, `karaoke_delete`.
+- **stems**: `stems_split`, `stems_get`.
+- **separator**: `separator_status`, `separator_runtime`, `separator_runtime_install`, `separator_cancel_download`, `separator_install`, `separator_remove`, `separator_settings_get`, `separator_settings_set`.
+- **midi**: `midi_status`, `midi_transcribe`, `midi_get`, `midi_delete`, `midi_install`, `midi_remove`, `midi_cancel`, `midi_set` (a .mid of your own).
+- **processing**: `processing_start`, `processing_get`, `processing_keep`, `processing_discard`, `processing_set_reference`.
+- **vst**: `vst_list`, `vst_scan`, `vst_open_editor`.
+- **lora**: `lora_list`, `lora_install_catalog`, `lora_search_hf`, `lora_hf_files`, `lora_install_hf`, `lora_update`, `lora_delete`, `lora_import_folder` (every LoRA of a folder, linked without a copy), `lora_import_files`, `lora_cancel_download`, `lora_export_comfyui` (a trained LoRA as one file for ComfyUI's native ACE-Step 1.5).
+- **dataset**: `dataset_import_folder`, `dataset_reveal`, `dataset_song_files`, `dataset_prepare_train_after`, `dataset_get`, `dataset_create`, `dataset_add_folder`, `dataset_add_library_songs`, `dataset_update`, `dataset_delete`, `dataset_song_update`, `dataset_song_describe`, `dataset_song_delete`, `lyrics_find`, `dataset_prepare`, `dataset_take_as_is` (no assistant: found lyrics kept as they are), `dataset_prepare_cancel`.
+- **training**: `training_pack_cancel`, `training_status`, `training_pack_install`, `training_listen_pack_install`, `training_start`, `training_continue`, `training_cancel`, `training_checkpoint_install`, `training_run_delete`.
+- **ui**: `ui_screenshot`, `ui_read_page`, `ui_click`, `ui_type`, `ui_select`, `ui_press_key`, `ui_scroll`, `ui_navigate`, `ui_open_settings`, `ui_notify`, `ui_console`.
+- **create form**: `create_form_get`, `create_form_set`, `create_form_submit`.
+- **player**: `player_state`, `player_play`, `player_pause`, `player_seek`, `player_next`, `player_previous`, `player_queue_add`, `player_set` (repeat none, all, one, or stop after the track).
+- **equalizer**: `equalizer_get`, `equalizer_set`, `equalizer_import`, `equalizer_export`.
+- **visualizer**: `visualizer_get`, `visualizer_set`, `visualizer_presets`.
+- **winamp**: `winamp_get`, `winamp_set`, `winamp_skins`, `winamp_skin_add`, `winamp_museum`.
+- **video**: `video_open`, `video_get`, `video_set`, `video_render`, `video_play`, `video_pause`, `video_seek`, `video_close`.
+- **openrouter**: `openrouter_status`, `openrouter_set_key`, `openrouter_catalog`, `openrouter_catalog_refresh`, `openrouter_log`, `openrouter_complete`, `openrouter_cover`, `openrouter_transcribe`.
 
 ## Turn a track into MIDI
 

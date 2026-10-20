@@ -14,6 +14,8 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace = true
+# Dub Studio's vocal separator: Mel-Band RoFormer through BSRoFormer.cpp.
+dub-sep = { git = "https://github.com/timoncool/dub-studio", rev = "b8581e3555c2cab047b1b5d4418a7ec2f9c3095c" }
 # "today" and dates the agent names, in this computer's time zone.
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 # The folder picker for "use models I already have", the same crate Dub Studio uses.
@@ -50,7 +52,7 @@ realfft = "3.5"
 regex = "1"
 encoding_rs = "0.8"
 tempfile = "3"
-parakeet-rs.workspace = true
+dub-tcpp.workspace = true
 rusqlite.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
@@ -60,3 +62,6 @@ uuid.workspace = true
 zip.workspace = true
 tar.workspace = true
 lzma-rust2.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys.workspace = true
