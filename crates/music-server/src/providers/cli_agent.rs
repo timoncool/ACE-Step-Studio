@@ -665,15 +665,7 @@ pub async fn spawn(kind: &'static Kind, resolved: &ResolvedCli, system: &str, us
         .tempdir_in(&system_temp)
         .map_err(|error| Failure::Failed(format!("{} could not get a work folder: {error}", kind.display_name)))?;
     let invocation = build_invocation(kind, resolved, workdir.path(), system, user, model)?;
-    let mut command = std::process::Command::new(&resolved.program);
-    command.args(&resolved.prefix_args);
-    if resolved.via_shell {
-        for arg in &invocation.args {
-            command.arg(quote_for_cmd(arg));
-        }
-    } else {
-        command.args(&invocation.args);
-    }
+    let mut command = command_line(resolved, &invocation.args);
     for (name, value) in &invocation.env {
         command.env(name, value);
     }
@@ -1008,7 +1000,24 @@ fn quote_for_cmd(arg: &std::ffi::OsString) -> std::ffi::OsString {
     if !text.chars().any(|char| matches!(char, ' ' | '\t' | '"' | '&' | '|' | '<' | '>' | '^' | '%' | '!')) {
         return arg.clone();
     }
-    std::ffi::OsString::from(format!("\"{}\"", text.replace('"', "\"\"").replace('%', "%%")))
+    std::ffi::OsString::from(format!("\"{}\"", text.replace('"', "\"\"")))
+}
+
+/// The program with its arguments. A script shim runs as `cmd /d /s /c "<shim> <args>"` in one raw argument: with
+/// `/s` cmd takes off only the outer pair of quotes, so the shim path and every quoted argument reach the script as
+/// written, where Rust's own quoting would escape those quotes a second time.
+fn command_line(resolved: &ResolvedCli, args: &[std::ffi::OsString]) -> std::process::Command {
+    let mut command = std::process::Command::new(&resolved.program);
+    #[cfg(windows)]
+    if resolved.via_shell {
+        use std::os::windows::process::CommandExt;
+        let shim = resolved.prefix_args.last().map(|shim| format!("\"{}\"", shim.to_string_lossy())).unwrap_or_default();
+        let quoted: Vec<String> = args.iter().map(|arg| quote_for_cmd(arg).to_string_lossy().into_owned()).collect();
+        command.raw_arg(format!("/d /s /c \"{shim} {}\"", quoted.join(" ")));
+        return command;
+    }
+    command.args(&resolved.prefix_args).args(args);
+    command
 }
 
 /// `Err(Some(_))` is quotable CLI error text; `Err(None)` is useless output.
@@ -1482,7 +1491,21 @@ mod tests {
         assert_eq!(quote_for_cmd(&"exec".into()), std::ffi::OsString::from("exec"));
         assert_eq!(quote_for_cmd(&"C:\\no spaces\\x.exe".into()), std::ffi::OsString::from("\"C:\\no spaces\\x.exe\""));
         assert_eq!(quote_for_cmd(&"a&b".into()), std::ffi::OsString::from("\"a&b\""));
-        assert_eq!(quote_for_cmd(&"100%".into()), std::ffi::OsString::from("\"100%%\""));
+        assert_eq!(quote_for_cmd(&"100%".into()), std::ffi::OsString::from("\"100%\""));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_script_shim_gets_its_quoted_arguments_whole() {
+        let folder = tempfile::Builder::new().prefix("cli shim ").tempdir().unwrap();
+        let shim = folder.path().join("agent.cmd");
+        std::fs::write(&shim, "@echo off\r\n>\"%~dp0args.txt\" (echo %~1& echo %~2& echo %~3)\r\n").unwrap();
+        let resolved = ResolvedCli { program: PathBuf::from("cmd.exe"), prefix_args: vec!["/d".into(), "/c".into(), shim.into_os_string()], via_shell: true };
+        let file = folder.path().join("system prompt.txt");
+        let status = command_line(&resolved, &["--system-prompt-file".into(), file.clone().into_os_string(), "100%".into()]).status().unwrap();
+        assert!(status.success());
+        let seen = std::fs::read_to_string(folder.path().join("args.txt")).unwrap();
+        assert_eq!(seen.lines().collect::<Vec<_>>(), ["--system-prompt-file", file.to_str().unwrap(), "100%"]);
     }
 
     #[test]

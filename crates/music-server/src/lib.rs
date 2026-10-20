@@ -1702,6 +1702,7 @@ async fn install_separation_asset(
                 Ok(()) if gpu => {
                     if let Err(error) = separator.link_cuda_libraries(&libraries) {
                         eprintln!("[ERROR] BSRoformer.cpp has no cuBLAS beside it: {error:#}");
+                        separator.downloader().fail("separation", format!("BSRoformer.cpp has no cuBLAS beside it: {error:#}")).await;
                     }
                 }
                 Ok(()) => {}
@@ -1991,6 +1992,10 @@ async fn import_adapter_folder(State(state): State<AppState>, body: axum::body::
     let imported = tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<Value>> {
         let mut imported = Vec::new();
         for (name, files) in adapters::found_in(&searched, 2) {
+            if let Some(meta) = library.imported_from(&files) {
+                imported.push(serde_json::json!({ "id": meta.id, "name": name, "copied": false, "already": true }));
+                continue;
+            }
             let (meta, copied) = library.import_linked(&name, &files, adapters::Origin::Imported)?;
             imported.push(serde_json::json!({ "id": meta.id, "name": name, "copied": copied }));
         }
@@ -4217,11 +4222,13 @@ async fn import_library_audio(State(state): State<AppState>, mut multipart: Mult
     Ok((StatusCode::CREATED, Json(song)))
 }
 async fn update_library_song(State(state):State<AppState>,Path(id):Path<String>,Json(input):Json<library::SongInput>)->Result<Json<library::Song>,(StatusCode,Json<ApiError>)>{
+    let before = state.library.get_song(&id).ok().flatten().map(|song| (song.caption, song.lyrics, song.title));
     let song = state.library.update_song(&id,input).map_err(|e|api_error(StatusCode::BAD_REQUEST,e.to_string()))?.ok_or_else(||api_error(StatusCode::NOT_FOUND,"Song not found".into()))?;
+    let texts_changed = before.as_ref() != Some(&(song.caption.clone(), song.lyrics.clone(), song.title.clone()));
     // A rename is a title change, and the file carries the title.
     tag_stored_song(&state, &id).await;
     // a unique pattern is drawn from the style and the words: a new one of either draws it again, the stems' too
-    if state.cover_look.read().await.unique {
+    if texts_changed && state.cover_look.read().await.unique {
         let state = state.clone();
         let id = id.clone();
         tokio::spawn(async move {
@@ -5492,7 +5499,7 @@ async fn proxy_image(
 async fn assistant_status(State(state): State<AppState>) -> Json<Value> {
     let config = state.assistant.read().await.clone();
     let runtime = state.assistant_runtime.status().await;
-    let available = assistant_available(&config, &runtime);
+    let available = assistant_ready(config.clone(), runtime.clone()).await;
     Json(serde_json::json!({
         "available": available,
         "managed_model": config.managed_model,
@@ -5508,6 +5515,17 @@ async fn assistant_status(State(state): State<AppState>) -> Json<Value> {
         "cli_model": config.cli_model,
         "cli_path": config.cli_path,
     }))
+}
+
+/// `assistant_available` off the runtime's threads: for the cli provider it may run every CLI's `--version`.
+async fn assistant_ready(config: AssistantConfig, runtime: assistant_runtime::RuntimeStatus) -> bool {
+    if config.provider != AssistantProvider::Cli {
+        return assistant_available(&config, &runtime);
+    }
+    tokio::task::spawn_blocking(move || assistant_available(&config, &runtime)).await.unwrap_or_else(|error| {
+        eprintln!("[ERROR] detecting the agent CLIs stopped: {error}");
+        false
+    })
 }
 
 fn assistant_available(config: &AssistantConfig, runtime: &assistant_runtime::RuntimeStatus) -> bool {
@@ -5733,7 +5751,7 @@ async fn assistant_runtime_status(State(state): State<AppState>) -> Json<Value> 
         // the panel's "installed" is about the chosen provider: OpenRouter or a server of the user's downloads nothing;
         // switched off, it is about the files
         if config.provider != AssistantProvider::None {
-            fields.insert("set".into(), serde_json::json!({ "ready": assistant_available(&config, &status) }));
+            fields.insert("set".into(), serde_json::json!({ "ready": assistant_ready(config.clone(), status.clone()).await }));
         }
     }
     Json(value)

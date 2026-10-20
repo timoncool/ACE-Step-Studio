@@ -520,6 +520,22 @@ impl AdapterLibrary {
         Ok(meta)
     }
 
+/// The adapter already holding these files, by name, size and time of change: a hard link and a copy of a
+    /// file both keep them, so a folder taken twice gives its LoRAs once.
+    pub fn imported_from(&self, files: &[PathBuf]) -> Option<AdapterMeta> {
+        let same = |a: &Path, b: &Path| match (fs::metadata(a), fs::metadata(b)) {
+            (Ok(a), Ok(b)) => a.len() == b.len() && a.modified().ok() == b.modified().ok(),
+            _ => false,
+        };
+        let weights: Vec<&PathBuf> = files.iter().filter(|file| file.file_name().is_some_and(|name| name != "lora.json")).collect();
+        let entries = fs::read_dir(&self.root).ok()?;
+        entries.flatten().find_map(|entry| {
+            let id = entry.file_name().to_str()?.to_owned();
+            let meta = self.read_meta(&id).filter(|meta| meta.engine == self.engine)?;
+            weights.iter().all(|file| file.file_name().is_some_and(|name| same(file, &entry.path().join(name)))).then_some(meta)
+        })
+    }
+
     /// Installs a LoRA from files on this computer without a second copy: each
     /// file is hard-linked into the adapter's folder, and copied only where the
     /// drive cannot link it. Says whether a copy was taken.
@@ -532,17 +548,23 @@ impl AdapterLibrary {
         fs::create_dir_all(&folder)?;
         let mut copied = false;
         let mut trigger = None;
-        for file in files {
+        let placed = files.iter().try_for_each(|file| -> Result<()> {
             let file_name = file.file_name().and_then(|value| value.to_str()).context("a file without a name")?;
             if file_name == "lora.json" {
                 trigger = fs::read(file).ok().and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok()).and_then(|value| value.get("trigger").and_then(Value::as_str).map(str::to_owned));
-                continue;
+                return Ok(());
             }
             let target = folder.join(file_name);
             if fs::hard_link(file, &target).is_err() {
                 fs::copy(file, &target).with_context(|| format!("copy {}", file.display()))?;
                 copied = true;
             }
+            Ok(())
+        });
+        if let Err(error) = placed {
+            // the folder holds only this attempt's links and copies; the user's files stay where they are
+            fs::remove_dir_all(&folder).ok();
+            return Err(error);
         }
         let meta = AdapterMeta {
             id,
@@ -1068,6 +1090,8 @@ mod tests {
         assert_eq!(fs::read(&linked).unwrap(), b"weights");
         fs::write(kept.join("metal.safetensors"), b"WEIGHTS").unwrap();
         assert_eq!(fs::read(&linked).unwrap(), b"WEIGHTS", "a link, not a copy: both names are one file");
+        assert_eq!(library.imported_from(&found[0].1).map(|known| known.id), Some(meta.id), "the same folder taken again finds what it gave");
+        assert!(library.imported_from(&found[1].1).is_none());
         fs::remove_dir_all(&root).ok();
     }
 

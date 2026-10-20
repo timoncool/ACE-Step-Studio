@@ -502,9 +502,15 @@ export function AdaptersPage(): React.ReactElement {
       if (!answer.picked) return;
       setTab('installed');
       const copied = answer.imported.filter(entry => entry.copied).map(entry => entry.name);
+      const taken = answer.imported.filter(entry => !entry.already).length;
+      const already = answer.imported.length - taken;
       const message = answer.imported.length === 0
         ? t('adaptersFolderNone')
-        : `${t('adaptersFolderImported').replace('{count}', String(answer.imported.length))}${copied.length ? ` ${t('adaptersFolderCopied').replace('{names}', copied.join(', '))}` : ''}`;
+        : [
+          taken ? t('adaptersFolderImported').replace('{count}', String(taken)) : '',
+          already ? t('adaptersFolderAlready').replace('{count}', String(already)) : '',
+          copied.length ? t('adaptersFolderCopied').replace('{names}', copied.join(', ')) : '',
+        ].filter(Boolean).join(' ');
       window.dispatchEvent(new CustomEvent('yue:toast', { detail: { message, type: answer.imported.length ? 'success' : 'info' } }));
       window.dispatchEvent(new CustomEvent('yue:adapters-changed'));
       await refresh();

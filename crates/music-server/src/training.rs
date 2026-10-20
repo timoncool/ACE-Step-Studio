@@ -1786,4 +1786,16 @@ mod import_tests {
             assert!(!is_plain_wav_name(bad), "{bad}");
         }
     }
+
+    /// The trainer and Audio to MIDI each sweep the shared tools folder of every release but their own: two
+    /// releases would delete each other's folder on every start.
+    #[test]
+    fn the_trainer_and_the_transcriber_are_one_tools_release() {
+        let read = |text: &str| serde_json::from_str::<serde_json::Value>(text).unwrap();
+        let train = read(include_str!("../../../engines/music-train-source.json"));
+        let midi = read(include_str!("../../../engines/music-midi-source.json"));
+        for key in ["commit", "release_tag", "asset", "bytes"] {
+            assert_eq!(train[key], midi[key], "{key}");
+        }
+    }
 }

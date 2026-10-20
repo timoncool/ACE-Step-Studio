@@ -218,9 +218,22 @@ impl Separator {
         Some(self.downloader.runtime_dir(engine.unzip_into?).join(name))
     }
 
-    /// Mel-Band RoFormer can run: its model, and the engine build for the card or the processor.
+    /// Mel-Band RoFormer can run: its model, the engine build for the card or the processor, and for the card the
+    /// cuBLAS that build loads.
     pub fn roformer_installed(&self, gpu: bool) -> bool {
-        self.downloader.is_installed(&ROFORMER_MODEL) && Self::roformer_engine(gpu).is_some_and(|engine| self.downloader.is_installed(engine))
+        self.downloader.is_installed(&ROFORMER_MODEL)
+            && Self::roformer_engine(gpu).is_some_and(|engine| self.downloader.is_installed(engine))
+            && (!gpu || self.cuda_libraries_found())
+    }
+
+    /// The CUDA build's cuBLAS 13 where the Windows loader looks: beside the program, or on PATH.
+    fn cuda_libraries_found(&self) -> bool {
+        if !cfg!(windows) {
+            return true;
+        }
+        let Some(folder) = self.roformer_cli(true).and_then(|cli| cli.parent().map(Path::to_path_buf)) else { return false };
+        let on_path = |name: &str| std::env::var_os("PATH").is_some_and(|path| std::env::split_paths(&path).any(|dir| dir.join(name).is_file()));
+        crate::engine_runtime::CUDA13_LIBRARIES.iter().all(|name| folder.join(name).is_file() || on_path(name))
     }
 
     /// The CUDA build imports the cuBLAS 13 the music engine already has beside it; Windows

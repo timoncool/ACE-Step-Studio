@@ -313,6 +313,23 @@ impl Downloader {
         self.active().await.filter(|progress| progress.scope.as_deref() == Some(scope))
     }
 
+    /// The panel's set failed after its files arrived: the step that completes it did not, and the panel shows the
+    /// reason as it shows a failed download.
+    pub async fn fail(&self, scope: &str, error: String) {
+        let mut progress = self.progress.lock().await;
+        let mut failed = progress.clone().filter(|active| active.scope.as_deref() == Some(scope)).unwrap_or(DownloadProgress {
+            asset_id: SET.to_string(),
+            scope: Some(scope.to_string()),
+            downloaded_bytes: 0,
+            total_bytes: 0,
+            done: true,
+            error: None,
+        });
+        failed.done = true;
+        failed.error = Some(error);
+        *progress = Some(failed);
+    }
+
     /// Installs a whole set, several files at a time.
     ///
     /// One at a time was the reason a recogniser took as long as its slowest
