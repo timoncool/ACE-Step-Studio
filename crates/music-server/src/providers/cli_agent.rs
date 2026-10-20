@@ -161,7 +161,7 @@ pub fn detect() -> Vec<Detected> {
 
 fn probe(kind: &'static Kind) -> Option<Detected> {
     let resolved = resolve(kind, None).ok()?;
-    let output = run_limited(&resolved.program, &[resolved.prefix_args.as_slice(), &["--version".into()][..]].concat(), PROBE_LIMIT).ok()?;
+    let output = run_limited(&resolved, &["--version".into()], PROBE_LIMIT).ok()?;
     if !output.status.success() {
         return None;
     }
@@ -251,7 +251,7 @@ fn probe_features(kind: &Kind, resolved: &ResolvedCli) -> Vec<String> {
     if kind.id != "antigravity" {
         return Vec::new();
     }
-    let Ok(output) = run_limited(&resolved.program, &[resolved.prefix_args.as_slice(), &["--help".into()][..]].concat(), PROBE_LIMIT) else {
+    let Ok(output) = run_limited(&resolved, &["--help".into()], PROBE_LIMIT) else {
         return Vec::new();
     };
     let help = format!("{}\n{}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
@@ -532,9 +532,10 @@ fn version_key(path: &Path) -> Vec<u64> {
 }
 
 /// Run a short probe (`--version`, `--help`) with a timeout. Never for a run.
-fn run_limited(program: &Path, args: &[std::ffi::OsString], limit: Duration) -> std::io::Result<std::process::Output> {
-    let mut command = std::process::Command::new(program);
-    command.args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+fn run_limited(resolved: &ResolvedCli, args: &[std::ffi::OsString], limit: Duration) -> std::io::Result<std::process::Output> {
+    let program = &resolved.program;
+    let mut command = command_line(resolved, args);
+    command.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
     hide_window(&mut command);
     let mut child = command.spawn()?;
     // Draining on threads: reading after the wait would deadlock on a full pipe.
@@ -1497,15 +1498,19 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn a_script_shim_gets_its_quoted_arguments_whole() {
-        let folder = tempfile::Builder::new().prefix("cli shim ").tempdir().unwrap();
+        let folder = tempfile::Builder::new().prefix("cli shim & co ").tempdir().unwrap();
         let shim = folder.path().join("agent.cmd");
-        std::fs::write(&shim, "@echo off\r\n>\"%~dp0args.txt\" (echo %~1& echo %~2& echo %~3)\r\n").unwrap();
+        std::fs::write(&shim, "@echo off\r\n>\"%~dp0args.txt\" (echo %1& echo %2& echo %3)\r\n").unwrap();
         let resolved = ResolvedCli { program: PathBuf::from("cmd.exe"), prefix_args: vec!["/d".into(), "/c".into(), shim.into_os_string()], via_shell: true };
         let file = folder.path().join("system prompt.txt");
         let status = command_line(&resolved, &["--system-prompt-file".into(), file.clone().into_os_string(), "100%".into()]).status().unwrap();
         assert!(status.success());
         let seen = std::fs::read_to_string(folder.path().join("args.txt")).unwrap();
-        assert_eq!(seen.lines().collect::<Vec<_>>(), ["--system-prompt-file", file.to_str().unwrap(), "100%"]);
+        assert_eq!(seen.lines().map(|line| line.trim_matches('"')).collect::<Vec<_>>(), ["--system-prompt-file", file.to_str().unwrap(), "100%"]);
+        let probed = run_limited(&resolved, &["--version".into()], PROBE_LIMIT).unwrap();
+        assert!(probed.status.success());
+        let probed_args = String::from_utf8_lossy(&std::fs::read(folder.path().join("args.txt")).unwrap()).into_owned();
+        assert_eq!(probed_args.lines().next(), Some("--version"), "detection reaches the shim too");
     }
 
     #[test]
