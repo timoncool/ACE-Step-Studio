@@ -211,23 +211,65 @@ pub struct Written {
     path: String,
 }
 
-/// Explorer, open on a file saved here, with the file selected.
+/// The file manager, open on a file saved here, with the file selected.
 pub async fn reveal(Json(file): Json<Written>) -> Result<StatusCode, (StatusCode, Json<ApiError>)> {
     let path = PathBuf::from(&file.path);
     if !saving().lock().expect("saving").written.contains(&path) {
         return Err(api_error(StatusCode::NOT_FOUND, format!("{} is not a file saved here", path.display())));
     }
+    tokio::task::spawn_blocking(move || show_in_file_manager(&path))
+        .await
+        .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
+        .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("The file manager did not open: {error}")))?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[cfg(windows)]
+fn show_in_file_manager(path: &std::path::Path) -> std::io::Result<()> {
     let mut explorer = std::process::Command::new("explorer.exe");
     // Explorer reads /select,"path" as one switch; quoting the whole of it
     // breaks the switch.
-    #[cfg(windows)]
     std::os::windows::process::CommandExt::raw_arg(&mut explorer, format!("/select,\"{}\"", path.display()));
-    #[cfg(not(windows))]
-    explorer.arg(&path);
-    explorer
-        .spawn()
-        .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("Explorer did not open: {error}")))?;
-    Ok(StatusCode::NO_CONTENT)
+    explorer.spawn().map(drop)
+}
+
+#[cfg(target_os = "macos")]
+fn show_in_file_manager(path: &std::path::Path) -> std::io::Result<()> {
+    std::process::Command::new("open").arg("-R").arg(path).spawn().map(drop)
+}
+
+/// The freedesktop file manager interface selects the file, as Explorer does;
+/// where no file manager offers it, the folder opens without the selection.
+#[cfg(all(not(windows), not(target_os = "macos")))]
+fn show_in_file_manager(path: &std::path::Path) -> std::io::Result<()> {
+    let shown = std::process::Command::new("dbus-send")
+        .args(["--session", "--print-reply", "--reply-timeout=3000", "--dest=org.freedesktop.FileManager1", "/org/freedesktop/FileManager1", "org.freedesktop.FileManager1.ShowItems"])
+        .arg(format!("array:string:{}", file_uri(path)))
+        .arg("string:")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success());
+    if shown {
+        return Ok(());
+    }
+    let folder = path.parent().unwrap_or(path);
+    std::process::Command::new("xdg-open").arg(folder).spawn().map(drop)
+}
+
+/// `file://` and the path with every byte outside the unreserved set escaped.
+#[cfg(all(not(windows), not(target_os = "macos")))]
+fn file_uri(path: &std::path::Path) -> String {
+    use std::os::unix::ffi::OsStrExt;
+    let mut uri = String::from("file://");
+    for &byte in path.as_os_str().as_bytes() {
+        if byte.is_ascii_alphanumeric() || b"/-._~".contains(&byte) {
+            uri.push(byte as char);
+        } else {
+            uri.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    uri
 }
 
 #[cfg(test)]
