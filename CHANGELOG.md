@@ -2,6 +2,12 @@
 
 What changed, newest first. Dates are release dates.
 
+## Next
+
+### Fixed
+
+- **The voice follows a Timbre Reference more closely** ([#55](https://github.com/timoncool/ACE-Step-Studio/issues/55)): the timbre encoder now hears 30 seconds of the reference, as ACE-Step 1.5 is trained on: a shorter recording is repeated up to 30 s, and from a longer one 10 s are taken from the middle of each third. Before, it heard the whole recording, or the whole song for a track of the library, and its voice was averaged over all of it, silences and other parts included.
+
 ## 2026-10-21 — 3.7.0
 
 ### Added
