@@ -40,7 +40,9 @@ interface SeparationStatus {
   card: 'cuda' | null;
   card_runtime_installed: boolean;
   card_missing_bytes: number;
-  settings: { stems: string[]; overlap: number; runtime: 'auto' | 'cuda' | 'cpu' };
+  /** The separator: HT-Demucs for six stems, Mel-Band RoFormer for the vocals and the instrumental. */
+  engine?: 'htdemucs' | 'roformer';
+  settings: { stems: string[]; overlap: number; runtime: 'auto' | 'cuda' | 'cpu'; engine?: 'htdemucs' | 'roformer' };
   run: { song_id: string; progress: number; done: boolean; error: string | null; stems: string[] } | null;
 }
 
@@ -127,7 +129,7 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
     return () => window.clearInterval(timer);
   }, [refresh]);
 
-  const saveSettings = async (next: { stems: string[]; overlap: number; runtime: 'auto' | 'cuda' | 'cpu' }) => {
+  const saveSettings = async (next: SeparationStatus['settings']) => {
     setStatus(current => (current ? { ...current, settings: next } : current));
     await fetch('/v1/separation/settings', {
       method: 'PUT',
@@ -222,7 +224,7 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
           <div className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-white">
             <Scissors size={17} className="text-pink-500" /> {t('stemsTitle')}
           </div>
-          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{t('stemsHint')}</p>
+          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{status?.engine === 'roformer' ? t('stemsHintRoformer' as never) : t('stemsHint')}</p>
 
           {/* A track is picked from a list, not from a native dropdown: a
               generated title can be a whole paragraph, and an <option> shows
@@ -304,7 +306,7 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
               {/* Where a capability is installed is one place: the models
                   panel. This tool used to install the card runtime itself, with
                   its own button and its own progress, and disagree with it. */}
-              {status?.card && !status?.card_runtime_installed && (
+              {status?.card && !status?.card_runtime_installed && status?.engine !== 'roformer' && (
                 <p className="mt-2 text-[11px] leading-4 text-amber-600 dark:text-amber-300">
                   {t('separationInstallGpu')}
                   {status?.card_missing_bytes ? ` · ${megabytes(status.card_missing_bytes)}` : ''}
@@ -312,7 +314,7 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
               )}
             </div>
 
-            <div className="mt-3">
+            {status?.engine !== 'roformer' && <div className="mt-3">
               <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">{t('separationQuality')}</p>
               <div className="mt-2 flex gap-2">
                 {QUALITIES.map(quality => (
@@ -331,7 +333,7 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
                 ))}
               </div>
               <p className="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('separationQualityHint')}</p>
-            </div>
+            </div>}
 
             <button
               type="button"

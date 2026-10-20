@@ -661,6 +661,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2"
 
 [[package]]
+name = "dub-core"
+version = "2.0.0"
+source = "git+https://github.com/timoncool/dub-studio?rev=b8581e3555c2cab047b1b5d4418a7ec2f9c3095c#b8581e3555c2cab047b1b5d4418a7ec2f9c3095c"
+dependencies = [
+ "libc",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "dub-sep"
+version = "2.0.0"
+source = "git+https://github.com/timoncool/dub-studio?rev=b8581e3555c2cab047b1b5d4418a7ec2f9c3095c#b8581e3555c2cab047b1b5d4418a7ec2f9c3095c"
+dependencies = [
+ "dub-core",
+ "hound",
+ "thiserror",
+]
+
+[[package]]
 name = "dunce"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1828,6 +1848,7 @@ dependencies = [
  "chrono",
  "dicebear-core",
  "dicebear-styles",
+ "dub-sep",
  "encoding_rs",
  "eventsource-stream",
  "flate2",

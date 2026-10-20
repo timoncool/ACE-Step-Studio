@@ -1637,7 +1637,7 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "stems_split",
-                description: "Split a library song into six stems (drums, bass, other, vocals, guitar, piano) with HT-Demucs. Each stem becomes a track of the library made from the song (made_from, made_by stems), replacing the stems of an earlier split; stems_get names them. A stem is not split again: split the song it came from. Wait with studio_wait until stems.",
+                description: "Split a library song into stems with the chosen separator: six (drums, bass, other, vocals, guitar, piano) with HT-Demucs, or vocals and instrumental with Mel-Band RoFormer (separator_settings_get names it). Each stem becomes a track of the library made from the song (made_from, made_by stems), replacing the stems of an earlier split; stems_get names them. A stem is not split again: split the song it came from. Wait with studio_wait until stems.",
                 schema: || id_only("song_id", "library song id"),
                 call: |args| post(format!("/v1/library/songs/{}/stems", segment(&text(args, "song_id")?)), json!({})),
             },
@@ -1934,7 +1934,7 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "separator_settings_set",
-                description: "Save separator settings: the object as separator_settings_get returns it, with your changes.",
+                description: "Save separator settings: the object as separator_settings_get returns it, with your changes. engine htdemucs splits six stems; roformer (Mel-Band RoFormer, Dub Studio's separator) splits the vocals and the instrumental, more cleanly, and also separates the vocals of training; install it with separator_install after choosing it.",
                 schema: || json!({ "type": "object" }),
                 call: |args| send(Method::PUT, "/v1/separation/settings".into(), args.clone()),
             },
