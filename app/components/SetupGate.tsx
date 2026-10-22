@@ -76,7 +76,7 @@ type Catalog = { engine_id: string; recommended_profile_id: string; profiles: Pr
 // variant_bytes: what choosing this model downloads with it (a Parakeet's one file, a Whisper folder).
 type OptionalAsset = { id: string; label: string; bytes: number; note: string; installed: boolean; outdated?: boolean; kind: 'model' | 'runtime'; vram_gb?: number | null; variant_bytes?: number; taken_from?: string | null };
 // with_model: the chosen model's files are already in bytes, as the karaoke set counts them.
-type SetProgress = { bytes: number; installed_bytes: number; ready: boolean; files: number; with_model?: boolean };
+type SetProgress = { bytes: number; installed_bytes: number; ready: boolean; files: number; with_model?: boolean; outdated?: boolean };
 type OptionalStatus = {
   assets: OptionalAsset[];
   /// What the chosen engine is made of, as the server counts it: the panel
@@ -252,8 +252,8 @@ export const OptionalGroup: React.FC<{
   const assets = status?.assets ?? [];
   if (assets.length === 0) return null;
   const installed = assets.filter((asset) => asset.installed).length;
-  // a runtime on disk from another pin than the studio's: fetched again, and said so
-  const outdated = assets.some((asset) => asset.outdated);
+  // a runtime of the chosen engine on disk from another pin than the studio's: fetched again, and said so
+  const outdated = status?.set?.outdated ?? assets.some((asset) => asset.outdated);
   const missingLabel = outdated ? t('componentUpdateNeeded') : t('notInstalledSuffix');
   // Ready means what the server says the chosen engine needs is on disk. A
   // runtime shared with another role (the karaoke's ONNX and CUDA libraries
@@ -486,7 +486,7 @@ export const OptionalGroup: React.FC<{
                               })
                               .catch((error: Error) => setFailed(error.message));
                           }}
-                          title={t('download')}
+                          title={outdated ? t('componentUpdate') : t('download')}
                           className="shrink-0 rounded-md border border-zinc-300 p-1.5 text-zinc-600 transition-colors hover:border-pink-400 hover:bg-pink-500/10 hover:text-pink-600 dark:border-white/15 dark:text-zinc-300"
                         >
                           <Download size={13} />
