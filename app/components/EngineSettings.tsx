@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Check, Cpu, FolderOpen, Loader2, RotateCw , Terminal } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 
@@ -113,6 +113,21 @@ export const EngineSettings: React.FC = () => {
   useEffect(() => { void load(); }, [load]);
 
   const dirty = JSON.stringify(options) !== JSON.stringify(saved);
+
+  // Closing the page with another device chosen saves and restarts, as the save button does: the choice is never lost unsaved.
+  const latest = useRef({ options, saved });
+  latest.current = { options, saved };
+  useEffect(() => () => {
+    const { options: chosen, saved: running } = latest.current;
+    if (chosen.backend === running.backend) return;
+    void fetch('/engine/options', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(chosen) })
+      .then(async response => {
+        const body = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(body?.error || `Saving the engine options failed (${response.status})`);
+        window.dispatchEvent(new CustomEvent('studio:toast', { detail: { message: body.engine_restarted ? t('engineOptionsSavedRestarted') : t('engineOptionsSavedLater'), type: 'success' } }));
+      })
+      .catch((reason: unknown) => window.dispatchEvent(new CustomEvent('studio:toast', { detail: { message: reason instanceof Error ? reason.message : String(reason), type: 'error' } })));
+  }, []);
 
   const save = async () => {
     setBusy(true);
