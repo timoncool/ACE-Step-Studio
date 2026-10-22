@@ -3,7 +3,7 @@
   "repository": "https://github.com/timoncool/acestep.cpp.git",
   "branch": "studio",
   "upstream": "https://github.com/ServeurpersoCom/acestep.cpp.git",
-  "commit": "04defcefda245b836f62e31bdf9f876df6538007",
+  "commit": "cb9541b02d4ca3337c3addb28ce691039baf7088",
   "license": "MIT",
   "server": "ace-server",
   "port": 8089,
