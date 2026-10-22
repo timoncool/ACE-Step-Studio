@@ -1028,7 +1028,7 @@ const RunCard: React.FC<{ run: TrainingRun; epochs: boolean; onChanged: () => vo
       )}
       {running && run.device && !onCpu && <p className="mt-1.5 text-[11px] text-zinc-500">{t('trainingOnDevice').replace('{device}', run.device)}</p>}
       {onCpu && <p role="alert" className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">{t('trainingOnCpuWarning')}</p>}
-      {running && !onCpu && cardFull && <p role="alert" className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">{t('trainingCardFullWarning')}</p>}
+      {running && !onCpu && cardFull && <p role="alert" className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">{t('trainingCardFullWarning').replace('{size}', t(run.recipe.adapter === 'lokr' ? 'trainingField_lokr_dim' : 'trainingField_rank'))}</p>}
 
       {run.checkpoints.length > 0 && (
         <div className="mt-3">

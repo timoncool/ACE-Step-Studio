@@ -4718,11 +4718,18 @@ fn last_run_log() -> String {
 /// The engine log of the run before the current one: after a restart, the
 /// run that ended is where the reason is.
 fn previous_run_log() -> String {
-    let tail = music_engine::server::startup_log_tail(600);
+    previous_run(&music_engine::server::startup_log_tail(4000))
+}
+
+/// The lines before the current run's start: a long run writes thousands of
+/// lines, so the tail may have lost where that run began, never where the
+/// current one did.
+fn previous_run(tail: &[String]) -> String {
     let starts: Vec<usize> = tail.iter().enumerate().filter(|(_, line)| line.contains("---- starting")).map(|(index, _)| index).collect();
     match starts.as_slice() {
         [.., before, last] => tail[*before..*last].join("\n"),
-        _ => tail.join("\n"),
+        [last] => tail[..*last].join("\n"),
+        [] => tail.join("\n"),
     }
 }
 
@@ -9021,6 +9028,16 @@ mod tests {
         assert!(lost_job_reason("ggml_cuda_compute_forward: MUL_MAT failed").contains("CUDA or driver error"));
         assert!(lost_job_reason("[NAR] Step 2/16, 87844 ms\n[NAR] Step 3/16\n[studio] the engine stopped answering").contains("its last line was [NAR] Step 3/16."));
         assert!(lost_job_reason("[Server] listening").contains("stopped during this song"));
+    }
+
+    #[test]
+    fn the_run_that_ended_is_read_even_when_its_start_left_the_tail() {
+        let lines = |text: &str| text.lines().map(str::to_owned).collect::<Vec<_>>();
+        let ended = lines("[DiT] step 3/8\n[studio] ---- starting ace-server.exe ----\n[Server] Listening on 127.0.0.1:8089");
+        assert_eq!(previous_run(&ended), "[DiT] step 3/8");
+        assert!(lost_job_reason(&previous_run(&ended)).contains("its last line was [DiT] step 3/8."));
+        let both = lines("[studio] ---- starting ace-server.exe ----\n[Server] Job 1 created\n[studio] ---- starting ace-server.exe ----\n[Server] Listening on 127.0.0.1:8089");
+        assert_eq!(previous_run(&both), "[studio] ---- starting ace-server.exe ----\n[Server] Job 1 created");
     }
 
     #[test]
