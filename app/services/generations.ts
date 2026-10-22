@@ -47,6 +47,17 @@ interface CardFields {
 /** A note written on a song while it is still being made, by its card's id: the finished songs take it. */
 export const pendingNotes = new Map<string, string>();
 
+/** Hands a card's note to the songs its job made, once: the job's answer and the library's refresh may both bring them. */
+function takePendingNote(cardId: string, made: Song[], onError: (message: string) => void): string | undefined {
+  const note = pendingNotes.get(cardId)?.trim();
+  pendingNotes.delete(cardId);
+  if (!note || made.length === 0) return undefined;
+  const ids = new Set(made.map(song => song.id));
+  for (const song of made) setNativeSongNote(song.id, note).catch((error: Error) => onError(error.message));
+  updateLibrarySongs(songs => songs.map(song => (ids.has(song.id) ? { ...song, note } : song)));
+  return note;
+}
+
 function card(id: string, fields: CardFields): Song {
   return {
     id,
@@ -104,9 +115,17 @@ export function useGenerations({ enabled, notify, onFinished }: GenerationOption
   const waiting = useMemo(() => cards.filter(entry => !(entry.jobId && madeBy.has(entry.jobId))), [cards, madeBy]);
   const following = waiting.filter(entry => entry.jobId && entry.isGenerating).length;
 
+  const noteError = useEffectEvent((message: string) => notify(`${t('songNote')}: ${message}`, 'error'));
   useEffect(() => {
-    if (waiting.length !== cards.length) setCards(prev => prev.filter(entry => !(entry.jobId && madeBy.has(entry.jobId))));
-  }, [waiting, cards, madeBy]);
+    if (waiting.length === cards.length) return;
+    // the library can hold a job's songs before the job's own answer is read: the note goes to them here
+    for (const entry of cards) {
+      if (entry.jobId && madeBy.has(entry.jobId) && pendingNotes.has(entry.id)) {
+        takePendingNote(entry.id, library.filter(song => song.madeByJob === entry.jobId), noteError);
+      }
+    }
+    setCards(prev => prev.filter(entry => !(entry.jobId && madeBy.has(entry.jobId))));
+  }, [waiting, cards, madeBy, library]);
 
   // the card takes the service's time for its job: a window on another
   // computer has another clock, and the cards are ordered by this time
@@ -140,14 +159,8 @@ export function useGenerations({ enabled, notify, onFinished }: GenerationOption
       notify(job.message || t('generationFailed'), 'error');
       return;
     }
-    const note = pendingNotes.get(finished.id)?.trim();
-    pendingNotes.delete(finished.id);
-    if (note) {
-      made = made.map(song => ({ ...song, note }));
-      for (const song of made) {
-        setNativeSongNote(song.id, note).catch((error: Error) => notify(`${t('songNote')}: ${error.message}`, 'error'));
-      }
-    }
+    const note = takePendingNote(finished.id, made, noteError);
+    if (note) made = made.map(song => ({ ...song, note }));
     updateLibrarySongs(songs => [...made.filter(song => !songs.some(entry => entry.id === song.id)), ...songs]);
     if (job.playlist_id) {
       // the songs are in their playlist at once, so a list showing it keeps their row
