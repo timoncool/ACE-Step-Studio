@@ -22,7 +22,9 @@ git -C "$worktree" fetch --quiet origin "$commit" || git -C "$worktree" fetch --
 git -C "$worktree" checkout --quiet "$commit"
 git -C "$worktree" submodule update --init --recursive
 
-cmake --fresh -S "$worktree" -B "$worktree/build-linux" -G Ninja -DCMAKE_BUILD_TYPE=Release \
+# configured from nothing each time (Ubuntu 22.04 CMake has no --fresh)
+rm -rf "$worktree/build-linux"
+cmake -S "$worktree" -B "$worktree/build-linux" -G Ninja -DCMAKE_BUILD_TYPE=Release \
     -DGGML_NATIVE=OFF -DGGML_VULKAN=ON -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON \
     -DCMAKE_BUILD_RPATH='$ORIGIN' -DCMAKE_INSTALL_RPATH='$ORIGIN' -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
 # the backends are modules nothing links against, so each is a target of its own

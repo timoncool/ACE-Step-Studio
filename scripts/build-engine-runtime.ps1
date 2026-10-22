@@ -165,7 +165,7 @@ function Invoke-CustomCudaBuild {
     # variants, so naming the two executables alone would skip them: the
     # universal build builds the whole tree, as upstream's buildall does.
     $targets = if ($CudaArchitecture -eq 'universal') { '' } else { (@($server) + @($engineSource.tools) | ForEach-Object { "--target $_" }) -join ' ' }
-    # --fresh: a cached GGML_NATIVE or architecture list outlives an edit of this script.
+    # --fresh: nothing is kept from an earlier configure.
     $command = "set `"VSLANG=1033`" && call `"$vcvars`" >nul && cmake --fresh -S . -B `"$buildDirectoryName`" -G Ninja -DCMAKE_BUILD_TYPE=Release -DGGML_CUDA=ON -DGGML_CUDA_NCCL=OFF $ccache $flashAttention $symbols $settings && cmake --build `"$buildDirectoryName`" $targets --parallel $parallelism"
     Push-Location $engineWorktree
     # The compiler's own output must not become this function's return value:
