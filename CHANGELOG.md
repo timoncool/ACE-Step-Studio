@@ -16,6 +16,10 @@ What changed, newest first. Dates are release dates.
 - **The voice follows a Timbre Reference more closely** ([#55](https://github.com/timoncool/ACE-Step-Studio/issues/55)): the timbre encoder now hears 30 seconds of the reference, as ACE-Step 1.5 is trained on: a shorter recording is repeated up to 30 s, and from a longer one 10 s are taken from the middle of each third. Before, it heard the whole recording, or the whole song for a track of the library, and its voice was averaged over all of it, silences and other parts included.
 - **Style by ear on macOS and Linux** ([YuE2 Studio #138](https://github.com/timoncool/YuE2-Studio/issues/138)): the captioner was only published as a Windows build, so the download said "is a Windows build and is not available on this platform yet". The Mac app and the Linux packages now carry their own captioner, built with the MIDI transcriber.
 
+### Changed
+
+- **Engine updated from acestep.cpp upstream**: the latest ggml and the --device choice of the compute device; our fixes stay on top.
+
 ## 2026-10-21 — 3.7.0
 
 ### Added
