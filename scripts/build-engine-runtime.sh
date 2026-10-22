@@ -19,7 +19,7 @@ git -C "$worktree" fetch --quiet origin "$commit" || git -C "$worktree" fetch --
 git -C "$worktree" checkout --quiet "$commit"
 git -C "$worktree" submodule update --init --recursive
 
-cmake -S "$worktree" -B "$worktree/build" -DCMAKE_BUILD_TYPE=Release \
+cmake --fresh -S "$worktree" -B "$worktree/build" -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON -DCMAKE_INSTALL_RPATH=@executable_path \
     -DGGML_METAL=ON -DGGML_METAL_EMBED_LIBRARY=ON
 cmake --build "$worktree/build" --config Release --target "$server" \

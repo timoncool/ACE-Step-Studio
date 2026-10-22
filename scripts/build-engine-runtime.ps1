@@ -165,7 +165,8 @@ function Invoke-CustomCudaBuild {
     # variants, so naming the two executables alone would skip them: the
     # universal build builds the whole tree, as upstream's buildall does.
     $targets = if ($CudaArchitecture -eq 'universal') { '' } else { (@($server) + @($engineSource.tools) | ForEach-Object { "--target $_" }) -join ' ' }
-    $command = "set `"VSLANG=1033`" && call `"$vcvars`" >nul && cmake -S . -B `"$buildDirectoryName`" -G Ninja -DCMAKE_BUILD_TYPE=Release -DGGML_CUDA=ON $ccache $flashAttention $symbols $settings && cmake --build `"$buildDirectoryName`" $targets --parallel $parallelism"
+    # --fresh: a cached GGML_NATIVE or architecture list outlives an edit of this script.
+    $command = "set `"VSLANG=1033`" && call `"$vcvars`" >nul && cmake --fresh -S . -B `"$buildDirectoryName`" -G Ninja -DCMAKE_BUILD_TYPE=Release -DGGML_CUDA=ON -DGGML_CUDA_NCCL=OFF $ccache $flashAttention $symbols $settings && cmake --build `"$buildDirectoryName`" $targets --parallel $parallelism"
     Push-Location $engineWorktree
     # The compiler's own output must not become this function's return value:
     # PowerShell returns everything a function writes, and the build directory
@@ -189,7 +190,7 @@ function Invoke-Cuda12Build {
     # -Wno-deprecated-gpu-targets silences the notice that CUDA 12 is the last
     # toolkit for Maxwell, Pascal and Volta.
     $cudaFlags = '-Wno-deprecated-gpu-targets'
-    $flags = "-DGGML_NATIVE=OFF -DGGML_BACKEND_DL=ON -DGGML_CUDA=ON -DGGML_CUDA_FA_ALL_QUANTS=ON `"-DCMAKE_CUDA_ARCHITECTURES=52-real;60-real;61-real;70-real;75-real;80-real;86-real;89-real;90-real;120a-real`" `"-DCMAKE_CUDA_COMPILER=$root/bin/nvcc.exe`" `"-DCUDAToolkit_ROOT=$root`" `"-DCMAKE_CUDA_FLAGS=$cudaFlags`""
+    $flags = "-DGGML_NATIVE=OFF -DGGML_BACKEND_DL=ON -DGGML_CUDA=ON -DGGML_CUDA_NCCL=OFF -DGGML_CUDA_FA_ALL_QUANTS=ON `"-DCMAKE_CUDA_ARCHITECTURES=52-real;60-real;61-real;70-real;75-real;80-real;86-real;89-real;90-real;120a-real`" `"-DCMAKE_CUDA_COMPILER=$root/bin/nvcc.exe`" `"-DCUDAToolkit_ROOT=$root`" `"-DCMAKE_CUDA_FLAGS=$cudaFlags`""
     $ccache = if (Get-Command ccache -ErrorAction SilentlyContinue) { '-DGGML_CCACHE=ON' } else { '-DGGML_CCACHE=OFF' }
     $symbols = '-DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=ProgramDatabase -DCMAKE_EXE_LINKER_FLAGS=/DEBUG -DCMAKE_SHARED_LINKER_FLAGS=/DEBUG'
     $parallelism = [Math]::Max(1, [Environment]::ProcessorCount)

@@ -23,7 +23,7 @@ git -C "$worktree" submodule update --init --recursive engine/ggml
 git -C "$worktree" submodule update --init engine/vendor/vst3sdk
 git -C "$worktree/engine/vendor/vst3sdk" submodule update --init base pluginterfaces public.sdk
 
-cmake -S "$worktree/engine" -B "$worktree/engine/build" -DCMAKE_BUILD_TYPE=Release \
+cmake --fresh -S "$worktree/engine" -B "$worktree/engine/build" -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON -DCMAKE_INSTALL_RPATH=@executable_path \
     -DGGML_METAL=ON -DGGML_METAL_EMBED_LIBRARY=ON
 cmake --build "$worktree/engine/build" --config Release --target ace-midi ace-caption \
