@@ -135,8 +135,14 @@ pub fn nvidia_card() -> bool {
 /// The build this machine runs, none without an NVIDIA card one of the builds
 /// supports.
 pub fn current() -> Option<CudaBuild> {
-    device().and_then(|(compute, driver)| cuda_build(compute, driver))
+    device().and_then(|(compute, driver)| cuda_build(compute, driver)).filter(|build| SHIPPED.contains(build))
 }
+
+/// The CUDA builds this platform's engine carries: both on Windows, CUDA 13 in the Linux package.
+#[cfg(windows)]
+const SHIPPED: &[CudaBuild] = &[CudaBuild::Cuda13, CudaBuild::Cuda12];
+#[cfg(not(windows))]
+const SHIPPED: &[CudaBuild] = &[CudaBuild::Cuda13];
 
 /// Tensor cores before Ampere accumulate in FP16, where the V projection can
 /// overflow to infinity and poison every later attention; the engine's clamp
@@ -147,7 +153,10 @@ pub fn accumulates_in_fp16() -> bool {
 
 /// Why the engine cannot start on CUDA here, in words for the person at the
 /// machine.
+#[cfg(windows)]
 pub const UNSUPPORTED: &str = "CUDA was chosen, but this card or its driver runs neither CUDA build of the engine: it needs an NVIDIA card from the GTX 900 series on and driver 525 or newer. Update the NVIDIA driver, or choose Vulkan in Settings.";
+#[cfg(not(windows))]
+pub const UNSUPPORTED: &str = "CUDA was chosen, but this card or its driver does not run the engine's CUDA build: it needs an NVIDIA card from the GTX 16 and RTX 20 series on and driver 580 or newer. Update the NVIDIA driver, or choose Vulkan in Settings.";
 
 #[cfg(test)]
 mod tests {

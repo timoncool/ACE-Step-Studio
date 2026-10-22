@@ -606,18 +606,17 @@ impl EngineOptions {
         if self.backend != ComputeBackend::Auto {
             return vec![self.backend];
         }
-        // Off Windows the engine is a single native build whose ggml loads its
-        // own best device - Metal on Apple Silicon, Vulkan in the Linux
-        // package - so Auto asks the engine to choose (no GGML_BACKEND is set)
-        // and only falls back to the processor if that start fails.
-        #[cfg(not(windows))]
+        // On a Mac the engine is a single native build whose ggml loads its
+        // own best device - Metal on Apple Silicon - so Auto asks the engine to
+        // choose (no GGML_BACKEND is set) and only falls back to the processor.
+        #[cfg(target_os = "macos")]
         {
             let mut chain = vec![ComputeBackend::Auto];
             chain.retain(|device| !failed.contains(device));
             chain.push(ComputeBackend::Cpu);
             chain
         }
-        #[cfg(windows)]
+        #[cfg(not(target_os = "macos"))]
         {
             let mut chain = Vec::new();
             if cuda_build::current().is_some() {
@@ -634,11 +633,10 @@ impl EngineOptions {
 
     /// The CUDA build the engine will compute on, and so the cuBLAS it needs:
     /// chosen outright, or left to ggml on an NVIDIA card one of the builds
-    /// runs on. None on Vulkan and the processor, and off Windows, where the
-    /// engine is built without CUDA and NVIDIA's libraries are Windows ones.
+    /// runs on. None on Vulkan and the processor, and on a Mac.
     fn cuda_build(&self) -> Option<cuda_build::CudaBuild> {
         use music_engine::server::ComputeBackend;
-        if !cfg!(windows) {
+        if cfg!(target_os = "macos") {
             return None;
         }
         match self.backend {
@@ -5217,7 +5215,7 @@ fn start_hub() -> Option<studio_hub_client::Hub> {
     } else {
         "other"
     };
-    let backend = if cfg!(windows) && cuda_build::current().is_some() {
+    let backend = if !cfg!(target_os = "macos") && cuda_build::current().is_some() {
         "cuda"
     } else if cfg!(target_os = "macos") {
         "metal"
@@ -9212,10 +9210,10 @@ mod tests {
             assert_eq!(options.device_chain(&[device]), vec![device]);
         }
         let auto = EngineOptions::default();
-        // Off Windows the chain starts from Auto itself, the engine's own best
-        // device, so only a Windows chain loses entries to CUDA and Vulkan.
+        // On a Mac the chain starts from Auto itself, the engine's own best
+        // device; elsewhere it loses entries to CUDA and Vulkan.
         let chain = auto.device_chain(&[ComputeBackend::Cuda, ComputeBackend::Vulkan]);
-        if cfg!(windows) {
+        if !cfg!(target_os = "macos") {
             assert_eq!(chain, vec![ComputeBackend::Cpu]);
         } else {
             assert_eq!(chain, vec![ComputeBackend::Auto, ComputeBackend::Cpu]);

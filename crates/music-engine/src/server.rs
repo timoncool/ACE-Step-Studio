@@ -214,11 +214,12 @@ impl ServerLaunchConfig {
     pub fn cuda_backend(&self) -> Result<Option<PathBuf>> {
         let Some(folder) = self.options.cuda_folder else { return Ok(None) };
         let directory = self.executable.parent().context("the engine executable has no folder")?;
-        let backend = directory.join(folder).join("ggml-cuda.dll");
+        let library = if cfg!(windows) { "ggml-cuda.dll" } else { "libggml-cuda.so" };
+        let backend = directory.join(folder).join(library);
         if backend.is_file() {
             return Ok(Some(backend));
         }
-        if directory.join("ggml-cuda.dll").is_file() {
+        if directory.join(library).is_file() {
             return Ok(None);
         }
         bail!("the engine's CUDA backend {} is missing; reinstall the studio", backend.display())

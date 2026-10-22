@@ -154,6 +154,10 @@ impl EngineRuntime {
     /// Toolkit installation - downloads nothing: the engine inherits that path
     /// and finds them there.
     pub fn missing(&self, build: CudaBuild) -> Vec<&'static Asset> {
+        // off Windows the CUDA libraries ship beside the engine
+        if !cfg!(windows) {
+            return Vec::new();
+        }
         let asset = cublas_asset(build);
         if self.downloader.is_installed(asset) || asset.pick.iter().all(|library| is_on_the_search_path(library)) {
             return Vec::new();
