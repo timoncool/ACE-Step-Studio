@@ -6,6 +6,8 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- **A note written while the song is being made stays** ([ACE-Step Studio #25](https://github.com/timoncool/ACE-Step-Studio/issues/25)): the note of a song still in the making was cleared when the song was done; it now goes into the finished songs and is saved with them.
+- **Show JSON stays open** from song to song in the song's details, to compare their settings ([ACE-Step Studio #48](https://github.com/timoncool/ACE-Step-Studio/issues/48)).
 - **The create form keeps its settings** ([YuE2 Studio #134](https://github.com/timoncool/YuE2-Studio/issues/134)): the steps, the solver, guidance, sampling and the other generation settings went back to their defaults at every start and every F5; they now stay, as the words, the length and the file format do, until "Reset to reference" puts the defaults back.
 - **Change cover works in the Library** ([ACE-Step Studio #48](https://github.com/timoncool/ACE-Step-Studio/issues/48)): the button showed on the Library's songs but opened nothing; it opens the cover editor as on the create page.
 - **Mel-Band RoFormer and HT-Demucs download from Settings - Models - Split into stems** ([YuE2 Studio #134](https://github.com/timoncool/YuE2-Studio/issues/134)): the card's Download button sent the engine's name, which the studio did not know ("unknown asset roformer"), so neither separator could be installed from there in 3.7.0; it now installs the engine whole on the chosen device, the bin removes that engine's files (it always removed HT-Demucs before), and the runtime downloading after HT-Demucs's model shows its progress instead of "not installed".
