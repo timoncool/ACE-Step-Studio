@@ -6,6 +6,8 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- **Mel-Band RoFormer and HT-Demucs download from Settings - Models - Split into stems** ([YuE2 Studio #134](https://github.com/timoncool/YuE2-Studio/issues/134)): the card's Download button sent the engine's name, which the studio did not know ("unknown asset roformer"), so neither separator could be installed from there in 3.7.0; it now installs the engine whole on the chosen device, the bin removes that engine's files (it always removed HT-Demucs before), and the runtime downloading after HT-Demucs's model shows its progress instead of "not installed".
+- **Karaoke recognition no longer closes the studio on processors without AVX-512**: the transcribe.cpp engine of 3.7.0 was built for the processor it was built on and used AVX-512 instructions, so on most Intel and older AMD processors the first karaoke stopped the studio without a word. The engine is now built for every x86-64 processor with AVX2 (Intel since 2013, AMD since 2017), as fast as before, and on a processor without AVX2 the studio says so instead of closing.
 - **The voice follows a Timbre Reference more closely** ([#55](https://github.com/timoncool/ACE-Step-Studio/issues/55)): the timbre encoder now hears 30 seconds of the reference, as ACE-Step 1.5 is trained on: a shorter recording is repeated up to 30 s, and from a longer one 10 s are taken from the middle of each third. Before, it heard the whole recording, or the whole song for a track of the library, and its voice was averaged over all of it, silences and other parts included.
 
 ## 2026-10-21 — 3.7.0

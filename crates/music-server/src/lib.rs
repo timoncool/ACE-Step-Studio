@@ -1590,6 +1590,11 @@ async fn separation_assets(State(state): State<AppState>) -> Json<Value> {
     let bytes = runtime_progress["bytes"].as_u64().unwrap_or(0) + separation::MODEL.bytes;
     let installed_bytes = runtime_progress["installed_bytes"].as_u64().unwrap_or(0)
         + if model_installed { separation::MODEL.bytes } else { 0 };
+    // the model comes first and its finished record stays; the runtime downloading after it is the one to show
+    let active_download = match (state.separator.downloader().active_for("separation").await, state.lyrics_sync.downloader().active_for("separation").await) {
+        (Some(model), Some(runtime)) if model.done && !runtime.done => Some(runtime),
+        (model, runtime) => model.or(runtime),
+    };
     Json(serde_json::json!({
         "assets": assets,
         "settings": { "runtime": config.runtime, "engine": config.engine },
@@ -1601,7 +1606,7 @@ async fn separation_assets(State(state): State<AppState>) -> Json<Value> {
         },
         // Only this panel's own download. The recogniser shares this
         // downloader, and its gigabytes are not the separator's business.
-        "active_download": state.separator.downloader().active_for("separation").await.or(state.lyrics_sync.downloader().active_for("separation").await),
+        "active_download": active_download,
         // Not an error and not a stall: the file server is asking us to wait.
         "waiting_for_server": crate::chunked::waiting_for_server(),
     }))
@@ -1685,8 +1690,18 @@ async fn install_separation_asset(
     // The separator as one thing: its model, the runtime that loads it, and -
     // for the card - the CUDA provider. Six rows of file names asked the user
     // to work out which of them belong together.
-    if matches!(request.asset_id.as_str(), "auto" | "cuda" | "cpu") && state.separation_config.read().await.engine == separation::Engine::Roformer {
-        let wanted = if request.asset_id == "cpu" { lyrics_sync::OnnxFlavour::Cpu } else { lyrics_sync::OnnxFlavour::Auto };
+    // the settings' stems card names an engine (htdemucs, roformer) and leaves the device to the settings; the setup
+    // screen names a device and leaves the engine to the settings
+    let (chosen_engine, chosen_runtime) = { let config = state.separation_config.read().await; (config.engine, config.runtime) };
+    let device = |id: &str| if id == "cpu" { lyrics_sync::OnnxFlavour::Cpu } else { lyrics_sync::OnnxFlavour::Auto };
+    let (engine, device_id) = match request.asset_id.as_str() {
+        "roformer" => (Some(separation::Engine::Roformer), if chosen_runtime == lyrics_sync::OnnxFlavour::Cpu { "cpu" } else { "auto" }),
+        "htdemucs" => (Some(separation::Engine::Htdemucs), if chosen_runtime == lyrics_sync::OnnxFlavour::Cpu { "cpu" } else { "auto" }),
+        id @ ("auto" | "cuda" | "cpu") => (Some(chosen_engine), id),
+        _ => (None, ""),
+    };
+    if engine == Some(separation::Engine::Roformer) {
+        let wanted = device(device_id);
         let gpu = roformer_on_card(&state, wanted);
         let set = roformer_set(gpu);
         if set.len() < 2 {
@@ -1708,8 +1723,8 @@ async fn install_separation_asset(
         });
         return Ok(Json(serde_json::json!({ "started": true })));
     }
-    if matches!(request.asset_id.as_str(), "auto" | "cuda" | "cpu") {
-        let wanted = if request.asset_id == "cpu" { lyrics_sync::OnnxFlavour::Cpu } else { lyrics_sync::OnnxFlavour::Auto };
+    if engine == Some(separation::Engine::Htdemucs) {
+        let wanted = device(device_id);
         let separator = state.separator.clone();
         let sync = state.lyrics_sync.clone();
         let mut runtime: Vec<&'static lyrics_sync::Asset> = Vec::new();
@@ -5959,13 +5974,18 @@ async fn karaoke_remove(
     Ok(Json(state.lyrics_sync.status(&config).await))
 }
 
-/// Frees the disk the stem separation model takes.
-async fn remove_separation_model(State(state): State<AppState>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
-    let freed = state
-        .separator
-        .downloader()
-        .remove(&separation::MODEL)
-        .map_err(|error| api_error(StatusCode::CONFLICT, error.to_string()))?;
+async fn remove_separation_model(State(state): State<AppState>, request: Option<Json<InstallSeparationAssetRequest>>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    let roformer = request.is_some_and(|Json(request)| request.asset_id == "roformer");
+    let downloader = state.separator.downloader();
+    let freed = if roformer {
+        let mut freed = downloader.remove(&separation::ROFORMER_MODEL).map_err(|error| api_error(StatusCode::CONFLICT, error.to_string()))?;
+        for engine in [true, false].into_iter().filter_map(separation::Separator::roformer_engine) {
+            freed += downloader.remove(engine).map_err(|error| api_error(StatusCode::CONFLICT, error.to_string()))?;
+        }
+        freed
+    } else {
+        downloader.remove(&separation::MODEL).map_err(|error| api_error(StatusCode::CONFLICT, error.to_string()))?
+    };
     Ok(Json(serde_json::json!({ "freed_bytes": freed })))
 }
 

@@ -1904,7 +1904,7 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "separator_runtime_install",
-                description: "Download a runtime for the separator (asset_id from separator_runtime).",
+                description: "Download for the separator: an engine whole on the settings' device (htdemucs: its model and ONNX Runtime; roformer: Mel-Band RoFormer and its BSRoformer.cpp build), the chosen engine on a device (auto, cuda, cpu), or a single asset_id from separator_runtime.",
                 schema: || id_only("asset_id", "runtime asset id"),
                 call: |args| post("/v1/separation/runtime/install".into(), args.clone()),
             },
@@ -1922,9 +1922,9 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "separator_remove",
-                description: "Delete the HT-Demucs stem model.",
-                schema: nothing,
-                call: |_| post("/v1/separation/remove".into(), json!({})),
+                description: "Delete a separator's files: asset_id roformer deletes Mel-Band RoFormer and its engine, otherwise the HT-Demucs model.",
+                schema: || object(json!({ "asset_id": { "type": "string", "enum": ["htdemucs", "roformer"] } }), &[]),
+                call: |args| post("/v1/separation/remove".into(), json!({ "asset_id": args.get("asset_id").and_then(Value::as_str).unwrap_or("htdemucs") })),
             },
             Tool {
                 name: "separator_settings_get",
