@@ -4715,6 +4715,14 @@ fn last_run_log() -> String {
     tail[start..].join("\n")
 }
 
+/// Whether a song failed because the engine went away under it: a refused or
+/// dropped connection, or the engine's own 404 for a job a restarted engine no
+/// longer knows. Any other text that happens to hold "404" is the song's own failure.
+fn engine_gone(error: &str) -> bool {
+    let text = error.to_lowercase();
+    ["error sending request", "connection", "10054", "10061", "the engine returned 404"].iter().any(|marker| text.contains(marker))
+}
+
 /// The engine log of the run before the current one: after a restart, the
 /// run that ended is where the reason is.
 fn previous_run_log() -> String {
@@ -8074,9 +8082,7 @@ async fn run_ace_job(state: AppState, run: AceRun) {
     // restarted engine that no longer knows the job: its own log says why
     let lost = match &outcome {
         Err(error) if !cancelled => {
-            let text = format!("{error:#}").to_lowercase();
-            let gone = ["error sending request", "connection", "10054", "10061", "job not found", "404"].iter().any(|marker| text.contains(marker));
-            if gone {
+            if engine_gone(&format!("{error:#}")) {
                 let log = if state.music_server.health().await { previous_run_log() } else { last_run_log() };
                 Some(lost_job_reason(&log))
             } else {
@@ -9038,6 +9044,14 @@ mod tests {
         assert!(lost_job_reason(&previous_run(&ended)).contains("its last line was [DiT] step 3/8."));
         let both = lines("[studio] ---- starting ace-server.exe ----\n[Server] Job 1 created\n[studio] ---- starting ace-server.exe ----\n[Server] Listening on 127.0.0.1:8089");
         assert_eq!(previous_run(&both), "[studio] ---- starting ace-server.exe ----\n[Server] Job 1 created");
+    }
+
+    #[test]
+    fn only_the_engine_s_404_or_a_lost_connection_counts_as_a_lost_song() {
+        assert!(engine_gone("the engine returned 404 Not Found: {\"error\":\"Job not found\"}"));
+        assert!(engine_gone("error sending request for url (http://127.0.0.1:8089/job)"));
+        assert!(!engine_gone("the language model planned nothing: application/json, 3 bytes: `404`"));
+        assert!(!engine_gone("the engine returned 400 Bad Request: Caption is required"));
     }
 
     #[test]
