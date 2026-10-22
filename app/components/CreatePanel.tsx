@@ -16,7 +16,7 @@ import { ModelSwitcher, type SwitcherStatus } from './ModelSwitcher';
 import type { AdapterUse } from '../services/adapters';
 import { randomExample, randomIdea, someGenres } from '../services/examples';
 import { apiUrl } from '../services/apiBase';
-import { SCHEDULERS, SOLVERS } from '../services/aceEngine';
+import { SCHEDULERS, SOLVERS, readAudioCodes } from '../services/aceEngine';
 import { explainCliFailure } from '../services/cliFailure';
 
 /**
@@ -330,6 +330,12 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const [lmSeed, setLmSeed] = useKeptSetting('lmSeed', '');
   const [songs, setSongs] = useKeptSetting('songs', '');
   const [audioCodes, setAudioCodes] = useState('');
+  const codesRead = useMemo(() => readAudioCodes(audioCodes), [audioCodes]);
+  const codesProblem = 'codes' in codesRead
+    ? null
+    : 'code' in codesRead
+      ? tt('aceCodesForeign').replace('{code}', String(codesRead.code))
+      : tt('aceCodesNotCodes').replace('{piece}', codesRead.piece);
 
   const [steps, setSteps] = useKeptSetting('steps', '');
   const [guidance, setGuidance] = useKeptSetting('guidance', '');
@@ -572,7 +578,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       }
     }
     put('lm_negative_prompt', lmNegative.trim());
-    put('audio_codes', audioCodes.trim());
+    put('audio_codes', 'codes' in codesRead ? codesRead.codes : audioCodes.trim());
     put('guidance', guidanceMode);
     put('apg_momentum', numberOrUndefined(apgMomentum));
     put('apg_norm_threshold', numberOrUndefined(apgNorm));
@@ -986,6 +992,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     if (!caption.trim() && !baseOnly(task)) { setError(t('captionRequired')); return; }
     // with the assistant set up, empty lyrics would be written by the planner after all
     if (assistantReady && think && !instrumental && !lyrics.trim() && !baseOnly(task)) { setError(tt('aceLyricsFromAssistant')); return; }
+    if (codesProblem) { setError(codesProblem); return; }
     if (needsSource(task) && !sourceSong) { setError(tt('aceSourceRequired')); return; }
     if (baseOnly(task) && tracks.length === 0) { setError(tt('aceTrackRequired')); return; }
     if (totalTracks > MAX_TAKES) { setError(tt('aceTooManyTakes')); return; }
@@ -1554,7 +1561,8 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
                     <Field label={tt('aceNegative')}><input value={lmNegative} onChange={event => setLmNegative(event.target.value)} className={CONTROL} /></Field>
                     <Field label={t('lmSeedShort')}><input value={lmSeed} onChange={event => setLmSeed(event.target.value)} placeholder={tt('aceRandom')} inputMode="numeric" className={CONTROL} /></Field>
                     <Field label={tt('aceCodes')} hint={tt('aceCodesHint')}>
-                      <textarea value={audioCodes} onChange={event => setAudioCodes(event.target.value)} rows={2} className={`${CONTROL} resize-y font-mono text-[11px]`} />
+                      <textarea value={audioCodes} onChange={event => setAudioCodes(event.target.value)} rows={2} aria-invalid={Boolean(codesProblem)} className={`${CONTROL} resize-y font-mono text-[11px]`} />
+                      {codesProblem && <span role="alert" className="mt-1 block text-[11px] leading-4 text-rose-600 dark:text-rose-300">{codesProblem}</span>}
                     </Field>
                   </div>
                 </Stage>
