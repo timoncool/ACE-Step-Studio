@@ -98,7 +98,7 @@ export interface TrainingState {
   /** Whether this machine's card runs the trainer: an NVIDIA card whose driver runs CUDA 13. */
   card_trains: boolean;
   /** What the card lacks for the trainer: no CUDA card at all, or a driver or card that runs CUDA 12 only. */
-  card_needs?: 'nvidia' | 'driver' | null;
+  card_needs?: 'nvidia' | 'driver' | 'platform' | null;
   /** The oldest NVIDIA driver the trainer's CUDA 13 runs on. */
   trainer_driver?: number;
   /** What checkpoints and "train further" count: steps, or epochs. */

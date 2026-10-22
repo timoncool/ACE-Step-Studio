@@ -207,7 +207,7 @@ const PackCard: React.FC<{ state: TrainingState; onError: (message: string) => v
       <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{t('trainingSetupNeeds').replace('{size}', gigabytes(total)).replace('{vram}', String(state.min_vram_gb))}</p>
       {!state.card_trains && (
         <p role="note" className="mt-2 text-sm text-amber-700 dark:text-amber-300">
-          {state.card_needs === 'driver' ? t('trainingNeedsDriver').replace('{driver}', String(state.trainer_driver ?? '')) : t('trainingNeedsNvidia')}
+          {state.card_needs === 'driver' ? t('trainingNeedsDriver').replace('{driver}', String(state.trainer_driver ?? '')) : state.card_needs === 'platform' ? t('trainingNeedsWindows') : t('trainingNeedsNvidia')}
         </p>
       )}
       <ul className="mt-3 space-y-1.5">

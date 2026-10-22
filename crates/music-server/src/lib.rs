@@ -2937,6 +2937,9 @@ async fn card_free_for_training(state: &AppState) -> Result<(), String> {
 /// is a CUDA 13 build and computes on the card only: on the processor one run
 /// would take days.
 fn trainer_card_refusal() -> Option<String> {
+    if !cfg!(windows) {
+        return Some(TRAINING_NEEDS_WINDOWS.into());
+    }
     match cuda_build::current() {
         Some(cuda_build::CudaBuild::Cuda13) => None,
         Some(cuda_build::CudaBuild::Cuda12) => Some(format!(
@@ -2951,6 +2954,9 @@ fn trainer_card_refusal() -> Option<String> {
 /// "nvidia" on a machine with no CUDA card, "driver" where the card or its
 /// driver runs CUDA 12 only.
 fn trainer_card_needs() -> Option<&'static str> {
+    if !cfg!(windows) {
+        return Some("platform");
+    }
     match cuda_build::current() {
         Some(cuda_build::CudaBuild::Cuda13) => None,
         Some(cuda_build::CudaBuild::Cuda12) => Some("driver"),
@@ -3006,6 +3012,7 @@ async fn training_pack_download(state: &AppState) -> Option<downloads::DownloadP
 
 /// Why this machine does not train.
 const TRAINING_NEEDS_CUDA: &str = "training runs on an NVIDIA card with CUDA only, and this machine has none";
+const TRAINING_NEEDS_WINDOWS: &str = "training runs on Windows only: the trainer is a Windows build for NVIDIA cards";
 /// Why a run cannot start before the training pack is complete.
 const TRAINER_CUBLAS_MISSING: &str = "the training files are not downloaded yet: the trainer needs NVIDIA cuBLAS 13; download the training pack";
 
