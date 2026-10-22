@@ -443,6 +443,17 @@ const CAPTIONER_PICK: [&str; 12] = [
     "ggml-cpu-x64.dll",
 ];
 
+/// The captioner the macOS app bundle and the Linux packages carry in
+/// `resources/music-midi`, built with the MIDI transcriber from the same
+/// HOT-Step; the downloadable archive is a Windows build.
+fn bundled_captioner() -> Option<PathBuf> {
+    if cfg!(windows) {
+        return None;
+    }
+    let tool = crate::engine_bundle_root().parent()?.join("music-midi").join("music-caption");
+    tool.is_file().then_some(tool)
+}
+
 /// Describing dataset songs by ear, optional: HOT-Step's `ace-caption` beside
 /// the trainer, MOSS-Music-8B-Instruct (OpenMOSS, Apache-2.0; GGUF by
 /// scragnog) for what it hears, Beat This! (CPJKU, MIT; ONNX by mosynthkey)
@@ -564,11 +575,13 @@ impl Training {
         self.root.join("models")
     }
 
-    /// The captioner: `STUDIO_CAPTION_BIN` in a developer build, else the one the
+    /// The captioner: `STUDIO_CAPTION_BIN` in a developer build, the one bundled
+    /// beside the MIDI transcriber on macOS and Linux, else the one the
     /// listening pack unpacked beside the trainer.
     pub fn captioner(&self) -> PathBuf {
         std::env::var_os("STUDIO_CAPTION_BIN")
             .map(PathBuf::from)
+            .or_else(bundled_captioner)
             .unwrap_or_else(|| self.downloader.runtime_dir(trainer_folder()).join(CAPTIONER))
     }
 

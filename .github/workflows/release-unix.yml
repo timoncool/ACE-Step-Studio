@@ -51,6 +51,8 @@ jobs:
           "$engine" --help 2>&1 | head -n 5
           midi=desktop/src-tauri/resources/music-midi/music-midi
           "$midi" --help 2>&1 | head -n 5 || true
+          caption=desktop/src-tauri/resources/music-midi/music-caption
+          "$caption" --help 2>&1 | head -n 5 || true
       - name: Collect
         id: collect
         run: |

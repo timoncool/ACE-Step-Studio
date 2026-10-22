@@ -1,8 +1,9 @@
 #!/bin/bash
-# Linux counterpart of the Windows music-midi.exe: builds HOT-Step's `ace-midi`
-# (MuScriptor audio-to-MIDI) at the pinned commit with a build of ggml-cpu for
-# every processor generation, each loaded as a library, and copies it as
-# `music-midi`, with its libraries, into OUTPUT_DIRECTORY. The studio runs it on
+# Linux counterpart of the Windows music-midi.exe and ace-caption.exe: builds
+# HOT-Step's `ace-midi` (MuScriptor audio-to-MIDI) and `ace-caption` (MOSS-Music,
+# Style by ear) at the pinned commit with a build of ggml-cpu for every processor
+# generation, each loaded as a library, and copies them as `music-midi` and
+# `music-caption`, with their libraries, into OUTPUT_DIRECTORY. The studio runs it on
 # the processor here: its Vulkan path writes wrong notes. The libraries are found
 # beside the binary ($ORIGIN), wherever the package puts them.
 set -euo pipefail
@@ -31,16 +32,19 @@ cmake -S "$worktree/engine" -B "$build" -G Ninja -DCMAKE_BUILD_TYPE=Release \
 # the backends are modules nothing links against, so each is a target of its own
 variants="$(sed -n 's/^build \(ggml-cpu-[a-z0-9_]*\): phony.*/\1/p' "$build/build.ninja" | sort -u | tr '\n' ' ')"
 [ -n "$variants" ] || { echo "[ERROR] the configured build has no processor variants of ggml-cpu" >&2; exit 1; }
-cmake --build "$build" --config Release --target ace-midi $variants -j "$(getconf _NPROCESSORS_ONLN)"
+cmake --build "$build" --config Release --target ace-midi ace-caption $variants -j "$(getconf _NPROCESSORS_ONLN)"
 
 mkdir -p "$output"
 cp "$build/ace-midi" "$output/music-midi"
+cp "$build/ace-caption" "$output/music-caption"
 # -a keeps the version symlinks; the binary finds them through $ORIGIN.
 find "$build" -maxdepth 2 -name 'lib*.so*' -exec cp -a {} "$output/" \;
 echo "$commit" > "$output/runtime.commit"
-if readelf -d "$output/music-midi" | grep -iE 'runpath|rpath' | grep -qv 'ORIGIN'; then
-    echo "[ERROR] music-midi keeps a build-machine library path:" >&2
-    readelf -d "$output/music-midi" | grep -iE 'runpath|rpath' >&2
-    exit 1
-fi
-echo "music-midi ($commit) built into $output"
+for binary in music-midi music-caption; do
+    if readelf -d "$output/$binary" | grep -iE 'runpath|rpath' | grep -qv 'ORIGIN'; then
+        echo "[ERROR] $binary keeps a build-machine library path:" >&2
+        readelf -d "$output/$binary" | grep -iE 'runpath|rpath' >&2
+        exit 1
+    fi
+done
+echo "music-midi and music-caption ($commit) built into $output"

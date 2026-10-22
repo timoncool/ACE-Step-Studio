@@ -45,6 +45,8 @@ if [ "${1:-}" = "--inside" ]; then
   grep -q 'Usage' /tmp/engine-help.txt || { echo "[ERROR] the engine does not start"; head -5 /tmp/engine-help.txt; exit 1; }
   midi=desktop/src-tauri/resources/music-midi/music-midi
   if ldd "$midi" | grep -i 'not found'; then echo "[ERROR] the MIDI transcriber misses libraries"; exit 1; fi
+  caption=desktop/src-tauri/resources/music-midi/music-caption
+  if ldd "$caption" | grep -i 'not found'; then echo "[ERROR] the captioner misses libraries"; exit 1; fi
   version="$(node -p "require('./desktop/src-tauri/tauri.conf.json').version")"
   # the cache keeps the packages of earlier versions: take this version's by name
   deb="$(find /cache/target/release/bundle/deb -name "*_${version}_amd64.deb" | head -n 1)"
