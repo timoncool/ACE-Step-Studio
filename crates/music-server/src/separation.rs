@@ -264,6 +264,7 @@ impl Separator {
             right: samples.iter().skip(1).step_by(CHANNELS).copied().collect(),
         };
         crate::audio_pcm::write_wav_f32(&mix, &stereo)?;
+        crate::cpu::tool_runs_here("Mel-Band RoFormer separator")?;
         let separated = dub_sep::separate(&mix, &work.path().join("stems"), &cli, &self.downloader.path_of(&ROFORMER_MODEL))
             .map_err(|error| anyhow::anyhow!("Mel-Band RoFormer: {error}"))?;
         Ok((crate::audio_pcm::decode_stereo_44k(&separated.vocals)?, crate::audio_pcm::decode_stereo_44k(&separated.instrumental)?))

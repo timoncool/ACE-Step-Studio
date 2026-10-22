@@ -47,6 +47,7 @@ mod multipart;
 mod openrouter_stream;
 mod progress;
 mod engine_log;
+mod cpu;
 
 use std::{collections::HashMap, env, fs, net::SocketAddr, path::PathBuf, sync::Arc};
 use anyhow::Context;
@@ -7125,6 +7126,7 @@ async fn transcribe_to_midi(state: &AppState, size: &'static midi::Size, audio: 
         std::fs::create_dir_all(folder).with_context(|| format!("create {}", folder.display()))?;
     }
     let tool = state.midi.tool();
+    cpu::tool_runs_here("MIDI transcriber")?;
     let device = midi_device(&*state.engine_options.read().await);
     let mut command = tokio::process::Command::new(&tool);
     if let Some(path) = music_core::process::own_libraries_first(&tool) {
