@@ -482,7 +482,10 @@ mod tests {
         }
         let imports = imported_libraries(system).expect("notepad has an import table");
         assert!(!imports.is_empty(), "no imports were read at all");
-        assert!(imports.iter().all(|name| name.to_ascii_lowercase().ends_with(".dll")));
+        assert!(
+            imports.iter().all(|name| [".dll", ".drv"].iter().any(|extension| name.to_ascii_lowercase().ends_with(extension))),
+            "{imports:?}"
+        );
     }
 
     /// The libraries count as installed only once they are beside the engine.
