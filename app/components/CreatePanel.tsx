@@ -98,6 +98,27 @@ const keptDuration = (): string => {
   }
 };
 /** The file format last chosen by hand, kept between sessions like the duration. */
+/** The generation settings, kept across restarts like the words until Reset puts the defaults back. */
+const SETTINGS_KEY = 'studio.createSettings';
+function keptSettings(): Record<string, unknown> {
+  try {
+    const kept: unknown = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) ?? '{}');
+    return kept && typeof kept === 'object' ? (kept as Record<string, unknown>) : {};
+  } catch { return {}; }
+}
+function useKeptSetting(key: string, fallback: string): [string, React.Dispatch<React.SetStateAction<string>>];
+function useKeptSetting(key: string, fallback: boolean): [boolean, React.Dispatch<React.SetStateAction<boolean>>];
+function useKeptSetting(key: string, fallback: string | boolean): [string | boolean, React.Dispatch<React.SetStateAction<string | boolean>>] {
+  const [value, setValue] = useState<string | boolean>(() => {
+    const kept = keptSettings()[key];
+    return typeof kept === typeof fallback ? (kept as string | boolean) : fallback;
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...keptSettings(), [key]: value })); } catch { /* kept until a reload */ }
+  }, [key, value]);
+  return [value, setValue];
+}
+
 /** The words of the form (name, style, lyrics), kept across restarts until Reset clears them. */
 const DRAFT_KEY = 'studio.createDraft';
 function keptDraft(): Record<string, string> {
@@ -288,58 +309,58 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const [sourceSong, setSourceSong] = useState('');
   const [referenceSong, setReferenceSong] = useState('');
   const [tracks, setTracks] = useState<string[]>([]);
-  const [coverStrength, setCoverStrength] = useState('');
-  const [coverNoise, setCoverNoise] = useState('');
+  const [coverStrength, setCoverStrength] = useKeptSetting('coverStrength', '');
+  const [coverNoise, setCoverNoise] = useKeptSetting('coverNoise', '');
   const [repaintStart, setRepaintStart] = useState('');
   const [repaintEnd, setRepaintEnd] = useState('');
 
   const [think, setThink] = useState(true);
   // off as in ACE-Step's own interface: a written caption goes to the model word for word
   const [cotCaption, setCotCaption] = useState(false);
-  const [lmTemperature, setLmTemperature] = useState('');
-  const [lmCfg, setLmCfg] = useState('');
-  const [lmTopP, setLmTopP] = useState('');
-  const [lmTopK, setLmTopK] = useState('');
-  const [repPenalty, setRepPenalty] = useState('');
-  const [repMode, setRepMode] = useState('');
-  const [repWindow, setRepWindow] = useState('');
-  const [dryBase, setDryBase] = useState('');
-  const [dryMinLen, setDryMinLen] = useState('');
-  const [lmNegative, setLmNegative] = useState('');
-  const [lmSeed, setLmSeed] = useState('');
-  const [songs, setSongs] = useState('');
+  const [lmTemperature, setLmTemperature] = useKeptSetting('lmTemperature', '');
+  const [lmCfg, setLmCfg] = useKeptSetting('lmCfg', '');
+  const [lmTopP, setLmTopP] = useKeptSetting('lmTopP', '');
+  const [lmTopK, setLmTopK] = useKeptSetting('lmTopK', '');
+  const [repPenalty, setRepPenalty] = useKeptSetting('repPenalty', '');
+  const [repMode, setRepMode] = useKeptSetting('repMode', '');
+  const [repWindow, setRepWindow] = useKeptSetting('repWindow', '');
+  const [dryBase, setDryBase] = useKeptSetting('dryBase', '');
+  const [dryMinLen, setDryMinLen] = useKeptSetting('dryMinLen', '');
+  const [lmNegative, setLmNegative] = useKeptSetting('lmNegative', '');
+  const [lmSeed, setLmSeed] = useKeptSetting('lmSeed', '');
+  const [songs, setSongs] = useKeptSetting('songs', '');
   const [audioCodes, setAudioCodes] = useState('');
 
-  const [steps, setSteps] = useState('');
-  const [guidance, setGuidance] = useState('');
-  const [shift, setShift] = useState('');
-  const [solver, setSolver] = useState('');
-  const [scheduler, setScheduler] = useState('');
-  const [guidanceMode, setGuidanceMode] = useState('');
-  const [apgMomentum, setApgMomentum] = useState('');
-  const [apgNorm, setApgNorm] = useState('');
-  const [dcwMode, setDcwMode] = useState('');
-  const [dcwScaler, setDcwScaler] = useState('');
-  const [dcwHigh, setDcwHigh] = useState('');
-  const [customTimesteps, setCustomTimesteps] = useState('');
-  const [latentShift, setLatentShift] = useState('');
-  const [latentRescale, setLatentRescale] = useState('');
-  const [cfgStart, setCfgStart] = useState('');
-  const [cfgEnd, setCfgEnd] = useState('');
+  const [steps, setSteps] = useKeptSetting('steps', '');
+  const [guidance, setGuidance] = useKeptSetting('guidance', '');
+  const [shift, setShift] = useKeptSetting('shift', '');
+  const [solver, setSolver] = useKeptSetting('solver', '');
+  const [scheduler, setScheduler] = useKeptSetting('scheduler', '');
+  const [guidanceMode, setGuidanceMode] = useKeptSetting('guidanceMode', '');
+  const [apgMomentum, setApgMomentum] = useKeptSetting('apgMomentum', '');
+  const [apgNorm, setApgNorm] = useKeptSetting('apgNorm', '');
+  const [dcwMode, setDcwMode] = useKeptSetting('dcwMode', '');
+  const [dcwScaler, setDcwScaler] = useKeptSetting('dcwScaler', '');
+  const [dcwHigh, setDcwHigh] = useKeptSetting('dcwHigh', '');
+  const [customTimesteps, setCustomTimesteps] = useKeptSetting('customTimesteps', '');
+  const [latentShift, setLatentShift] = useKeptSetting('latentShift', '');
+  const [latentRescale, setLatentRescale] = useKeptSetting('latentRescale', '');
+  const [cfgStart, setCfgStart] = useKeptSetting('cfgStart', '');
+  const [cfgEnd, setCfgEnd] = useKeptSetting('cfgEnd', '');
   const [retakeVariance, setRetakeVariance] = useState('');
   const [retakeSeed, setRetakeSeed] = useState('');
-  const [fadeIn, setFadeIn] = useState('');
-  const [fadeOut, setFadeOut] = useState('');
+  const [fadeIn, setFadeIn] = useKeptSetting('fadeIn', '');
+  const [fadeOut, setFadeOut] = useKeptSetting('fadeOut', '');
   const [bulk, setBulk] = useState('');
   const [uploading, setUploading] = useState<'source' | 'reference' | null>(null);
   const [listening, setListening] = useState<'codes' | 'describe' | null>(null);
   const [playing, setPlaying] = useState<string | null>(null);
   const preview = useRef<HTMLAudioElement | null>(null);
 
-  const [takes, setTakes] = useState('');
-  const [randomizeSeed, setRandomizeSeed] = useState(true);
-  const [seed, setSeed] = useState('');
-  const [mp3Bitrate, setMp3Bitrate] = useState('320');
+  const [takes, setTakes] = useKeptSetting('takes', '');
+  const [randomizeSeed, setRandomizeSeed] = useKeptSetting('randomizeSeed', true);
+  const [seed, setSeed] = useKeptSetting('seed', '');
+  const [mp3Bitrate, setMp3Bitrate] = useKeptSetting('mp3Bitrate', '320');
   const [format, setFormat] = useState<AceCreateRequest['output_format']>(keptFormat);
   const chooseFormat = (value: AceCreateRequest['output_format']) => {
     setFormat(value);

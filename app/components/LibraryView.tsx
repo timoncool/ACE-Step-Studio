@@ -57,6 +57,7 @@ interface LibraryViewProps {
   onMidiMany: (songs: Song[]) => void;
   /** Opens a song's details over the page, or closes them when they are its. */
   onShowDetails: (song: Song) => void;
+  onOpenCoverRegen?: (song: Song) => void;
   detailsSongId: string | null;
 }
 
@@ -78,6 +79,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     onDeleteMany,
     onMidiMany,
     onShowDetails,
+    onOpenCoverRegen,
     detailsSongId,
 }) => {
     const { t, songCount } = useI18n();
@@ -147,6 +149,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             onAddToPlaylist={song => onAddToPlaylist(song)}
             onAddManyToPlaylist={chosen => onAddToPlaylist(chosen)}
             onShowDetails={onShowDetails}
+            onOpenCoverRegen={onOpenCoverRegen}
             detailsSongId={detailsSongId}
             onDeleteMany={onDeleteMany}
             onMidiMany={onMidiMany}

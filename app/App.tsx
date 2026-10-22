@@ -1216,6 +1216,7 @@ function AppContent() {
             onDeleteMany={handleDeleteSongs}
             onMidiMany={transcribeManyToMidi}
             onShowDetails={toggleLibraryDetails}
+            onOpenCoverRegen={openCoverRegen}
             detailsSongId={showMobileDetails ? selectedSong?.id ?? null : null}
           />
         );
