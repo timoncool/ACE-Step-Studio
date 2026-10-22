@@ -163,7 +163,7 @@ function AppContent() {
   const { t, language } = useI18n();
 
   // Responsive
-  const { isMobile, isDesktop } = useResponsive();
+  const { isMobile, isDesktop, hasSidePanel } = useResponsive();
 
   // Auth
   const { user } = useAuth();
@@ -444,7 +444,7 @@ function AppContent() {
   const handleShowDetails = (song: Song) => {
     setSelectedSong(song);
     // the side panel exists from Tailwind's xl up; below it the details open over the page
-    if (window.matchMedia('(min-width: 80rem)').matches) setShowRightSidebar(true);
+    if (hasSidePanel) setShowRightSidebar(true);
     else setShowMobileDetails(true);
   };
 
@@ -462,14 +462,17 @@ function AppContent() {
     }
   };
 
-  // the library has no side panel: its details open over the page, and the same button closes them
+  // the library's details button opens and closes the side panel, or the details over the page where it has no room
   const toggleLibraryDetails = (song: Song) => {
-    if (showMobileDetails && selectedSong?.id === song.id) {
-      setShowMobileDetails(false);
+    const open = hasSidePanel ? showRightSidebar : showMobileDetails;
+    if (open && selectedSong?.id === song.id) {
+      if (hasSidePanel) setShowRightSidebar(false);
+      else setShowMobileDetails(false);
       return;
     }
     setSelectedSong(song);
-    setShowMobileDetails(true);
+    if (hasSidePanel) setShowRightSidebar(true);
+    else setShowMobileDetails(true);
   };
 
 
@@ -1188,6 +1191,30 @@ function AppContent() {
   // made after it was opened appears there too
   const selectedShown = selectedSong ? librarySongs.find(song => song.id === selectedSong.id) ?? selectedSong : null;
 
+  // the song details beside the list, on a window wide enough for them
+  const sidePanel = showRightSidebar && selectedShown && (
+    <>
+    {rightPanel.handle}
+    <div
+      className="hidden xl:block min-h-0 min-w-0 shrink-0 h-full bg-zinc-50 dark:bg-suno-panel relative z-10 transition-colors duration-300"
+      style={{ width: rightPanel.width }}
+    >
+      <RightSidebar
+        song={selectedShown}
+        onClose={() => setShowRightSidebar(false)}
+        onOpenCoverRegen={() => selectedSong && openCoverRegen(selectedSong)}
+        onReuse={handleReuse}
+        onSongUpdate={handleSongUpdate}
+        isLiked={selectedSong ? likedSongIds.has(selectedSong.id) : false}
+        onToggleLike={toggleLike}
+        onPlay={playSong}
+        isPlaying={isPlaying}
+        currentSong={currentSong}
+      />
+    </div>
+    </>
+  );
+
   const renderContent = (view: typeof currentView = currentView) => {
     switch (view) {
       case 'tools':
@@ -1195,6 +1222,7 @@ function AppContent() {
 
       case 'library': {
         return (
+          <div className="relative flex h-full min-h-0 min-w-0 w-full overflow-hidden">
           <LibraryView
             allSongs={librarySongs}
             likedSongs={likedSongs}
@@ -1215,10 +1243,17 @@ function AppContent() {
             onAddToPlaylist={openAddToPlaylistModal}
             onDeleteMany={handleDeleteSongs}
             onMidiMany={transcribeManyToMidi}
+            selectedSong={selectedSong}
+            onSelect={(s) => {
+              setSelectedSong(s);
+              setShowRightSidebar(true);
+            }}
             onShowDetails={toggleLibraryDetails}
             onOpenCoverRegen={openCoverRegen}
-            detailsSongId={showMobileDetails ? selectedSong?.id ?? null : null}
+            detailsSongId={(hasSidePanel ? showRightSidebar : showMobileDetails) ? selectedSong?.id ?? null : null}
           />
+          {sidePanel}
+          </div>
         );
       }
 
@@ -1331,29 +1366,7 @@ function AppContent() {
               />
             </div>
 
-            {/* Right Sidebar */}
-            {showRightSidebar && selectedShown && (
-              <>
-              {rightPanel.handle}
-              <div
-                className="hidden xl:block min-h-0 min-w-0 shrink-0 h-full bg-zinc-50 dark:bg-suno-panel relative z-10 transition-colors duration-300"
-                style={{ width: rightPanel.width }}
-              >
-                <RightSidebar
-                  song={selectedShown}
-                  onClose={() => setShowRightSidebar(false)}
-                  onOpenCoverRegen={() => selectedSong && openCoverRegen(selectedSong)}
-                  onReuse={handleReuse}
-                  onSongUpdate={handleSongUpdate}
-                  isLiked={selectedSong ? likedSongIds.has(selectedSong.id) : false}
-                  onToggleLike={toggleLike}
-                  onPlay={playSong}
-                  isPlaying={isPlaying}
-                  currentSong={currentSong}
-                />
-              </div>
-              </>
-            )}
+            {sidePanel}
 
             {/* Mobile Toggle Button */}
             <div className="md:hidden absolute top-4 right-4 z-50">
@@ -1595,7 +1608,7 @@ function AppContent() {
 
       {/* Mobile Details Modal */}
       {showMobileDetails && selectedShown && (
-        <div className={`fixed inset-0 z-60 flex justify-end ${currentView === 'create' ? 'xl:hidden' : ''}`}>
+        <div className={`fixed inset-0 z-60 flex justify-end ${currentView === 'create' || currentView === 'library' ? 'xl:hidden' : ''}`}>
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-xs animate-in fade-in"
             onClick={() => setShowMobileDetails(false)}

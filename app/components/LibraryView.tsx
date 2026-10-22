@@ -55,7 +55,10 @@ interface LibraryViewProps {
   onAddToPlaylist: (songs: Song | Song[]) => void;
   onDeleteMany: (songs: Song[]) => void;
   onMidiMany: (songs: Song[]) => void;
-  /** Opens a song's details over the page, or closes them when they are its. */
+  /** The song the details show; a row click chooses it without playing it. */
+  selectedSong: Song | null;
+  onSelect: (song: Song) => void;
+  /** Opens a song's details, or closes them when they are its. */
   onShowDetails: (song: Song) => void;
   onOpenCoverRegen?: (song: Song) => void;
   detailsSongId: string | null;
@@ -78,6 +81,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
     onAddToPlaylist,
     onDeleteMany,
     onMidiMany,
+    selectedSong,
+    onSelect,
     onShowDetails,
     onOpenCoverRegen,
     detailsSongId,
@@ -140,11 +145,11 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             songs={songs}
             librarySongs={allSongs}
             currentSong={currentSong}
-            selectedSong={null}
+            selectedSong={selectedSong}
             likedSongIds={likedSongIds}
             isPlaying={isPlaying}
             onPlay={onPlaySong}
-            onSelect={song => onPlaySong(song, songs)}
+            onSelect={onSelect}
             onToggleLike={onToggleLike}
             onAddToPlaylist={song => onAddToPlaylist(song)}
             onAddManyToPlaylist={chosen => onAddToPlaylist(chosen)}
