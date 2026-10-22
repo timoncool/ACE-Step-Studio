@@ -8059,6 +8059,9 @@ async fn wait_engine(state: &AppState, job: &str) -> anyhow::Result<()> {
                 if let Some(why) = reason.as_deref().filter(|why| { let why = why.to_lowercase(); describes_exhausted_memory(&why) || describes_exhausted_ram(&why) }) {
                     anyhow::bail!("There was not enough memory for this song ({why}). Choose a smaller model set in the model manager or a shorter song, and close whatever else uses the card or the computer's memory.");
                 }
+                if let Some(adapter) = reason.as_deref().and_then(unmerged_adapter) {
+                    anyhow::bail!("The LoRA {adapter} does not fit the chosen DiT: none of its layers matched the model, so the song was not made. Switch the DiT above the create form to the model the LoRA was trained for, or leave the LoRA out.");
+                }
                 anyhow::bail!(reason.unwrap_or_else(|| "the engine failed this job and its log names no cause".into()))
             }
             "cancelled" => anyhow::bail!("cancelled"),
@@ -8067,13 +8070,33 @@ async fn wait_engine(state: &AppState, job: &str) -> anyhow::Result<()> {
     }
 }
 
+/// The adapter the engine could not put on the DiT, from its "no tensors
+/// merged from <path>" line: the adapter's folder, or the file's own name.
+fn unmerged_adapter(why: &str) -> Option<String> {
+    let path = why.strip_prefix("no tensors merged from ")?;
+    let path = path.strip_suffix(" (model mismatch)").unwrap_or(path).trim();
+    let path = std::path::Path::new(path);
+    let named = if path.file_name().is_some_and(|name| name == "adapter_model.safetensors") { path.parent() } else { Some(path) };
+    named.and_then(|named| named.file_stem()).map(|name| name.to_string_lossy().into_owned())
+}
+
 /// What the engine said when it gave a job up: the first FATAL line after the
 /// job's own start, without the stage tag. The lines after it are its
-/// consequences - "encode failed" under the allocation that failed.
+/// consequences - "encode failed" under the allocation that failed. A job the
+/// engine refuses before it starts says so in an ERROR line, or as the server's
+/// "not found" or "Missing" for a model or adapter it does not have.
 fn first_fatal(lines: &[String], job: &str) -> Option<String> {
     let start = format!("Job {job}");
     let from = lines.iter().rposition(|line| line.contains(&start))?;
-    lines[from..].iter().find_map(|line| line.split_once("FATAL:").map(|(_, why)| why.trim().to_string())).filter(|why| !why.is_empty())
+    let after = &lines[from..];
+    let said = |marker: &str| after.iter().find_map(|line| line.split_once(marker).map(|(_, why)| why.trim().to_string())).filter(|why| !why.is_empty());
+    said("FATAL:").or_else(|| said("ERROR:")).or_else(|| {
+        after
+            .iter()
+            .find(|line| line.starts_with("[Server]") && (line.contains(" not found") || line.contains("Missing ")))
+            .and_then(|line| line.split_once("] "))
+            .map(|(_, why)| why.trim().to_string())
+    })
 }
 
 async fn run_ace_job(state: AppState, run: AceRun) {
@@ -9035,6 +9058,24 @@ mod tests {
         let why = first_fatal(&encode, "9").unwrap();
         assert_eq!(why, "graph alloc failed for T=480000", "the cause, not the lines that follow from it");
         assert!(describes_exhausted_memory(&why.to_lowercase()));
+    }
+
+    #[test]
+    fn a_job_refused_without_a_fatal_line_is_named_by_its_error() {
+        let lines = |text: &[&str]| text.iter().map(|line| line.to_string()).collect::<Vec<_>>();
+        let cover = lines(&["[Server] Job 4 created (1 requests)", "[Synth-Run] ERROR: task 'cover' requires source audio or latents"]);
+        assert_eq!(first_fatal(&cover, "4").as_deref(), Some("task 'cover' requires source audio or latents"));
+        let adapter = lines(&["[Server] Job 5 created (LM, mode=0, N=1)", "[Server] LM adapter not found: my-voice"]);
+        assert_eq!(first_fatal(&adapter, "5").as_deref(), Some("LM adapter not found: my-voice"));
+        let silent = lines(&["[Server] Job 6 created (1 requests)", "[DiT] step 3/8"]);
+        assert_eq!(first_fatal(&silent, "6"), None);
+    }
+
+    #[test]
+    fn a_lora_the_dit_cannot_take_is_named() {
+        assert_eq!(unmerged_adapter("no tensors merged from C:\\data\\adapters\\Super Eurobeat\\adapter_model.safetensors (model mismatch)").as_deref(), Some("Super Eurobeat"));
+        assert_eq!(unmerged_adapter("no tensors merged from /data/adapters/synthwave.safetensors (model mismatch)").as_deref(), Some("synthwave"));
+        assert_eq!(unmerged_adapter("graph alloc failed for T=480000"), None);
     }
 
     use super::*;
