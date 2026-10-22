@@ -325,6 +325,8 @@ pub struct AssetStatus {
     pub vram_gb: Option<u32>,
     pub note: &'static str,
     pub installed: bool,
+    /// On disk, but unpacked from another llama.cpp build than the pinned one: it is fetched again.
+    pub outdated: bool,
     /// Bytes already on disk, so a resumed download reports honestly.
     pub downloaded_bytes: u64,
 }
@@ -455,6 +457,43 @@ impl AssistantRuntime {
     }
 
     fn is_installed(&self, asset: &Asset) -> bool {
+        self.is_present(asset) && (asset.unzip_into.is_none() || self.is_current(asset))
+    }
+
+    /// A runtime on disk from another build than the pinned one.
+    fn is_outdated(&self, asset: &Asset) -> bool {
+        asset.unzip_into.is_some() && self.is_present(asset) && !self.is_current(asset)
+    }
+
+    /// Where the pin a runtime was unpacked from is recorded, inside its folder.
+    fn pin_path(&self, asset: &Asset) -> PathBuf {
+        self.root.join("runtime").join(asset.unzip_into.unwrap_or(".")).join(format!(".pin-{}", asset.id))
+    }
+
+    /// Whether the unpacked runtime came from the asset's URL; one unpacked
+    /// before pins were recorded is fetched again.
+    fn is_current(&self, asset: &Asset) -> bool {
+        fs::read_to_string(self.pin_path(asset)).is_ok_and(|recorded| recorded.trim() == asset.url)
+    }
+
+    /// Clears the archive and pin an older build left, so the fetch takes the archive again.
+    fn clear_outdated(&self, asset: &Asset) -> Result<()> {
+        if !self.is_outdated(asset) {
+            return Ok(());
+        }
+        eprintln!("[..] {} is from another llama.cpp build than {}: fetching it again", asset.label, asset.url);
+        for path in [self.path_of(asset), self.pin_path(asset)] {
+            match fs::remove_file(&path) {
+                Ok(()) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error).with_context(|| format!("remove {}", path.display())),
+            }
+        }
+        Ok(())
+    }
+
+    /// Whether the asset's files are on disk, whichever build delivered them.
+    fn is_present(&self, asset: &Asset) -> bool {
         if let Some(flavour) = asset.unzip_into {
             // A runtime counts as installed once its own directory has content:
             // the CUDA libraries carry no llama-server of their own.
@@ -508,6 +547,7 @@ impl AssistantRuntime {
                     vram_gb: asset.vram_gb,
                     note: asset.note,
                     installed: self.is_installed(asset),
+                    outdated: self.is_outdated(asset),
                     downloaded_bytes: if self.is_installed(asset) { crate::sizes::or_listed(asset.url, asset.bytes) } else { self.partial_bytes(asset) },
                 })
                 .collect(),
@@ -597,10 +637,15 @@ impl AssistantRuntime {
         let mut failure = None;
         for asset in &pending {
             let target = self.path_of(asset);
-            let outcome = match download_asset(&self.http, asset, &target, &self.state, base, self.cancel.clone()).await {
-                Ok(()) => match asset.unzip_into {
-                    Some(flavour) => crate::downloads::extract_archive(&target, &self.root.join("runtime").join(flavour)),
-                    None => Ok(()),
+            let pin = self.pin_path(asset);
+            let outcome = match self.clear_outdated(asset) {
+                Ok(()) => match download_asset(&self.http, asset, &target, &self.state, base, self.cancel.clone()).await {
+                    Ok(()) => match asset.unzip_into {
+                        Some(flavour) => crate::downloads::extract_archive(&target, &self.root.join("runtime").join(flavour))
+                            .and_then(|()| fs::write(&pin, asset.url).with_context(|| format!("write {}", pin.display()))),
+                        None => Ok(()),
+                    },
+                    Err(error) => Err(error),
                 },
                 Err(error) => Err(error),
             };
@@ -647,7 +692,15 @@ impl AssistantRuntime {
             });
         }
 
+        if let Err(error) = self.clear_outdated(asset) {
+            if let Some(progress) = self.state.lock().await.download.as_mut() {
+                progress.done = true;
+                progress.error = Some(error.to_string());
+            }
+            return Err(error);
+        }
         let target = self.path_of(asset);
+        let pin = self.pin_path(asset);
         let http = self.http.clone();
         let state = self.state.clone();
         let root = self.root.clone();
@@ -657,7 +710,8 @@ impl AssistantRuntime {
             match outcome {
                 Ok(()) => {
                     let extraction = match asset.unzip_into {
-                        Some(flavour) => crate::downloads::extract_archive(&target, &root.join("runtime").join(flavour)),
+                        Some(flavour) => crate::downloads::extract_archive(&target, &root.join("runtime").join(flavour))
+                            .and_then(|()| fs::write(&pin, asset.url).with_context(|| format!("write {}", pin.display()))),
                         None => Ok(()),
                     };
                     if let Some(progress) = guard.download.as_mut() {

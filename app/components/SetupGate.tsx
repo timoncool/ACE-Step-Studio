@@ -74,7 +74,7 @@ type Profile = {
 type Catalog = { engine_id: string; recommended_profile_id: string; profiles: Profile[]; components: ModelComponent[] };
 
 // variant_bytes: what choosing this model downloads with it (a Parakeet's one file, a Whisper folder).
-type OptionalAsset = { id: string; label: string; bytes: number; note: string; installed: boolean; kind: 'model' | 'runtime'; vram_gb?: number | null; variant_bytes?: number; taken_from?: string | null };
+type OptionalAsset = { id: string; label: string; bytes: number; note: string; installed: boolean; outdated?: boolean; kind: 'model' | 'runtime'; vram_gb?: number | null; variant_bytes?: number; taken_from?: string | null };
 // with_model: the chosen model's files are already in bytes, as the karaoke set counts them.
 type SetProgress = { bytes: number; installed_bytes: number; ready: boolean; files: number; with_model?: boolean };
 type OptionalStatus = {
@@ -252,6 +252,9 @@ export const OptionalGroup: React.FC<{
   const assets = status?.assets ?? [];
   if (assets.length === 0) return null;
   const installed = assets.filter((asset) => asset.installed).length;
+  // a runtime on disk from another pin than the studio's: fetched again, and said so
+  const outdated = assets.some((asset) => asset.outdated);
+  const missingLabel = outdated ? t('componentUpdateNeeded') : t('notInstalledSuffix');
   // Ready means what the server says the chosen engine needs is on disk. A
   // runtime shared with another role (the karaoke's ONNX and CUDA libraries
   // serve the stem separator too) is not the role being installed.
@@ -289,7 +292,7 @@ export const OptionalGroup: React.FC<{
         <div className="flex shrink-0 items-center gap-2 text-xs text-zinc-500">
           <span className="tabular-nums">
             {engines && engines.length > 0
-              ? (roleReady ? t('installed') : t('notInstalledSuffix'))
+              ? (roleReady ? t('installed') : missingLabel)
               : `${installed}/${assets.length}`}
           </span>
           <ChevronDown size={15} className={open ? 'rotate-180 transition-transform' : 'transition-transform'} />
@@ -406,7 +409,7 @@ export const OptionalGroup: React.FC<{
                         {engines.find((choice) => choice.id === engine)?.label}
                       </div>
                       <div className="truncate text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400">
-                        {bytes(setBytes)}{ready ? ` · ${t('installed')}` : ` · ${t('notInstalledSuffix')}`}
+                        {bytes(setBytes)}{ready ? ` · ${t('installed')}` : ` · ${missingLabel}`}
                       </div>
                     </div>
                     {models.length > 1 && (
@@ -582,12 +585,13 @@ export const OptionalGroup: React.FC<{
                         className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 px-2 py-1 text-xs font-medium text-zinc-600 hover:border-pink-400 hover:text-pink-600 disabled:opacity-40 dark:border-white/15 dark:text-zinc-300"
                       >
                         {active ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
-                        {active ? `${percent}%` : t('download')}
+                        {active ? `${percent}%` : asset.outdated ? t('componentUpdate') : t('download')}
                       </button>
                     )}
                   </div>
                 </div>
                 <p className="mt-1 text-[11px] leading-4 text-zinc-500">{asset.note}</p>
+                {asset.outdated && !active && <p className="mt-1 text-[11px] leading-4 text-amber-600 dark:text-amber-300">{t('componentOutdated')}</p>}
                 {active && (
                   <div className="mt-2 h-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
                     <div className="h-full bg-pink-500 transition-[width]" style={{ width: `${percent}%` }} />

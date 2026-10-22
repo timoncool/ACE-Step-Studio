@@ -63,6 +63,8 @@ pub struct AssetStatus {
     pub vram_gb: Option<u32>,
     pub note: &'static str,
     pub installed: bool,
+    /// On disk, but from another pin than this studio's: it is fetched again, and the panel says so.
+    pub outdated: bool,
     /// Bytes already on disk, so a resumed download reports honestly.
     pub downloaded_bytes: u64,
     /// The program (yue2, dub...) it was taken from in this run instead of being downloaded.
@@ -145,9 +147,85 @@ impl Downloader {
         }
     }
 
-    /// A model is installed when its file is there; a runtime when its own
-    /// marker file is present in the directory it unpacks into.
+    /// A model is installed when its file is there; a runtime when it is there
+    /// and came from the pin this studio names (`is_current`).
     pub fn is_installed(&self, asset: &Asset) -> bool {
+        self.is_present(asset) && (asset.kind != AssetKind::Runtime || self.is_current(asset))
+    }
+
+    /// A runtime on disk that another pin delivered: an update is due.
+    pub fn is_outdated(&self, asset: &Asset) -> bool {
+        asset.kind == AssetKind::Runtime && self.is_present(asset) && !self.is_current(asset)
+    }
+
+    /// Where the pin a runtime was fetched from is recorded: beside a single
+    /// file, inside the folder an archive unpacks into.
+    fn pin_path(&self, asset: &Asset) -> PathBuf {
+        if asset.pick.is_empty() && asset.unzip_into.is_none() {
+            let target = self.path_of(asset);
+            let name = target.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
+            target.with_file_name(format!("{name}.pin"))
+        } else {
+            self.picked_into(asset).join(format!(".pin-{}", asset.id))
+        }
+    }
+
+    /// Records that this asset now holds what its URL serves.
+    fn record_pin(&self, asset: &Asset) -> Result<()> {
+        let pin = self.pin_path(asset);
+        fs::write(&pin, asset.url).with_context(|| format!("write {}", pin.display()))
+    }
+
+    /// Whether what is on disk came from the asset's URL. A file fetched
+    /// before pins were recorded is current when it has the size that URL
+    /// serves; a picked library set is current as it is, its archives not
+    /// having changed since the studio first shipped; anything else unpacked
+    /// without a pin is fetched again.
+    fn is_current(&self, asset: &Asset) -> bool {
+        if let Ok(recorded) = fs::read_to_string(self.pin_path(asset)) {
+            return recorded.trim() == asset.url;
+        }
+        let current = if !asset.pick.is_empty() {
+            true
+        } else if asset.unzip_into.is_none() {
+            let size = fs::metadata(self.path_of(asset)).map(|meta| meta.len()).unwrap_or(0);
+            size == asset.bytes || crate::sizes::known(asset.url) == Some(size)
+        } else {
+            false
+        };
+        if current {
+            if let Err(error) = self.record_pin(asset) {
+                eprintln!("[ERROR] {}: {error:#}", asset.label);
+            }
+        }
+        current
+    }
+
+    /// Clears what an older pin left, so the fetch takes the file again
+    /// instead of the copy already on disk.
+    fn clear_outdated(&self, asset: &Asset) -> Result<()> {
+        if !self.is_outdated(asset) {
+            return Ok(());
+        }
+        eprintln!("[..] {} is from another pin than {}: fetching it again", asset.label, asset.url);
+        for path in [self.path_of(asset), self.pin_path(asset)] {
+            match fs::remove_file(&path) {
+                Ok(()) => {}
+                Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error).with_context(|| format!("remove {}", path.display())),
+            }
+        }
+        if !asset.pick.is_empty() {
+            let destination = self.picked_into(asset);
+            for name in asset.pick {
+                let _ = fs::remove_file(destination.join(picked_file_name(name)));
+            }
+        }
+        Ok(())
+    }
+
+    /// Whether the asset's files are on disk, whichever pin delivered them.
+    fn is_present(&self, asset: &Asset) -> bool {
         if !asset.pick.is_empty() {
             let destination = self.picked_into(asset);
             return asset.pick.iter().all(|name| destination.join(picked_file_name(name)).is_file());
@@ -192,6 +270,7 @@ impl Downloader {
                 vram_gb: asset.vram_gb,
                 note: asset.note,
                 installed: self.is_installed(asset),
+                outdated: self.is_outdated(asset),
                 downloaded_bytes: if self.is_installed(asset) { crate::sizes::or_listed(asset.url, asset.bytes) } else { self.partial_bytes(asset) },
                 taken_from: taken_from(asset.id),
             })
@@ -296,6 +375,7 @@ impl Downloader {
         }
 
         freed += drop_file(self.path_of(asset).with_extension("part"))?;
+        drop_file(self.pin_path(asset))?;
         Ok(freed)
     }
 
@@ -448,6 +528,15 @@ impl Downloader {
     /// given rather than the downloader's own, because several of these run at
     /// the same time.
     async fn fetch_now(&self, asset: &'static Asset, cell: &Arc<Mutex<Option<DownloadProgress>>>) -> Result<()> {
+        self.clear_outdated(asset)?;
+        self.fetch_files(asset, cell).await?;
+        if asset.kind == AssetKind::Runtime {
+            self.record_pin(asset)?;
+        }
+        Ok(())
+    }
+
+    async fn fetch_files(&self, asset: &'static Asset, cell: &Arc<Mutex<Option<DownloadProgress>>>) -> Result<()> {
         if !asset.pick.is_empty() {
             // The whole archive over the resumable downloader, then the wanted
             // files extracted locally. Reading named files straight out of a
@@ -486,7 +575,15 @@ impl Downloader {
         }
 
         self.cancel.store(false, std::sync::atomic::Ordering::Relaxed);
+        if let Err(error) = self.clear_outdated(asset) {
+            if let Some(active) = self.progress.lock().await.as_mut() {
+                active.done = true;
+                active.error = Some(error.to_string());
+            }
+            return Err(error);
+        }
         let target = self.path_of(asset);
+        let pin = (asset.kind == AssetKind::Runtime).then(|| self.pin_path(asset));
         let root = self.root.clone();
         let runtime_root = self.runtime_root.clone();
         let http = self.http.clone();
@@ -503,6 +600,7 @@ impl Downloader {
                     None => root.clone(),
                 };
                 let outcome = download_and_extract_named(&http, asset, &destination, &progress, cancel).await;
+                let outcome = outcome.and_then(|()| record_pin_at(pin.as_deref(), asset));
                 let mut guard = progress.lock().await;
                 if let Some(active) = guard.as_mut() {
                     active.done = true;
@@ -514,9 +612,12 @@ impl Downloader {
             let mut guard = progress.lock().await;
             let error = match outcome {
                 Ok(()) => match asset.unzip_into {
-                    Some(flavour) => extract_archive(&target, &runtime_root.join(flavour)).err().map(|error| error.to_string()),
-                    None => None,
-                },
+                    Some(flavour) => extract_archive(&target, &runtime_root.join(flavour)),
+                    None => Ok(()),
+                }
+                .and_then(|()| record_pin_at(pin.as_deref(), asset))
+                .err()
+                .map(|error| error.to_string()),
                 Err(error) => Some(error.to_string()),
             };
             if let Some(active) = guard.as_mut() {
@@ -525,6 +626,14 @@ impl Downloader {
             }
         });
         Ok(())
+    }
+}
+
+/// Records the pin a runtime was fetched from, at a path worked out before the download left the downloader.
+fn record_pin_at(pin: Option<&Path>, asset: &Asset) -> Result<()> {
+    match pin {
+        Some(pin) => fs::write(pin, asset.url).with_context(|| format!("write {}", pin.display())),
+        None => Ok(()),
     }
 }
 
@@ -941,7 +1050,42 @@ mod tests {
         assert!(!downloader.is_installed(&runtime));
 
         fs::write(downloader.runtime_dir("cuda").join("whisper-cli.exe"), b"x").unwrap();
-        assert!(downloader.is_installed(&runtime));
+        assert!(!downloader.is_installed(&runtime) && downloader.is_outdated(&runtime), "unpacked without a pin, it is fetched again");
+        downloader.record_pin(&runtime).unwrap();
+        assert!(downloader.is_installed(&runtime) && !downloader.is_outdated(&runtime));
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn a_runtime_from_another_pin_is_outdated_and_cleared_for_its_fetch() {
+        let root = std::env::temp_dir().join(format!("downloads-{}", uuid::Uuid::now_v7()));
+        let downloader = Downloader::new(root.clone());
+        let library = Asset { id: "test-library", kind: AssetKind::Runtime, relative_path: "models/engine/engine.dll", bytes: 64, ..asset() };
+        let target = downloader.path_of(&library);
+        fs::create_dir_all(target.parent().unwrap()).unwrap();
+
+        // fetched before pins were recorded: the size the pin serves makes it current, and records the pin
+        fs::write(&target, vec![0u8; 64]).unwrap();
+        assert!(downloader.is_installed(&library));
+        assert_eq!(fs::read_to_string(downloader.pin_path(&library)).unwrap(), library.url);
+
+        // another size without a pin: another build
+        fs::remove_file(downloader.pin_path(&library)).unwrap();
+        fs::write(&target, vec![0u8; 65]).unwrap();
+        assert!(!downloader.is_installed(&library) && downloader.is_outdated(&library));
+
+        // a pin naming another URL: outdated whatever its size, and cleared before the fetch
+        fs::write(&target, vec![0u8; 64]).unwrap();
+        fs::write(downloader.pin_path(&library), "https://example.invalid/old/engine.dll").unwrap();
+        assert!(downloader.is_outdated(&library));
+        downloader.clear_outdated(&library).unwrap();
+        assert!(!target.exists() && !downloader.pin_path(&library).exists());
+
+        // a model is what its file is, pins or not
+        let model = asset();
+        fs::create_dir_all(downloader.path_of(&model).parent().unwrap()).unwrap();
+        fs::write(downloader.path_of(&model), vec![0u8; 3]).unwrap();
+        assert!(downloader.is_installed(&model) && !downloader.is_outdated(&model));
         fs::remove_dir_all(&root).ok();
     }
 
@@ -959,6 +1103,8 @@ mod tests {
         for name in ["music-midi.exe", "music-train.exe", "ggml-cuda.dll"] {
             fs::write(shared.join("hotstep-tools-1").join(name), b"x").unwrap();
         }
+        midi.record_pin(&transcriber).unwrap();
+        training.record_pin(&trainer).unwrap();
         assert!(midi.is_installed(&transcriber) && training.is_installed(&trainer));
         assert_eq!(midi.path_of(&transcriber), root.join("midi").join("tools.zip"), "the archive downloads into the capability's own folder");
         fs::remove_dir_all(&root).ok();
