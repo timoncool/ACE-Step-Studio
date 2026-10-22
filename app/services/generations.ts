@@ -116,16 +116,18 @@ export function useGenerations({ enabled, notify, onFinished }: GenerationOption
   const following = waiting.filter(entry => entry.jobId && entry.isGenerating).length;
 
   const noteError = useEffectEvent((message: string) => notify(`${t('songNote')}: ${message}`, 'error'));
+  // The service files each take as it imports it, so the library usually
+  // shows a job's first song while the job still reads as running: its card
+  // leaves the list then, and is finished from here once the job's answer is read.
+  const leftEarly = useRef(new Map<string, Song>());
+  const finishedJobs = useRef(new Set<string>());
   useEffect(() => {
     if (waiting.length === cards.length) return;
-    // the library can hold a job's songs before the job's own answer is read: the note goes to them here
     for (const entry of cards) {
-      if (entry.jobId && madeBy.has(entry.jobId) && pendingNotes.has(entry.id)) {
-        takePendingNote(entry.id, library.filter(song => song.madeByJob === entry.jobId), noteError);
-      }
+      if (entry.jobId && entry.isGenerating && madeBy.has(entry.jobId) && !finishedJobs.current.has(entry.jobId)) leftEarly.current.set(entry.jobId, entry);
     }
     setCards(prev => prev.filter(entry => !(entry.jobId && madeBy.has(entry.jobId))));
-  }, [waiting, cards, madeBy, library]);
+  }, [waiting, cards, madeBy]);
 
   // the card takes the service's time for its job: a window on another
   // computer has another clock, and the cards are ordered by this time
@@ -149,6 +151,7 @@ export function useGenerations({ enabled, notify, onFinished }: GenerationOption
   });
 
   const finish = useEffectEvent((finished: Song, job: AceJob) => {
+    finishedJobs.current.add(job.id);
     // newest first, as the library lists them, so the first takes the row
     let made = (job.songs?.length ? job.songs : job.song ? [job.song] : [])
       .map(entry => mapNativeLibrarySong(entry.song))
@@ -181,14 +184,17 @@ export function useGenerations({ enabled, notify, onFinished }: GenerationOption
     try {
       const job = await readJson<AceJob>(`/v1/music/jobs/${encodeURIComponent(jobId)}`);
       if (job.status === 'completed') {
+        leftEarly.current.delete(jobId);
         finish(running, job);
       } else if (job.status === 'failed' || job.status === 'cancelled') {
+        leftEarly.current.delete(jobId);
         remove(running.id);
         if (job.status === 'failed') generationFailed();
         notify(job.message || t('generationFailed'), job.status === 'failed' ? 'error' : 'info');
       }
       // still queued or running: the list was read before this job was sent
     } catch (error) {
+      leftEarly.current.delete(jobId);
       remove(running.id);
       notify(error instanceof Error ? error.message : String(error), 'error');
     } finally {
@@ -199,7 +205,7 @@ export function useGenerations({ enabled, notify, onFinished }: GenerationOption
   const reconcile = useEffectEvent((listed: AceJob[]) => {
     const running = new Set(listed.map(job => job.id));
     // an agent's jobs, and the ones sent before this window was opened
-    const shown = new Set(cards.flatMap(entry => (entry.jobId ? [entry.id, entry.jobId] : [entry.id])));
+    const shown = new Set([...cards, ...leftEarly.current.values()].flatMap(entry => (entry.jobId ? [entry.id, entry.jobId] : [entry.id])));
     const fresh = listed.filter(job => !shown.has(job.id) && !(job.client_ref && shown.has(job.client_ref)) && !stopped.current.has(job.id));
     if (fresh.length > 0) {
       setCards(prev => [
@@ -220,7 +226,7 @@ export function useGenerations({ enabled, notify, onFinished }: GenerationOption
       });
     }
     // a job that left the list finished, failed or was stopped elsewhere
-    for (const entry of waiting) {
+    for (const entry of [...waiting, ...leftEarly.current.values()]) {
       if (entry.jobId && entry.isGenerating && !running.has(entry.jobId)) void settle(entry);
     }
   });

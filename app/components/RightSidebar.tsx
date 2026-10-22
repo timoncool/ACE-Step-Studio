@@ -130,10 +130,14 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
             setIsEditingTitle(false);
             setTitleError(null);
             setIsSavingTitle(false);
-            setNoteDraft(song.note ?? (song.isGenerating ? pendingNotes.get(song.id) : undefined) ?? '');
             setNoteError(null);
         }
     }, [song?.id]);
+
+    // a finished song's note can arrive after the song itself, from the note written while it was made
+    useEffect(() => {
+        if (song) setNoteDraft(song.note ?? (song.isGenerating ? pendingNotes.get(song.id) : undefined) ?? '');
+    }, [song?.id, song?.note]);
 
     const saveNote = async () => {
         if (song?.isGenerating) {
