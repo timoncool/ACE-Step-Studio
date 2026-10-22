@@ -4679,7 +4679,8 @@ async fn restart_engine(state: &AppState) -> Result<(), String> {
                 // Only Auto moves on, and never past a card that ran out of
                 // memory: Vulkan has no more of it, and the reason is shown.
                 let next = chain.get(index + 1).copied();
-                let out_of_memory = describes_exhausted_memory(&last_run_log().to_lowercase());
+                let log = last_run_log().to_lowercase();
+                let out_of_memory = describes_exhausted_memory(&log) || describes_exhausted_ram(&log);
                 match next {
                     Some(next) if options.backend == music_engine::server::ComputeBackend::Auto && !out_of_memory => {
                         music_engine::server::note_in_log(&format!(
@@ -4747,6 +4748,8 @@ fn lost_job_reason(log: &str) -> String {
     let lowered = log.to_lowercase();
     if describes_exhausted_memory(&lowered) {
         "The graphics card ran out of memory on this song and the engine restarted, so the song was lost. Choose a smaller model set in the model manager or a shorter song, and close whatever else uses the card; a card below the smallest set cannot make songs.".into()
+    } else if describes_exhausted_ram(&lowered) {
+        "The computer ran out of memory (RAM) on this song and the engine restarted, so the song was lost. Close other programs that take memory, or choose a smaller model set in the model manager or a shorter song.".into()
     } else if describes_device_failure(&lowered) {
         match device_error_line(log) {
             Some(error) => format!("The graphics card failed during this song ({error}) and the engine restarted, so the song was lost. The engine log is in Settings, Engine."),
@@ -4787,7 +4790,7 @@ fn device_error_line(log: &str) -> Option<String> {
 /// a CUDA or Vulkan error, a device lost, the engine's self-test - as opposed
 /// to running out of memory, which another device would not cure.
 fn describes_device_failure(log: &str) -> bool {
-    if describes_exhausted_memory(log) {
+    if describes_exhausted_memory(log) || describes_exhausted_ram(log) {
         return false;
     }
     [
@@ -7803,8 +7806,11 @@ async fn free_the_card_for_the_engine(state: &AppState) {
 /// download models that were already on disk.
 fn engine_failure_reason() -> Option<String> {
     let tail = music_engine::server::startup_log_tail(80).join("\n").to_lowercase();
-    describes_exhausted_memory(&tail)
-        .then(|| "The graphics card ran out of memory while the engine was loading the models. Choose a smaller quantisation in the model manager, or close whatever else is using the card - the writing assistant holds several gigabytes of its own.".to_string())
+    if describes_exhausted_memory(&tail) {
+        return Some("The graphics card ran out of memory while the engine was loading the models. Choose a smaller quantisation in the model manager, or close whatever else is using the card - the writing assistant holds several gigabytes of its own.".to_string());
+    }
+    describes_exhausted_ram(&tail)
+        .then(|| "The computer ran out of memory (RAM) while the engine was loading the models. Close other programs that take memory, or choose a smaller quantisation in the model manager.".to_string())
 }
 
 /// Whether a lowercased log says the card ran out of room.
@@ -7815,12 +7821,18 @@ fn describes_exhausted_memory(log: &str) -> bool {
         "failed to allocate",
         "insufficient memory",
         "cudaerrormemoryallocation",
-        "bad_alloc",
         "oom allocating",
         "graph alloc failed",
     ]
     .iter()
     .any(|marker| log.contains(marker))
+}
+
+/// Whether a lowercased log says the computer's own memory ran out: an
+/// allocation on the host failed, which a smaller set or fewer open programs
+/// cures, not another card.
+fn describes_exhausted_ram(log: &str) -> bool {
+    log.contains("bad_alloc")
 }
 
 async fn create_music_job(
@@ -8044,7 +8056,7 @@ async fn wait_engine(state: &AppState, job: &str) -> anyhow::Result<()> {
             "done" => return Ok(()),
             "failed" => {
                 let reason = state.engine_log.lines().and_then(|lines| first_fatal(&lines, job));
-                if let Some(why) = reason.as_deref().filter(|why| describes_exhausted_memory(&why.to_lowercase())) {
+                if let Some(why) = reason.as_deref().filter(|why| { let why = why.to_lowercase(); describes_exhausted_memory(&why) || describes_exhausted_ram(&why) }) {
                     anyhow::bail!("There was not enough memory for this song ({why}). Choose a smaller model set in the model manager or a shorter song, and close whatever else uses the card or the computer's memory.");
                 }
                 anyhow::bail!(reason.unwrap_or_else(|| "the engine failed this job and its log names no cause".into()))
@@ -9246,7 +9258,6 @@ mod tests {
         for line in [
             "ggml_backend_cuda_buffer_type_alloc_buffer: allocating 4096 MB on device 0: cudaMalloc failed: out of memory",
             "CUDA error: out of memory",
-            "std::bad_alloc",
         ] {
             assert!(
                 describes_exhausted_memory(&line.to_lowercase()),
@@ -9254,6 +9265,15 @@ mod tests {
             );
         }
         assert!(!describes_exhausted_memory("loading model from disk"));
+        assert!(!describes_exhausted_memory("terminate called after throwing an instance of 'std::bad_alloc'"));
+    }
+
+    #[test]
+    fn a_failed_host_allocation_names_the_computer_s_memory_not_the_card() {
+        let log = "[DiT] step 3/8\nterminate called after throwing an instance of 'std::bad_alloc'\n  what():  std::bad_alloc";
+        let reason = lost_job_reason(log);
+        assert!(reason.contains("ran out of memory (RAM)") && !reason.contains("graphics card"), "{reason}");
+        assert!(!describes_device_failure(&log.to_lowercase()));
     }
 
     #[test]
