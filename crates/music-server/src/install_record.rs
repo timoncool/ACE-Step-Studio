@@ -98,6 +98,11 @@ fn installing_mark(record: &Path) -> PathBuf {
     record.with_extension("json.installing")
 }
 
+/// Whether the download recorded at `record` is being installed, or its install was cut off.
+pub fn under_way(record: &Path) -> bool {
+    installing_mark(record).exists()
+}
+
 /// Marks the download recorded at `record` as being installed, before any of
 /// its files is put down: until `write` replaces the mark with the record, it
 /// counts as not installed, and a download from before records is not taken

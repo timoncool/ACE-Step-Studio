@@ -106,6 +106,46 @@ pub fn accepts(url: &str, staged: &Path) -> bool {
     }
 }
 
+/// The SHA-256 of the files a pick takes out of a pinned package, by the package's URL and the file's name, as the
+/// package's own RECORD lists them: a file already on disk from another address is known by its bytes.
+const PICKED: &[(&str, &str, &str)] = &[
+    ("https://files.pythonhosted.org/packages/20/e2/fc9a0e985249d873150276d5afb02e39a66817fedbf1a385724393e505ed/nvidia_cublas_cu12-12.9.2.10-py3-none-win_amd64.whl", "cublas64_12.dll", "52ce5ba0ec5327d39be6021f0f9362d2ed4d64d7206f9b5afc06398d827b8e82"),
+    ("https://files.pythonhosted.org/packages/20/e2/fc9a0e985249d873150276d5afb02e39a66817fedbf1a385724393e505ed/nvidia_cublas_cu12-12.9.2.10-py3-none-win_amd64.whl", "cublasLt64_12.dll", "71705a7cf0923f4ab034d0d2620bbfc989ff669ac3d79f868b7a7c597ca559c5"),
+    ("https://files.pythonhosted.org/packages/cb/c0/0a517bfe63ccd3b92eb254d264e28fca3c7cab75d07daea315250fb1bf73/nvidia_cublas_cu12-12.9.2.10-py3-none-manylinux_2_27_x86_64.whl", "libcublas.so.12", "5757ab5839fb4f203ca47ecb336110d10f4a5606b1e097f195fbca89774569e2"),
+    ("https://files.pythonhosted.org/packages/cb/c0/0a517bfe63ccd3b92eb254d264e28fca3c7cab75d07daea315250fb1bf73/nvidia_cublas_cu12-12.9.2.10-py3-none-manylinux_2_27_x86_64.whl", "libcublasLt.so.12", "2c9006a75c74b3bea2dc7ae2ec38ab038b0e45ea02cb4b717a915e8a5796acb1"),
+];
+
+/// The SHA-256 of the file `name` a pick takes out of the package at `url`, when the package lists it.
+pub fn picked(url: &str, name: &str) -> Option<&'static str> {
+    PICKED.iter().find(|(package, file, _)| *package == url && *file == name).map(|(_, _, sha256)| *sha256)
+}
+
+/// Whether `path` holds the bytes of `sha256`. A file is hashed once for its size and modification time, since the
+/// models page asks every second.
+pub fn holds(path: &Path, sha256: &str) -> bool {
+    use std::collections::HashMap;
+    use std::sync::{Mutex, OnceLock};
+    static HASHED: OnceLock<Mutex<HashMap<std::path::PathBuf, (u64, std::time::SystemTime, String)>>> = OnceLock::new();
+    let Ok(meta) = std::fs::metadata(path) else { return false };
+    let Ok(modified) = meta.modified() else { return false };
+    let hashed = HASHED.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Some((len, at, got)) = hashed.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).get(path) {
+        if *len == meta.len() && *at == modified {
+            return got == sha256;
+        }
+    }
+    let got = match crate::install_record::sha256_of(path) {
+        Ok(got) => got,
+        Err(error) => {
+            studio_log!("[ERROR] {} could not be hashed: {error:#}", path.display());
+            return false;
+        }
+    };
+    let same = got == sha256;
+    hashed.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).insert(path.to_path_buf(), (meta.len(), modified, got));
+    same
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -123,6 +163,35 @@ mod tests {
         for (url, sha256) in PINNED {
             assert!(sha256.len() == 64 && sha256.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase()), "{url}: {sha256}");
         }
+    }
+
+    #[test]
+    fn every_picked_hash_is_of_a_file_a_download_picks() {
+        let downloads: Vec<&crate::downloads::Asset> = crate::lyrics_sync::ASSETS.iter().chain(crate::engine_runtime::ASSETS).collect();
+        for (url, name, sha256) in PICKED {
+            assert_eq!(sha256.len(), 64, "{name}");
+            if let Some(asset) = downloads.iter().find(|asset| asset.url == *url) {
+                assert!(asset.pick.iter().any(|entry| crate::downloads::picked_file_name(entry) == *name), "{} does not pick {name}", asset.id);
+            }
+        }
+        for asset in downloads.iter().filter(|asset| PICKED.iter().any(|(url, _, _)| *url == asset.url)) {
+            for entry in asset.pick {
+                assert!(picked(asset.url, crate::downloads::picked_file_name(entry)).is_some(), "{}: {entry} has no hash", asset.id);
+            }
+        }
+    }
+
+    #[test]
+    fn a_file_is_known_by_its_bytes_and_hashed_again_once_it_changes() {
+        let root = tempfile::tempdir().unwrap();
+        let file = root.path().join("cublas64_12.dll");
+        std::fs::write(&file, b"today").unwrap();
+        let today = crate::install_record::sha256_of(&file).unwrap();
+        assert!(holds(&file, &today));
+        assert!(holds(&file, &today), "the second look is the first one's hash");
+        std::fs::write(&file, b"an earlier build").unwrap();
+        assert!(!holds(&file, &today), "another size is hashed again");
+        assert!(!holds(&root.path().join("missing.dll"), &today));
     }
 
     #[test]

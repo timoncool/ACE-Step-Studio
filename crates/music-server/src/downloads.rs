@@ -146,7 +146,8 @@ impl Downloader {
     }
 
     /// Installed when its files are there and, for a runtime, its record names
-    /// today's pin (`install_record`); a runtime from before records counts as
+    /// today's pin (`install_record`), or its files are today's pin byte for byte
+    /// whichever address put them there; a runtime from before records counts as
     /// in `take_over`. A model counts by its file: its address can move to
     /// another revision of the same weights without them being fetched again.
     pub fn is_installed(&self, asset: &Asset) -> bool {
@@ -158,9 +159,44 @@ impl Downloader {
         }
         let record = self.record_of(asset);
         match crate::install_record::matches(&record, asset.url, &self.root) {
-            Some(current) => current,
-            None => self.take_over(asset, &record),
+            Some(true) => true,
+            Some(false) => self.holds_pinned_bytes(asset, &record),
+            None => self.take_over(asset, &record) || self.holds_pinned_bytes(asset, &record),
         }
+    }
+
+    /// Today's pin already on disk byte for byte, from whichever address: the files a pick takes out of its
+    /// package by the hashes the package lists, or a single file by the pin's own. Its record is then written for
+    /// today's pin, so the next look reads the record.
+    fn holds_pinned_bytes(&self, asset: &Asset, record: &Path) -> bool {
+        if crate::install_record::under_way(record) {
+            return false;
+        }
+        let files: Vec<PathBuf> = if !asset.pick.is_empty() {
+            let destination = self.picked_into(asset);
+            let mut files = Vec::new();
+            for entry in asset.pick {
+                let name = picked_file_name(entry);
+                let path = destination.join(name);
+                match crate::pin_sha::picked(asset.url, name) {
+                    Some(sha256) if crate::pin_sha::holds(&path, sha256) => files.push(path),
+                    _ => return false,
+                }
+            }
+            files
+        } else if asset.unzip_into.is_none() {
+            let path = self.path_of(asset);
+            match crate::pin_sha::sha256(asset.url) {
+                Some(sha256) if crate::pin_sha::holds(&path, sha256) => vec![path],
+                _ => return false,
+            }
+        } else {
+            return false;
+        };
+        if let Err(error) = crate::install_record::write(record, asset.url, "", &files, &self.root) {
+            studio_log!("[ERROR] {}: the record of today's files already on disk was not written: {error:#}", asset.label);
+        }
+        true
     }
 
     /// What an earlier release left of `asset` for today's pin to replace: `Some(Some(url))` when its record names
