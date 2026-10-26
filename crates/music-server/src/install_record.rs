@@ -41,8 +41,8 @@ const KEY_FILES: &[(&str, &str, u64)] = &[
     ("https://github.com/ggml-org/llama.cpp/releases/download/b11900/llama-b11900-bin-win-cuda-12.4-x64.zip", "ggml-cuda.dll", 593_773_568),
     ("https://github.com/ggml-org/llama.cpp/releases/download/b11900/llama-b11900-bin-win-vulkan-x64.zip", "ggml-vulkan.dll", 41_590_784),
     ("https://github.com/ggml-org/llama.cpp/releases/download/b11900/llama-b11900-bin-win-cpu-x64.zip", "ggml-cpu-haswell.dll", 1_426_944),
-    ("https://github.com/microsoft/onnxruntime/releases/download/v1.31.0/onnxruntime-win-x64-1.31.0.zip", "onnxruntime.dll", 17_253_176),
-    ("https://github.com/microsoft/onnxruntime/releases/download/v1.31.0/onnxruntime-win-x64-gpu_cuda12-1.31.0.zip", "onnxruntime_providers_cuda.dll", 366_181_728),
+    ("https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-win-x64-1.30.0.zip", "onnxruntime.dll", 16_462_648),
+    ("https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-win-x64-gpu_cuda12-1.30.0.zip", "onnxruntime_providers_cuda.dll", 352_453_432),
     ("https://github.com/ggml-org/llama.cpp/releases/download/b11236/cudart-llama-bin-win-cuda-13.4-x64.zip", "cudart64_13.dll", 551_024),
     ("https://github.com/ggml-org/llama.cpp/releases/download/b11236/cudart-llama-bin-win-cuda-12.4-x64.zip", "cudart64_12.dll", 553_984),
     ("https://developer.download.nvidia.com/compute/cuda/redist/libcublas/windows-x86_64/libcublas-windows-x86_64-13.5.1.27-archive.zip", "cublasLt64_13.dll", 460_301_424),
@@ -246,14 +246,14 @@ mod tests {
         assert!(missing.is_empty(), "pinned archives without a key file: {missing:#?}");
     }
 
-    /// The key files of the pins that replace 3.7.0's: llama.cpp b11236 and ONNX Runtime 1.30.0 left on disk
-    /// without a record are not taken for b11900 and 1.31.0.
+    /// llama.cpp b11236 left on disk by 3.7.0 without a record is not taken for b11900; ONNX Runtime 1.30.0 is
+    /// 3.7.0's pin and today's, so its files are taken as they are.
     #[test]
     fn a_3_7_0_runtime_without_a_record_is_not_taken_for_todays_pin() {
         let (_, llama) = key_file("https://github.com/ggml-org/llama.cpp/releases/download/b11900/llama-b11900-bin-win-cuda-13.4-x64.zip").unwrap();
         assert_ne!(llama, 8_917_504, "b11236's llama-server-impl.dll");
-        let (_, onnx) = key_file("https://github.com/microsoft/onnxruntime/releases/download/v1.31.0/onnxruntime-win-x64-1.31.0.zip").unwrap();
-        assert_ne!(onnx, 16_462_648, "1.30.0's onnxruntime.dll");
+        let (_, onnx) = key_file("https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-win-x64-1.30.0.zip").unwrap();
+        assert_eq!(onnx, 16_462_648, "1.30.0's onnxruntime.dll");
     }
 
     /// No two pinned archives share a key: a key file at its size names one build, so another build unpacked in its

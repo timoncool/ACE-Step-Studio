@@ -1144,7 +1144,7 @@ mod tests {
     fn an_install_cut_off_before_its_record_is_not_installed() {
         let root = std::env::temp_dir().join(format!("downloads-{}", uuid::Uuid::now_v7()));
         let downloader = Downloader::new(root.clone());
-        let url = "https://github.com/microsoft/onnxruntime/releases/download/v1.31.0/onnxruntime-win-x64-1.31.0.zip";
+        let url = "https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-win-x64-1.30.0.zip";
         let runtime = Asset { id: "test-runtime", kind: AssetKind::Runtime, url, relative_path: "runtime/onnxruntime.zip", unzip_into: Some("onnx"), marker: "onnxruntime.dll", ..asset() };
         let (key, size) = crate::install_record::key_file(url).unwrap();
         let record = downloader.record_of(&runtime);
