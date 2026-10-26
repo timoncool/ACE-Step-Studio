@@ -45,9 +45,9 @@ pub struct Asset {
     /// companion archive would look installed as soon as its neighbour was,
     /// because both land in the same directory.
     pub marker: &'static str,
-    /// When set, only these files are taken out of the archive, by name, over
-    /// range requests - the rest is never downloaded. NVIDIA's libraries come
-    /// in archives several times larger than the parts anyone uses.
+    /// When set, only these files are taken out of the archive, by name, once
+    /// the whole archive has arrived; the rest is not unpacked. NVIDIA's
+    /// libraries come in archives several times larger than the parts anyone uses.
     pub pick: &'static [&'static str],
     /// Roughly how much VRAM the asset wants; informational only.
     pub vram_gb: Option<u32>,
@@ -248,6 +248,42 @@ impl Downloader {
         fs::metadata(self.path_of(asset).with_extension("part")).map(|meta| meta.len()).unwrap_or(0)
     }
 
+    /// What the assets still need on the disk: the bytes their partial files do
+    /// not hold yet and, for an archive, twice its size while it is unpacked.
+    fn space_needed(&self, assets: &[&'static Asset]) -> u64 {
+        assets
+            .iter()
+            .filter(|asset| !self.is_installed(asset))
+            .map(|asset| {
+                let partial = if asset.pick.is_empty() {
+                    self.partial_bytes(asset)
+                } else {
+                    fs::metadata(self.picked_into(asset).join(format!("{}.part-archive", asset.id))).map(|meta| meta.len()).unwrap_or(0)
+                };
+                let rest = asset.bytes - partial.min(asset.bytes);
+                if asset.unzip_into.is_some() || !asset.pick.is_empty() { rest + 2 * asset.bytes } else { rest }
+            })
+            .sum()
+    }
+
+    /// Refuses a download before it starts when the volume of the downloads
+    /// has less room than the assets need.
+    fn ensure_space(&self, assets: &[&'static Asset]) -> Result<()> {
+        let need = self.space_needed(assets);
+        let Some(folder) = self.root.ancestors().find(|path| path.is_dir()) else { return Ok(()) };
+        let free = match fs2::available_space(folder) {
+            Ok(free) => free,
+            Err(error) => {
+                eprintln!("[ERROR] the free space of {} is unknown ({error}); the download goes ahead unchecked", folder.display());
+                return Ok(());
+            }
+        };
+        if free < need {
+            bail!("not enough space: {:.1} GB needed, {:.1} GB free ({})", need as f64 / 1e9, free as f64 / 1e9, self.root.display());
+        }
+        Ok(())
+    }
+
     pub fn status_of(&self, assets: &[Asset]) -> Vec<AssetStatus> {
         // Ask the servers what these actually weigh. The answers land in time
         // for the next poll a second from now; nothing waits on them.
@@ -423,6 +459,7 @@ impl Downloader {
         if pending.is_empty() {
             return Ok(());
         }
+        self.ensure_space(&pending)?;
 
         let total: u64 = pending.iter().map(|asset| asset.bytes).sum();
         let mut progress = self.progress.lock().await;
@@ -551,6 +588,7 @@ impl Downloader {
     /// Starts one download in the background. Only one runs at a time, and an
     /// interrupted file resumes from what is already on disk.
     pub async fn install(&self, asset: &'static Asset) -> Result<()> {
+        self.ensure_space(&[asset])?;
         {
             let mut progress = self.progress.lock().await;
             if progress.as_ref().is_some_and(|active| !active.done && active.error.is_none()) {
@@ -1062,6 +1100,25 @@ mod tests {
 
         fs::write(downloader.path_of(&entry), vec![0u8; 64]).unwrap();
         assert!(downloader.is_installed(&entry));
+        fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn a_download_counts_what_its_partial_file_holds_and_room_to_unpack_an_archive() {
+        let root = std::env::temp_dir().join(format!("downloads-{}", uuid::Uuid::now_v7()));
+        let downloader = Downloader::new(root.clone());
+        let model: &'static Asset = Box::leak(Box::new(Asset { bytes: 1000, ..asset() }));
+        let archive: &'static Asset = Box::leak(Box::new(Asset { id: "test-archive", kind: AssetKind::Runtime, relative_path: "runtime/tool.zip", bytes: 1000, unzip_into: Some("tool"), marker: "tool", ..asset() }));
+        fs::create_dir_all(downloader.path_of(model).parent().unwrap()).unwrap();
+        fs::write(downloader.path_of(model).with_extension("part"), vec![0u8; 400]).unwrap();
+        assert_eq!(downloader.space_needed(&[model]), 600);
+        assert_eq!(downloader.space_needed(&[archive]), 3000);
+        assert_eq!(downloader.space_needed(&[model, archive]), 3600);
+        assert!(downloader.ensure_space(&[model, archive]).is_ok());
+
+        let huge: &'static Asset = Box::leak(Box::new(Asset { id: "test-huge", relative_path: "models/huge.bin", bytes: 1 << 60, ..asset() }));
+        let refused = downloader.ensure_space(&[huge]).unwrap_err().to_string();
+        assert!(refused.starts_with("not enough space:"), "{refused}");
         fs::remove_dir_all(&root).ok();
     }
 
