@@ -127,28 +127,60 @@ pub struct Plan {
     pub ranged: bool,
 }
 
-/// Asks for one byte, which answers both questions at once: how big the file
-/// is, and whether ranges work at all. A HEAD answers the first only, and some
-/// CDNs answer it differently from the GET that follows.
 pub async fn probe(http: &reqwest::Client, url: &str) -> Result<Plan> {
     let mut last = String::new();
+    let mut unreachable = 0;
+    let mut attempts = 0;
     for attempt in 0..RETRIES {
+        attempts = attempt + 1;
         match probe_once(http, url).await {
             Ok(plan) => return Ok(plan),
             Err(error) if error.is::<Refused>() => return Err(error),
-            Err(error) => last = format!("{error:#}"),
+            Err(error) => {
+                last = format!("{error:#}");
+                if cannot_connect(&error) {
+                    unreachable += 1;
+                    if unreachable == CONNECT_RETRIES {
+                        break;
+                    }
+                }
+            }
         }
         // Hugging Face answers 429 when it has had enough for the moment, and
         // a busy hour is not a broken download. Without this the whole install
         // died on the first refusal, with nothing to retry it.
         tokio::time::sleep(std::time::Duration::from_millis(500 << attempt.min(7))).await;
     }
-    let mirror = if url.contains("://huggingface.co/") {
+    Err(anyhow!("{}", start_failure(url, attempts, unreachable == CONNECT_RETRIES, &last)))
+}
+
+/// Attempts at a host that cannot be connected to at all - no route, no DNS
+/// answer, a refused or timed-out connection - before the download says so.
+/// Each costs up to the connect timeout, and a blocked host stays blocked:
+/// eight of them kept the user at a still bar for six minutes.
+const CONNECT_RETRIES: u32 = 3;
+
+/// Whether the request never reached the server: a connection that failed, not
+/// an answer and not a dropped transfer.
+fn cannot_connect(error: &anyhow::Error) -> bool {
+    error.chain().any(|cause| cause.downcast_ref::<reqwest::Error>().is_some_and(|error| error.is_connect()))
+}
+
+/// Why a download could not start. The host is named on its own, so it
+/// survives the statistics' removal of addresses: which server a network
+/// cannot reach is the whole question.
+fn start_failure(url: &str, attempts: u32, unreachable: bool, last: &str) -> String {
+    let host = reqwest::Url::parse(url).ok().and_then(|parsed| parsed.host_str().map(str::to_owned)).unwrap_or_default();
+    let mirror = if host == "huggingface.co" {
         ". Hugging Face did not answer from this network: Settings - Network can take models from the HF-Mirror instead"
     } else {
         ""
     };
-    Err(anyhow!("could not start {url} after {RETRIES} attempts: {last}{mirror}"))
+    if unreachable {
+        format!("could not connect to {host} ({attempts} attempts) for {url}: {last}{mirror}")
+    } else {
+        format!("could not start {url} from {host} after {attempts} attempts: {last}{mirror}")
+    }
 }
 
 /// Sends one request, waiting out a server that is only busy.
@@ -501,5 +533,21 @@ mod tests {
     #[test]
     fn a_missing_manifest_means_nothing_is_done_yet() {
         assert!(completed_offsets(Path::new("nowhere/at/all.part")).is_empty());
+    }
+
+    /// A host nothing listens on is given up after three attempts, not eight,
+    /// and the reason names it beside the address.
+    #[tokio::test]
+    async fn a_host_that_cannot_be_reached_is_named_and_not_retried_eight_times() {
+        let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = closed.local_addr().unwrap().port();
+        drop(closed);
+        let http = reqwest::Client::builder().no_proxy().build().unwrap();
+        let error = probe(&http, &format!("http://127.0.0.1:{port}/model.gguf")).await.unwrap_err().to_string();
+        assert!(error.starts_with(&format!("could not connect to 127.0.0.1 (3 attempts) for http://127.0.0.1:{port}/model.gguf: ")), "{error}");
+        assert!(!error.contains("HF-Mirror"));
+        assert!(start_failure("https://huggingface.co/a/b/resolve/c/d.gguf", 3, true, "x").starts_with("could not connect to huggingface.co (3 attempts)"));
+        assert!(start_failure("https://huggingface.co/a/b/resolve/c/d.gguf", 3, true, "x").ends_with("HF-Mirror instead"));
+        assert_eq!(start_failure("https://github.com/a/b.zip", 8, false, "x"), "could not start https://github.com/a/b.zip from github.com after 8 attempts: x");
     }
 }
