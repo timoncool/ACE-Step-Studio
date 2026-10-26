@@ -4,6 +4,7 @@ import { Check, ChevronDown, Download, FolderDown, FolderOpen, Loader2, Square, 
 import { useI18n } from '../context/I18nContext';
 import { RescanButton } from './RescanButton';
 import { ManualDownloads } from './ManualDownloads';
+import { MirrorOffer } from './MirrorOffer';
 import { DevicePicker, type Device } from './DevicePicker';
 import { AssistantExtras } from './AssistantSettings';
 import { KaraokeExtras } from './KaraokeSettings';
@@ -859,6 +860,13 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
           <div className="mt-5 flex gap-2 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
             <X size={16} className="mt-0.5 shrink-0" />{error}
           </div>
+        )}
+
+        {mode === 'first-run' && (
+          <MirrorOffer
+            recheck={status?.active?.status === 'failed' ? status.active.id : ''}
+            onSwitched={() => void refresh().catch((reason) => setError(reason.message))}
+          />
         )}
 
         {mode === 'first-run' && <div className="mt-5 rounded-xl border border-pink-300/50 bg-pink-50 px-4 py-3 text-sm text-zinc-700 dark:border-pink-500/25 dark:bg-pink-500/10 dark:text-zinc-200">
