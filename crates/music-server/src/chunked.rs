@@ -172,7 +172,7 @@ fn cannot_connect(error: &anyhow::Error) -> bool {
 fn start_failure(url: &str, attempts: u32, unreachable: bool, last: &str) -> String {
     let host = reqwest::Url::parse(url).ok().and_then(|parsed| parsed.host_str().map(str::to_owned)).unwrap_or_default();
     let mirror = if host == "huggingface.co" {
-        ". Hugging Face did not answer from this network: Settings - Network can take models from the HF-Mirror instead"
+        ". Hugging Face did not answer from this network: Settings - Providers - Proxy can take models from the HF-Mirror instead"
     } else {
         ""
     };

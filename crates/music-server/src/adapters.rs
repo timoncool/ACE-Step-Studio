@@ -714,6 +714,8 @@ pub struct HubFile {
 /// an adapter's header; a longer one takes a second.
 async fn hub_header(http: &reqwest::Client, url: &str) -> Result<serde_json::Map<String, Value>> {
     const FIRST: u64 = 256 << 10;
+    let url = crate::net::model_url(url);
+    let url = url.as_str();
     let answer = http.get(url).header(reqwest::header::RANGE, format!("bytes=0-{}", FIRST - 1)).send().await?.error_for_status()?;
     // a server that ignores the range would send the whole weight file; a whole
     // file no longer than the range is the same bytes
@@ -807,7 +809,7 @@ impl AdapterLibrary {
         let query = query.trim();
         let words: Vec<String> = query.to_lowercase().split_whitespace().map(str::to_owned).collect();
         let url = |tags: &[String], search: &str| -> Result<reqwest::Url> {
-            let mut url = reqwest::Url::parse(&format!("{HUB}/api/models"))?;
+            let mut url = reqwest::Url::parse(&crate::net::model_url(&format!("{HUB}/api/models")))?;
             {
                 let mut pairs = url.query_pairs_mut();
                 for tag in tags {
@@ -865,10 +867,10 @@ impl AdapterLibrary {
     /// The weight files of a repository at its current commit.
     pub async fn hub_files(&self, http: &reqwest::Client, repo: &str) -> Result<HubListing> {
         let (repo, _) = hub_reference(repo).with_context(|| format!("not a Hugging Face repository: {repo}"))?;
-        let info: Value = http.get(format!("{HUB}/api/models/{repo}")).send().await?.error_for_status()?.json().await?;
+        let info: Value = http.get(crate::net::model_url(&format!("{HUB}/api/models/{repo}"))).send().await?.error_for_status()?.json().await?;
         let revision = info.get("sha").and_then(Value::as_str).context("the repository names no commit")?.to_string();
         let tree: Vec<Value> = http
-            .get(format!("{HUB}/api/models/{repo}/tree/{revision}?recursive=true"))
+            .get(crate::net::model_url(&format!("{HUB}/api/models/{repo}/tree/{revision}?recursive=true")))
             .send()
             .await?
             .error_for_status()?

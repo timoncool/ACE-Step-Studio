@@ -18,6 +18,7 @@ interface Settings {
   mode: Mode;
   address: string | null;
   kind: Kind;
+  huggingface_mirror: boolean;
 }
 
 interface Probe {
@@ -42,6 +43,7 @@ export const ProxySettings: React.FC = () => {
   const [mode, setMode] = useState<Mode>('system');
   const [kind, setKind] = useState<Kind>('http');
   const [address, setAddress] = useState('');
+  const [huggingfaceMirror, setHuggingfaceMirror] = useState(false);
   const [reveal, setReveal] = useState(false);
   const [busy, setBusy] = useState<'test' | 'save' | null>(null);
   const [probe, setProbe] = useState<Probe | null>(null);
@@ -55,13 +57,14 @@ export const ProxySettings: React.FC = () => {
         setMode(body.mode);
         setKind(body.kind);
         setAddress(body.address ?? '');
+        setHuggingfaceMirror(body.huggingface_mirror === true);
         // a saved address the studio cannot read: requests go straight out until it is fixed here
         if (body.problem) setError(body.problem);
       })
       .catch(reason => setError(reason instanceof Error ? reason.message : String(reason)));
   }, []);
 
-  const form = (): Settings => ({ mode, kind, address: address.trim() || null });
+  const form = (): Settings => ({ mode, kind, address: address.trim() || null, huggingface_mirror: huggingfaceMirror });
 
   const send = async (path: string, method: 'PUT' | 'POST') => {
     const response = await fetch(path, {
@@ -126,6 +129,20 @@ export const ProxySettings: React.FC = () => {
       </h4>
       <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('proxyIntro')}</p>
 
+      <label className="mt-3 block text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+        {t('modelDownloadSource')}
+        <select
+          value={huggingfaceMirror ? 'mirror' : 'official'}
+          disabled={busy !== null}
+          onChange={event => { setHuggingfaceMirror(event.target.value === 'mirror'); setProbe(null); setSaved(false); }}
+          className={`${CONTROL} mt-1`}
+        >
+          <option value="official">{t('modelDownloadOfficial')}</option>
+          <option value="mirror">HF-Mirror · hf-mirror.com</option>
+        </select>
+      </label>
+      <p className="mt-1 text-[11px] leading-4 text-zinc-500">{t('modelDownloadSourceHint')}</p>
+
       <div className="mt-3 flex w-fit rounded-lg border border-zinc-200 p-0.5 dark:border-white/10">
         {modes.map(choice => (
           <button
@@ -186,7 +203,7 @@ export const ProxySettings: React.FC = () => {
         <button
           type="button"
           onClick={() => void check()}
-          disabled={busy !== null || mode === 'off'}
+          disabled={busy !== null}
           className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-700 hover:border-pink-400 hover:text-pink-600 disabled:opacity-50 dark:border-white/15 dark:text-zinc-200"
         >
           {busy === 'test' && <Loader2 size={13} className="animate-spin" />} {t('proxyTest')}
@@ -208,7 +225,7 @@ export const ProxySettings: React.FC = () => {
 
       {probe && (
         <div className="mt-3 space-y-1.5 rounded-lg bg-zinc-50 p-3 dark:bg-black/20">
-          {target('Hugging Face', probe.huggingface, probe.huggingface_error)}
+          {target(huggingfaceMirror ? 'HF-Mirror' : 'Hugging Face', probe.huggingface, probe.huggingface_error)}
           {target('OpenRouter', probe.openrouter, probe.openrouter_error)}
         </div>
       )}

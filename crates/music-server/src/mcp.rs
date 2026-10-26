@@ -2274,20 +2274,20 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "network_proxy_get",
-                description: "How the studio reaches the internet: no proxy, the system's, or a proxy address of a kind (http, https, socks5, socks4); with why a saved address cannot be used, when it cannot.",
+                description: "How the studio reaches the internet: no proxy, the system's, or a proxy address of a kind (http, https, socks5, socks4), and whether models come from the HF-Mirror instead of Hugging Face; with why a saved address cannot be used, when it cannot.",
                 schema: nothing,
                 call: |_| get("/v1/network/proxy".into()),
             },
             Tool {
                 name: "network_proxy_set",
-                description: "Set how the studio reaches the internet, as Settings - Network does: mode off, system or custom (with address and kind). Test it first with network_proxy_test.",
-                schema: || object(json!({ "mode": { "type": "string", "enum": ["off", "system", "custom"] }, "address": { "type": "string", "description": "host:port of a custom proxy" }, "kind": { "type": "string", "enum": ["http", "https", "socks5", "socks4"] } }), &["mode", "kind"]),
+                description: "Set how the studio reaches the internet, as Settings - Providers - Proxy does: mode off, system or custom (with address and kind), and huggingface_mirror to take models from the HF-Mirror. Test it first with network_proxy_test.",
+                schema: || object(json!({ "mode": { "type": "string", "enum": ["off", "system", "custom"] }, "address": { "type": "string", "description": "host:port of a custom proxy" }, "kind": { "type": "string", "enum": ["http", "https", "socks5", "socks4"] }, "huggingface_mirror": { "type": "boolean" } }), &["mode", "kind", "huggingface_mirror"]),
                 call: |args| send(Method::PUT, "/v1/network/proxy".into(), args.clone()),
             },
             Tool {
                 name: "network_proxy_test",
-                description: "Try a proxy setting without keeping it: says whether Hugging Face and OpenRouter answer through it.",
-                schema: || object(json!({ "mode": { "type": "string", "enum": ["off", "system", "custom"] }, "address": { "type": "string" }, "kind": { "type": "string", "enum": ["http", "https", "socks5", "socks4"] } }), &["mode", "kind"]),
+                description: "Try a proxy setting without keeping it: says whether Hugging Face (or the HF-Mirror) and OpenRouter answer through it.",
+                schema: || object(json!({ "mode": { "type": "string", "enum": ["off", "system", "custom"] }, "address": { "type": "string" }, "kind": { "type": "string", "enum": ["http", "https", "socks5", "socks4"] }, "huggingface_mirror": { "type": "boolean" } }), &["mode", "kind", "huggingface_mirror"]),
                 call: |args| post("/v1/network/proxy/test".into(), args.clone()),
             },
             Tool {

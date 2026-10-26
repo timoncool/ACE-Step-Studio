@@ -390,10 +390,10 @@ impl ModelManager {
     async fn download_component(&self, component: &Component) -> Result<()> {
         let target = self.root.join(component.filename);
         let part = part_path(&target);
-        let url = format!(
+        let url = crate::net::model_url(&format!(
             "https://huggingface.co/{}/resolve/{}/{}?download=true",
             component.repository, component.revision, component.remote_path
-        );
+        ));
 
         // another program of timoncool's has this file: taken through the same checksum a download passes
         let name = Path::new(component.filename).file_name().unwrap_or_default();

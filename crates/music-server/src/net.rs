@@ -62,6 +62,23 @@ pub struct ProxySettings {
     /// As the user wrote it.
     pub address: Option<String>,
     pub kind: ProxyKind,
+    /// Public Hugging Face downloads through HF-Mirror (hf-mirror.com).
+    pub huggingface_mirror: bool,
+}
+
+/// The address a Hugging Face download is fetched from: the mirror keeps the
+/// repository, the pinned revision and the query; other hosts stay as they are.
+fn model_url_with(settings: &ProxySettings, original: &str) -> String {
+    if settings.huggingface_mirror {
+        if let Some(path) = original.strip_prefix("https://huggingface.co/") {
+            return format!("https://hf-mirror.com/{path}");
+        }
+    }
+    original.to_owned()
+}
+
+pub fn model_url(original: &str) -> String {
+    model_url_with(&current(), original)
 }
 
 const SCHEMES: [&str; 6] = ["http", "https", "socks5", "socks5h", "socks4", "socks4a"];
@@ -280,17 +297,23 @@ pub fn download_client() -> reqwest::Client {
 /// a connection that fails does not.
 pub async fn test(settings: ProxySettings) -> Result<serde_json::Value> {
     let settings = settings.validated()?;
+    let hub_url = model_url_with(&settings, "https://huggingface.co/api/models?limit=1");
     let system = Matcher::from_system();
     let client = reqwest::Client::builder()
         .user_agent(user_agent())
         .proxy(reqwest::Proxy::custom(move |url| proxy_for(&settings, &system, url)))
         .timeout(std::time::Duration::from_secs(15))
         .build()?;
-    let reach = |url: &'static str| {
+    let reach = |url: String, answered: bool| {
         let client = client.clone();
-        async move { client.get(url).send().await.map(|_| ()).map_err(|error| why(&error)) }
+        async move {
+            let response = client.get(url).send().await.map_err(|error| why(&error))?;
+            // a mirror's error page is no source of models
+            if !answered { response.error_for_status().map_err(|error| why(&error))?; }
+            Ok::<(), String>(())
+        }
     };
-    let (hub, openrouter) = tokio::join!(reach("https://huggingface.co/api/models?limit=1"), reach("https://openrouter.ai/api/v1/models"));
+    let (hub, openrouter) = tokio::join!(reach(hub_url, false), reach("https://openrouter.ai/api/v1/models".into(), true));
     Ok(serde_json::json!({
         "huggingface": hub.is_ok(),
         "huggingface_error": hub.err(),
@@ -324,7 +347,18 @@ mod tests {
     }
 
     fn custom(address: &str, kind: ProxyKind) -> ProxySettings {
-        ProxySettings { mode: ProxyMode::Custom, address: Some(address.into()), kind }
+        ProxySettings { mode: ProxyMode::Custom, address: Some(address.into()), kind, ..ProxySettings::default() }
+    }
+
+    #[test]
+    fn the_mirror_keeps_the_pinned_file_and_changes_hugging_face_alone() {
+        let settings = ProxySettings { huggingface_mirror: true, ..ProxySettings::default() };
+        assert_eq!(model_url_with(&settings, "https://huggingface.co/org/repo/resolve/abc123/weights.gguf?download=true"), "https://hf-mirror.com/org/repo/resolve/abc123/weights.gguf?download=true");
+        for original in ["https://openrouter.ai/api/v1/models", "https://github.com/a/b", "https://huggingface.co.evil.test/a", "https://hf-mirror.com/a"] {
+            assert_eq!(model_url_with(&settings, original), original);
+        }
+        let kept: ProxySettings = serde_json::from_str(r#"{"mode":"system","address":null,"kind":"http"}"#).unwrap();
+        assert!(!kept.huggingface_mirror);
     }
 
     #[test]
