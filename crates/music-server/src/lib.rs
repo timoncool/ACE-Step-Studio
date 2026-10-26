@@ -4727,16 +4727,18 @@ async fn restart_engine(state: &AppState) -> Result<(), String> {
                 // Only Auto moves on, and never past a card that ran out of
                 // memory: Vulkan has no more of it, and the reason is shown.
                 let next = chain.get(index + 1).copied();
-                let log = run.to_lowercase();
-                let out_of_memory = describes_exhausted_memory(&log) || describes_exhausted_ram(&log);
+                let (moves_on, leaves_the_device) = after_a_failed_start(&run.to_lowercase());
                 match next {
-                    Some(next) if options.backend == music_engine::server::ComputeBackend::Auto && !out_of_memory => {
+                    Some(next) if options.backend == music_engine::server::ComputeBackend::Auto && moves_on => {
                         music_engine::server::note_in_log(&format!(
                             "{} did not start ({error}); trying {}",
                             device_name(device),
                             device_name(next)
                         ));
-                        state.failed_devices.write().await.push(device);
+                        if leaves_the_device {
+                            music_engine::server::note_in_log(&format!("{} failed on this machine; leaving it for this session", device_name(device)));
+                            state.failed_devices.write().await.push(device);
+                        }
                     }
                     _ => return Err(last_error),
                 }
@@ -4871,6 +4873,16 @@ fn device_error_line(log: &str) -> Option<String> {
         .map(|line| line.chars().take(140).collect())
 }
 
+
+/// What Auto does after a device did not start, from the lowercased log of
+/// that start: whether it tries the next device, and whether it leaves this
+/// one for the rest of the session. Only a failure the log names as the
+/// device's leaves it: a slow start or an exit without a reason is tried
+/// again at the next start.
+fn after_a_failed_start(log: &str) -> (bool, bool) {
+    let out_of_memory = describes_exhausted_memory(log) || describes_exhausted_ram(log);
+    (!out_of_memory, describes_device_failure(log))
+}
 
 /// Whether a lowercased engine log says the compute device itself failed -
 /// a CUDA or Vulkan error, a device lost, the engine's self-test - as opposed
@@ -9422,7 +9434,14 @@ mod tests {
     }
 
     #[test]
-    fn an_engine_that_left_without_a_word_counts_as_a_lost_device() {
+    fn auto_leaves_a_device_for_the_session_only_when_the_log_names_its_failure() {
+        let ptx = "[server] starting\ncuda error: the provided ptx was compiled with an unsupported toolchain.";
+        assert_eq!(after_a_failed_start(ptx), (true, true));
+        assert_eq!(after_a_failed_start("[load] fatal: self-test on vulkan0 failed (status -1, result nan, expected 132)"), (true, true));
+        let slow = "---- starting ace-server.exe ----\n[load] lm backend: cuda0 (cpu threads: 16)";
+        assert_eq!(after_a_failed_start(slow), (true, false), "a slow start is no fault of the card");
+        assert_eq!(after_a_failed_start(""), (true, false), "an exit without a word is no fault of the card");
+        assert_eq!(after_a_failed_start("cuda error: out of memory\ncudamalloc failed"), (false, false));
     }
 
     #[test]
