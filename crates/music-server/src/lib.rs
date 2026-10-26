@@ -4780,6 +4780,8 @@ fn lost_job_reason(log: &str) -> String {
             Some(error) => format!("The graphics card failed during this song ({error}) and the engine restarted, so the song was lost. The engine log is in Settings, Engine."),
             None => "The graphics card failed during this song (a CUDA or driver error) and the engine restarted, so the song was lost. The engine log is in Settings, Engine.".into(),
         }
+    } else if lowered.contains("> max_seq") {
+        "The language model ran out of room on this song: its KV cache (Settings, Engine, LM KV cache) is smaller than the song needs, and the engine stopped. Leave that field empty to use the model's own size, or set it higher.".into()
     } else {
         match last_engine_line(log) {
             Some(line) => format!("The engine stopped during this song and restarted, so the song was lost; its last line was {line}. The engine log is in Settings, Engine."),
@@ -8429,13 +8431,26 @@ fn reference_timbre(state: &AppState, song_id: &str) -> anyhow::Result<(Option<V
     Ok((Some(audio), None))
 }
 
+/// The longest recording the engine takes: 15000 latent frames at 25 a second
+/// (`MAX_T_LATENT` in ace-server); a longer one is refused with 413, and one
+/// over its 256 MB body limit without a word.
+const ENGINE_MAX_SECONDS: f64 = 600.0;
+
 /// A recording as the engine can read it. The engine's own readers take MP3
 /// and only some WAVs (16- and 24-bit PCM, float), while the library takes any
 /// file the studio decodes, so every recording is decoded here and goes as a
-/// 24-bit WAV: the library keeps nothing finer, and the engine refuses a
-/// request body over 256 MB.
+/// 24-bit WAV: the library keeps nothing finer.
 fn engine_audio(path: &std::path::Path) -> anyhow::Result<Vec<u8>> {
     let audio = audio_pcm::decode_stereo(path).with_context(|| format!("decode {}", path.display()))?;
+    let seconds = audio.left.len() as f64 / f64::from(audio.rate);
+    if seconds >= ENGINE_MAX_SECONDS {
+        let whole = seconds.round() as u64;
+        anyhow::bail!(
+            "This track is {}:{:02} long, and the engine takes a source or reference of under 10 minutes. Use a part of it shorter than that.",
+            whole / 60,
+            whole % 60
+        );
+    }
     audio_pcm::wav24_bytes(&audio)
 }
 
@@ -9120,6 +9135,7 @@ mod tests {
         assert!(lost_job_reason("[NAR] Step 3/16\nCUDA error: an illegal memory access was encountered\n  current device: 0").contains("(CUDA error: an illegal memory access was encountered)"));
         assert!(lost_job_reason("ggml_cuda_compute_forward: MUL_MAT failed").contains("CUDA or driver error"));
         assert!(lost_job_reason("[NAR] Step 2/16, 87844 ms\n[NAR] Step 3/16\n[studio] the engine stopped answering").contains("its last line was [NAR] Step 3/16."));
+        assert!(lost_job_reason("[LM-Batch] FATAL: kv_len 2049 > max_seq 2048 (set 0)").contains("KV cache"));
         assert!(lost_job_reason("[Server] listening").contains("stopped during this song"));
     }
 

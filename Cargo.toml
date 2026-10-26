@@ -36,7 +36,7 @@ include_dir = "0.7"
 # transcribe.cpp for karaoke, the binding Dub Studio and Speech Studio share (dub-studio crates/dub-tcpp)
 dub-tcpp = { git = "https://github.com/timoncool/dub-studio", rev = "cf25033698427813a9917e40d7b78c6521206e7c" }
 ort = { version = "=2.0.0-rc.13", default-features = false, features = ["load-dynamic", "api-24", "cuda", "directml"] }
-symphonia = { version = "0.6", default-features = false, features = ["mp3", "wav", "pcm", "isomp4", "aac", "flac", "ogg", "vorbis", "aiff", "alac", "all-meta", "opt-simd"] }
+symphonia = { version = "0.6", default-features = false, features = ["mp1", "mp2", "mp3", "wav", "pcm", "adpcm", "isomp4", "aac", "flac", "ogg", "vorbis", "aiff", "caf", "mkv", "alac", "all-meta", "opt-simd"] }
 flate2 = "1"
 zip = { version = "8", default-features = false, features = ["deflate"] }
 tar = "0.4"
