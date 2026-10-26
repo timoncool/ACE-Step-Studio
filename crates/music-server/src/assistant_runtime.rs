@@ -500,29 +500,17 @@ impl AssistantRuntime {
         true
     }
 
-    /// What an earlier pin put down - the files of its record, then the file
-    /// or archive the pin names - goes before today's is fetched.
-    fn drop_stale(&self, asset: &Asset) -> Result<()> {
-        if self.is_installed(asset) {
-            return Ok(());
-        }
-        crate::install_record::remove_recorded(&self.record_of(asset), &self.root)?;
-        let target = self.path_of(asset);
-        match fs::remove_file(&target) {
-            Ok(()) => Ok(()),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(error) => Err(error).with_context(|| format!("remove {}", target.display())),
-        }
-    }
-
-    /// Fetched, extracted and recorded: the record makes it count as today's pin.
+    /// Fetched, checked, then what an earlier pin put down goes, and today's is extracted and recorded: the record
+    /// makes it count as today's pin.
     fn finish(asset: &Asset, target: &Path, root: &Path) -> Result<()> {
         let sha256 = crate::pin_sha::check(asset.url, target)?;
+        let record = crate::install_record::record_path(target);
+        crate::downloads::replace_earlier(&record, root, target)?;
         let files = match asset.unzip_into {
             Some(flavour) => crate::downloads::extract_archive(target, &root.join("runtime").join(flavour))?,
             None => vec![target.to_path_buf()],
         };
-        crate::install_record::write(&crate::install_record::record_path(target), asset.url, &sha256, &files, root)
+        crate::install_record::write(&record, asset.url, &sha256, &files, root)
     }
 
     /// The files of the asset are on disk, whichever pin put them there.
@@ -669,11 +657,8 @@ impl AssistantRuntime {
         let mut failure = None;
         for asset in &pending {
             let target = self.path_of(asset);
-            let outcome = match self.drop_stale(asset).and_then(|()| crate::install_record::begin(&self.record_of(asset))) {
-                Ok(()) => match download_asset(&self.http, asset, &target, &self.state, base, self.cancel.clone()).await {
-                    Ok(()) => Self::finish(asset, &target, &self.root),
-                    Err(error) => Err(error),
-                },
+            let outcome = match download_asset(&self.http, asset, &target, &self.state, base, self.cancel.clone()).await {
+                Ok(()) => Self::finish(asset, &target, &self.root),
                 Err(error) => Err(error),
             };
             if let Err(error) = outcome {
@@ -719,13 +704,6 @@ impl AssistantRuntime {
             });
         }
 
-        if let Err(error) = self.drop_stale(asset).and_then(|()| crate::install_record::begin(&self.record_of(asset))) {
-            if let Some(progress) = self.state.lock().await.download.as_mut() {
-                progress.done = true;
-                progress.error = Some(format!("{error:#}"));
-            }
-            return Err(error);
-        }
         let target = self.path_of(asset);
         let http = self.http.clone();
         let state = self.state.clone();
@@ -917,7 +895,7 @@ async fn download_asset(
     if let Some(parent) = target.parent() {
         fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
     }
-    if fs::metadata(target).map(|meta| meta.len() > 0).unwrap_or(false) {
+    if crate::downloads::holds_todays(asset.kind == AssetKind::Model, asset.url, target).await {
         return Ok(());
     }
 

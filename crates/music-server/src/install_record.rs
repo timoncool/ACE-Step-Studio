@@ -143,8 +143,7 @@ fn remove_if_there(path: &Path) -> Result<()> {
 }
 
 /// Deletes the files a record lists under `root`, the record and the mark of
-/// an install cut off: what an earlier pin put down goes before the new one is
-/// fetched.
+/// an install cut off.
 pub fn remove_recorded(record: &Path, root: &Path) -> Result<()> {
     if let Some(parsed) = read(record) {
         for file in &parsed.files {
@@ -153,6 +152,20 @@ pub fn remove_recorded(record: &Path, root: &Path) -> Result<()> {
     }
     remove_if_there(record)?;
     remove_if_there(&installing_mark(record))
+}
+
+/// Deletes the files an earlier pin's record lists under `root` but `kept` (the file today's download replaced in
+/// place), and that record; the mark of today's install stays.
+pub fn remove_earlier(record: &Path, root: &Path, kept: &Path) -> Result<()> {
+    if let Some(parsed) = read(record) {
+        for file in &parsed.files {
+            let path = root.join(&file.path);
+            if path != kept {
+                remove_if_there(&path)?;
+            }
+        }
+    }
+    remove_if_there(record)
 }
 
 /// The SHA-256 of a file, as lower-case hex.
