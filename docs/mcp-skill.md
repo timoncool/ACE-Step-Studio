@@ -147,7 +147,7 @@ trigger word in the caption.
    `dataset_add_folder` with the folder.
 3. `dataset_prepare` with `lyrics: missing, style: missing, writer: agent`, then
    `studio_wait until: preparation`. The studio finds the lyrics in LRCLIB, QQ Music and
-   Kugou, recognises only what they miss with Whisper, and has MOSS-Music describe every
+   Kugou, recognises only what they miss with CrisperWhisper, and has MOSS-Music describe every
    song by ear with the tempo and key measured. It leaves the lyric layout to you.
 4. `dataset_get`. For each song:
    - `lyrics_state: found` - the words are there (from a database when `lyrics_source`

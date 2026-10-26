@@ -3,6 +3,22 @@
 version = 4
 
 [[package]]
+name = "acpp-server"
+version = "2.0.0"
+source = "git+https://github.com/timoncool/dub-studio?rev=d7d3f7600ff23c25ba497a1636002e429b571641#d7d3f7600ff23c25ba497a1636002e429b571641"
+dependencies = [
+ "base64",
+ "dub-core",
+ "dub-tcpp",
+ "hound",
+ "libc",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -527,7 +543,7 @@ checksum = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2"
 [[package]]
 name = "dub-core"
 version = "2.0.0"
-source = "git+https://github.com/timoncool/dub-studio?rev=ecc1d03889ecca5675473f5dba426692f6aa299c#ecc1d03889ecca5675473f5dba426692f6aa299c"
+source = "git+https://github.com/timoncool/dub-studio?rev=d7d3f7600ff23c25ba497a1636002e429b571641#d7d3f7600ff23c25ba497a1636002e429b571641"
 dependencies = [
  "libc",
  "serde",
@@ -537,7 +553,7 @@ dependencies = [
 [[package]]
 name = "dub-sep"
 version = "2.0.0"
-source = "git+https://github.com/timoncool/dub-studio?rev=ecc1d03889ecca5675473f5dba426692f6aa299c#ecc1d03889ecca5675473f5dba426692f6aa299c"
+source = "git+https://github.com/timoncool/dub-studio?rev=d7d3f7600ff23c25ba497a1636002e429b571641#d7d3f7600ff23c25ba497a1636002e429b571641"
 dependencies = [
  "dub-core",
  "thiserror",
@@ -548,7 +564,7 @@ dependencies = [
 [[package]]
 name = "dub-tcpp"
 version = "2.0.0"
-source = "git+https://github.com/timoncool/dub-studio?rev=cf25033698427813a9917e40d7b78c6521206e7c#cf25033698427813a9917e40d7b78c6521206e7c"
+source = "git+https://github.com/timoncool/dub-studio?rev=d7d3f7600ff23c25ba497a1636002e429b571641#d7d3f7600ff23c25ba497a1636002e429b571641"
 dependencies = [
  "libloading 0.9.0",
 ]
@@ -1632,6 +1648,7 @@ dependencies = [
 name = "music-server"
 version = "0.1.0"
 dependencies = [
+ "acpp-server",
  "anyhow",
  "audio-post",
  "axum",

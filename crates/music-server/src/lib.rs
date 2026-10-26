@@ -940,7 +940,7 @@ pub async fn serve() -> anyhow::Result<()> {
     state.lyrics_sync.set_cuda_libraries(state.engine_runtime.library_dir());
     {
         let sync = state.lyrics_sync.clone();
-        tokio::task::spawn_blocking(move || sync.remove_retired_parakeet());
+        tokio::task::spawn_blocking(move || sync.remove_retired());
     }
     prepare::resume(&state);
     tokio::spawn(resume_unfinished_jobs(state.clone()));
@@ -3391,9 +3391,7 @@ async fn read_activity(State(state): State<AppState>) -> Json<Value> {
 async fn ensure_local_recogniser(state: &AppState, config: &lyrics_sync::LyricsSyncConfig, song_id: &str) -> bool {
     let ready = |state: &AppState| match config.provider {
         lyrics_sync::AsrProvider::Parakeet => state.lyrics_sync.parakeet_ready(config.runtime, config.whisper_model.as_deref()),
-        lyrics_sync::AsrProvider::Whisper => {
-            state.lyrics_sync.whisper_binary().is_some() && state.lyrics_sync.whisper_model_ready(config)
-        }
+        lyrics_sync::AsrProvider::Whisper => state.lyrics_sync.crisper_ready(config.runtime),
         _ => true,
     };
     if ready(state) {
@@ -3492,8 +3490,7 @@ async fn time_lyrics_for(state: AppState, song_id: String) {
             let sync = state.lyrics_sync.clone();
             let config = config.clone();
             let path = std::path::PathBuf::from(&audio);
-            let lyrics = song.lyrics.clone();
-            match tokio::task::spawn_blocking(move || sync.whisper_words(&config, &path, None, &lyrics)).await {
+            match tokio::task::spawn_blocking(move || sync.crisper_words(config.runtime, &path, None)).await {
                 Ok(result) => result,
                 Err(error) => Err(anyhow::anyhow!("the recogniser stopped: {error}")),
             }
@@ -4467,7 +4464,7 @@ async fn update_configuration(
                         Some("whisper") => lyrics_sync::AsrProvider::Whisper,
                         Some("parakeet") => lyrics_sync::AsrProvider::Parakeet,
                         _ if installed_parakeet.is_some() => lyrics_sync::AsrProvider::Parakeet,
-                        _ if state.lyrics_sync.whisper_binary().is_some() => lyrics_sync::AsrProvider::Whisper,
+                        _ if state.lyrics_sync.crisper_ready(sync.runtime) => lyrics_sync::AsrProvider::Whisper,
                         _ => sync.provider,
                     },
                 };
@@ -6063,9 +6060,8 @@ async fn karaoke_status(State(state): State<AppState>) -> Json<Value> {
 fn karaoke_variant_bytes(id: &str) -> Option<u64> {
     let files: Vec<&'static lyrics_sync::Asset> = if [lyrics_sync::PARAKEET_V3, lyrics_sync::PARAKEET_ULTRA].contains(&id) {
         lyrics_sync::asset(id).into_iter().collect()
-    } else if let Some(size) = id.strip_prefix("whisper-").filter(|_| lyrics_sync::asset(id).is_some_and(|asset| asset.vram_gb.is_some())) {
-        let prefix = format!("models/whisper/faster-whisper-{size}/");
-        lyrics_sync::ASSETS.iter().filter(|asset| asset.relative_path.starts_with(&prefix)).collect()
+    } else if id == lyrics_sync::CRISPERWHISPER_MODEL {
+        lyrics_sync::ASSETS.iter().filter(|asset| asset.relative_path.starts_with("models/crisperwhisper2-turbo/")).collect()
     } else {
         return None;
     };
@@ -6161,28 +6157,7 @@ fn karaoke_set(name: &str, device: lyrics_sync::OnnxFlavour, whisper_model: Opti
             }
             wanted.extend(lyrics_sync::parakeet_assets(device, whisper_model).into_iter().map(String::from));
         }
-        "whisper" => {
-            // One binary whichever device is chosen; the card needs CUDA 11's
-            // libraries beside it, and without them CTranslate2 silently uses
-            // the processor instead of saying so.
-            wanted.push("whisper-engine".into());
-            if device.uses_cuda() {
-                wanted.push("whisper-cublas".into());
-                wanted.push("whisper-cudnn".into());
-            }
-            // A model is a directory of files, and it is useless one file
-            // short, so the whole set goes together.
-            let chosen = whisper_model.unwrap_or("whisper-large-v3-turbo");
-            if let Some(size) = chosen.strip_prefix("whisper-") {
-                let prefix = format!("models/whisper/faster-whisper-{size}/");
-                wanted.extend(
-                    lyrics_sync::ASSETS
-                        .iter()
-                        .filter(|asset| asset.relative_path.starts_with(&prefix))
-                        .map(|asset| asset.id.to_string()),
-                );
-            }
-        }
+        "whisper" => wanted.extend(lyrics_sync::crisper_assets(device).into_iter().map(String::from)),
         _ => {}
     }
     wanted.iter().filter_map(|id| lyrics_sync::asset(id)).collect()
@@ -6274,8 +6249,7 @@ async fn create_song_karaoke(
             let config = config.clone();
             let path = std::path::PathBuf::from(&audio);
             let language = request.language.clone();
-            let lyrics = song.lyrics.clone();
-            tokio::task::spawn_blocking(move || sync.whisper_words(&config, &path, language.as_deref(), &lyrics))
+            tokio::task::spawn_blocking(move || sync.crisper_words(config.runtime, &path, language.as_deref()))
                 .await
                 .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
         }
@@ -7881,7 +7855,7 @@ async fn setup_cancel(State(state): State<AppState>) -> Result<Json<Value>, (Sta
 async fn capabilities(State(state): State<AppState>) -> Json<CapabilitiesResponse> {
     let primary_installed = state.music_server.health().await;
     let parakeet_installed = state.lyrics_sync.parakeet_any_ready();
-    let whisper_installed = state.lyrics_sync.whisper_binary().is_some();
+    let whisper_installed = state.lyrics_sync.crisper_ready(state.lyrics_sync_config.read().await.runtime);
     let assistant = state.assistant.read().await.clone();
     let assistant_installed = assistant.available();
     let cli_agents = tokio::task::spawn_blocking(providers::cli_agent::detect).await.unwrap_or_default();
@@ -7937,7 +7911,7 @@ fn capability_engines_with(
         },
         EngineDescriptor {
             id: "whisper".into(),
-            display_name: "Whisper.cpp (local)".into(),
+            display_name: "CrisperWhisper 2.0 turbo (local)".into(),
             capabilities: vec![Capability::SpeechToText],
             execution_mode: ExecutionMode::Local,
             installed: whisper_installed,

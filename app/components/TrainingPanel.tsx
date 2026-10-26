@@ -353,9 +353,9 @@ const separateOnCard = async () => {
   if (!response.ok) throw new Error(`Separation: HTTP ${response.status}`);
 };
 
-/** Turns on the recogniser dataset lyrics need: Whisper large-v3, fetched on its first use. */
+/** Turns on the recogniser dataset lyrics need: CrisperWhisper, fetched on its first use. */
 const enableRecogniser = () =>
-  fetch('/v1/karaoke/status', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: true, provider: 'whisper', whisper_model: 'whisper-large-v3' }) }).then(response => {
+  fetch('/v1/karaoke/status', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: true, provider: 'whisper' }) }).then(response => {
     if (!response.ok) throw new Error(`Karaoke: HTTP ${response.status}`);
     karaokeStatusChanged();
   });

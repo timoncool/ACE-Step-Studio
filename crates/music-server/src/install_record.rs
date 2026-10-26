@@ -233,7 +233,9 @@ mod tests {
             .iter()
             .chain(crate::engine_runtime::ASSETS)
             .chain([&crate::separation::ROFORMER_ENGINE, &crate::separation::ROFORMER_ENGINE_CPU]);
-        for asset in downloads.filter(|asset| asset.kind == crate::downloads::AssetKind::Runtime && archive(asset.url)) {
+        // the audio.cpp server and its libraries came after records: no install of them predates one
+        let since_records = |asset: &crate::downloads::Asset| asset.id.starts_with("audiocpp-");
+        for asset in downloads.filter(|asset| asset.kind == crate::downloads::AssetKind::Runtime && archive(asset.url) && !since_records(asset)) {
             if key_file(asset.url).is_none() {
                 missing.push(asset.url);
             }

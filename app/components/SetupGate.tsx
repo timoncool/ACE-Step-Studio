@@ -275,10 +275,8 @@ export const OptionalGroup: React.FC<{
   const models = assets.filter((asset) => {
     if (asset.kind !== 'model') return false;
     if (!engines || engines.length === 0) return false;
-    // A faster-whisper model is a directory of files - weights, tokenizer,
-    // vocabulary - and only the weights are a choice. The rest carry no VRAM
-    // figure, which is how they are told apart here.
-    if (engine === 'whisper') return asset.id.startsWith('whisper-') && asset.vram_gb != null;
+    // CrisperWhisper is one model, its weights the row that stands for the whole folder.
+    if (engine === 'whisper') return asset.id === 'crisperwhisper-turbo';
     // Parakeet comes as v3 and Ultra; the engine build follows the card, so only the models are a choice.
     if (engine === 'parakeet') return asset.id === 'parakeet-tdt-int8' || asset.id === 'parakeet-ultra-int8';
     if (engine === 'open_router') return false;
@@ -640,7 +638,7 @@ const WHERE_IT_RUNS: { part: TranslationKey; name: string; nvidia: Path; other: 
   { part: 'hubPartTempoKey', name: 'Beat This!, S-KEY', nvidia: 'cuda', other: 'directml', none: 'cpu' },
   { part: 'hubPartStems', name: 'HT-Demucs', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
   { part: 'hubPartKaraoke', name: 'Parakeet', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
-  { part: 'hubPartKaraoke', name: 'Whisper', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
+  { part: 'hubPartKaraoke', name: 'CrisperWhisper', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
   { part: 'hubPartAssistant', name: 'llama.cpp', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
   { part: 'hubPartMidi', name: 'MuScriptor', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
 ];
@@ -1204,7 +1202,7 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
               cancelUrl="/v1/karaoke/cancel"
               engines={[
                 { id: 'parakeet', label: 'Parakeet' },
-                { id: 'whisper', label: 'Whisper' },
+                { id: 'whisper', label: 'CrisperWhisper' },
                 { id: 'open_router', label: 'OpenRouter', device: false },
               ]}
             >

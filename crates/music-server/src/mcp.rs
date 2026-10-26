@@ -1874,7 +1874,7 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "karaoke_settings_set",
-                description: "Choose the recogniser used for karaoke and for dataset lyrics: enabled, provider (parakeet, whisper, openrouter), whisper_model (for parakeet: parakeet-tdt-int8 is Parakeet v3, parakeet-ultra-int8 is Ultra, both on transcribe.cpp), openrouter_model, runtime (cpu, or cuda for the card: transcribe.cpp runs CUDA on an NVIDIA card, Vulkan on any other).",
+                description: "Choose the recogniser used for karaoke and for dataset lyrics: enabled, provider (parakeet, whisper - CrisperWhisper 2.0 turbo in audio.cpp's server -, openrouter), whisper_model (for parakeet: parakeet-tdt-int8 is Parakeet v3, parakeet-ultra-int8 is Ultra, both on transcribe.cpp), openrouter_model, runtime (cpu, or cuda for the card: transcribe.cpp and the audio.cpp server run CUDA on an NVIDIA card, Vulkan on any other).",
                 schema: || object(json!({ "enabled": { "type": "boolean" }, "provider": { "type": "string" }, "whisper_model": { "type": "string" }, "openrouter_model": { "type": "string" }, "runtime": { "type": "string" } }), &[]),
                 call: |args| send(Method::PUT, "/v1/karaoke/status".into(), args.clone()),
             },
@@ -2215,7 +2215,7 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "dataset_prepare",
-                description: "Fill a dataset in by itself: lyrics from the lyric databases, Whisper only for songs they miss, sections laid out by the assistant, captions written by MOSS-Music from what it hears with the tempo and key measured. lyrics and style: missing (only what is not done yet), all (again, for the chosen songs) or none. items: song ids, all songs when left out. train: start this run once every song is ready. Watch training_status.",
+                description: "Fill a dataset in by itself: lyrics from the lyric databases, CrisperWhisper only for songs they miss, sections laid out by the assistant, captions written by MOSS-Music from what it hears with the tempo and key measured. lyrics and style: missing (only what is not done yet), all (again, for the chosen songs) or none. items: song ids, all songs when left out. train: start this run once every song is ready. Watch training_status.",
                 schema: || object(json!({
                     "dataset_id": { "type": "string" },
                     "items": { "type": "array", "items": { "type": "string" } },

@@ -1053,20 +1053,6 @@ fn link_beside(link: &Path, target: &str) -> Result<()> {
     Ok(())
 }
 
-/// The first executable named `name` in the given flavour directories, in
-/// preference order - a GPU build before a CPU one.
-pub fn locate_binary(root: &Path, flavours: &[&str], name: &str) -> Option<PathBuf> {
-    let file = if cfg!(windows) { format!("{name}.exe") } else { name.to_string() };
-    for flavour in flavours {
-        let candidate = root.join("runtime").join(flavour).join(&file);
-        if candidate.is_file() {
-            return Some(candidate);
-        }
-    }
-    let direct = root.join("runtime").join(&file);
-    direct.is_file().then_some(direct)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
