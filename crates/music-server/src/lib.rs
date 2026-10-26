@@ -816,6 +816,7 @@ struct OpenRouterResponse {
 /// in-process, so a release is a single executable rather than a launcher that
 /// has to start a second binary and keep it alive.
 pub async fn serve() -> anyhow::Result<()> {
+    put_the_engine_folder_on_path();
     let settings_path = studio_settings_path();
     let persisted = load_studio_settings(&settings_path);
     let proxy = persisted.as_ref().and_then(|settings| settings.proxy.clone()).unwrap_or_default();
@@ -4927,6 +4928,28 @@ fn engine_bundle_root() -> PathBuf {
             }
         }))
         .unwrap_or_else(|| PathBuf::from("resources/engine"))
+}
+
+/// `folder` first on a PATH, once: a folder already on it moves to the front.
+fn path_with_first(folder: &std::path::Path, existing: &std::ffi::OsStr) -> Option<std::ffi::OsString> {
+    let rest = env::split_paths(existing).filter(|entry| entry != folder);
+    env::join_paths(std::iter::once(folder.to_path_buf()).chain(rest)).ok()
+}
+
+/// The engine's folder goes first on this process's PATH at start. The Visual
+/// C++ runtime ships there, and every program the studio runs - the engine,
+/// llama-server, the HOT-Step tools, BSRoformer, Whisper - and ONNX Runtime
+/// inside it find it through the PATH they inherit.
+fn put_the_engine_folder_on_path() {
+    #[cfg(windows)]
+    {
+        let folder = engine_bundle_root();
+        let existing = env::var_os("PATH").unwrap_or_default();
+        match path_with_first(&folder, &existing) {
+            Some(path) => unsafe { env::set_var("PATH", path) },
+            None => eprintln!("[ERROR] {} cannot go on PATH; the Visual C++ runtime beside the engine is not found through it", folder.display()),
+        }
+    }
 }
 
 fn engine_location(options: EngineOptions) -> music_engine::server::ServerLocation {
@@ -9442,6 +9465,18 @@ mod tests {
         assert_eq!(after_a_failed_start(slow), (true, false), "a slow start is no fault of the card");
         assert_eq!(after_a_failed_start(""), (true, false), "an exit without a word is no fault of the card");
         assert_eq!(after_a_failed_start("cuda error: out of memory\ncudamalloc failed"), (false, false));
+    }
+
+    #[test]
+    fn the_engine_folder_goes_first_on_path_once() {
+        let folder = std::env::temp_dir().join("ace-engine");
+        let other = std::env::temp_dir().join("elsewhere");
+        let existing = std::env::join_paths([other.clone(), folder.clone()]).unwrap();
+        let path = path_with_first(&folder, &existing).unwrap();
+        assert_eq!(std::env::split_paths(&path).collect::<Vec<_>>(), vec![folder.clone(), other]);
+        let again = path_with_first(&folder, &path).unwrap();
+        assert_eq!(again, path, "a second start leaves PATH as it was");
+        assert_eq!(std::env::split_paths(&path_with_first(&folder, std::ffi::OsStr::new("")).unwrap()).next(), Some(folder));
     }
 
     #[test]
