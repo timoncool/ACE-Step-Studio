@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Check, Cpu, FolderOpen, Loader2, RotateCw , Terminal } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import { SELF_READ } from '../services/studioQueries';
+import { DiagnosticsPanel } from './DiagnosticsPanel';
 
 /**
  * Launch options for the local engine.
@@ -371,6 +372,8 @@ export const EngineSettings: React.FC = () => {
           </div>
         )}
       </div>
+
+      <DiagnosticsPanel />
 
       {notice && (
         <p className="flex items-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-300">

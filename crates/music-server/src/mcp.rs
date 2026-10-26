@@ -1777,6 +1777,18 @@ fn tools() -> &'static [Tool] {
                 call: |_| get("/v1/engine/logs".into()),
             },
             Tool {
+                name: "diagnostics_get",
+                description: "The studio's diagnostics, as Settings - Local engine - System diagnostics shows them: version, system, graphics card and CUDA build, memory, the music models and optional parts on disk, DLLs the engine misses, and the latest log lines; `text` is what to paste into an issue.",
+                schema: nothing,
+                call: |_| get("/v1/diagnostics".into()),
+            },
+            Tool {
+                name: "diagnostics_report",
+                description: "Packs a bug report into the data folder's reports: the diagnostics, the journal and the logs, keys masked. Answers the zip's path; nothing is sent anywhere.",
+                schema: nothing,
+                call: |_| post("/v1/diagnostics/report".into(), serde_json::json!({})),
+            },
+            Tool {
                 name: "studio_capabilities",
                 description: "What the studio can do with the installed models and providers, and which provider runs each capability.",
                 schema: nothing,
@@ -3015,6 +3027,7 @@ mod tests {
             "openrouter_catalog_refresh",
             "assistant_start",
             "assistant_stop",
+            "diagnostics_report",
         ];
         let unwritten: Vec<&str> = tools()
             .iter()
@@ -3103,6 +3116,8 @@ mod tests {
         ("POST", "/v1/files/save", "a save dialog for the person: the tools write to the path the agent names"),
         ("POST", "/v1/files/save/{id}", "a save dialog for the person: the tools write to the path the agent names"),
         ("POST", "/v1/files/reveal", "shows a file in the person's file manager"),
+        ("POST", "/v1/diagnostics/report/reveal", "shows a report in the person's file manager: diagnostics_report answers its path"),
+        ("POST", "/v1/diagnostics/logs/reveal", "shows the log folder in the person's file manager: diagnostics_get carries the latest lines"),
         ("GET", "/v1/skins", "the page's Winamp reads its skins here: winamp_skins asks the window for the same list"),
         ("POST", "/v1/skins", "the page's upload of a .wsz: winamp_skin_add adds one from a path"),
         ("GET", "/v1/skins/file/{name}", "a skin's file for the page's Winamp"),
