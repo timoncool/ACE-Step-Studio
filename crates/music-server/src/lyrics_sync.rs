@@ -693,7 +693,7 @@ pub const ASSETS: &[Asset] = &[
         bytes: 379_723_801,
         unzip_into: Some("onnx-cuda"),
         marker: "onnxruntime_providers_cuda.dll",
-        pick: &[],
+        pick: &["onnxruntime.dll", "onnxruntime_providers_shared.dll", "onnxruntime_providers_cuda.dll"],
         vram_gb: Some(2),
         note: "Runs the separator on an NVIDIA card instead of the processor. Needs CUDA 12.",
     },
@@ -2468,6 +2468,18 @@ mod live_recognition {
             assert_eq!(Path::new("karaoke-root").join(asset.relative_path), dub_tcpp::engine_dir(&root, build).join(dub_tcpp::LIBRARY));
             assert_eq!((asset.url, asset.bytes), (build.download().url, build.download().size));
         }
+    }
+
+    /// The CUDA build of ONNX Runtime comes with its symbols, headers and import libraries, a gigabyte the studio
+    /// never reads: only the libraries it loads are taken out of the archive.
+    #[test]
+    #[cfg(windows)]
+    fn only_the_libraries_of_onnx_runtime_cuda_are_taken() {
+        let runtime = asset("onnxruntime-cuda").unwrap();
+        for library in [libraries::ORT, libraries::ORT_SHARED, libraries::CUDA[0]] {
+            assert!(runtime.pick.contains(&library), "{library} is not taken");
+        }
+        assert!(runtime.pick.iter().all(|name| name.ends_with(".dll")), "{:?}", runtime.pick);
     }
 
     /// The whole recognition path against a real installation, when one is
