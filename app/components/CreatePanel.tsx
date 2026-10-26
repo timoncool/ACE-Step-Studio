@@ -409,6 +409,14 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const [mode, setMode] = useState<'simple' | 'studio'>('simple');
   const [idea, setIdea] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // the form scrolls above the Create button: a refusal at its foot is brought into view, or a click seems to do nothing
+  const errorBox = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!error) return undefined;
+    // after the frame the assistant's card leaves: a scroll started before it shrinks the form stops short
+    const frame = window.requestAnimationFrame(() => errorBox.current?.scrollIntoView({ block: 'nearest' }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [error]);
   const promptFile = useRef<HTMLInputElement | null>(null);
 
   // A cover or a lyric timing finished: the library is read again for it.
@@ -1671,7 +1679,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
             </>
           )}
 
-          {error && <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs leading-5 text-red-700 dark:text-red-200">{error}</div>}
+          {error && <div ref={errorBox} role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs leading-5 text-red-700 dark:text-red-200">{error}</div>}
         </div>
       </div>
 

@@ -6,6 +6,7 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- **"Create" no longer seems to do nothing**: when the song could not start - the writing assistant was not reachable, a field was missing - the reason was written at the foot of the form, below what the window shows, and the click looked lost. The form now scrolls to the reason.
 - **A data folder or user name with characters of another alphabet works**: the engine on Windows opened its files in the system's code page, so a models folder such as `C:\Users\王\...` on a Russian Windows (or Cyrillic on a Chinese one) came out as `????`, no model was found and every song failed with "No synth models in registry". The engine now runs with the UTF-8 code page.
 - **A long cover or reference no longer runs the card out of memory in the VAE**: the encoder now tiles when the card cannot hold its graph, as the decoder did, and both retry with smaller tiles instead of failing the song ("graph alloc failed for T=...").
 - **A track of silence is no longer passed off as a song**: when the DiT or the VAE computed values that are not numbers, the engine wrote them as silence and the studio said "the engine returned silence"; the song now fails with the stage that went wrong.
