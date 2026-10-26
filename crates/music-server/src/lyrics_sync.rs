@@ -1086,8 +1086,9 @@ fn point_ort_at(runtime: &Path, card: Option<OnnxCard>) {
     let Some(directory) = runtime.parent() else { return };
     #[cfg(windows)]
     {
+        // the Visual C++ runtime ONNX Runtime imports ships beside the engine
         let existing = std::env::var("PATH").unwrap_or_default();
-        unsafe { std::env::set_var("PATH", format!("{};{existing}", directory.display())) };
+        unsafe { std::env::set_var("PATH", format!("{};{};{existing}", directory.display(), crate::engine_bundle_root().display())) };
         if card == Some(OnnxCard::DirectMl) {
             preload(&directory.join("DirectML.dll"));
         }

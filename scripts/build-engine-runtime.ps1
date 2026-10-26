@@ -292,7 +292,7 @@ $redist = Get-ChildItem -Path (Join-Path $vsRoot 'VC\Redist\MSVC') -Directory | 
 if (-not $redist) { throw 'The Visual C++ redistributable folder was not found in this Visual Studio.' }
 $crt = Get-ChildItem -Path (Join-Path $redist.FullName 'x64') -Directory -Filter 'Microsoft.VC*.CRT' | Select-Object -First 1
 $openmp = Get-ChildItem -Path (Join-Path $redist.FullName 'x64') -Directory -Filter 'Microsoft.VC*.OpenMP' | Select-Object -First 1
-foreach ($library in @((Join-Path $crt.FullName 'msvcp140.dll'), (Join-Path $crt.FullName 'vcruntime140.dll'), (Join-Path $crt.FullName 'vcruntime140_1.dll'), (Join-Path $openmp.FullName 'vcomp140.dll'))) {
+foreach ($library in @((Join-Path $crt.FullName 'msvcp140.dll'), (Join-Path $crt.FullName 'msvcp140_1.dll'), (Join-Path $crt.FullName 'msvcp140_atomic_wait.dll'), (Join-Path $crt.FullName 'vcruntime140.dll'), (Join-Path $crt.FullName 'vcruntime140_1.dll'), (Join-Path $openmp.FullName 'vcomp140.dll'))) {
     if (-not (Test-Path $library)) { throw "Visual C++ runtime library missing: $library" }
     Copy-Item $library $resolvedOutputDirectory -Force
 }
