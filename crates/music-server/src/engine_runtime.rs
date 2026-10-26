@@ -285,6 +285,7 @@ fn is_provided_by_the_system(name: &str) -> bool {
             "ws2_32.dll",
             "crypt32.dll",
             "bcrypt.dll",
+            "bcryptprimitives.dll",
             "ntdll.dll",
             "rpcrt4.dll",
             "setupapi.dll",
@@ -453,7 +454,7 @@ mod tests {
         let engine = PathBuf::from(std::env::var("ACE_DLL_ENGINE").expect("ACE_DLL_ENGINE names the engine folder"));
         let mut checked = 0;
         let mut problems = Vec::new();
-        for area in ["midi/runtime", "training/runtime", "separation/runtime", "karaoke/runtime", "karaoke/models", "assistant/runtime"] {
+        for area in ["hotstep", "midi/runtime", "training/runtime", "separation/runtime", "karaoke/runtime", "karaoke/models", "assistant/runtime"] {
             let Ok(folders) = std::fs::read_dir(data.join(area)) else { continue };
             for folder in folders.flatten().map(|entry| entry.path()).filter(|path| path.is_dir()) {
                 for binary in std::fs::read_dir(&folder).into_iter().flatten().flatten().map(|entry| entry.path()) {
@@ -466,7 +467,12 @@ mod tests {
                         continue;
                     }
                     // a tool resolves beside itself, then in the engine's folder on the studio's PATH
-                    let missing = unresolved_in(&[folder.clone(), engine.clone()], &binary).expect("read the import tables");
+                    // the engine's cuBLAS 13 arrives with its first CUDA start; a tool on the card finds it on PATH or gets a link beside it
+                    let missing: Vec<String> = unresolved_in(&[folder.clone(), engine.clone()], &binary)
+                        .expect("read the import tables")
+                        .into_iter()
+                        .filter(|name| !CUDA13_LIBRARIES.iter().any(|library| library.eq_ignore_ascii_case(name)))
+                        .collect();
                     checked += 1;
                     if !missing.is_empty() {
                         problems.push(format!("{}: {missing:?}", binary.display()));

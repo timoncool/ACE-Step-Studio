@@ -4,9 +4,11 @@
 #   scripts/check-dll-imports.ps1 -DataRoot <studio data folder with the tools installed> [-EngineRoot <engine folder>]
 param(
     [Parameter(Mandatory = $true)][string]$DataRoot,
-    [string]$EngineRoot = (Join-Path $PSScriptRoot '..\desktop\src-tauri\resources\engine')
+    [string]$EngineRoot
 )
 $ErrorActionPreference = 'Stop'
+# Windows PowerShell 5.1 leaves $PSScriptRoot empty in a parameter's default value
+if (-not $EngineRoot) { $EngineRoot = Join-Path $PSScriptRoot '..\desktop\src-tauri\resources\engine' }
 $env:ACE_DLL_DATA = (Resolve-Path $DataRoot).Path
 $env:ACE_DLL_ENGINE = (Resolve-Path $EngineRoot).Path
 Push-Location (Join-Path $PSScriptRoot '..')
