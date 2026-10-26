@@ -7,7 +7,7 @@
 //! estimated, and a metric that cannot be read is reported as absent rather
 //! than as zero.
 
-use std::{process::Command, sync::Mutex, time::Duration};
+use std::{sync::Mutex, time::Duration};
 
 use serde::Serialize;
 use sysinfo::{ProcessesToUpdate, System};
@@ -94,7 +94,7 @@ pub fn snapshot() -> ResourceSnapshot {
 
 fn nvidia_gpus() -> Option<Vec<GpuSnapshot>> {
     // the card the studio runs on, when one was chosen: that is the one to watch
-    let output = Command::new("nvidia-smi")
+    let output = dub_core::proc::host_command("nvidia-smi")
         .args(crate::cuda_build::chosen_card())
         .args([
             "--query-gpu=name,memory.used,memory.total,utilization.gpu,temperature.gpu,power.draw,power.limit",

@@ -1291,6 +1291,7 @@ impl Training {
             if let Some(path) = music_core::process::own_libraries_first(trainer) {
                 command.env("LD_LIBRARY_PATH", path);
             }
+            dub_core::proc::outside_appimage(command.as_std_mut());
             command
                 .args(&stage.args)
                 .current_dir(run_dir)

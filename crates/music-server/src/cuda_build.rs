@@ -6,7 +6,7 @@
 //! driver predates CUDA 13. Both hold device code for each architecture, so no
 //! driver ever compiles PTX.
 
-use std::{process::Command, sync::OnceLock};
+use std::sync::OnceLock;
 
 use serde::Serialize;
 
@@ -62,7 +62,7 @@ pub fn chosen_card() -> Vec<String> {
 
 /// Every NVIDIA card: its nvidia-smi index, name and memory in GB.
 pub fn nvidia_cards() -> Vec<(u32, String, f64)> {
-    let mut command = Command::new("nvidia-smi");
+    let mut command = dub_core::proc::host_command("nvidia-smi");
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -90,7 +90,7 @@ pub fn nvidia_cards() -> Vec<(u32, String, f64)> {
 fn device() -> Option<((u32, u32), u32)> {
     static DEVICE: OnceLock<Option<((u32, u32), u32)>> = OnceLock::new();
     *DEVICE.get_or_init(|| {
-        let mut command = Command::new("nvidia-smi");
+        let mut command = dub_core::proc::host_command("nvidia-smi");
         #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;
@@ -121,7 +121,7 @@ fn parse_query(line: &str) -> Option<((u32, u32), u32)> {
 pub fn nvidia_card() -> bool {
     static PRESENT: OnceLock<bool> = OnceLock::new();
     *PRESENT.get_or_init(|| {
-        let mut command = Command::new("nvidia-smi");
+        let mut command = dub_core::proc::host_command("nvidia-smi");
         #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;
@@ -144,7 +144,7 @@ pub fn current() -> Option<CudaBuild> {
 pub fn describe() -> Option<String> {
     static CARD: OnceLock<Option<String>> = OnceLock::new();
     CARD.get_or_init(|| {
-        let mut command = Command::new("nvidia-smi");
+        let mut command = dub_core::proc::host_command("nvidia-smi");
         #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;

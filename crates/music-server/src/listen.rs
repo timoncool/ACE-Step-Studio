@@ -103,6 +103,7 @@ pub fn hear_batch(
     if let Some(path) = music_core::process::own_libraries_first(exe) {
         command.env("LD_LIBRARY_PATH", path);
     }
+    dub_core::proc::outside_appimage(&mut command);
     command
         .arg("--models")
         .arg(moss)

@@ -797,6 +797,7 @@ impl AssistantRuntime {
         if let Some(path) = music_core::process::own_libraries_first(&binary) {
             command.env("LD_LIBRARY_PATH", path);
         }
+        dub_core::proc::outside_appimage(&mut command);
         command
             .arg("--model")
             .arg(&model_path)

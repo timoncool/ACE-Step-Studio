@@ -222,7 +222,7 @@ fn reveal(path: &Path, select: bool) -> std::io::Result<()> {
     #[cfg(all(not(windows), not(target_os = "macos")))]
     {
         let folder = if select { path.parent().unwrap_or(path) } else { path };
-        std::process::Command::new("xdg-open").arg(folder).spawn().map(|_| ())
+        dub_core::proc::host_command("xdg-open").arg(folder).spawn().map(|_| ())
     }
 }
 

@@ -1216,8 +1216,13 @@ impl LyricsSync {
         // a Linux loader finds the engine's cuBLAS 13 for the CUDA build where the engine keeps it
         let libraries = [folder.clone(), crate::engine_bundle_root()];
         let prepare = move |command: &mut std::process::Command| {
+            // the engine's folder lies inside the image too: it goes on after the image's folders are taken off
+            dub_core::proc::outside_appimage(command);
             if cfg!(target_os = "linux") {
-                let inherited = std::env::var_os("LD_LIBRARY_PATH");
+                let inherited = match command.get_envs().find(|(key, _)| *key == "LD_LIBRARY_PATH") {
+                    Some((_, value)) => value.map(std::ffi::OsStr::to_os_string),
+                    None => std::env::var_os("LD_LIBRARY_PATH"),
+                };
                 if let Ok(path) = std::env::join_paths(libraries.iter().cloned().chain(inherited.iter().flat_map(std::env::split_paths))) {
                     command.env("LD_LIBRARY_PATH", path);
                 }
