@@ -527,7 +527,7 @@ checksum = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2"
 [[package]]
 name = "dub-core"
 version = "2.0.0"
-source = "git+https://github.com/timoncool/dub-studio?rev=b8581e3555c2cab047b1b5d4418a7ec2f9c3095c#b8581e3555c2cab047b1b5d4418a7ec2f9c3095c"
+source = "git+https://github.com/timoncool/dub-studio?rev=ecc1d03889ecca5675473f5dba426692f6aa299c#ecc1d03889ecca5675473f5dba426692f6aa299c"
 dependencies = [
  "libc",
  "serde",
@@ -537,11 +537,12 @@ dependencies = [
 [[package]]
 name = "dub-sep"
 version = "2.0.0"
-source = "git+https://github.com/timoncool/dub-studio?rev=b8581e3555c2cab047b1b5d4418a7ec2f9c3095c#b8581e3555c2cab047b1b5d4418a7ec2f9c3095c"
+source = "git+https://github.com/timoncool/dub-studio?rev=ecc1d03889ecca5675473f5dba426692f6aa299c#ecc1d03889ecca5675473f5dba426692f6aa299c"
 dependencies = [
  "dub-core",
- "hound",
  "thiserror",
+ "tracing",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

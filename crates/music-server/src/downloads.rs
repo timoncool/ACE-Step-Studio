@@ -915,6 +915,17 @@ pub fn extract_archive(archive: &Path, destination: &Path) -> Result<Vec<PathBuf
                 }
                 links = waiting;
             }
+            // a library that comes by its full version alone (BSRoformer.cpp's processor and macOS builds) gets the
+            // name the loader asks for beside it
+            let unpacked: Vec<String> = written.iter().filter_map(|path| path.file_name()?.to_str().map(str::to_owned)).collect();
+            for name in unpacked {
+                let Some(short) = soname_of(&name) else { continue };
+                let link = destination.join(&short);
+                if !link.exists() {
+                    link_beside(&link, &name)?;
+                    written.push(link);
+                }
+            }
         }
     }
     fs::remove_file(archive).ok();
@@ -954,6 +965,22 @@ fn open_tar(archive: &Path, format: ArchiveFormat) -> Result<tar::Archive<Box<dy
 /// `libcublas.so.12`, `libcublas.so.12.9.2.10`, `libonnxruntime.so`.
 fn is_shared_library(name: &str) -> bool {
     name.ends_with(".so") || name.contains(".so.") || name.ends_with(".dylib")
+}
+
+/// The name the loader asks for of a library named by its full version: `libX.so.0.15.1` → `libX.so.0`,
+/// `libX.0.15.1.dylib` → `libX.0.dylib`; None for a name without one (as Speech Studio's setup gives it).
+fn soname_of(name: &str) -> Option<String> {
+    let numeric = |parts: &[&str]| parts.len() >= 2 && parts.iter().all(|part| !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit()));
+    if let Some(at) = name.find(".so.") {
+        let version: Vec<&str> = name[at + 4..].split('.').collect();
+        return numeric(&version).then(|| format!("{}.so.{}", &name[..at], version[0]));
+    }
+    let stem = name.strip_suffix(".dylib")?;
+    let mut parts: Vec<&str> = stem.split('.').collect();
+    let base = parts.remove(0);
+    let first = parts.iter().position(|part| part.bytes().all(|b| b.is_ascii_digit()))?;
+    let (named, version) = parts.split_at(first);
+    numeric(version).then(|| format!("{}.{}.dylib", std::iter::once(base).chain(named.iter().copied()).collect::<Vec<_>>().join("."), version[0]))
 }
 
 /// Writes an archive entry through a partial file, keeping its permission
@@ -1247,6 +1274,44 @@ mod tests {
         assert!(root.join("out").join("libfoo.so.1.2.3").is_file());
         assert!(!root.join("out").join("tool").exists());
         assert!(extract_named_local(&archive, &["libbar.so.1"], &root.join("out")).is_err());
+        fs::remove_dir_all(&root).ok();
+    }
+
+    /// A library that comes by its full version gets the name the loader asks for, on Linux and on macOS alike
+    /// (the same rule as Speech Studio's setup).
+    #[test]
+    fn a_library_by_its_full_version_gets_the_name_the_loader_asks_for() {
+        assert_eq!(soname_of("libggml-base.so.0.15.1").as_deref(), Some("libggml-base.so.0"));
+        assert_eq!(soname_of("libggml-base.0.15.1.dylib").as_deref(), Some("libggml-base.0.dylib"));
+        assert_eq!(soname_of("libllama-common.0.7.0.dylib").as_deref(), Some("libllama-common.0.dylib"));
+        for name in ["libggml.0.dylib", "libqwen.dylib", "libggml.so.0", "libfoo.so", "bs_roformer-cli", "libonnxruntime.dylib"] {
+            assert_eq!(soname_of(name), None, "{name}");
+        }
+    }
+
+    /// BSRoformer.cpp's processor and macOS archives as v0.1.0 ships them: the program and the ggml
+    /// libraries by their full versions, no links; the program asks for libggml.so.0 / @rpath/libggml.0.dylib.
+    #[test]
+    fn an_archive_of_full_version_libraries_unpacks_with_the_loader_names() {
+        let root = std::env::temp_dir().join(format!("downloads-{}", uuid::Uuid::now_v7()));
+        fs::create_dir_all(&root).unwrap();
+        let archive = root.join("bsroformer.part-archive");
+        let encoder = flate2::write::GzEncoder::new(fs::File::create(&archive).unwrap(), flate2::Compression::fast());
+        let mut tar = tar::Builder::new(encoder);
+        for (path, mode) in [("bs_roformer-cli", 0o755), ("libggml.0.15.1.dylib", 0o644), ("libggml-metal.0.15.1.dylib", 0o644), ("libggml.so.0.15.1", 0o644)] {
+            let mut header = tar::Header::new_gnu();
+            header.set_size(path.len() as u64);
+            header.set_mode(mode);
+            header.set_cksum();
+            tar.append_data(&mut header, path, path.as_bytes()).unwrap();
+        }
+        tar.into_inner().unwrap().finish().unwrap();
+        let files = extract_archive(&archive, &root.join("out")).unwrap();
+        for (short, full) in [("libggml.0.dylib", "libggml.0.15.1.dylib"), ("libggml-metal.0.dylib", "libggml-metal.0.15.1.dylib"), ("libggml.so.0", "libggml.so.0.15.1")] {
+            assert_eq!(fs::read_to_string(root.join("out").join(short)).unwrap(), full, "{short}");
+            assert!(files.contains(&root.join("out").join(short)), "{short} is recorded with the install");
+        }
+        assert!(root.join("out").join("bs_roformer-cli").is_file());
         fs::remove_dir_all(&root).ok();
     }
 

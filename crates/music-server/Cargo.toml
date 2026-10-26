@@ -15,7 +15,7 @@ path = "src/main.rs"
 [dependencies]
 anyhow.workspace = true
 # Dub Studio's vocal separator: Mel-Band RoFormer through BSRoFormer.cpp.
-dub-sep = { git = "https://github.com/timoncool/dub-studio", rev = "b8581e3555c2cab047b1b5d4418a7ec2f9c3095c" }
+dub-sep = { git = "https://github.com/timoncool/dub-studio", rev = "ecc1d03889ecca5675473f5dba426692f6aa299c" }
 # "today" and dates the agent names, in this computer's time zone.
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 # The folder picker for "use models I already have", the same crate Dub Studio uses.
