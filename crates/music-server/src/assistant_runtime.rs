@@ -57,14 +57,6 @@ pub struct Asset {
     pub note: &'static str,
 }
 
-/// llama.cpp is pinned to one build so a working setup keeps working.
-const LLAMA_BUILD: &str = "b11900";
-/// The Windows CUDA runtimes carry no build number in their names and are the
-/// same bytes in every build since: they stay at the build that first shipped
-/// them, so an update of llama.cpp does not fetch 800 MB of the same files.
-#[cfg(all(windows, test))]
-const CUDART_BUILD: &str = "b11236";
-
 pub const ASSETS: &[Asset] = &[
     Asset {
         id: "gemma-4-e4b-q4_0",
@@ -330,8 +322,6 @@ pub struct AssetStatus {
     pub vram_gb: Option<u32>,
     pub note: &'static str,
     pub installed: bool,
-    /// On disk, but unpacked from another llama.cpp build than the pinned one: it is fetched again.
-    pub outdated: bool,
     /// Bytes already on disk, so a resumed download reports honestly.
     pub downloaded_bytes: u64,
 }
@@ -461,44 +451,82 @@ impl AssistantRuntime {
             .collect()
     }
 
+    /// Installed when its files are there and, for a runtime, its record names
+    /// today's pin (`install_record`); a runtime from before records counts as
+    /// in `take_over`. A model counts by its file at the pinned size: its address
+    /// can move to another commit of the same weights without them being fetched again.
     fn is_installed(&self, asset: &Asset) -> bool {
-        self.is_present(asset) && (asset.unzip_into.is_none() || self.is_current(asset))
+        if !self.present(asset) {
+            return false;
+        }
+        if asset.kind == AssetKind::Model {
+            // the pin names a commit, so its size is exact: a file of another size is another build
+            return fs::metadata(self.path_of(asset)).is_ok_and(|meta| meta.len() == asset.bytes);
+        }
+        let record = self.record_of(asset);
+        match crate::install_record::matches(&record, asset.url, &self.root) {
+            Some(current) => current,
+            None => self.take_over(asset, &record),
+        }
     }
 
-    /// A runtime on disk from another build than the pinned one.
-    fn is_outdated(&self, asset: &Asset) -> bool {
-        asset.unzip_into.is_some() && self.is_present(asset) && !self.is_current(asset)
+    fn record_of(&self, asset: &Asset) -> PathBuf {
+        crate::install_record::record_path(&self.path_of(asset))
     }
 
-    /// Where the pin a runtime was unpacked from is recorded, inside its folder.
-    fn pin_path(&self, asset: &Asset) -> PathBuf {
-        self.root.join("runtime").join(asset.unzip_into.unwrap_or(".")).join(format!(".pin-{}", asset.id))
+    /// A download from before records existed: a model by its presence, a
+    /// runtime only when the key file its pin names has the pinned size.
+    fn take_over(&self, asset: &Asset, record: &Path) -> bool {
+        if asset.kind == AssetKind::Model {
+            return true;
+        }
+        let key = match asset.unzip_into {
+            Some(flavour) => crate::install_record::key_file(asset.url).map(|(file, size)| (self.root.join("runtime").join(flavour).join(file), size)),
+            None => Some((self.path_of(asset), asset.bytes)),
+        };
+        // the .pin a development build of this version wrote names the URL it came from
+        let earlier_pin = self.root.join("runtime").join(asset.unzip_into.unwrap_or(".")).join(format!(".pin-{}", asset.id));
+        let path = if crate::downloads::pin_names(&earlier_pin, asset.url) {
+            key.map(|(path, _)| path).filter(|path| path.is_file()).or_else(|| Some(self.path_of(asset)).filter(|path| path.is_file()))
+        } else {
+            key.filter(|(path, size)| fs::metadata(path).is_ok_and(|meta| meta.len() == *size)).map(|(path, _)| path)
+        };
+        let Some(path) = path else {
+            return false;
+        };
+        if let Err(error) = crate::install_record::write(record, asset.url, "", &[path], &self.root) {
+            eprintln!("[ERROR] {}: the record of the download already on disk was not written: {error:#}", asset.label);
+        }
+        true
     }
 
-    /// Whether the unpacked runtime came from the asset's URL; one unpacked
-    /// before pins were recorded is fetched again.
-    fn is_current(&self, asset: &Asset) -> bool {
-        fs::read_to_string(self.pin_path(asset)).is_ok_and(|recorded| recorded.trim() == asset.url)
-    }
-
-    /// Clears the archive and pin an older build left, so the fetch takes the archive again.
-    fn clear_outdated(&self, asset: &Asset) -> Result<()> {
-        if !self.is_outdated(asset) {
+    /// What an earlier pin put down - the files of its record, then the file
+    /// or archive the pin names - goes before today's is fetched.
+    fn drop_stale(&self, asset: &Asset) -> Result<()> {
+        if self.is_installed(asset) {
             return Ok(());
         }
-        eprintln!("[..] {} is from another llama.cpp build than {}: fetching it again", asset.label, asset.url);
-        for path in [self.path_of(asset), self.pin_path(asset)] {
-            match fs::remove_file(&path) {
-                Ok(()) => {}
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                Err(error) => return Err(error).with_context(|| format!("remove {}", path.display())),
-            }
+        crate::install_record::remove_recorded(&self.record_of(asset), &self.root)?;
+        let target = self.path_of(asset);
+        match fs::remove_file(&target) {
+            Ok(()) => Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(error).with_context(|| format!("remove {}", target.display())),
         }
-        Ok(())
     }
 
-    /// Whether the asset's files are on disk, whichever build delivered them.
-    fn is_present(&self, asset: &Asset) -> bool {
+    /// Fetched, extracted and recorded: the record makes it count as today's pin.
+    fn finish(asset: &Asset, target: &Path, root: &Path) -> Result<()> {
+        let sha256 = crate::install_record::sha256_of(target)?;
+        let files = match asset.unzip_into {
+            Some(flavour) => crate::downloads::extract_archive(target, &root.join("runtime").join(flavour))?,
+            None => vec![target.to_path_buf()],
+        };
+        crate::install_record::write(&crate::install_record::record_path(target), asset.url, &sha256, &files, root)
+    }
+
+    /// The files of the asset are on disk, whichever pin put them there.
+    fn present(&self, asset: &Asset) -> bool {
         if let Some(flavour) = asset.unzip_into {
             // A runtime counts as installed once its own directory has content:
             // the CUDA libraries carry no llama-server of their own.
@@ -552,7 +580,6 @@ impl AssistantRuntime {
                     vram_gb: asset.vram_gb,
                     note: asset.note,
                     installed: self.is_installed(asset),
-                    outdated: self.is_outdated(asset),
                     downloaded_bytes: if self.is_installed(asset) { crate::sizes::or_listed(asset.url, asset.bytes) } else { self.partial_bytes(asset) },
                 })
                 .collect(),
@@ -593,7 +620,7 @@ impl AssistantRuntime {
                 Err(error) => return Err(error).with_context(|| format!("remove {}", directory.display())),
             }
         }
-        for path in [self.path_of(asset), self.path_of(asset).with_extension("part")] {
+        for path in [self.path_of(asset), self.path_of(asset).with_extension("part"), self.record_of(asset)] {
             if let Ok(meta) = fs::metadata(&path) {
                 freed += meta.len();
                 fs::remove_file(&path).with_context(|| format!("remove {}", path.display()))?;
@@ -642,14 +669,9 @@ impl AssistantRuntime {
         let mut failure = None;
         for asset in &pending {
             let target = self.path_of(asset);
-            let pin = self.pin_path(asset);
-            let outcome = match self.clear_outdated(asset) {
+            let outcome = match self.drop_stale(asset).and_then(|()| crate::install_record::begin(&self.record_of(asset))) {
                 Ok(()) => match download_asset(&self.http, asset, &target, &self.state, base, self.cancel.clone()).await {
-                    Ok(()) => match asset.unzip_into {
-                        Some(flavour) => crate::downloads::extract_archive(&target, &self.root.join("runtime").join(flavour))
-                            .and_then(|()| fs::write(&pin, asset.url).with_context(|| format!("write {}", pin.display()))),
-                        None => Ok(()),
-                    },
+                    Ok(()) => Self::finish(asset, &target, &self.root),
                     Err(error) => Err(error),
                 },
                 Err(error) => Err(error),
@@ -697,15 +719,14 @@ impl AssistantRuntime {
             });
         }
 
-        if let Err(error) = self.clear_outdated(asset) {
+        if let Err(error) = self.drop_stale(asset).and_then(|()| crate::install_record::begin(&self.record_of(asset))) {
             if let Some(progress) = self.state.lock().await.download.as_mut() {
                 progress.done = true;
-                progress.error = Some(error.to_string());
+                progress.error = Some(format!("{error:#}"));
             }
             return Err(error);
         }
         let target = self.path_of(asset);
-        let pin = self.pin_path(asset);
         let http = self.http.clone();
         let state = self.state.clone();
         let root = self.root.clone();
@@ -714,11 +735,7 @@ impl AssistantRuntime {
             let mut guard = state.lock().await;
             match outcome {
                 Ok(()) => {
-                    let extraction = match asset.unzip_into {
-                        Some(flavour) => crate::downloads::extract_archive(&target, &root.join("runtime").join(flavour))
-                            .and_then(|()| fs::write(&pin, asset.url).with_context(|| format!("write {}", pin.display()))),
-                        None => Ok(()),
-                    };
+                    let extraction = Self::finish(asset, &target, &root);
                     if let Some(progress) = guard.download.as_mut() {
                         progress.done = true;
                         progress.error = extraction.err().map(|error| error.to_string());
@@ -963,6 +980,14 @@ fn hide_console(command: &mut Command) {
 mod tests {
     use super::*;
 
+    /// llama.cpp is pinned to one build so a working setup keeps working.
+    const LLAMA_BUILD: &str = "b11900";
+    /// The Windows CUDA runtimes carry no build number in their names and are the
+    /// same bytes in every build since: they stay at the build that first shipped
+    /// them, so an update of llama.cpp does not fetch 800 MB of the same files.
+    #[cfg(windows)]
+    const CUDART_BUILD: &str = "b11236";
+
     #[test]
     fn every_asset_has_a_size_and_a_distinct_id() {
         for entry in ASSETS {
@@ -973,6 +998,36 @@ mod tests {
         }
         assert!(ASSETS.iter().any(|entry| entry.kind == AssetKind::Model));
         assert!(ASSETS.iter().any(|entry| entry.kind == AssetKind::Runtime));
+    }
+
+    /// A model is fetched from a pinned revision: the repository's latest files can be other builds under the same name.
+    #[test]
+    fn every_model_is_pinned_to_a_revision() {
+        for entry in ASSETS.iter().filter(|entry| entry.kind == AssetKind::Model) {
+            assert!(entry.url.contains("/resolve/") && !entry.url.contains("/resolve/main/"), "{} is not pinned", entry.url);
+        }
+    }
+
+    /// A 3.7.0 install keeps an earlier llama.cpp without a record: it is not taken for today's pin and is fetched
+    /// again; the same folder with today's build is taken and its record written.
+    #[cfg(windows)]
+    #[test]
+    fn a_3_7_0_llama_without_a_record_is_fetched_again() {
+        let temp = std::env::temp_dir().join(format!("assistant-runtime-{}", uuid::Uuid::now_v7()));
+        let runtime = AssistantRuntime::new(&temp);
+        let server = asset("llama-cpu").expect("the processor build");
+        let (key, pinned) = crate::install_record::key_file(server.url).expect("the pin names its key file");
+        let directory = runtime.root.join("runtime").join(server.unzip_into.unwrap());
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(directory.join("llama-server.exe"), b"server").unwrap();
+        let library = fs::File::create(directory.join(key)).unwrap();
+        library.set_len(pinned + 4096).unwrap();
+        assert!(!runtime.is_installed(server), "an earlier build's library is another size");
+        library.set_len(pinned).unwrap();
+        drop(library);
+        assert!(runtime.is_installed(server), "today's build without a record is taken");
+        assert!(runtime.record_of(server).is_file(), "and its record is written");
+        fs::remove_dir_all(temp).unwrap();
     }
 
     #[test]

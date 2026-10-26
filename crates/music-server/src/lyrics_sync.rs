@@ -265,7 +265,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-tiny",
         label: "Whisper tiny",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/Systran/faster-whisper-tiny/resolve/main/model.bin",
+        url: "https://huggingface.co/Systran/faster-whisper-tiny/resolve/d90ca5fe260221311c53c58e660288d3deb8d356/model.bin",
         relative_path: "models/whisper/faster-whisper-tiny/model.bin",
         bytes: 75_538_270,
         unzip_into: None,
@@ -278,7 +278,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-tiny-config",
         label: "Whisper tiny (config.json)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/Systran/faster-whisper-tiny/resolve/main/config.json",
+        url: "https://huggingface.co/Systran/faster-whisper-tiny/resolve/d90ca5fe260221311c53c58e660288d3deb8d356/config.json",
         relative_path: "models/whisper/faster-whisper-tiny/config.json",
         bytes: 2_249,
         unzip_into: None,
@@ -291,7 +291,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-tiny-tokenizer",
         label: "Whisper tiny (tokenizer.json)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/Systran/faster-whisper-tiny/resolve/main/tokenizer.json",
+        url: "https://huggingface.co/Systran/faster-whisper-tiny/resolve/d90ca5fe260221311c53c58e660288d3deb8d356/tokenizer.json",
         relative_path: "models/whisper/faster-whisper-tiny/tokenizer.json",
         bytes: 2_203_239,
         unzip_into: None,
@@ -304,7 +304,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-tiny-vocabulary",
         label: "Whisper tiny (vocabulary.txt)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/Systran/faster-whisper-tiny/resolve/main/vocabulary.txt",
+        url: "https://huggingface.co/Systran/faster-whisper-tiny/resolve/d90ca5fe260221311c53c58e660288d3deb8d356/vocabulary.txt",
         relative_path: "models/whisper/faster-whisper-tiny/vocabulary.txt",
         bytes: 459_861,
         unzip_into: None,
@@ -317,7 +317,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-base",
         label: "Whisper base",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/Systran/faster-whisper-base/resolve/main/model.bin",
+        url: "https://huggingface.co/Systran/faster-whisper-base/resolve/ebe41f70d5b6dfa9166e2c581c45c9c0cfc57b66/model.bin",
         relative_path: "models/whisper/faster-whisper-base/model.bin",
         bytes: 145_217_532,
         unzip_into: None,
@@ -330,7 +330,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-base-config",
         label: "Whisper base (config.json)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/Systran/faster-whisper-base/resolve/main/config.json",
+        url: "https://huggingface.co/Systran/faster-whisper-base/resolve/ebe41f70d5b6dfa9166e2c581c45c9c0cfc57b66/config.json",
         relative_path: "models/whisper/faster-whisper-base/config.json",
         bytes: 2_309,
         unzip_into: None,
@@ -343,7 +343,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-base-tokenizer",
         label: "Whisper base (tokenizer.json)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/Systran/faster-whisper-base/resolve/main/tokenizer.json",
+        url: "https://huggingface.co/Systran/faster-whisper-base/resolve/ebe41f70d5b6dfa9166e2c581c45c9c0cfc57b66/tokenizer.json",
         relative_path: "models/whisper/faster-whisper-base/tokenizer.json",
         bytes: 2_203_239,
         unzip_into: None,
@@ -356,7 +356,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-base-vocabulary",
         label: "Whisper base (vocabulary.txt)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/Systran/faster-whisper-base/resolve/main/vocabulary.txt",
+        url: "https://huggingface.co/Systran/faster-whisper-base/resolve/ebe41f70d5b6dfa9166e2c581c45c9c0cfc57b66/vocabulary.txt",
         relative_path: "models/whisper/faster-whisper-base/vocabulary.txt",
         bytes: 459_861,
         unzip_into: None,
@@ -369,7 +369,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-small",
         label: "Whisper small",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/Systran/faster-whisper-small/resolve/main/model.bin",
+        url: "https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/model.bin",
         relative_path: "models/whisper/faster-whisper-small/model.bin",
         bytes: 483_546_902,
         unzip_into: None,
@@ -382,7 +382,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-small-config",
         label: "Whisper small (config.json)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/Systran/faster-whisper-small/resolve/main/config.json",
+        url: "https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/config.json",
         relative_path: "models/whisper/faster-whisper-small/config.json",
         bytes: 2_370,
         unzip_into: None,
@@ -395,7 +395,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-small-tokenizer",
         label: "Whisper small (tokenizer.json)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/Systran/faster-whisper-small/resolve/main/tokenizer.json",
+        url: "https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/tokenizer.json",
         relative_path: "models/whisper/faster-whisper-small/tokenizer.json",
         bytes: 2_203_239,
         unzip_into: None,
@@ -408,7 +408,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-small-vocabulary",
         label: "Whisper small (vocabulary.txt)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/Systran/faster-whisper-small/resolve/main/vocabulary.txt",
+        url: "https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/vocabulary.txt",
         relative_path: "models/whisper/faster-whisper-small/vocabulary.txt",
         bytes: 459_861,
         unzip_into: None,
@@ -421,7 +421,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-medium",
         label: "Whisper medium",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/Systran/faster-whisper-medium/resolve/main/model.bin",
+        url: "https://huggingface.co/Systran/faster-whisper-medium/resolve/08e178d48790749d25932bbc082711ddcfdfbc4f/model.bin",
         relative_path: "models/whisper/faster-whisper-medium/model.bin",
         bytes: 1_527_906_378,
         unzip_into: None,
@@ -434,7 +434,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-medium-config",
         label: "Whisper medium (config.json)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/Systran/faster-whisper-medium/resolve/main/config.json",
+        url: "https://huggingface.co/Systran/faster-whisper-medium/resolve/08e178d48790749d25932bbc082711ddcfdfbc4f/config.json",
         relative_path: "models/whisper/faster-whisper-medium/config.json",
         bytes: 2_257,
         unzip_into: None,
@@ -447,7 +447,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-medium-tokenizer",
         label: "Whisper medium (tokenizer.json)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/Systran/faster-whisper-medium/resolve/main/tokenizer.json",
+        url: "https://huggingface.co/Systran/faster-whisper-medium/resolve/08e178d48790749d25932bbc082711ddcfdfbc4f/tokenizer.json",
         relative_path: "models/whisper/faster-whisper-medium/tokenizer.json",
         bytes: 2_203_239,
         unzip_into: None,
@@ -460,7 +460,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-medium-vocabulary",
         label: "Whisper medium (vocabulary.txt)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/Systran/faster-whisper-medium/resolve/main/vocabulary.txt",
+        url: "https://huggingface.co/Systran/faster-whisper-medium/resolve/08e178d48790749d25932bbc082711ddcfdfbc4f/vocabulary.txt",
         relative_path: "models/whisper/faster-whisper-medium/vocabulary.txt",
         bytes: 459_861,
         unzip_into: None,
@@ -473,7 +473,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-large-v3",
         label: "Whisper large-v3",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/Systran/faster-whisper-large-v3/resolve/main/model.bin",
+        url: "https://huggingface.co/Systran/faster-whisper-large-v3/resolve/edaa852ec7e145841d8ffdb056a99866b5f0a478/model.bin",
         relative_path: "models/whisper/faster-whisper-large-v3/model.bin",
         bytes: 3_087_284_237,
         unzip_into: None,
@@ -486,7 +486,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-large-v3-config",
         label: "Whisper large-v3 (config.json)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/Systran/faster-whisper-large-v3/resolve/main/config.json",
+        url: "https://huggingface.co/Systran/faster-whisper-large-v3/resolve/edaa852ec7e145841d8ffdb056a99866b5f0a478/config.json",
         relative_path: "models/whisper/faster-whisper-large-v3/config.json",
         bytes: 2_394,
         unzip_into: None,
@@ -499,7 +499,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-large-v3-preprocessor-config",
         label: "Whisper large-v3 (preprocessor_config.json)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/Systran/faster-whisper-large-v3/resolve/main/preprocessor_config.json",
+        url: "https://huggingface.co/Systran/faster-whisper-large-v3/resolve/edaa852ec7e145841d8ffdb056a99866b5f0a478/preprocessor_config.json",
         relative_path: "models/whisper/faster-whisper-large-v3/preprocessor_config.json",
         bytes: 340,
         unzip_into: None,
@@ -512,7 +512,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-large-v3-tokenizer",
         label: "Whisper large-v3 (tokenizer.json)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/Systran/faster-whisper-large-v3/resolve/main/tokenizer.json",
+        url: "https://huggingface.co/Systran/faster-whisper-large-v3/resolve/edaa852ec7e145841d8ffdb056a99866b5f0a478/tokenizer.json",
         relative_path: "models/whisper/faster-whisper-large-v3/tokenizer.json",
         bytes: 2_480_617,
         unzip_into: None,
@@ -525,7 +525,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-large-v3-vocabulary",
         label: "Whisper large-v3 (vocabulary.json)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/Systran/faster-whisper-large-v3/resolve/main/vocabulary.json",
+        url: "https://huggingface.co/Systran/faster-whisper-large-v3/resolve/edaa852ec7e145841d8ffdb056a99866b5f0a478/vocabulary.json",
         relative_path: "models/whisper/faster-whisper-large-v3/vocabulary.json",
         bytes: 1_068_114,
         unzip_into: None,
@@ -538,7 +538,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-large-v3-turbo",
         label: "Whisper large-v3-turbo",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/deepdml/faster-whisper-large-v3-turbo-ct2/resolve/main/model.bin",
+        url: "https://huggingface.co/deepdml/faster-whisper-large-v3-turbo-ct2/resolve/4df90f75321148c3a29a9e2351b7ddf8f5b115a8/model.bin",
         relative_path: "models/whisper/faster-whisper-large-v3-turbo/model.bin",
         bytes: 1_617_884_929,
         unzip_into: None,
@@ -551,7 +551,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-large-v3-turbo-config",
         label: "Whisper large-v3-turbo (config.json)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/deepdml/faster-whisper-large-v3-turbo-ct2/resolve/main/config.json",
+        url: "https://huggingface.co/deepdml/faster-whisper-large-v3-turbo-ct2/resolve/4df90f75321148c3a29a9e2351b7ddf8f5b115a8/config.json",
         relative_path: "models/whisper/faster-whisper-large-v3-turbo/config.json",
         bytes: 2_263,
         unzip_into: None,
@@ -564,7 +564,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-large-v3-turbo-preprocessor-config",
         label: "Whisper large-v3-turbo (preprocessor_config.json)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/deepdml/faster-whisper-large-v3-turbo-ct2/resolve/main/preprocessor_config.json",
+        url: "https://huggingface.co/deepdml/faster-whisper-large-v3-turbo-ct2/resolve/4df90f75321148c3a29a9e2351b7ddf8f5b115a8/preprocessor_config.json",
         relative_path: "models/whisper/faster-whisper-large-v3-turbo/preprocessor_config.json",
         bytes: 340,
         unzip_into: None,
@@ -577,7 +577,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-large-v3-turbo-tokenizer",
         label: "Whisper large-v3-turbo (tokenizer.json)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/deepdml/faster-whisper-large-v3-turbo-ct2/resolve/main/tokenizer.json",
+        url: "https://huggingface.co/deepdml/faster-whisper-large-v3-turbo-ct2/resolve/4df90f75321148c3a29a9e2351b7ddf8f5b115a8/tokenizer.json",
         relative_path: "models/whisper/faster-whisper-large-v3-turbo/tokenizer.json",
         bytes: 2_710_337,
         unzip_into: None,
@@ -590,7 +590,7 @@ pub const ASSETS: &[Asset] = &[
         id: "whisper-large-v3-turbo-vocabulary",
         label: "Whisper large-v3-turbo (vocabulary.json)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/deepdml/faster-whisper-large-v3-turbo-ct2/resolve/main/vocabulary.json",
+        url: "https://huggingface.co/deepdml/faster-whisper-large-v3-turbo-ct2/resolve/4df90f75321148c3a29a9e2351b7ddf8f5b115a8/vocabulary.json",
         relative_path: "models/whisper/faster-whisper-large-v3-turbo/vocabulary.json",
         bytes: 1_068_114,
         unzip_into: None,
@@ -1393,6 +1393,7 @@ impl LyricsSync {
     /// binds one build on first use, so it is chosen by the machine, not by a
     /// setting: the build for this machine's card when every file of it is
     /// there - it carries the processor provider too - else the processor build.
+    /// Only a build at today's pin counts: an earlier one left on disk is not loaded.
     pub fn machine_runtime(&self) -> Option<(PathBuf, Option<OnnxCard>)> {
         let cuda = self.downloader.runtime_dir("onnx-cuda").join(libraries::ORT);
         let directml = self.downloader.runtime_dir("onnx-dml").join(libraries::ORT);
@@ -1402,13 +1403,21 @@ impl LyricsSync {
             Some(OnnxCard::DirectMl) if self.has_directml_libraries() => return Some((directml, Some(OnnxCard::DirectMl))),
             _ => {}
         }
-        [cpu, cuda, directml].into_iter().find(|library| library.is_file()).map(|library| (library, None))
+        [(cpu, "onnxruntime"), (cuda, "onnxruntime-cuda"), (directml, "onnxruntime-directml")]
+            .into_iter()
+            .find(|(library, id)| library.is_file() && self.pinned(&[id]))
+            .map(|(library, _)| (library, None))
     }
 
-    /// The DirectML build and the DirectML it is built for, side by side.
+    /// Whether every one of these downloads is installed at today's pin.
+    fn pinned(&self, ids: &[&str]) -> bool {
+        ids.iter().all(|id| asset(id).is_some_and(|asset| self.downloader.is_installed(asset)))
+    }
+
+    /// The DirectML build and the DirectML it is built for, side by side, at today's pins.
     pub fn has_directml_libraries(&self) -> bool {
         let dir = self.downloader.runtime_dir("onnx-dml");
-        [libraries::ORT, libraries::ORT_SHARED, "DirectML.dll"].iter().all(|name| dir.join(name).is_file())
+        [libraries::ORT, libraries::ORT_SHARED, "DirectML.dll"].iter().all(|name| dir.join(name).is_file()) && self.pinned(&DIRECTML_ASSETS)
     }
 
     /// Whether every library the card's provider needs is installed.
@@ -1451,10 +1460,10 @@ impl LyricsSync {
 
     /// The CUDA provider is a separate library, and it in turn needs cuBLAS and
     /// cuDNN beside it. Without all of them the provider refuses to load and the
-    /// run silently lands on the processor.
+    /// run silently lands on the processor. All of them at today's pins.
     pub fn has_cuda_libraries(&self) -> bool {
         let dir = self.downloader.runtime_dir("onnx-cuda");
-        libraries::CUDA.iter().all(|name| dir.join(name).is_file())
+        libraries::CUDA.iter().all(|name| dir.join(name).is_file()) && self.pinned(CUDA_ASSETS)
     }
 
     /// A model counts as present only with every one of its files: a directory
@@ -2208,6 +2217,14 @@ fn hide_console(_command: &mut Command) {}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A model is fetched from a pinned commit: a repository's latest files can be other builds under the same name.
+    #[test]
+    fn every_model_is_pinned_to_a_commit() {
+        for asset in ASSETS.iter().filter(|asset| asset.url.contains("huggingface.co/")) {
+            assert!(asset.url.contains("/resolve/") && !asset.url.contains("/resolve/main/"), "{} is not pinned", asset.url);
+        }
+    }
 
     #[test]
     fn whisper_fillers_are_dropped_and_sung_lines_kept() {

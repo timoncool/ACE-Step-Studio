@@ -17,6 +17,7 @@ mod assistant_runtime;
 mod audio_pcm;
 mod legacy_text;
 mod downloads;
+mod install_record;
 mod cuda_build;
 mod engine_runtime;
 mod lyrics_db;
@@ -1569,16 +1570,15 @@ async fn separation_assets(State(state): State<AppState>) -> Json<Value> {
         let downloader = state.separator.downloader();
         let assets: Vec<Value> = set
             .iter()
-            .map(|asset| serde_json::json!({ "id": asset.id, "label": asset.label, "bytes": asset.bytes, "note": asset.note, "installed": downloader.is_installed(asset), "outdated": downloader.is_outdated(asset) }))
+            .map(|asset| serde_json::json!({ "id": asset.id, "label": asset.label, "bytes": asset.bytes, "note": asset.note, "installed": downloader.is_installed(asset) }))
             .collect();
-        let outdated = set.iter().any(|asset| downloader.is_outdated(asset));
         let bytes: u64 = set.iter().map(|asset| asset.bytes).sum();
         let installed_bytes: u64 = set.iter().filter(|asset| downloader.is_installed(asset)).map(|asset| asset.bytes).sum();
         return Json(serde_json::json!({
             "assets": assets,
             "settings": { "runtime": config.runtime, "engine": config.engine },
             // a platform without a BSRoformer.cpp build has no set to install
-            "set": { "bytes": bytes, "installed_bytes": installed_bytes, "ready": set.len() > 1 && installed_bytes == bytes, "files": set.len(), "outdated": outdated },
+            "set": { "bytes": bytes, "installed_bytes": installed_bytes, "ready": set.len() > 1 && installed_bytes == bytes, "files": set.len() },
             "active_download": downloader.active_for("separation").await,
             "waiting_for_server": crate::chunked::waiting_for_server(),
         }));
@@ -1599,7 +1599,6 @@ async fn separation_assets(State(state): State<AppState>) -> Json<Value> {
             "bytes": asset.bytes,
             "note": if shared { "Runs the separator and the karaoke recogniser; shared between them." } else { asset.note },
             "installed": if shared { runtime_installed } else { state.lyrics_sync.downloader().is_installed(asset) },
-            "outdated": state.lyrics_sync.downloader().is_outdated(asset),
         })
     }));
     let mut set: Vec<&'static lyrics_sync::Asset> = Vec::new();
@@ -1623,7 +1622,6 @@ async fn separation_assets(State(state): State<AppState>) -> Json<Value> {
             "installed_bytes": installed_bytes,
             "ready": installed_bytes == bytes,
             "files": set.len() + 1,
-            "outdated": runtime_progress["outdated"],
         },
         // Only this panel's own download. The recogniser shares this
         // downloader, and its gigabytes are not the separator's business.
@@ -5982,7 +5980,6 @@ fn set_progress(downloader: &crate::downloads::Downloader, set: &[&'static lyric
         "installed_bytes": installed,
         "ready": !set.is_empty() && installed == total,
         "files": set.len(),
-        "outdated": set.iter().any(|asset| downloader.is_outdated(asset)),
     })
 }
 
