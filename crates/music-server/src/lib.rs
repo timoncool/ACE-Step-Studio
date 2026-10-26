@@ -20,6 +20,7 @@ mod audio_pcm;
 mod legacy_text;
 mod downloads;
 mod install_record;
+mod pin_sha;
 mod cuda_build;
 mod engine_runtime;
 mod lyrics_db;

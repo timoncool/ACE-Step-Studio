@@ -577,7 +577,7 @@ impl Downloader {
         crate::install_record::begin(&self.record_of(asset))?;
         let target = self.path_of(asset);
         fetch(&self.http, asset, &target, cell, self.cancel.clone()).await?;
-        let sha256 = crate::install_record::sha256_of(&target)?;
+        let sha256 = crate::pin_sha::check(asset.url, &target)?;
         let files = match asset.unzip_into {
             Some(flavour) => extract_archive(&target, &self.runtime_dir(flavour))?,
             None => vec![target.clone()],
@@ -640,7 +640,7 @@ impl Downloader {
                 return;
             }
             let outcome = fetch(&http, asset, &target, &progress, cancel).await.and_then(|()| {
-                let sha256 = crate::install_record::sha256_of(&target)?;
+                let sha256 = crate::pin_sha::check(asset.url, &target)?;
                 let files = match asset.unzip_into {
                     Some(flavour) => extract_archive(&target, &runtime_root.join(flavour))?,
                     None => vec![target.clone()],
@@ -810,9 +810,9 @@ async fn download_and_extract_named(
     let outcome = crate::chunked::fetch(http, &url, &archive, plan, written, cancel).await;
     reporter.abort();
     outcome?;
-    let (archive_path, wanted, destination) = (archive.clone(), asset.pick, destination.to_path_buf());
+    let (archive_path, wanted, destination, pinned) = (archive.clone(), asset.pick, destination.to_path_buf(), asset.url);
     let extracted = tokio::task::spawn_blocking(move || -> Result<(String, Vec<PathBuf>)> {
-        let sha256 = crate::install_record::sha256_of(&archive_path)?;
+        let sha256 = crate::pin_sha::check(pinned, &archive_path)?;
         Ok((sha256, extract_named_local(&archive_path, wanted, &destination)?))
     })
     .await

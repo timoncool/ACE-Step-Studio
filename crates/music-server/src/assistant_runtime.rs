@@ -517,7 +517,7 @@ impl AssistantRuntime {
 
     /// Fetched, extracted and recorded: the record makes it count as today's pin.
     fn finish(asset: &Asset, target: &Path, root: &Path) -> Result<()> {
-        let sha256 = crate::install_record::sha256_of(target)?;
+        let sha256 = crate::pin_sha::check(asset.url, target)?;
         let files = match asset.unzip_into {
             Some(flavour) => crate::downloads::extract_archive(target, &root.join("runtime").join(flavour))?,
             None => vec![target.to_path_buf()],
