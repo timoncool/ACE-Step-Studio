@@ -605,6 +605,7 @@ impl Downloader {
             // libraries anyway - nineteen megabytes of difference bought a
             // download that survives a bad line.
             let (sha256, files) = download_and_extract_named(&self.http, asset, &self.picked_into(asset), cell, self.cancel.clone(), &record, &self.root).await?;
+            make_programs_executable(asset.marker, &files)?;
             return crate::install_record::write(&record, asset.url, &sha256, &files, &self.root);
         }
         let target = self.path_of(asset);
@@ -615,6 +616,7 @@ impl Downloader {
             Some(flavour) => extract_archive(&target, &self.runtime_dir(flavour))?,
             None => vec![target.clone()],
         };
+        make_programs_executable(asset.marker, &files)?;
         crate::install_record::write(&record, asset.url, &sha256, &files, &self.root)
     }
 
@@ -657,7 +659,10 @@ impl Downloader {
                 };
                 let outcome = download_and_extract_named(&http, asset, &destination, &progress, cancel, &record, &root)
                     .await
-                    .and_then(|(sha256, files)| crate::install_record::write(&record, asset.url, &sha256, &files, &root));
+                    .and_then(|(sha256, files)| {
+                        make_programs_executable(asset.marker, &files)?;
+                        crate::install_record::write(&record, asset.url, &sha256, &files, &root)
+                    });
                 let mut guard = progress.lock().await;
                 if let Some(active) = guard.as_mut() {
                     active.done = true;
@@ -672,6 +677,7 @@ impl Downloader {
                     Some(flavour) => extract_archive(&target, &runtime_root.join(flavour))?,
                     None => vec![target.clone()],
                 };
+                make_programs_executable(asset.marker, &files)?;
                 crate::install_record::write(&record, asset.url, &sha256, &files, &root)
             });
             let mut guard = progress.lock().await;
@@ -977,6 +983,34 @@ pub fn picked_file_name(entry: &str) -> &str {
     entry.rsplit('/').next().unwrap_or(entry)
 }
 
+/// The programs among unpacked `files`: the ones `marker` names, without an extension, as Linux and macOS name
+/// programs (a library or a data file has one).
+fn programs_among<'a>(marker: &str, files: &'a [PathBuf]) -> Vec<&'a PathBuf> {
+    if marker.is_empty() {
+        return Vec::new();
+    }
+    files
+        .iter()
+        .filter(|path| path.extension().is_none() && path.file_name().and_then(|name| name.to_str()).is_some_and(|name| name.starts_with(marker)))
+        .collect()
+}
+
+/// Makes the programs of a component executable: an archive packed on Windows carries no execute bit, and the
+/// program would answer «Permission denied».
+pub fn make_programs_executable(marker: &str, files: &[PathBuf]) -> Result<()> {
+    #[cfg(unix)]
+    for path in programs_among(marker, files) {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = fs::metadata(path).with_context(|| format!("read the permissions of {}", path.display()))?.permissions().mode();
+        if mode & 0o111 != 0o111 {
+            fs::set_permissions(path, fs::Permissions::from_mode(mode | 0o755)).with_context(|| format!("make {} executable", path.display()))?;
+        }
+    }
+    #[cfg(not(unix))]
+    let _ = (marker, files);
+    Ok(())
+}
+
 /// Unpacks a release archive, zip or tar. Entries are flattened into
 /// `destination` because the releases nest their binaries one or two
 /// directories deep.
@@ -1022,7 +1056,8 @@ pub fn extract_archive(archive: &Path, destination: &Path) -> Result<Vec<PathBuf
                 let name = path.rsplit('/').next().unwrap_or(&path).to_string();
                 let kind = entry.header().entry_type();
                 let mode = entry.header().mode().ok();
-                let executable = mode.is_some_and(|mode| mode & 0o111 != 0);
+                // a program packed on Windows has lost its execute bit, so a name without an extension counts too
+                let executable = mode.is_some_and(|mode| mode & 0o111 != 0) || Path::new(&name).extension().is_none();
                 if kind.is_symlink() && is_shared_library(&name) {
                     let target = entry.link_name().ok().flatten().map(|target| target.to_string_lossy().replace('\\', "/")).unwrap_or_default();
                     links.push((name, target.rsplit('/').next().unwrap_or(&target).to_string()));
@@ -1398,6 +1433,50 @@ mod tests {
         }
         tar.into_inner().unwrap().finish().unwrap();
         archive
+    }
+
+    /// A program packed without its execute bit - a zip or a tar made on Windows - is made executable after unpacking;
+    /// its libraries and data files are left as they came.
+    #[test]
+    fn a_program_unpacked_without_its_execute_bit_is_made_executable() {
+        let root = std::env::temp_dir().join(format!("downloads-{}", uuid::Uuid::now_v7()));
+        fs::create_dir_all(&root).unwrap();
+        let zip_archive = root.join("tool.part-archive");
+        {
+            let mut zip = zip::ZipWriter::new(fs::File::create(&zip_archive).unwrap());
+            for name in ["music-midi", "libggml.so", "README.txt"] {
+                zip.start_file(name, zip::write::SimpleFileOptions::default()).unwrap();
+                io::Write::write_all(&mut zip, name.as_bytes()).unwrap();
+            }
+            zip.finish().unwrap();
+        }
+        let tar_archive = root.join("llama.part-archive");
+        {
+            let encoder = flate2::write::GzEncoder::new(fs::File::create(&tar_archive).unwrap(), flate2::Compression::fast());
+            let mut tar = tar::Builder::new(encoder);
+            for (path, mode) in [("llama-server", 0o644), ("libllama.so", 0o644)] {
+                let mut header = tar::Header::new_gnu();
+                header.set_size(path.len() as u64);
+                header.set_mode(mode);
+                header.set_cksum();
+                tar.append_data(&mut header, path, path.as_bytes()).unwrap();
+            }
+            tar.into_inner().unwrap().finish().unwrap();
+        }
+        for (archive, marker, program) in [(&zip_archive, "music-midi", "music-midi"), (&tar_archive, "llama-server", "llama-server")] {
+            let out = root.join(format!("out-{marker}"));
+            let files = extract_archive(archive, &out).unwrap();
+            let programs: Vec<String> = programs_among(marker, &files).iter().map(|path| path.file_name().unwrap().to_string_lossy().into_owned()).collect();
+            assert_eq!(programs, vec![program.to_string()], "{marker}");
+            make_programs_executable(marker, &files).unwrap();
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                assert_eq!(fs::metadata(out.join(program)).unwrap().permissions().mode() & 0o111, 0o111, "{program} is executable");
+            }
+        }
+        assert!(programs_among("", &[root.join("anything")]).is_empty(), "an asset without a marker names no program");
+        fs::remove_dir_all(&root).ok();
     }
 
     #[test]

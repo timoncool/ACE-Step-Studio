@@ -523,6 +523,7 @@ impl AssistantRuntime {
             Some(flavour) => crate::downloads::extract_archive(target, &root.join("runtime").join(flavour))?,
             None => vec![target.to_path_buf()],
         };
+        crate::downloads::make_programs_executable(asset.marker, &files)?;
         crate::install_record::write(&record, asset.url, &sha256, &files, root)
     }
 
