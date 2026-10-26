@@ -358,14 +358,14 @@ fn annotations(name: &str) -> Value {
     // a verb that changes something outweighs a noun that reads
     const CHANGES: &[&str] = &["install", "import", "remove", "delete", "refresh", "create", "update", "start", "cancel", "select", "download", "apply", "restart"];
     // reads whose names the rules above miss: create_form names the create page
-    const READ_NAMES: &[&str] = &["assistant_cli_agents", "system_gpus", "cover_scenes", "cover_photos_search", "video_backgrounds_search", "network_proxy_test", "journal_read", "lyrics_find", "cover_prompt_render", "studio_wait", "engine_presets_get", "assistant_requests_wait", "ui_console", "song_defaults", "create_form_get", "library_liked"];
+    const READ_NAMES: &[&str] = &["assistant_cli_agents", "system_gpus", "cover_scenes", "cover_photos_search", "video_backgrounds_search", "network_proxy_test", "journal_read", "lyrics_find", "cover_prompt_render", "studio_wait", "engine_presets_get", "assistant_requests_wait", "ui_console", "song_defaults", "create_form_get", "library_liked", "models_update_plan"];
     // writes over what was stored, so the earlier content is gone: a client asks first
     const OVERWRITES: &[&str] = &["library_song_update", "playlist_update", "dataset_update", "dataset_song_update", "dataset_song_describe", "dataset_prepare", "lora_update", "stems_split", "karaoke_make", "midi_transcribe", "cover_draw", "cover_set_from_file", "openrouter_set_key"];
     let changes = CHANGES.iter().any(|verb| name.split('_').any(|word| word == *verb));
     let read_only = READ_NAMES.contains(&name) || !changes && (READS.iter().any(|part| name.ends_with(part) || name.contains(&format!("{part}_"))) || name.starts_with("writing_"));
     let destructive = name.ends_with("_delete") || name.ends_with("_remove") || name == "processing_discard" || name.ends_with("_cancel") || name.contains("_cancel_") || OVERWRITES.contains(&name);
     // what reaches the internet: OpenRouter, Hugging Face, the lyric databases and every download
-    let open_world = name.starts_with("openrouter_") || name.contains("_hf") || name == "lyrics_find" || name == "models_download" || name == "lora_install_catalog" || name.ends_with("_install") && name != "training_checkpoint_install";
+    let open_world = name.starts_with("openrouter_") || name.contains("_hf") || name == "lyrics_find" || name == "models_download" || name == "models_update_apply" || name == "lora_install_catalog" || name.ends_with("_install") && name != "training_checkpoint_install";
     let title = name.replace('_', " ");
     json!({ "title": title, "readOnlyHint": read_only, "destructiveHint": destructive, "idempotentHint": read_only || name.ends_with("_set") || name.contains("_select"), "openWorldHint": open_world })
 }
@@ -432,6 +432,7 @@ const JOURNAL: &[(&str, &str, &str)] = &[
     ("lora_delete", "deleted", "lora"),
     ("lora_export_comfyui", "exported", "lora"),
     ("models_download", "started", "download"),
+    ("models_update_apply", "started", "download"),
     ("training_pack_install", "started", "download"),
     ("training_listen_pack_install", "started", "download"),
     ("assistant_model_install", "started", "download"),
@@ -973,6 +974,24 @@ fn tools() -> &'static [Tool] {
                 description: "Take model files already on this computer instead of downloading them: every file of the catalogue found in the folder (by name, else by exact size) is linked into the studio's models. models_status shows the result.",
                 schema: || id_only("path", "folder with the model files"),
                 call: |args| post("/setup/adopt".into(), json!({ "path": text(args, "path")? })),
+            },
+            Tool {
+                name: "models_update_plan",
+                description: "The update screen's plan of this release: what is updated (from, to, bytes to download, reason), what is new, what former releases left that is no longer needed (paths, bytes freed, reason), the totals, show (whether the window shows the screen at start), and job, the screen's download while it runs and after. models_update_apply carries it out.",
+                schema: nothing,
+                call: |_| get("/setup/update".into()),
+            },
+            Tool {
+                name: "models_update_apply",
+                description: "The update screen's button: downloads what the plan updates and adds in the background (models_update_plan's job shows it) and, once all of it is in place, removes what former releases left; with nothing to download it removes them at once. Answers the plan and the job.",
+                schema: nothing,
+                call: |_| post("/setup/update/apply".into(), json!({})),
+            },
+            Tool {
+                name: "models_update_later",
+                description: "The update screen's «Later»: this release's plan is not shown at start again; models_update_plan and Settings - Models still have it.",
+                schema: nothing,
+                call: |_| post("/setup/update/seen".into(), json!({})),
             },
             Tool {
                 name: "song_defaults",
@@ -3028,6 +3047,8 @@ mod tests {
             "assistant_start",
             "assistant_stop",
             "diagnostics_report",
+            // the update screen put off: nothing of the person's changes
+            "models_update_later",
         ];
         let unwritten: Vec<&str> = tools()
             .iter()

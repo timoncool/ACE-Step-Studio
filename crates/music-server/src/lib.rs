@@ -21,6 +21,7 @@ mod legacy_text;
 mod downloads;
 mod install_record;
 mod pin_sha;
+mod update_screen;
 mod diagnostics;
 mod cuda_build;
 mod engine_runtime;
@@ -155,6 +156,8 @@ struct AppState {
     prepare: prepare::Shared,
     prepare_cancel: Arc<std::sync::atomic::AtomicBool>,
     prepare_train: prepare::TrainSlot,
+    /// The update screen's download, while it runs and after.
+    update_job: Arc<RwLock<Option<update_screen::Job>>>,
 }
 
 /// A song the create page asks for: the engine's own request fields, flat,
@@ -899,6 +902,7 @@ pub async fn serve() -> anyhow::Result<()> {
         prepare: Arc::new(std::sync::Mutex::new(None)),
         prepare_cancel: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         prepare_train: Arc::new(std::sync::Mutex::new(None)),
+        update_job: Arc::new(RwLock::new(None)),
         adapters: Arc::new(adapters::AdapterLibrary::new(
             &studio_data_root().unwrap_or_else(|| std::path::PathBuf::from(".")),
             PRIMARY_MUSIC_ENGINE_ID,
@@ -938,10 +942,6 @@ pub async fn serve() -> anyhow::Result<()> {
         }
     }
     state.lyrics_sync.set_cuda_libraries(state.engine_runtime.library_dir());
-    {
-        let sync = state.lyrics_sync.clone();
-        tokio::task::spawn_blocking(move || sync.remove_retired());
-    }
     prepare::resume(&state);
     tokio::spawn(resume_unfinished_jobs(state.clone()));
     {
@@ -1121,6 +1121,9 @@ pub async fn serve() -> anyhow::Result<()> {
         .route("/v1/diagnostics/logs/reveal", post(diagnostics::reveal_logs))
         .route("/setup/select", post(setup_select))
         .route("/setup/cancel", post(setup_cancel))
+        .route("/setup/update", get(setup_update))
+        .route("/setup/update/apply", post(setup_update_apply))
+        .route("/setup/update/seen", post(setup_update_seen))
         .route("/v1/local-models/music", get(local_music_model_catalog))
         .route("/v1/music/jobs", post(create_music_job).get(list_active_music_jobs))
         .route("/v1/music/replay", post(replay_music_job))
@@ -7850,6 +7853,204 @@ async fn setup_cancel(State(state): State<AppState>) -> Result<Json<Value>, (Sta
         .await
         .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
     Ok(Json(compose_setup_status(&state, manager_status).await))
+}
+
+/// The downloads of a part of the studio the update screen compares with the disk, its downloader's own catalogue
+/// (the assistant keeps its own kind of asset and is read apart).
+fn update_catalogue(part: update_screen::Part) -> Vec<&'static downloads::Asset> {
+    use update_screen::Part;
+    let mut assets: Vec<&'static downloads::Asset> = match part {
+        Part::Engine => engine_runtime::ASSETS.iter().collect(),
+        Part::Karaoke => lyrics_sync::ASSETS.iter().collect(),
+        Part::Separation => std::iter::once(&separation::MODEL).chain(roformer_set(true)).chain(roformer_set(false)).collect(),
+        Part::Midi => vec![midi::tool_asset()],
+        Part::Training => training::pack().iter().collect(),
+        Part::Listening => training::listen_pack().iter().collect(),
+        Part::Assistant => Vec::new(),
+    };
+    let mut seen = std::collections::HashSet::new();
+    assets.retain(|asset| seen.insert(asset.id));
+    assets
+}
+
+/// The downloader of a part and the scope its panel follows; the assistant downloads through its own runtime.
+fn update_downloader(state: &AppState, part: update_screen::Part) -> Option<(&downloads::Downloader, &'static str)> {
+    use update_screen::Part;
+    match part {
+        Part::Engine => Some((state.engine_runtime.downloader(), "engine")),
+        Part::Karaoke => Some((state.lyrics_sync.downloader(), "karaoke")),
+        Part::Separation => Some((state.separator.downloader(), "separation")),
+        Part::Midi => Some((state.midi.downloader(), "midi")),
+        Part::Training => Some((state.training.downloader(), training::SCOPE)),
+        Part::Listening => Some((state.training.downloader(), training::LISTEN_SCOPE)),
+        Part::Assistant => None,
+    }
+}
+
+/// Karaoke heard with Faster-Whisper before: CrisperWhisper takes its place, and Faster-Whisper's files wait for it.
+fn karaoke_on_whisper(karaoke: &lyrics_sync::LyricsSyncConfig) -> bool {
+    karaoke.enabled && karaoke.provider == lyrics_sync::AsrProvider::Whisper
+}
+
+/// The data folder, where the update screen notes the release it has shown: the settings file's folder.
+fn update_data_root(state: &AppState) -> &std::path::Path {
+    state.settings_path.parent().expect("the settings file lies in the data folder")
+}
+
+/// This release's plan against the disk; it reads files and changes none.
+fn update_plan_now(state: &AppState, karaoke: &lyrics_sync::LyricsSyncConfig) -> update_screen::Plan {
+    use update_screen::{Candidate, Part};
+    let of = |part: Part, asset: &'static downloads::Asset, downloader: &downloads::Downloader, earlier: Option<String>| Candidate {
+        part,
+        id: asset.id,
+        label: asset.label,
+        model: asset.kind == downloads::AssetKind::Model,
+        relative_path: asset.relative_path,
+        url: asset.url,
+        bytes: asset.bytes,
+        downloaded: downloader.partial_bytes(asset),
+        earlier,
+    };
+    let mut updated = Vec::new();
+    for part in [Part::Engine, Part::Karaoke, Part::Separation, Part::Midi, Part::Training, Part::Listening] {
+        let Some((downloader, _)) = update_downloader(state, part) else { continue };
+        for asset in update_catalogue(part) {
+            if let Some(earlier) = downloader.earlier(asset) {
+                updated.push(of(part, asset, downloader, earlier));
+            }
+        }
+    }
+    let assistant = &state.assistant_runtime;
+    for asset in assistant_runtime::ASSETS {
+        if let Some(earlier) = assistant.earlier(asset) {
+            updated.push(Candidate {
+                part: Part::Assistant,
+                id: asset.id,
+                label: asset.label,
+                model: asset.kind == assistant_runtime::AssetKind::Model,
+                relative_path: asset.relative_path,
+                url: asset.url,
+                bytes: asset.bytes,
+                downloaded: assistant.partial_bytes(asset),
+                earlier,
+            });
+        }
+    }
+    let leftovers = state.lyrics_sync.leftovers();
+    let whisper_left = leftovers.iter().any(|leftover| leftover.what == "faster-whisper" && !leftover.paths.is_empty());
+    let mut added = Vec::new();
+    if whisper_left && karaoke_on_whisper(karaoke) {
+        let downloader = state.lyrics_sync.downloader();
+        for asset in lyrics_sync::crisper_assets(karaoke.runtime).into_iter().filter_map(lyrics_sync::asset) {
+            if !downloader.is_installed(asset) && !updated.iter().any(|row: &Candidate| row.id == asset.id) {
+                added.push(of(Part::Karaoke, asset, downloader, None));
+            }
+        }
+    }
+    update_screen::plan(updated, added, leftovers, update_data_root(state), studio_version())
+}
+
+async fn update_plan(state: &AppState) -> Result<update_screen::Plan, (StatusCode, Json<ApiError>)> {
+    let karaoke = state.lyrics_sync_config.read().await.clone();
+    let state = state.clone();
+    tokio::task::spawn_blocking(move || update_plan_now(&state, &karaoke))
+        .await
+        .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("the update plan was not read: {error}")))
+}
+
+/// The update screen's download with what of it has arrived: a row's bytes once installed, its partial files until.
+async fn update_job_now(state: &AppState) -> Option<update_screen::Job> {
+    let mut job = state.update_job.read().await.clone()?;
+    for row in job.rows_mut() {
+        let arrived: u64 = match update_downloader(state, row.part) {
+            Some((downloader, _)) => update_catalogue(row.part)
+                .into_iter()
+                .filter(|asset| row.ids.contains(&asset.id))
+                .map(|asset| if downloader.is_installed(asset) { asset.bytes } else { downloader.partial_bytes(asset) })
+                .sum(),
+            None => row
+                .ids
+                .iter()
+                .filter_map(|id| assistant_runtime::asset(id))
+                .map(|asset| if state.assistant_runtime.is_installed(asset) { asset.bytes } else { state.assistant_runtime.partial_bytes(asset) })
+                .sum(),
+        };
+        row.download = row.bytes.saturating_sub(arrived);
+    }
+    Some(job)
+}
+
+/// GET /setup/update - the update screen: this release's plan (updated, added, retired with their reasons, the
+/// totals, and whether the window shows the screen at start) and the screen's download while it runs and after.
+async fn setup_update(State(state): State<AppState>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    let plan = update_plan(&state).await?;
+    Ok(Json(serde_json::json!({ "plan": plan, "job": update_job_now(&state).await })))
+}
+
+/// POST /setup/update/apply - the update screen's button: downloads what the plan updates and adds, part by part
+/// in the background, and once all of it is in place removes what former releases left; with nothing to download it
+/// removes them at once. The plan counts as shown.
+async fn setup_update_apply(State(state): State<AppState>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    if state.update_job.read().await.as_ref().is_some_and(|job| job.status == update_screen::JobStatus::Running) {
+        return Err(api_error(StatusCode::CONFLICT, "the update is already running".into()));
+    }
+    let plan = update_plan(&state).await?;
+    if let Err(error) = update_screen::mark_seen(update_data_root(&state), studio_version()) {
+        studio_log!("[ERROR] {error}");
+    }
+    let rows: Vec<update_screen::Row> = plan.updated.iter().chain(&plan.added).cloned().collect();
+    *state.update_job.write().await =
+        Some(update_screen::Job { status: update_screen::JobStatus::Running, error: None, updated: plan.updated.clone(), added: plan.added.clone() });
+    let background = state.clone();
+    tokio::spawn(async move {
+        let outcome = run_update(&background, &rows).await;
+        if let Err(error) = &outcome {
+            studio_log!("[ERROR] the update did not finish: {error:#}");
+        }
+        if let Some(job) = background.update_job.write().await.as_mut() {
+            job.status = if outcome.is_ok() { update_screen::JobStatus::Done } else { update_screen::JobStatus::Failed };
+            job.error = outcome.err().map(|error| format!("{error:#}"));
+        }
+    });
+    let plan = update_plan(&state).await?;
+    Ok(Json(serde_json::json!({ "plan": plan, "job": update_job_now(&state).await })))
+}
+
+/// The downloads of `rows`, part after part, then the leftovers whose replacement is in place.
+async fn run_update(state: &AppState, rows: &[update_screen::Row]) -> anyhow::Result<()> {
+    let mut parts: Vec<update_screen::Part> = Vec::new();
+    for row in rows {
+        if !parts.contains(&row.part) {
+            parts.push(row.part);
+        }
+    }
+    for part in parts {
+        let ids: Vec<&str> = rows.iter().filter(|row| row.part == part).flat_map(|row| row.ids.iter().copied()).collect();
+        match update_downloader(state, part) {
+            Some((downloader, scope)) => {
+                let assets: Vec<&'static downloads::Asset> = update_catalogue(part).into_iter().filter(|asset| ids.contains(&asset.id)).collect();
+                downloader.install_all(scope, &assets).await?;
+            }
+            None => state.assistant_runtime.install_all(&ids.iter().map(|id| id.to_string()).collect::<Vec<_>>()).await?,
+        }
+    }
+    let karaoke = state.lyrics_sync_config.read().await.clone();
+    let sync = state.lyrics_sync.clone();
+    tokio::task::spawn_blocking(move || {
+        let mut gone = vec!["parakeet-onnx"];
+        if !karaoke_on_whisper(&karaoke) || sync.crisper_ready(karaoke.runtime) {
+            gone.push("faster-whisper");
+        }
+        sync.remove_leftovers(&gone);
+    })
+    .await?;
+    Ok(())
+}
+
+/// POST /setup/update/seen - «Later»: this release's plan is not shown at start again; Settings - Models keeps it.
+async fn setup_update_seen(State(state): State<AppState>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    update_screen::mark_seen(update_data_root(&state), studio_version()).map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error))?;
+    Ok(Json(serde_json::json!({ "seen": studio_version() })))
 }
 
 async fn capabilities(State(state): State<AppState>) -> Json<CapabilitiesResponse> {

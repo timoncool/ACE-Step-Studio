@@ -978,11 +978,11 @@ pub const PARAKEET_ULTRA: &str = "parakeet-ultra-int8";
 pub const PARAKEET_FP32: &str = "parakeet-tdt-fp32";
 
 /// The folders of the ONNX Parakeet of 3.6 and earlier, under the karaoke folder.
-/// Parakeet on ONNX Runtime, before transcribe.cpp: removed at start.
+/// Parakeet on ONNX Runtime, before transcribe.cpp: removed by the update screen.
 const RETIRED: &[&str] = &["models/parakeet", "models/parakeet-fp32", "models/parakeet-ultra"];
 
 /// Whisper-Faster (CTranslate2) with its CUDA 11 cuBLAS and cuDNN 8, and its models, before CrisperWhisper on
-/// audio.cpp: removed by the update screen once CrisperWhisper is in place, never before.
+/// audio.cpp: removed by the update screen once CrisperWhisper is in place or karaoke hears with another recogniser.
 pub const RETIRED_WHISPER: &[&str] = &[
     "runtime/whisper",
     "models/whisper",
@@ -1103,23 +1103,36 @@ impl LyricsSync {
         Self { downloader: Downloader::new(data_root.join("karaoke")), cuda_libraries: std::sync::OnceLock::new() }
     }
 
-    /// Removes the Parakeet models of before transcribe.cpp (ONNX: v3 int8, fp32, Ultra), which nothing reads any
-    /// more, so they keep no gigabytes that no row of the models page shows - as Dub Studio does. A link (another
-    /// program's folder linked in) loses only the link; a hard-linked file stays with the program that shares it.
-    pub fn remove_retired(&self) {
-        for retired in RETIRED {
-            let path = self.downloader.root().join(retired);
-            let Ok(meta) = fs::symlink_metadata(&path) else { continue };
-            let removed = if meta.file_type().is_symlink() {
-                fs::remove_dir(&path).or_else(|_| fs::remove_file(&path))
-            } else if meta.is_dir() {
-                fs::remove_dir_all(&path)
-            } else {
-                fs::remove_file(&path)
-            };
-            match removed {
-                Ok(()) => studio_log!("removed the retired {}", path.display()),
-                Err(error) => studio_log!("[ERROR] could not remove the retired {}: {error}", path.display()),
+    /// What former releases left in the karaoke folder, by the names the update screen's table of changes knows:
+    /// the ONNX Parakeet and Faster-Whisper with its CUDA 11 libraries and models.
+    pub fn leftovers(&self) -> Vec<crate::update_screen::Leftover> {
+        let found = |listed: &[&str]| -> Vec<PathBuf> {
+            listed.iter().map(|relative| self.downloader.root().join(relative)).filter(|path| fs::symlink_metadata(path).is_ok()).collect()
+        };
+        vec![
+            crate::update_screen::Leftover { what: "parakeet-onnx", name: "Parakeet (ONNX)", paths: found(RETIRED) },
+            crate::update_screen::Leftover { what: "faster-whisper", name: "Faster-Whisper", paths: found(RETIRED_WHISPER) },
+        ]
+    }
+
+    /// Removes the leftovers named in `what`: the update screen's last step, after the downloads that take their
+    /// place. A link (another program's folder linked in) loses only the link; a hard-linked file stays with the
+    /// program that shares it.
+    pub fn remove_leftovers(&self, what: &[&str]) {
+        for leftover in self.leftovers().into_iter().filter(|leftover| what.contains(&leftover.what)) {
+            for path in leftover.paths {
+                let Ok(meta) = fs::symlink_metadata(&path) else { continue };
+                let removed = if meta.file_type().is_symlink() {
+                    fs::remove_dir(&path).or_else(|_| fs::remove_file(&path))
+                } else if meta.is_dir() {
+                    fs::remove_dir_all(&path)
+                } else {
+                    fs::remove_file(&path)
+                };
+                match removed {
+                    Ok(()) => studio_log!("removed the retired {}", path.display()),
+                    Err(error) => studio_log!("[ERROR] could not remove the retired {}: {error}", path.display()),
+                }
             }
         }
     }
@@ -2091,7 +2104,7 @@ mod live_recognition {
     use super::*;
 
     #[test]
-    fn the_onnx_parakeet_goes_at_start_and_whisper_waits_for_its_successor() {
+    fn the_leftovers_wait_for_the_update_screen_and_go_by_name() {
         let root = tempfile::tempdir().unwrap();
         let sync = LyricsSync::new(root.path());
         let karaoke = root.path().join("karaoke");
@@ -2101,15 +2114,19 @@ mod live_recognition {
         }
         let whisper = karaoke.join("models/whisper/faster-whisper-small/model.bin");
         let kept = [karaoke.join("models/asr-gguf-parakeet-v3/parakeet-tdt-0.6b-v3-Q8_0.gguf"), karaoke.join("models/crisperwhisper2-turbo/model.safetensors"), whisper.clone()];
-        assert!(RETIRED_WHISPER.iter().any(|retired| whisper.starts_with(karaoke.join(retired))));
         for file in &kept {
             fs::create_dir_all(file.parent().unwrap()).unwrap();
             fs::write(file, b"x").unwrap();
         }
-        sync.remove_retired();
+        let found: Vec<(&str, usize)> = sync.leftovers().iter().map(|leftover| (leftover.what, leftover.paths.len())).collect();
+        assert_eq!(found, vec![("parakeet-onnx", RETIRED.len()), ("faster-whisper", 1)]);
+        sync.remove_leftovers(&["parakeet-onnx"]);
         assert!(RETIRED.iter().all(|retired| !karaoke.join(retired).exists()));
-        assert!(kept.iter().all(|file| file.is_file()));
-        sync.remove_retired();
+        assert!(kept.iter().all(|file| file.is_file()), "Faster-Whisper waits for its own turn");
+        sync.remove_leftovers(&["parakeet-onnx", "faster-whisper"]);
+        assert!(!karaoke.join("models/whisper").exists());
+        assert!(kept[..2].iter().all(|file| file.is_file()));
+        assert!(sync.leftovers().iter().all(|leftover| leftover.paths.is_empty()));
     }
 
     #[test]

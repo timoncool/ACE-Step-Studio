@@ -455,7 +455,7 @@ impl AssistantRuntime {
     /// today's pin (`install_record`); a runtime from before records counts as
     /// in `take_over`. A model counts by its file at the pinned size: its address
     /// can move to another commit of the same weights without them being fetched again.
-    fn is_installed(&self, asset: &Asset) -> bool {
+    pub fn is_installed(&self, asset: &Asset) -> bool {
         if !self.present(asset) {
             return false;
         }
@@ -468,6 +468,19 @@ impl AssistantRuntime {
             Some(current) => current,
             None => self.take_over(asset, &record),
         }
+    }
+
+    /// What an earlier release left of `asset` for today's pin to replace, as `Downloader::earlier` says it.
+    pub fn earlier(&self, asset: &Asset) -> Option<Option<String>> {
+        if asset.kind == AssetKind::Model || self.is_installed(asset) {
+            return None;
+        }
+        if let Some(record) = crate::install_record::read(&self.record_of(asset)) {
+            if record.url != asset.url {
+                return Some(Some(record.url));
+            }
+        }
+        self.present(asset).then_some(None)
     }
 
     fn record_of(&self, asset: &Asset) -> PathBuf {
@@ -536,7 +549,7 @@ impl AssistantRuntime {
         fs::metadata(self.path_of(asset)).map(|meta| meta.len() > 0).unwrap_or(false)
     }
 
-    fn partial_bytes(&self, asset: &Asset) -> u64 {
+    pub fn partial_bytes(&self, asset: &Asset) -> u64 {
         let part = self.path_of(asset).with_extension("part");
         fs::metadata(part).map(|meta| meta.len()).unwrap_or(0)
     }

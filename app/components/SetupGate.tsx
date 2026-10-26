@@ -3,6 +3,7 @@ import { openRouterSettingsChanged, SELF_READ } from '../services/studioQueries'
 import { Check, ChevronDown, Download, FolderDown, FolderOpen, Loader2, Square, Trash2, X } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import { RescanButton } from './RescanButton';
+import { UpdatePlanView } from './UpdateScreen';
 import { ManualDownloads } from './ManualDownloads';
 import { MirrorOffer } from './MirrorOffer';
 import { DevicePicker, type Device } from './DevicePicker';
@@ -695,6 +696,7 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
   const [status, setStatus] = useState<SetupStatus | null>(null);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [adoptReport, setAdoptReport] = useState<AdoptReport | null>(null);
+  const [updateOpen, setUpdateOpen] = useState(false);
   const [choice, setChoice] = useState<Record<string, string>>({});
   const chosenValues = useMemo(() => Object.values(choice).filter((id): id is string => typeof id === 'string' && id.length > 0), [choice]);
   const [error, setError] = useState<string | null>(null);
@@ -853,6 +855,18 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
 
         {mode === 'settings' && <WhereItRuns trainingVram={trainingInfo?.min_vram_gb ?? null} />}
         {mode === 'settings' && <div className="mt-4"><RescanButton onDone={() => void refresh().catch((problem: unknown) => setError(problem instanceof Error ? problem.message : String(problem)))} /></div>}
+        {mode === 'settings' && (
+          <details className="group mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-suno-card" onToggle={(event) => setUpdateOpen(event.currentTarget.open)}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-white/5">
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-zinc-900 dark:text-white">{t('updateSettingsEntry')}</span>
+                <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">{t('updateSettingsHint')}</span>
+              </span>
+              <ChevronDown size={15} className="shrink-0 text-zinc-500 transition-transform group-open:rotate-180" />
+            </summary>
+            {updateOpen && <div className="border-t border-zinc-100 p-4 dark:border-white/5"><UpdatePlanView onDone={() => void refresh().catch((problem: unknown) => setError(problem instanceof Error ? problem.message : String(problem)))} /></div>}
+          </details>
+        )}
 
         {error && (
           <div className="mt-5 flex gap-2 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">

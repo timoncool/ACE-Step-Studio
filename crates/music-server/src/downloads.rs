@@ -163,6 +163,21 @@ impl Downloader {
         }
     }
 
+    /// What an earlier release left of `asset` for today's pin to replace: `Some(Some(url))` when its record names
+    /// the URL it came from, `Some(None)` when its files lie there without a record of it; `None` when it is today's
+    /// or not there. A model counts by its file, so it has no earlier release.
+    pub fn earlier(&self, asset: &Asset) -> Option<Option<String>> {
+        if asset.kind == AssetKind::Model || self.is_installed(asset) {
+            return None;
+        }
+        if let Some(record) = crate::install_record::read(&self.record_of(asset)) {
+            if record.url != asset.url {
+                return Some(Some(record.url));
+            }
+        }
+        self.present(asset).then_some(None)
+    }
+
     /// Where the record of an asset's download lies: beside its file or archive.
     pub fn record_of(&self, asset: &Asset) -> PathBuf {
         crate::install_record::record_path(&self.path_of(asset))

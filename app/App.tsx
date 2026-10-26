@@ -118,6 +118,7 @@ import { winampControl, winampOn } from './services/winamp';
 import { notePlayed } from './services/playHistory';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { SetupGate } from './components/SetupGate';
+import { UpdateScreen, readUpdatePlan } from './components/UpdateScreen';
 import { EngineStarting } from './components/EngineStarting';
 import { StudioOffline } from './components/StudioOffline';
 import { StudioToolsPanel } from './components/StudioToolsPanel';
@@ -171,6 +172,14 @@ function AppContent() {
   const leftPanel = useResizablePanel('create', 420, 320, 1200, 'left', t('createMusic'));
   const rightPanel = useResizablePanel('details', 400, 320, 1200, 'right', t('songDetails'));
   const [nativeSetupReady, setNativeSetupReady] = useState(false);
+  // a release that changed what the studio downloads shows its update screen once, before the studio
+  const [updateShown, setUpdateShown] = useState(false);
+  useEffect(() => {
+    readUpdatePlan().then(
+      (update) => setUpdateShown(update.plan.show),
+      (problem: unknown) => console.error('the update plan was not read', problem),
+    );
+  }, []);
   // A track sent here from a menu's "separate into stems".
   const [stemsSongId, setStemsSongId] = useState<string | null>(null);
   // Which of the three situations the studio is in. It starts unknown, and
@@ -1301,6 +1310,7 @@ function AppContent() {
         // through. They used to be the same page, which made a running studio
         // look like it owed 26 GB.
         if (nativeModels === 'offline') return <StudioOffline />;
+        if (updateShown) return <UpdateScreen onLeave={() => setUpdateShown(false)} />;
         if (!nativeSetupReady) {
           // Until the studio has answered, and while the engine is coming up,
           // this is a wait - not a decision. The download page appears only

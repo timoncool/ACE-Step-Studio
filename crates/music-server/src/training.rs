@@ -387,7 +387,7 @@ fn trainer_folder() -> &'static str {
 
 /// Everything training needs: the trainer, released beside the studio, and
 /// the engine's weights for it.
-fn pack() -> &'static [Asset] {
+pub(crate) fn pack() -> &'static [Asset] {
     static PACK: OnceLock<Vec<Asset>> = OnceLock::new();
     PACK.get_or_init(|| {
         let leak = |text: String| -> &'static str { Box::leak(text.into_boxed_str()) };
@@ -458,7 +458,7 @@ fn bundled_captioner() -> Option<PathBuf> {
 /// the trainer, MOSS-Music-8B-Instruct (OpenMOSS, Apache-2.0; GGUF by
 /// scragnog) for what it hears, Beat This! (CPJKU, MIT; ONNX by mosynthkey)
 /// for the beat and S-KEY (Deezer, MIT; ONNX by aaatmy) for the key.
-fn listen_pack() -> &'static [Asset] {
+pub(crate) fn listen_pack() -> &'static [Asset] {
     static PACK: OnceLock<Vec<Asset>> = OnceLock::new();
     PACK.get_or_init(|| {
         let leak = |text: String| -> &'static str { Box::leak(text.into_boxed_str()) };
