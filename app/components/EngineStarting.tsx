@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Check, ChevronDown, Loader2, ScrollText } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
+import { SELF_READ } from '../services/studioQueries';
 
 /**
  * The engine coming up.
@@ -31,11 +32,11 @@ export const EngineStarting: React.FC<{ onReady?: () => void }> = ({ onReady }) 
 
   useEffect(() => {
     const read = async () => {
-      await fetch('/v1/engine/logs')
+      await fetch('/v1/engine/logs', { headers: SELF_READ })
         .then((response) => (response.ok ? response.json() : Promise.reject(new Error())))
         .then((body: { lines?: string[] }) => setLines((body.lines ?? []).slice(-40)))
         .catch(() => undefined);
-      await fetch('/health')
+      await fetch('/health', { headers: SELF_READ })
         .then((response) => (response.ok ? response.json() : Promise.reject(new Error())))
         .then((body: { music_engine?: { reachable?: boolean }; engine_bundle_present?: boolean; service_executable?: string }) => {
           if (body.music_engine?.reachable) onReady?.();
@@ -45,7 +46,7 @@ export const EngineStarting: React.FC<{ onReady?: () => void }> = ({ onReady }) 
           setForeign(body.engine_bundle_present === false ? body.service_executable ?? '' : null);
         })
         .catch(() => undefined);
-      await fetch('/setup/status')
+      await fetch('/setup/status', { headers: SELF_READ })
         .then((response) => (response.ok ? response.json() : Promise.reject(new Error())))
         .then((body: { engine_runtime?: { ready?: boolean; downloading?: boolean; downloaded_bytes?: number; total_bytes?: number; error?: string | null } }) => {
           const state = body.engine_runtime;

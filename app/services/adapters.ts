@@ -8,7 +8,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import type { Language } from '../i18n/translations';
-import { queryClient } from './studioQueries';
+import { queryClient, SELF_READ } from './studioQueries';
 
 export type AdapterText = string | Partial<Record<Language, string>>;
 
@@ -91,7 +91,7 @@ export function localized(text: AdapterText | undefined, language: Language): st
 }
 
 export async function fetchAdapters(): Promise<AdapterState> {
-  const response = await fetch('/v1/adapters');
+  const response = await fetch('/v1/adapters', { headers: SELF_READ });
   if (!response.ok) throw new Error(`LoRA list: HTTP ${response.status}`);
   return response.json();
 }

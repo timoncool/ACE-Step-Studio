@@ -4,7 +4,8 @@ import { SiGithub } from '@icons-pack/react-simple-icons';
 import { useI18n } from '../context/I18nContext';
 import newsData from '../data/news.json';
 import { useHubState } from '../services/studioQueries';
-import { reportNotice, type HubItem } from '../services/studioHub';
+import { hubMediaUrl, hubText, reportNotice, type HubButton, type HubItem } from '../services/studioHub';
+import { openExternal } from '../services/externalLinks';
 import changelogData from '../data/changelog.json';
 import { STUDIO, STUDIO_REPO_URL } from '../studio';
 
@@ -24,6 +25,10 @@ interface NewsItem {
   body: LocalizedString;
   tags?: string[];
   links?: NewsLink[];
+  /** A hub item's picture, its buttons in the window's language, and its ad label. */
+  image?: string;
+  buttons?: HubButton[];
+  ad?: HubItem['ad'];
 }
 
 // ── Changelog parser ─────────────────────────────────────────────────
@@ -197,7 +202,7 @@ const ChangelogTab: React.FC = () => {
   );
 };
 
-export const NewsPage: React.FC = () => {
+export const NewsPage: React.FC<{ onOpen?: (target: NonNullable<HubButton['target']>) => void }> = ({ onOpen }) => {
   const { t, language } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>('news');
 
@@ -224,13 +229,14 @@ export const NewsPage: React.FC = () => {
       date: item.date ?? '',
       title: Object.fromEntries(Object.entries(item.content).map(([lang, text]) => [lang, text.title])),
       body: Object.fromEntries(Object.entries(item.content).map(([lang, text]) => [lang, text.body])),
-      links: (item.content[language] ?? item.content.en ?? Object.values(item.content)[0])?.buttons
-        .filter((button) => button.action === 'url' && button.url)
-        .map((button) => ({ label: button.label, url: button.url as string })),
-    }))
-    .sort((a, b) => b.date.localeCompare(a.date));
+      image: item.image ?? undefined,
+      buttons: hubText(item, language)?.buttons ?? [],
+      ad: item.ad,
+    }));
   const bundledIds = new Set((newsData as NewsItem[]).map((n) => n.id));
-  const allNews = [...hubNews.filter((n) => !bundledIds.has(n.id.slice(4))), ...(newsData as NewsItem[])];
+  // the hub's items stand among the studio's own release notes, newest first
+  const allNews = [...hubNews.filter((n) => !bundledIds.has(n.id.slice(4))), ...(newsData as NewsItem[])]
+    .sort((a, b) => b.date.localeCompare(a.date));
   const activeNews = allNews.filter(n => !dismissedNews.has(n.id));
   const dismissed = allNews.filter(n => dismissedNews.has(n.id));
 
@@ -314,9 +320,36 @@ export const NewsPage: React.FC = () => {
           )}
         </div>
 
+        {item.image && <img src={hubMediaUrl(item.image)} alt="" className="mt-3 max-h-64 w-full rounded-xl object-cover" />}
+
         <div onClickCapture={event => { if ((event.target as HTMLElement).closest('a')) hubClicked(item.id, 'link'); }}>
           <NewsBody text={localize(item.body)} />
         </div>
+
+        {item.ad?.label && <p className="mt-2 text-xs text-zinc-400">{t('hubAd')}{item.ad.erid ? ` · erid ${item.ad.erid}` : ''}</p>}
+
+        {item.buttons && item.buttons.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            {item.buttons.map((button, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={() => {
+                  if (button.action === 'dismiss') {
+                    dismissNewsItem(item.id);
+                    return;
+                  }
+                  hubClicked(item.id, `b${index}`);
+                  if (button.action === 'url' && button.url) void openExternal(button.url);
+                  if (button.action === 'open' && button.target) onOpen?.(button.target);
+                }}
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 transition-colors"
+              >
+                {button.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {item.links && item.links.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-3">

@@ -8,7 +8,7 @@ interface Props {
   items: HubItem[];
   /** Seconds since the window became ready, for the notices' delays. */
   elapsed: number;
-  /** The section on screen: create, library, news, tools. */
+  /** The section on screen as the hub names it: create, library, news, tools, settings. */
   view: string;
   /** Closed in this launch: hidden at once, before the service's state catches up. */
   closed: Set<string>;
@@ -23,6 +23,7 @@ export const HubBars: React.FC<Props> = ({ items, elapsed, view, closed, onClose
   const { language, t } = useI18n();
   const visible = items
     .filter((item) => item.kind === 'bar' && !closed.has(item.id) && showsNow(item, elapsed, view))
+    .sort((a, b) => b.priority - a.priority)
     .slice(0, MAX_VISIBLE_BARS);
 
   useEffect(() => {
@@ -48,7 +49,7 @@ export const HubBars: React.FC<Props> = ({ items, elapsed, view, closed, onClose
                className="flex items-start justify-between gap-3 px-6 py-2.5 text-sm leading-6 max-md:px-3 max-md:py-1.5 max-md:text-xs"
                style={{ background: HUB_GRADIENTS[theme], color: HUB_TEXT[theme] }}
                onClick={(event) => {
-                 if ((event.target as HTMLElement).closest('a')) reportNotice(item.id, 'clicked', 'link').catch(() => undefined);
+                 if ((event.target as HTMLElement).closest('a')) reportNotice(item.id, 'clicked', 'link').catch((error) => console.warn('[hub] link not recorded:', error));
                }}>
             <div className="w-full text-center">
               {hubInline((content?.body || content?.title || '').replace(/\s*\n\s*/g, ' '), item.id)}

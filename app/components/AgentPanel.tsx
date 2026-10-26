@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import { apiUrl } from '../services/apiBase';
+import { SELF_READ } from '../services/studioQueries';
 import { STUDIO } from '../studio';
 
 /**
@@ -59,7 +60,7 @@ export const AgentPanel: React.FC = () => {
   useEffect(() => {
     let alive = true;
     const load = () =>
-      fetch(apiUrl('/mcp/status'))
+      fetch(apiUrl('/mcp/status'), { headers: SELF_READ })
         .then(async (response) => {
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
           return response.json() as Promise<McpStatus>;

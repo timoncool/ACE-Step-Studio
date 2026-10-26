@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { openRouterSettingsChanged } from '../services/studioQueries';
+import { openRouterSettingsChanged, SELF_READ } from '../services/studioQueries';
 import { Check, ChevronDown, Download, FolderDown, FolderOpen, Loader2, Square, Trash2, X } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import { RescanButton } from './RescanButton';
@@ -181,7 +181,7 @@ export const OptionalGroup: React.FC<{
   const choiceRead = useRef(false);
   const modelRead = useRef(false);
   const load = useCallback(async () => {
-    const response = await fetch(statusUrl);
+    const response = await fetch(statusUrl, { headers: SELF_READ });
     if (response.ok) {
       const body = await response.json();
       setStatus(body);
@@ -714,7 +714,7 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
   }, [mode]);
 
   const refresh = useCallback(async () => {
-    const response = await fetch('/setup/status');
+    const response = await fetch('/setup/status', { headers: SELF_READ });
     if (!response.ok) throw new Error(await errorMessage(response));
     const next: SetupStatus = await response.json();
     setStatus(next);

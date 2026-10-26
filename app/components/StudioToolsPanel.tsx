@@ -8,6 +8,7 @@ import { ConfirmDialog } from './ConfirmDialog';
 import { MidiTool } from './midi/MidiTool';
 import { MidiEditor } from './midi/MidiEditor';
 import { useI18n } from '../context/I18nContext';
+import { SELF_READ } from '../services/studioQueries';
 import { saveFile } from '../services/saveFile';
 import { tempoAndKey } from '../services/songDownload';
 import { DevicePicker } from './DevicePicker';
@@ -115,10 +116,10 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
 
   // The separation state, and which stems the chosen track already has.
   const refresh = useCallback(async () => {
-    const separation: SeparationStatus = await fetch('/v1/separation/status').then(response => response.json());
+    const separation: SeparationStatus = await fetch('/v1/separation/status', { headers: SELF_READ }).then(response => response.json());
     setStatus(separation);
     if (songId) {
-      const body = await fetch(`/v1/library/songs/${encodeURIComponent(songId)}/stems`).then(response => response.json());
+      const body = await fetch(`/v1/library/songs/${encodeURIComponent(songId)}/stems`, { headers: SELF_READ }).then(response => response.json());
       setStems(body.stems ?? []);
     }
   }, [songId]);

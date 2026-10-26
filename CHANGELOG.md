@@ -6,6 +6,7 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- **Notices from Studio Hub as every studio shows them**: popups show to everyone, not only in the test channel (until now the studio had no popup at all), and wait until no song, re-render, cover or timing is being made; the sections a notice names are the hub's (create, library, news, tools, settings); a link in a popup counts as its click; the hub's news stand among the release notes by date with their picture, all their buttons and the ad label. The window's own status reads are no longer counted as features used.
 - **"Create" no longer seems to do nothing**: when the song could not start - the writing assistant was not reachable, a field was missing - the reason was written at the foot of the form, below what the window shows, and the click looked lost. The form now scrolls to the reason.
 - **A data folder or user name with characters of another alphabet works**: the engine on Windows opened its files in the system's code page, so a models folder such as `C:\Users\王\...` on a Russian Windows (or Cyrillic on a Chinese one) came out as `????`, no model was found and every song failed with "No synth models in registry". The engine now runs with the UTF-8 code page.
 - **A long cover or reference no longer runs the card out of memory in the VAE**: the encoder now tiles when the card cannot hold its graph, as the decoder did, and both retry with smaller tiles instead of failing the song ("graph alloc failed for T=...").

@@ -21,8 +21,16 @@ export const queryClient = new QueryClient({
   },
 });
 
+/**
+ * The header of a read the window makes by itself to keep its screens current - a status poll, the hardware, a list
+ * read again: the hub does not count it as a feature used, so its counts are what a person or an agent asked for.
+ */
+export const SELF_READ: Record<string, string> = { 'x-hub-skip': '1' };
+
+/** A state read the window makes by itself. */
+
 export async function readJson<T>(path: string): Promise<T> {
-  const response = await fetch(path);
+  const response = await fetch(path, { headers: SELF_READ });
   if (!response.ok) throw new Error(`${path} answered ${response.status}`);
   return (await response.json()) as T;
 }
