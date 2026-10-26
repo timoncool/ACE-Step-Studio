@@ -18,6 +18,7 @@ import { randomExample, randomIdea, someGenres } from '../services/examples';
 import { apiUrl } from '../services/apiBase';
 import { SCHEDULERS, SOLVERS, readAudioCodes } from '../services/aceEngine';
 import { explainCliFailure } from '../services/cliFailure';
+import { AUDIO_ACCEPT } from '../services/audioFiles';
 
 /**
  * The ACE-Step 1.5 request form.
@@ -1108,7 +1109,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       )}
       <label className={`${ICON} cursor-pointer`} title={tt('aceUpload')}>
         {uploading === target ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-        <input type="file" accept="audio/*,.mp3,.wav,.flac,.ogg,.m4a,.aiff,.aif" className="hidden" onChange={event => { const file = event.target.files?.[0]; if (file) void upload(target, file); event.target.value = ''; }} />
+        <input type="file" accept={AUDIO_ACCEPT} className="hidden" onChange={event => { const file = event.target.files?.[0]; if (file) void upload(target, file); event.target.value = ''; }} />
       </label>
     </div>
   );

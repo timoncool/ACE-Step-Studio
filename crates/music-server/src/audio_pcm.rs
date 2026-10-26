@@ -187,6 +187,27 @@ fn decode_channels(path: &Path) -> Result<(Vec<Vec<f32>>, u32)> {
     decode_source(Box::new(file), extension).with_context(|| format!("decode {}", path.display()))
 }
 
+/// Every file extension the decoder reads: what the window, the uploads, the
+/// imports and the agent's tools take as audio. Opus is not read.
+pub const AUDIO_EXTENSIONS: [&str; 15] = ["mp3", "mp2", "mp1", "wav", "flac", "ogg", "oga", "m4a", "mp4", "aac", "aiff", "aif", "aifc", "caf", "mka"];
+
+/// Whether `extension` (without its dot, any case) names audio the decoder reads.
+pub fn reads_audio(extension: &str) -> bool {
+    AUDIO_EXTENSIONS.contains(&extension.to_ascii_lowercase().as_str())
+}
+
+/// Whether the window's player plays this file as it is: MP3, FLAC, Ogg, AAC
+/// and a WAV of plain or float samples. Anything else the library keeps as
+/// FLAC.
+pub fn plays_in_window(extension: &str, audio: &[u8]) -> bool {
+    match extension.to_ascii_lowercase().as_str() {
+        "mp3" | "flac" | "ogg" | "oga" | "m4a" | "mp4" | "aac" => true,
+        // the fmt chunk's format tag: 1 PCM, 3 float, 0xFFFE extensible
+        "wav" => audio.get(20..22).is_some_and(|tag| matches!(u16::from_le_bytes([tag[0], tag[1]]), 1 | 3 | 0xFFFE)),
+        _ => false,
+    }
+}
+
 /// Decodes audio held in memory - a track as the engine sent it - to stereo
 /// at its own rate; a mono source is doubled.
 pub fn decode_stereo_bytes(bytes: Vec<u8>, extension: &str) -> Result<audio_post::Stereo> {
@@ -367,6 +388,28 @@ mod tests {
         // 12 kHz is above 16 kHz's Nyquist: it must not fold back to 4 kHz
         let folded = resample(&tone(12_000.0), 44_100, 16_000).unwrap();
         assert!(rms(&folded[1000..15000]) < 0.01, "a tone above the band is filtered out: {}", rms(&folded));
+    }
+
+    #[test]
+    fn the_window_offers_every_extension_the_decoder_reads() {
+        let window = include_str!("../../../app/services/audioFiles.ts");
+        let listed = window.split_once("AUDIO_EXTENSIONS = [").and_then(|(_, rest)| rest.split_once(']')).map(|(list, _)| list).unwrap();
+        let listed: Vec<&str> = listed.split(',').map(|item| item.trim().trim_matches('\'')).filter(|item| !item.is_empty()).collect();
+        assert_eq!(listed, AUDIO_EXTENSIONS);
+        assert!(reads_audio("MKA") && reads_audio("caf") && !reads_audio("opus") && !reads_audio("txt"));
+    }
+
+    #[test]
+    fn only_what_the_player_plays_is_kept_as_it_is() {
+        let wav = |tag: u16| {
+            let mut header = vec![0u8; 44];
+            header[20..22].copy_from_slice(&tag.to_le_bytes());
+            header
+        };
+        assert!(plays_in_window("wav", &wav(1)) && plays_in_window("WAV", &wav(3)) && plays_in_window("wav", &wav(0xFFFE)));
+        assert!(!plays_in_window("wav", &wav(2)), "ADPCM");
+        assert!(plays_in_window("mp3", &[]) && plays_in_window("m4a", &[]));
+        assert!(!plays_in_window("mka", &[]) && !plays_in_window("caf", &[]) && !plays_in_window("aiff", &[]));
     }
 
     #[test]

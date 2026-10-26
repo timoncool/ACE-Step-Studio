@@ -2313,8 +2313,8 @@ async fn upload_processing_reference(
             .extension()
             .and_then(|value| value.to_str())
             .map(str::to_ascii_lowercase)
-            .filter(|value| matches!(value.as_str(), "mp3" | "wav" | "flac" | "ogg" | "m4a" | "aiff" | "aif"))
-            .ok_or_else(|| api_error(StatusCode::BAD_REQUEST, "the reference must be MP3, WAV, FLAC, OGG or M4A".into()))?;
+            .filter(|value| audio_pcm::reads_audio(value))
+            .ok_or_else(|| api_error(StatusCode::BAD_REQUEST, format!("the reference must be audio the studio reads: {}", audio_pcm::AUDIO_EXTENSIONS.join(", "))))?;
         let bytes = field.bytes().await.map_err(|e| api_error(StatusCode::BAD_REQUEST, format!("read the upload: {e}")))?;
         let folder = processing::workspace(state.library.media_dir());
         std::fs::create_dir_all(&folder).map_err(|e| api_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
@@ -2763,14 +2763,14 @@ async fn upload_training_files(State(state): State<AppState>, Path(id): Path<Str
             let bytes = field.bytes().await.map_err(|e| api_error(StatusCode::BAD_REQUEST, format!("read {name}: {e}")))?;
             let (file, tracks) = training::cue_sheet(&bytes);
             cues.push((stem, file, tracks));
-        } else if [".wav", ".mp3", ".flac", ".ogg", ".m4a", ".aiff", ".aif"].iter().any(|extension| lower.ends_with(extension)) {
+        } else if std::path::Path::new(&lower).extension().and_then(|extension| extension.to_str()).is_some_and(audio_pcm::reads_audio) {
             let path = folder.0.join(format!("{}-{name}", audio.len()));
             save_upload(field, &path).await?;
             audio.push((path, stem, name, relative));
         }
     }
     if audio.is_empty() {
-        return Err(api_error(StatusCode::BAD_REQUEST, "no audio in the upload: WAV, MP3, FLAC, OGG or M4A".into()));
+        return Err(api_error(StatusCode::BAD_REQUEST, format!("no audio in the upload: {}", audio_pcm::AUDIO_EXTENSIONS.join(", "))));
     }
     let training = state.training.clone();
     let outcome = tokio::task::spawn_blocking(move || {
@@ -4245,8 +4245,17 @@ async fn import_library_audio(State(state): State<AppState>, mut multipart: Mult
         else { let value = field.text().await.map_err(|e| api_error(StatusCode::BAD_REQUEST, format!("read import field: {e}")))?; match name.as_str() { "title" => title = Some(value), "caption" => caption = value, "lyrics" => lyrics = value, _ => {} } }
     }
     let filename = filename.ok_or_else(|| api_error(StatusCode::BAD_REQUEST, "audio file is required".into()))?;
-    let extension = std::path::Path::new(&filename).extension().and_then(|value| value.to_str()).unwrap_or_default().to_owned();
-    let audio = audio.ok_or_else(|| api_error(StatusCode::BAD_REQUEST, "audio file is required".into()))?;
+    let mut extension = std::path::Path::new(&filename).extension().and_then(|value| value.to_str()).unwrap_or_default().to_ascii_lowercase();
+    let mut audio = audio.ok_or_else(|| api_error(StatusCode::BAD_REQUEST, "audio file is required".into()))?;
+    if !audio_pcm::reads_audio(&extension) {
+        return Err(api_error(StatusCode::BAD_REQUEST, format!("{filename} is not audio the studio reads: {}", audio_pcm::AUDIO_EXTENSIONS.join(", "))));
+    }
+    // the player plays MP3, FLAC, Ogg, AAC and plain WAV: anything else is kept as FLAC, losslessly
+    if !audio_pcm::plays_in_window(&extension, &audio) {
+        let decoded = audio_pcm::decode_stereo_bytes(audio, &extension).map_err(|e| api_error(StatusCode::BAD_REQUEST, format!("decode {filename}: {e:#}")))?;
+        audio = audio_post::encode::flac(&decoded).map_err(|e| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("keep {filename} as FLAC: {e:#}")))?;
+        extension = "flac".into();
+    }
     // What the form leaves out comes from the file's own tags: any file's title and words, and
     // from a track a studio made its style, the person's note and what it was made with.
     let tags = tagging::read_tags(&audio);

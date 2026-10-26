@@ -5,6 +5,7 @@ import { useI18n } from '../context/I18nContext';
 import { ConfirmDialog } from './ConfirmDialog';
 import { StemPlayer } from './StemPlayer';
 import { TrainingGuide } from './TrainingGuide';
+import { AUDIO_ACCEPT } from '../services/audioFiles';
 import {
   Dataset,
   DatasetItem,
@@ -418,7 +419,7 @@ const DropZone: React.FC<{ onPicked: (files: PickedFile[]) => void; disabled?: b
         <button type="button" onClick={() => fileInput.current?.click()} className={OUTLINE}><Music size={13} />{t('trainingDropFiles')}</button>
       </div>
       <input ref={folderInput} type="file" multiple className="hidden" onChange={event => { take(pickedFromInput(event.target.files)); event.target.value = ''; }} />
-      <input ref={fileInput} type="file" multiple accept="audio/*,.wav,.mp3,.flac,.ogg,.m4a,.aiff,.aif,.txt,.lrc,.cue" className="hidden" onChange={event => { take(pickedFromInput(event.target.files)); event.target.value = ''; }} />
+      <input ref={fileInput} type="file" multiple accept={`${AUDIO_ACCEPT},.txt,.lrc,.cue`} className="hidden" onChange={event => { take(pickedFromInput(event.target.files)); event.target.value = ''; }} />
     </div>
   );
 };

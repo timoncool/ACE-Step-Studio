@@ -10,6 +10,7 @@ import { ConfirmDialog } from './ConfirmDialog';
 import { PlaylistCover, PlaylistEditModal, PlaylistMenu, playlistSongs } from './PlaylistEditor';
 import { SongList } from './SongList';
 import { SONG_ORDERS, type SongOrder } from '../services/songOrder';
+import { AUDIO_ACCEPT } from '../services/audioFiles';
 
 /** The liked songs are read from the latest like first. */
 const LIKED_ORDERS: SongOrder[] = ['likedNewest', ...SONG_ORDERS];
@@ -340,7 +341,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                      <input
                          ref={importInput}
                          type="file"
-                         accept="audio/mpeg,audio/wav,audio/flac,audio/ogg,.mp3,.wav,.flac,.ogg"
+                         accept={AUDIO_ACCEPT}
                          multiple
                          className="hidden"
                          onChange={(event) => { void importAudio(event.target.files); event.target.value = ''; }}
