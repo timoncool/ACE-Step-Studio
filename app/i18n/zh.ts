@@ -270,6 +270,7 @@ export const zh = {
     vizLook_stereo: "立体声",
     vizLook_lumi: "亮度",
     vizLook_discrete: "离散",
+    vizLook_analyzer: "分析",
     winampTitle: "Winamp 模式",
     winampStart: "切换到 Winamp",
     winampSkin: "皮肤",

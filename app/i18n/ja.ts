@@ -270,6 +270,7 @@ export const ja = {
   vizLook_stereo: "ステレオ",
   vizLook_lumi: "輝度",
   vizLook_discrete: "ディスクリート",
+  vizLook_analyzer: "アナライザー",
   winampTitle: "Winamp モード",
   winampStart: "Winamp に切り替え",
   winampSkin: "スキン",

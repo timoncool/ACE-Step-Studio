@@ -270,6 +270,7 @@ export const ko = {
     vizLook_stereo: "스테레오",
     vizLook_lumi: "밝기",
     vizLook_discrete: "불연속",
+    vizLook_analyzer: "분석기",
     winampTitle: "Winamp 모드",
     winampStart: "Winamp로 전환",
     winampSkin: "스킨",

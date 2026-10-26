@@ -272,6 +272,7 @@ export const ru = {
     vizLook_stereo: "Стерео",
     vizLook_lumi: "Яркость",
     vizLook_discrete: "Дискретный",
+    vizLook_analyzer: "Анализ",
     winampTitle: "Режим Winamp",
     winampStart: "Переключиться в Winamp",
     winampSkin: "Скин",
