@@ -142,18 +142,6 @@ fn remove_if_there(path: &Path) -> Result<()> {
     }
 }
 
-/// Deletes the files a record lists under `root`, the record and the mark of
-/// an install cut off.
-pub fn remove_recorded(record: &Path, root: &Path) -> Result<()> {
-    if let Some(parsed) = read(record) {
-        for file in &parsed.files {
-            remove_if_there(&root.join(&file.path))?;
-        }
-    }
-    remove_if_there(record)?;
-    remove_if_there(&installing_mark(record))
-}
-
 /// Deletes the files an earlier pin's record lists under `root` but `kept` (the file today's download replaced in
 /// place), and that record; the mark of today's install stays.
 pub fn remove_earlier(record: &Path, root: &Path, kept: &Path) -> Result<()> {
@@ -208,7 +196,7 @@ mod tests {
         assert_eq!(matches(&record, "https://x/v3.zip", &root), Some(false));
         fs::write(&library, b"other").unwrap();
         assert_eq!(matches(&record, "https://x/v2.zip", &root), Some(false));
-        remove_recorded(&record, &root).unwrap();
+        remove_earlier(&record, &root, &root.join("today.dll")).unwrap();
         assert!(!library.exists() && !record.exists());
         let _ = fs::remove_dir_all(&root);
     }
@@ -228,9 +216,11 @@ mod tests {
         write(&record, "https://example.invalid/tool.zip", "abc", &[file], &root).unwrap();
         assert_eq!(matches(&record, "https://example.invalid/tool.zip", &root), Some(true));
         assert!(!installing_mark(&record).exists() && !record.with_extension("json.tmp").exists());
+        // today's download replaced the file in place: the earlier record goes, the mark of today's install stays
         begin(&record).unwrap();
-        remove_recorded(&record, &root).unwrap();
-        assert!(!installing_mark(&record).exists() && !record.exists() && !root.join("tool.dll").exists());
+        remove_earlier(&record, &root, &root.join("tool.dll")).unwrap();
+        assert!(installing_mark(&record).exists() && !record.exists() && root.join("tool.dll").exists());
+        assert_eq!(matches(&record, "https://example.invalid/tool.zip", &root), Some(false));
         fs::remove_dir_all(&root).ok();
     }
 
