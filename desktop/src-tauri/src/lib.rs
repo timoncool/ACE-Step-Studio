@@ -368,6 +368,7 @@ fn spawn_update_check(app: tauri::AppHandle) {
             .installer_arg(install_directory)
             .on_before_exit(move || {
                 cleanup.cleanup_before_exit();
+                music_engine::process_group::terminate_group_members();
                 if !music_engine::process_group::release_children() {
                     eprintln!("[ERROR] could not release the update installer from the studio's job");
                 }
@@ -748,6 +749,8 @@ pub fn run() {
                     let app = app.clone();
                     std::thread::spawn(move || confirm_quit(&app));
                 }
+                // the servers and engines the studio started end with it, also where no job object ends them (macOS)
+                tauri::RunEvent::Exit => music_engine::process_group::terminate_group_members(),
                 _ => {}
             }
         });

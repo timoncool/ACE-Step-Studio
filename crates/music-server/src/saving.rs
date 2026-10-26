@@ -230,7 +230,7 @@ fn show_in_file_manager(path: &std::path::Path) -> std::io::Result<()> {
     // Explorer reads /select,"path" as one switch; quoting the whole of it
     // breaks the switch.
     std::os::windows::process::CommandExt::raw_arg(&mut explorer, format!("/select,\"{}\"", path.display()));
-    explorer.spawn().map(drop)
+    music_engine::process_group::detach_from_group(&mut explorer).spawn().map(drop)
 }
 
 #[cfg(target_os = "macos")]
