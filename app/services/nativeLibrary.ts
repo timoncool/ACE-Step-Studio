@@ -103,7 +103,7 @@ export function mapNativeLibrarySong(song: NativeLibrarySong): Song {
     keyScale: stringMetadata(metadata, 'key_scale') ?? stringMetadata(metadata, 'keyScale'),
     timeSignature: stringMetadata(metadata, 'time_signature') ?? stringMetadata(metadata, 'timeSignature'),
     generationParams: song.generation_settings ?? undefined,
-    nativeReplayAvailable: Boolean(song.replay_request && song.audio_codes),
+    nativeReplayAvailable: song.replay_available ?? Boolean(song.replay_request && song.audio_codes),
     // Karaoke timings, when someone has made them. The video studio and the
     // LRC download have always read this field.
     lrcContent: stringMetadata(metadata, 'lrc'),

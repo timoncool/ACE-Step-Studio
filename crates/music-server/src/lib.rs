@@ -1241,7 +1241,26 @@ pub async fn serve() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn library_songs(State(state): State<AppState>) -> Result<Json<Vec<library::Song>>, (StatusCode, Json<ApiError>)> { state.library.list_songs().map(Json).map_err(|e|api_error(StatusCode::INTERNAL_SERVER_ERROR,e.to_string())) }
+async fn library_songs(State(state): State<AppState>) -> Result<Json<Vec<Value>>, (StatusCode, Json<ApiError>)> {
+    let songs = state.library.list_songs().map_err(|e| api_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    songs.iter().map(listed_song).collect::<Result<Vec<_>, _>>().map(Json).map_err(|e| api_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
+}
+
+/// A song as the library's list carries it: without the replay request and
+/// the semantic stream, which only a re-render reads, from the song itself.
+fn listed_song(song: &library::Song) -> serde_json::Result<Value> {
+    let mut value = serde_json::to_value(song)?;
+    if let Some(fields) = value.as_object_mut() {
+        fields.remove("replay_request");
+        fields.remove("audio_codes");
+        fields.insert("replay_available".into(), Value::Bool(kept(&song.replay_request) && kept(&song.audio_codes)));
+    }
+    Ok(value)
+}
+
+fn kept(value: &Option<Value>) -> bool {
+    value.as_ref().is_some_and(|value| !value.is_null() && value.as_str() != Some(""))
+}
 
 #[derive(Deserialize)]
 struct LikeInput {
@@ -9329,6 +9348,20 @@ mod tests {
         std::fs::write(folder.path().join("renamed.gguf"), b"turbo weights").unwrap();
         let found = adoptable_sources(&[turbo, merge], models.path(), &adoptable_files(folder.path(), ADOPT_FOLDER_DEPTH));
         assert_eq!(found.iter().map(|(component, _)| component.id).collect::<Vec<_>>(), ["turbo"]);
+    }
+
+    #[test]
+    fn the_library_list_leaves_the_replay_data_out_and_says_whether_it_is_kept() {
+        let song = |replay: Option<Value>, codes: Option<Value>| library::Song {
+            id: "s".into(), title: "t".into(), audio_path: None, caption: String::new(), lyrics: String::new(),
+            metadata: serde_json::json!({}), generation_settings: serde_json::json!({}), engine_id: "acestep-cpp".into(),
+            profile_id: None, replay_request: replay, audio_codes: codes, source: String::new(), created_at: String::new(), updated_at: String::new(),
+        };
+        let listed = listed_song(&song(Some(serde_json::json!({ "caption": "x" })), Some(serde_json::json!("<|audio_code_1|>")))).unwrap();
+        assert!(listed.get("replay_request").is_none() && listed.get("audio_codes").is_none());
+        assert_eq!(listed["replay_available"], true);
+        assert_eq!(listed_song(&song(Some(serde_json::json!({ "caption": "x" })), Some(Value::Null))).unwrap()["replay_available"], false);
+        assert_eq!(listed_song(&song(None, None)).unwrap()["replay_available"], false);
     }
 
     /// A file named as the catalogue's but of another build, and a GGUF of no

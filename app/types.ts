@@ -175,6 +175,8 @@ export interface NativeLibrarySong {
   profile_id?: string | null;
   replay_request?: unknown | null;
   audio_codes?: unknown | null;
+  /** The library's list leaves the replay request and the semantic stream out and says only whether both are kept. */
+  replay_available?: boolean;
   created_at: string;
   updated_at?: string;
 }
