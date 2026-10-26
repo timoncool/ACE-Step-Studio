@@ -1669,6 +1669,7 @@ dependencies = [
  "http",
  "hyper-util",
  "include_dir",
+ "libc",
  "lofty",
  "lzma-rust2",
  "music-core",

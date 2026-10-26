@@ -1863,4 +1863,5 @@ export const ko = {
     updateWhyMidiAudiocpp: "오디오→MIDI는 audio.cpp 서버의 MuScriptor와 SheetSage2가 맡습니다",
     updateWhyNewer: "이번 릴리스는 다른 빌드를 씁니다",
     updateWhyUnused: "더 이상 쓰지 않습니다",
+    assistantVulkanGlibc: "어시스턴트는 Vulkan으로 그래픽 카드에서 실행됩니다: llama.cpp의 CUDA 빌드에는 glibc {need} 이상이 필요하고, 이 시스템은 {glibc}입니다",
 };

@@ -1863,4 +1863,5 @@ export const zh = {
     updateWhyMidiAudiocpp: "音频转 MIDI 由 audio.cpp 服务器中的 MuScriptor 和 SheetSage2 完成",
     updateWhyNewer: "本次发布使用了它的另一个构建",
     updateWhyUnused: "不再使用",
+    assistantVulkanGlibc: "助手通过 Vulkan 在显卡上运行：llama.cpp 的 CUDA 版本需要 glibc {need} 或更新，本系统为 {glibc}",
 };

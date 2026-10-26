@@ -296,17 +296,61 @@ pub const ASSETS: &[Asset] = &[
 /// The llama.cpp build this machine's card runs: CUDA 13 on Turing and newer
 /// with driver 580 or later, CUDA 12 on anything older CUDA still runs,
 /// Vulkan on every other card; none without a card, and none on a Mac, whose
-/// one build runs on its graphics through Metal by itself.
+/// one build runs on its graphics through Metal by itself. On a Linux whose
+/// glibc is older than the upstream CUDA builds need, the card runs Vulkan.
 pub fn card_flavour() -> Option<&'static str> {
     if cfg!(target_os = "macos") {
         return None;
     }
-    match crate::cuda_build::current() {
+    let card = match crate::cuda_build::current() {
         Some(crate::cuda_build::CudaBuild::Cuda12) => Some("cuda12"),
         Some(_) => Some("cuda"),
         None if crate::presets::display_card().is_some() => Some("vulkan"),
         None => None,
+    };
+    flavour_for(card, glibc_version())
+}
+
+/// The oldest glibc the upstream llama.cpp CUDA builds for Linux start on (b11900 needs GLIBC_2.38 and GLIBCXX_3.4.32).
+pub const LLAMA_CUDA_GLIBC: (u32, u32) = (2, 38);
+
+fn flavour_for(card: Option<&'static str>, glibc: Option<(u32, u32)>) -> Option<&'static str> {
+    match (card, glibc) {
+        (Some("cuda" | "cuda12"), Some(version)) if version < LLAMA_CUDA_GLIBC => Some("vulkan"),
+        _ => card,
     }
+}
+
+/// Why the assistant does not run the card's CUDA build - this Linux's glibc and the one the CUDA build needs - for
+/// Settings; None when it does.
+pub fn llama_note() -> Option<serde_json::Value> {
+    let glibc = glibc_version().filter(|version| *version < LLAMA_CUDA_GLIBC)?;
+    crate::cuda_build::current()?;
+    Some(serde_json::json!({
+        "glibc": format!("{}.{}", glibc.0, glibc.1),
+        "need": format!("{}.{}", LLAMA_CUDA_GLIBC.0, LLAMA_CUDA_GLIBC.1),
+    }))
+}
+
+/// The C library version of this Linux (`gnu_get_libc_version`); None on other systems.
+pub fn glibc_version() -> Option<(u32, u32)> {
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    {
+        let text = unsafe { std::ffi::CStr::from_ptr(libc::gnu_get_libc_version()) };
+        parse_glibc(text.to_str().ok()?)
+    }
+    #[cfg(not(all(target_os = "linux", target_env = "gnu")))]
+    {
+        None
+    }
+}
+
+#[cfg(any(all(target_os = "linux", target_env = "gnu"), test))]
+fn parse_glibc(text: &str) -> Option<(u32, u32)> {
+    let mut parts = text.trim().split('.');
+    let major = parts.next()?.parse().ok()?;
+    let minor = parts.next()?.chars().take_while(char::is_ascii_digit).collect::<String>().parse().ok()?;
+    Some((major, minor))
 }
 
 pub fn asset(id: &str) -> Option<&'static Asset> {
@@ -980,6 +1024,21 @@ mod tests {
     /// them, so an update of llama.cpp does not fetch 800 MB of the same files.
     #[cfg(windows)]
     const CUDART_BUILD: &str = "b11236";
+
+    #[test]
+    fn a_cuda_card_runs_vulkan_where_glibc_is_older_than_the_cuda_build_needs() {
+        assert_eq!(parse_glibc("2.35"), Some((2, 35)));
+        assert_eq!(parse_glibc("2.39\n"), Some((2, 39)));
+        assert_eq!(parse_glibc("2.38-ubuntu"), Some((2, 38)));
+        assert_eq!(parse_glibc("x"), None);
+        for card in ["cuda", "cuda12"] {
+            assert_eq!(flavour_for(Some(card), Some((2, 35))), Some("vulkan"));
+            assert_eq!(flavour_for(Some(card), Some((2, 38))), Some(card));
+            assert_eq!(flavour_for(Some(card), None), Some(card));
+        }
+        assert_eq!(flavour_for(None, Some((2, 35))), None);
+        assert_eq!(flavour_for(Some("vulkan"), Some((2, 35))), Some("vulkan"));
+    }
 
     #[test]
     fn every_asset_has_a_size_and_a_distinct_id() {

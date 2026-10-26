@@ -5913,6 +5913,8 @@ async fn assistant_runtime_status(State(state): State<AppState>) -> Json<Value> 
         // And which model, so the dropdown reopens on the one that was picked
         // rather than on whichever happens to be installed first.
         fields.insert("chosen_model".into(), serde_json::to_value(&config.managed_model).unwrap_or(Value::Null));
+        // why the card runs the Vulkan build of llama.cpp and not its CUDA one, for the window to say in its language
+        fields.insert("llama_note".into(), assistant_runtime::llama_note().unwrap_or(Value::Null));
         // the panel's "installed" is about the chosen provider: OpenRouter or a server of the user's downloads nothing;
         // switched off, it is about the files
         if config.provider != AssistantProvider::None {
