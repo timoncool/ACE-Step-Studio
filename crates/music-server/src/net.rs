@@ -81,6 +81,11 @@ pub fn model_url(original: &str) -> String {
     model_url_with(&current(), original)
 }
 
+/// The HF-Mirror address of a Hugging Face file, whether or not the mirror is chosen.
+pub fn mirror_url(original: &str) -> String {
+    model_url_with(&ProxySettings { huggingface_mirror: true, ..ProxySettings::default() }, original)
+}
+
 const SCHEMES: [&str; 6] = ["http", "https", "socks5", "socks5h", "socks4", "socks4a"];
 
 fn port(text: &str) -> bool {

@@ -85,6 +85,14 @@ pub struct Component {
     pub remote_path: &'static str,
 }
 
+impl Component {
+    /// The file at its pinned revision on Hugging Face: what the studio downloads, and what a person
+    /// downloading by hand needs, since the repository's latest files may be other builds.
+    pub fn url(&self) -> String {
+        format!("https://huggingface.co/{}/resolve/{}/{}?download=true", self.repository, self.revision, self.remote_path)
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct InstallRequest {
     pub profile_id: Option<String>,
@@ -390,10 +398,7 @@ impl ModelManager {
     async fn download_component(&self, component: &Component) -> Result<()> {
         let target = self.root.join(component.filename);
         let part = part_path(&target);
-        let url = crate::net::model_url(&format!(
-            "https://huggingface.co/{}/resolve/{}/{}?download=true",
-            component.repository, component.revision, component.remote_path
-        ));
+        let url = crate::net::model_url(&component.url());
 
         // another program of timoncool's has this file: taken through the same checksum a download passes
         let name = Path::new(component.filename).file_name().unwrap_or_default();
@@ -878,6 +883,16 @@ fn nested(component: Component, folder: &'static str) -> Component {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A file downloaded by hand is the pinned one: its address names the revision, not the branch, on Hugging
+    /// Face and on the mirror alike.
+    #[test]
+    fn a_manual_address_names_the_pinned_revision() {
+        let vae = components().into_iter().find(|component| component.id == "vae-standard-bf16").expect("the standard VAE");
+        assert_eq!(vae.url(), format!("https://huggingface.co/{REPOSITORY}/resolve/{REVISION}/vae-BF16.gguf?download=true"));
+        assert_eq!(crate::net::mirror_url(&vae.url()), format!("https://hf-mirror.com/{REPOSITORY}/resolve/{REVISION}/vae-BF16.gguf?download=true"));
+        assert!(components().iter().all(|component| !component.url().contains("/resolve/main/")));
+    }
 
     #[test]
     fn a_hand_picked_set_equal_to_a_declared_one_is_that_set() {

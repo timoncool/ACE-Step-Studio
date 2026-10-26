@@ -3,6 +3,7 @@ import { openRouterSettingsChanged } from '../services/studioQueries';
 import { Check, ChevronDown, Download, FolderDown, FolderOpen, Loader2, Square, Trash2, X } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import { RescanButton } from './RescanButton';
+import { ManualDownloads } from './ManualDownloads';
 import { DevicePicker, type Device } from './DevicePicker';
 import { AssistantExtras } from './AssistantSettings';
 import { KaraokeExtras } from './KaraokeSettings';
@@ -55,6 +56,10 @@ type SetupStatus = {
   active: DownloadJob | null;
   installed_components: string[];
   data_directory?: string | null;
+  /** Where the model files go. */
+  model_root?: string | null;
+  /** Whether downloads take Hugging Face files from HF-Mirror. */
+  huggingface_mirror?: boolean;
   portable?: boolean;
   /** Models taken from another program of timoncool's in this run instead of being downloaded, by id. */
   taken_from?: Record<string, { app: string; file: string }>;
@@ -1007,6 +1012,11 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
               );
             })}
             {!chosenIds && <p className="text-xs text-amber-600 dark:text-amber-300">{t('incompleteSet')}</p>}
+            <ManualDownloads
+              files={missing.flatMap((id) => catalog?.components.find((component) => component.id === id) ?? [])}
+              folder={status?.model_root}
+              mirror={status?.huggingface_mirror === true}
+            />
             {status?.taken_from && Object.keys(status.taken_from).length > 0 && (
               <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-[11px] leading-5 text-emerald-700 dark:text-emerald-300">
                 <p className="font-semibold">{t('takenNotice')}</p>

@@ -70,7 +70,7 @@ pub const ASSETS: &[Asset] = &[
         id: "gemma-4-e4b-q4_0",
         label: "Gemma 4 E4B IT (QAT q4_0)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf/resolve/main/gemma-4-E4B_q4_0-it.gguf",
+        url: "https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf/resolve/4b4a2c1d584be7264f87aac328a1bc739ce81b6c/gemma-4-E4B_q4_0-it.gguf",
         relative_path: "models/gemma-4-E4B_q4_0-it.gguf",
         bytes: 5_154_941_280,
         unzip_into: None,
@@ -82,7 +82,7 @@ pub const ASSETS: &[Asset] = &[
         id: "gemma-4-12b-q4_0",
         label: "Gemma 4 12B IT (QAT q4_0)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/google/gemma-4-12b-it-qat-q4_0-gguf/resolve/main/gemma-4-12b-it-qat-q4_0.gguf",
+        url: "https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf/resolve/29d097773436b69ff9feafd636ab4cf873786537/gemma-4-12b-it-qat-q4_0.gguf",
         relative_path: "models/gemma-4-12b-it-qat-q4_0.gguf",
         bytes: 6_975_879_296,
         unzip_into: None,
@@ -94,7 +94,7 @@ pub const ASSETS: &[Asset] = &[
         id: "gemma-4-12b-q5_k_m",
         label: "Gemma 4 12B IT (Q5_K_M)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/main/gemma-4-12b-it-Q5_K_M.gguf",
+        url: "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/fc034cfff751157913579611efad8462ac1be606/gemma-4-12b-it-Q5_K_M.gguf",
         relative_path: "models/gemma-4-12b-it-Q5_K_M.gguf",
         bytes: 8_413_576_000,
         unzip_into: None,
@@ -106,7 +106,7 @@ pub const ASSETS: &[Asset] = &[
         id: "gemma-4-12b-q6_k",
         label: "Gemma 4 12B IT (Q6_K)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/main/gemma-4-12b-it-Q6_K.gguf",
+        url: "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/fc034cfff751157913579611efad8462ac1be606/gemma-4-12b-it-Q6_K.gguf",
         relative_path: "models/gemma-4-12b-it-Q6_K.gguf",
         bytes: 9_786_022_720,
         unzip_into: None,
@@ -118,7 +118,7 @@ pub const ASSETS: &[Asset] = &[
         id: "gemma-4-12b-q8_0",
         label: "Gemma 4 12B IT (Q8_0)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/main/gemma-4-12b-it-Q8_0.gguf",
+        url: "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/fc034cfff751157913579611efad8462ac1be606/gemma-4-12b-it-Q8_0.gguf",
         relative_path: "models/gemma-4-12b-it-Q8_0.gguf",
         bytes: 12_669_647_680,
         unzip_into: None,
@@ -969,6 +969,7 @@ mod tests {
             assert!(entry.bytes > 0, "{} has no size", entry.id);
             assert_eq!(ASSETS.iter().filter(|other| other.id == entry.id).count(), 1);
             assert!(entry.url.starts_with("https://"), "{} is not fetched over https", entry.id);
+            assert!(!entry.url.contains("/resolve/main/"), "{} follows a branch instead of a pinned revision", entry.id);
         }
         assert!(ASSETS.iter().any(|entry| entry.kind == AssetKind::Model));
         assert!(ASSETS.iter().any(|entry| entry.kind == AssetKind::Runtime));
