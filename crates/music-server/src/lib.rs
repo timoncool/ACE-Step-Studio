@@ -608,7 +608,7 @@ impl EngineOptions {
         }
         // On a Mac the engine is a single native build whose ggml loads its
         // own best device - Metal on Apple Silicon - so Auto asks the engine to
-        // choose (no GGML_BACKEND is set) and only falls back to the processor.
+        // choose (no --device is passed) and only falls back to the processor.
         #[cfg(target_os = "macos")]
         {
             let mut chain = vec![ComputeBackend::Auto];
@@ -4684,11 +4684,17 @@ async fn restart_engine(state: &AppState) -> Result<(), String> {
                 return Ok(());
             }
             Err(error) => {
-                last_error = format!("the local engine did not start: {error}");
+                let run = last_run_log();
+                last_error = match absent_device(&run) {
+                    Some((name, available)) => format!(
+                        "The engine has no device {name} on this computer; it sees {available}. Choose Auto in Settings, Engine, or one of those devices."
+                    ),
+                    None => format!("the local engine did not start: {error}"),
+                };
                 // Only Auto moves on, and never past a card that ran out of
                 // memory: Vulkan has no more of it, and the reason is shown.
                 let next = chain.get(index + 1).copied();
-                let log = last_run_log().to_lowercase();
+                let log = run.to_lowercase();
                 let out_of_memory = describes_exhausted_memory(&log) || describes_exhausted_ram(&log);
                 match next {
                     Some(next) if options.backend == music_engine::server::ComputeBackend::Auto && !out_of_memory => {
@@ -4723,6 +4729,16 @@ fn last_run_log() -> String {
     let tail = music_engine::server::startup_log_tail(400);
     let start = tail.iter().rposition(|line| line.contains("---- starting")).unwrap_or(0);
     tail[start..].join("\n")
+}
+
+/// The device the engine was told to use and did not find, with the devices
+/// it lists instead: `--device CUDA0 not found. Available: Vulkan0 CPU`.
+fn absent_device(log: &str) -> Option<(String, String)> {
+    log.lines().rev().find_map(|line| {
+        let (_, rest) = line.split_once("--device ")?;
+        let (name, available) = rest.split_once(" not found. Available:")?;
+        Some((name.trim().to_string(), available.trim().replace(' ', ", ")))
+    })
 }
 
 /// Whether a song failed because the engine went away under it: a refused or
@@ -8059,6 +8075,9 @@ where
     Ok(engine_job)
 }
 
+/// How far back in the engine's log a failed job's own start is looked for.
+const JOB_LOG_LINES: usize = 20_000;
+
 /// Waits for an engine job to end: Ok when done; a failed job is named by its
 /// own FATAL line in the engine's log, the one thing the person can act on.
 async fn wait_engine(state: &AppState, job: &str) -> anyhow::Result<()> {
@@ -8066,7 +8085,9 @@ async fn wait_engine(state: &AppState, job: &str) -> anyhow::Result<()> {
         match state.music_server.status(job).await?.as_str() {
             "done" => return Ok(()),
             "failed" => {
-                let reason = state.engine_log.lines().and_then(|lines| first_fatal(&lines, job));
+                // the engine's whole log, not the 512 lines the window follows: a CUDA graph
+                // logs a line per reuse, and a long song pushed its own start out of those
+                let reason = first_fatal(&music_engine::server::startup_log_tail(JOB_LOG_LINES), job);
                 if let Some(why) = reason.as_deref().filter(|why| { let why = why.to_lowercase(); describes_exhausted_memory(&why) || describes_exhausted_ram(&why) }) {
                     anyhow::bail!("There was not enough memory for this song ({why}). Choose a smaller model set in the model manager or a shorter song, and close whatever else uses the card or the computer's memory.");
                 }
@@ -8104,7 +8125,7 @@ fn first_fatal(lines: &[String], job: &str) -> Option<String> {
     said("FATAL:").or_else(|| said("ERROR:")).or_else(|| {
         after
             .iter()
-            .find(|line| line.starts_with("[Server]") && (line.contains(" not found") || line.contains("Missing ")))
+            .find(|line| line.starts_with("[Server]") && (line.contains(" not found") || line.contains("Missing ") || line.trim_end().ends_with(" failed")))
             .and_then(|line| line.split_once("] "))
             .map(|(_, why)| why.trim().to_string())
     })
@@ -9080,6 +9101,8 @@ mod tests {
         assert_eq!(first_fatal(&adapter, "5").as_deref(), Some("LM adapter not found: my-voice"));
         let silent = lines(&["[Server] Job 6 created (1 requests)", "[DiT] step 3/8"]);
         assert_eq!(first_fatal(&silent, "6"), None);
+        let decode = lines(&["[Server] Job 7 created (decode)", "[Server] decode: store_require_vae_dec failed"]);
+        assert_eq!(first_fatal(&decode, "7").as_deref(), Some("decode: store_require_vae_dec failed"));
     }
 
     #[test]
@@ -9197,6 +9220,13 @@ mod tests {
         std::fs::write(folder.path().join("renamed.gguf"), b"turbo weights").unwrap();
         let found = adoptable_sources(&[turbo, merge], models.path(), &adoptable_files(folder.path(), ADOPT_FOLDER_DEPTH));
         assert_eq!(found.iter().map(|(component, _)| component.id).collect::<Vec<_>>(), ["turbo"]);
+    }
+
+    #[test]
+    fn a_device_the_engine_does_not_have_is_named_with_the_ones_it_has() {
+        let log = "---- starting ace-server.exe ----\n--device CUDA0 not found. Available: Vulkan0 Vulkan1 CPU\nUsage: ace-server --models <dir>";
+        assert_eq!(absent_device(log), Some(("CUDA0".to_string(), "Vulkan0, Vulkan1, CPU".to_string())));
+        assert_eq!(absent_device("[Server] Listening on 127.0.0.1:8089"), None);
     }
 
     #[test]

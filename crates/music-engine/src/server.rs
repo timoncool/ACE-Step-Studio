@@ -67,7 +67,7 @@ pub enum ComputeBackend {
 }
 
 impl ComputeBackend {
-    /// The device name `engine server` reads from `GGML_BACKEND`, none for `Auto`.
+    /// The device name `engine server` takes as `--device`, none for `Auto`.
     pub fn ggml_device(self) -> Option<&'static str> {
         match self {
             Self::Auto => None,
@@ -84,7 +84,7 @@ impl ComputeBackend {
 /// restart of the engine.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ServerOptions {
-    /// The device to compute on, passed as `GGML_BACKEND`.
+    /// The device to compute on, passed as `--device`.
     pub backend: ComputeBackend,
     /// `--keep-loaded`: hold every module in VRAM between jobs instead of
     /// evicting between stages. Much faster back-to-back generation, at the
@@ -337,13 +337,8 @@ impl ServerSupervisor {
             command.arg("--adapters").arg(adapters);
         }
         self.config.options.apply(&mut command);
-        match self.config.options.backend.ggml_device() {
-            Some(device) => {
-                command.env("GGML_BACKEND", device);
-            }
-            None => {
-                command.env_remove("GGML_BACKEND");
-            }
+        if let Some(device) = self.config.options.backend.ggml_device() {
+            command.arg("--device").arg(device);
         }
         match self.config.cuda_backend()? {
             Some(backend) => {
