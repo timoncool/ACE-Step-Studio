@@ -88,6 +88,13 @@ type OptionalStatus = {
 
 const bytes = (value: number) => (value < 1024 ** 3 ? `${Math.round(value / 1024 ** 2)} MB` : `${(value / 1024 ** 3).toFixed(1)} GB`);
 
+/** What "use models I already have" took from the chosen folder, and what it left and why. */
+interface AdoptReport {
+  folder: string;
+  adopted: string[];
+  refused: Array<{ file: string; kind: 'size' | 'unknown' | 'copy'; size?: number; needs?: number; repository?: string; revision?: string; error?: string }>;
+}
+
 const errorMessage = async (response: Response) => {
   const body = await response.json().catch(() => null);
   return body?.error || `Request failed (${response.status})`;
@@ -687,6 +694,7 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
   const { t } = useI18n();
   const [status, setStatus] = useState<SetupStatus | null>(null);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [adoptReport, setAdoptReport] = useState<AdoptReport | null>(null);
   const [choice, setChoice] = useState<Record<string, string>>({});
   const chosenValues = useMemo(() => Object.values(choice).filter((id): id is string => typeof id === 'string' && id.length > 0), [choice]);
   const [error, setError] = useState<string | null>(null);
@@ -1032,8 +1040,10 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
                   onClick={() => {
                     void fetch('/setup/adopt', { method: 'POST' })
                       .then((response) => (response.ok ? response.json() : null))
-                      .then((body: { picked?: boolean; adopted?: string[] } | null) => {
-                        if (body?.picked) void refresh();
+                      .then((body: { picked?: boolean; folder?: string; adopted?: string[]; refused?: AdoptReport['refused'] } | null) => {
+                        if (!body?.picked) return;
+                        setAdoptReport({ folder: body.folder ?? '', adopted: body.adopted ?? [], refused: body.refused ?? [] });
+                        void refresh();
                       })
                       .catch(() => undefined);
                   }}
@@ -1042,6 +1052,27 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
                   <FolderDown size={13} />
                   {t('useExistingModels')}
                 </button>
+                {adoptReport && (
+                  <div className="mt-2 space-y-1 text-[11px] leading-4">
+                    {adoptReport.adopted.length > 0 ? (
+                      <p className="text-emerald-600 dark:text-emerald-300">{t('adoptTaken').replace('{count}', String(adoptReport.adopted.length))}</p>
+                    ) : (
+                      <p className="text-amber-600 dark:text-amber-300">{t('adoptNone').replace('{folder}', adoptReport.folder)}</p>
+                    )}
+                    {adoptReport.refused.map((refusal) => (
+                      <p key={refusal.file} className="break-all text-amber-600 dark:text-amber-300">
+                        <span className="font-mono">{refusal.file}</span> — {refusal.kind === 'size'
+                          ? t('adoptRefusedSize')
+                              .replace('{size}', (refusal.size ?? 0).toLocaleString())
+                              .replace('{needs}', (refusal.needs ?? 0).toLocaleString())
+                              .replace('{source}', `huggingface.co/${refusal.repository ?? ''} @ ${(refusal.revision ?? '').slice(0, 7)}`)
+                          : refusal.kind === 'copy'
+                            ? t('adoptRefusedCopy').replace('{error}', refusal.error ?? '')
+                            : t('adoptRefusedUnknown')}
+                      </p>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
