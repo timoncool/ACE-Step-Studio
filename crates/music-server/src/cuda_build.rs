@@ -138,6 +138,32 @@ pub fn current() -> Option<CudaBuild> {
     device().and_then(|(compute, driver)| cuda_build(compute, driver)).filter(|build| SHIPPED.contains(build))
 }
 
+/// The card a CUDA failure happened on, in the words a report needs to tell a
+/// missing architecture from an old driver: `NVIDIA GeForce GTX 1050, compute
+/// 6.1, driver 581.29, cuda12 build`. Probed once.
+pub fn describe() -> Option<String> {
+    static CARD: OnceLock<Option<String>> = OnceLock::new();
+    CARD.get_or_init(|| {
+        let mut command = Command::new("nvidia-smi");
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
+        let output = command.args(chosen_card()).args(["--query-gpu=name,compute_cap,driver_version", "--format=csv,noheader"]).output().ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        let line = String::from_utf8_lossy(&output.stdout).lines().next()?.trim().to_string();
+        let mut fields = line.split(',').map(str::trim);
+        let (name, compute, driver) = (fields.next()?, fields.next()?, fields.next()?);
+        let build = current().map(CudaBuild::folder).unwrap_or("no");
+        Some(format!("{name}, compute {compute}, driver {driver}, {build} build"))
+    })
+    .clone()
+}
+
 /// The CUDA builds this platform's engine carries: both on Windows, CUDA 13 in the Linux package.
 #[cfg(windows)]
 const SHIPPED: &[CudaBuild] = &[CudaBuild::Cuda13, CudaBuild::Cuda12];

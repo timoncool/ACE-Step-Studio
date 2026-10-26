@@ -4689,9 +4689,12 @@ async fn restart_engine(state: &AppState) -> Result<(), String> {
             }
             Err(error) => {
                 let run = last_run_log();
+                // why a CUDA backend that loaded has no device: an old driver, mostly
+                let cuda = run.lines().find_map(|line| line.split_once("failed to initialize CUDA: ").map(|(_, why)| format!(" CUDA said: {}.", why.trim())));
                 last_error = match absent_device(&run) {
                     Some((name, available)) => format!(
-                        "The engine has no device {name} on this computer; it sees {available}. Choose Auto in Settings, Engine, or one of those devices."
+                        "The engine has no device {name} on this computer; it sees {available}.{} Choose Auto in Settings, Engine, or one of those devices.",
+                        cuda.unwrap_or_default()
                     ),
                     None => format!("the local engine did not start: {error}"),
                 };
@@ -4780,8 +4783,11 @@ fn lost_job_reason(log: &str) -> String {
     } else if describes_exhausted_ram(&lowered) {
         "The computer ran out of memory (RAM) on this song and the engine restarted, so the song was lost. Close other programs that take memory, or choose a smaller model set in the model manager or a shorter song.".into()
     } else if describes_device_failure(&lowered) {
+        // the card, its compute capability, the driver and the build: what tells a missing architecture
+        // from a driver too old for the build
+        let card = if log.to_lowercase().contains("cuda error") { cuda_build::describe().map(|card| format!(" on {card}")).unwrap_or_default() } else { String::new() };
         match device_error_line(log) {
-            Some(error) => format!("The graphics card failed during this song ({error}) and the engine restarted, so the song was lost. The engine log is in Settings, Engine."),
+            Some(error) => format!("The graphics card failed during this song ({error}){card} and the engine restarted, so the song was lost. The engine log is in Settings, Engine."),
             None => "The graphics card failed during this song (a CUDA or driver error) and the engine restarted, so the song was lost. The engine log is in Settings, Engine.".into(),
         }
     } else if lowered.contains("> max_seq") {
