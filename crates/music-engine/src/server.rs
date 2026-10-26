@@ -435,6 +435,14 @@ impl ServerSupervisor {
         self.child.as_mut().is_some_and(|child| matches!(child.try_wait(), Ok(None)))
     }
 
+    /// How the owned engine ended, if it has: its status and, on Windows, the
+    /// NTSTATUS in hex - 0xc0000005 an access violation, 0xc000001d an
+    /// instruction the processor does not have.
+    pub fn exit_status(&mut self) -> Option<String> {
+        let status = self.child.as_mut()?.try_wait().ok()??;
+        Some(format!("{status}{}", status.code().map(|code| format!(" (0x{:x})", code as u32)).unwrap_or_default()))
+    }
+
     fn clear_exited_child(&mut self) -> Result<()> {
         let exited = self
             .child

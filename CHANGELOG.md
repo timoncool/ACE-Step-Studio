@@ -6,6 +6,7 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- **An engine that crashed says how**: when the engine ended in the middle of a song, its exit code was never read, because each restart began with a new watcher, and the song's reason gave only the engine's last line ("[Ace-LM] FP16 clamp enabled" and the like). The exit code is now noted in the engine log and named in the reason - a crash, an instruction this processor does not have, a library that did not load, memory.
 - **A source or reference over 10 minutes is refused with its length**: the engine takes up to 10 minutes, and a longer track was sent whole, so a cover or a timbre from it failed with "the engine returned 413 Payload Too Large" and nothing more; the studio now says how long the track is before it sends anything.
 - **More audio files open as a source**: MP1 and MP2 (MPEG Layer I and II), ADPCM WAV, Matroska audio (.mka) and CAF files could not be read ("no decoder for this audio"); they are read now. Opus is still not read: convert it to MP3, FLAC or WAV.
 - **An LM KV cache set too small is named**: with Settings - Engine - LM KV cache below what a song needs, the engine stopped with "kv_len > max_seq" and the song was lost with that line; the reason now says which setting it is and what to do.

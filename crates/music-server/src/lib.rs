@@ -4611,6 +4611,10 @@ async fn restart_engine(state: &AppState) -> Result<(), String> {
     let mut supervisor = state.engine.lock().await;
     let owned = supervisor.is_some();
     if let Some(engine) = supervisor.as_mut() {
+        // the one moment its exit code can still be read: a new supervisor starts with no child
+        if let Some(exit) = engine.exit_status() {
+            music_engine::server::note_in_log(&format!("the previous engine had already exited: {exit}"));
+        }
         tokio::task::block_in_place(|| engine.stop(std::time::Duration::from_secs(10)))
             .map_err(|error| format!("stopping the local engine failed: {error}"))?;
     }
@@ -4783,11 +4787,34 @@ fn lost_job_reason(log: &str) -> String {
     } else if lowered.contains("> max_seq") {
         "The language model ran out of room on this song: its KV cache (Settings, Engine, LM KV cache) is smaller than the song needs, and the engine stopped. Leave that field empty to use the model's own size, or set it higher.".into()
     } else {
+        let how = match engine_exit(log) {
+            Some((code, Some(meaning))) => format!(" ({meaning}, exit code {code})"),
+            Some((code, None)) => format!(" (exit code {code})"),
+            None => String::new(),
+        };
         match last_engine_line(log) {
-            Some(line) => format!("The engine stopped during this song and restarted, so the song was lost; its last line was {line}. The engine log is in Settings, Engine."),
-            None => "The engine stopped during this song and restarted, so the song was lost. The engine log is in Settings, Engine.".into(),
+            Some(line) => format!("The engine stopped during this song{how} and restarted, so the song was lost; its last line was {line}. The engine log is in Settings, Engine."),
+            None => format!("The engine stopped during this song{how} and restarted, so the song was lost. The engine log is in Settings, Engine."),
         }
     }
+}
+
+/// The exit code of the engine that ended, as the studio noted it, and what a
+/// Windows one means.
+fn engine_exit(log: &str) -> Option<(String, Option<&'static str>)> {
+    let line = log.lines().rev().find(|line| line.contains("had already exited:"))?;
+    let code = line.rsplit_once("(0x")?.1.trim_end_matches(')').to_lowercase();
+    let meaning = match code.as_str() {
+        "c0000005" => Some("a crash: an access violation"),
+        "c000001d" => Some("an instruction this processor does not have"),
+        "c0000409" => Some("a crash: the engine aborted"),
+        "c00000fd" => Some("a crash: a stack overflow"),
+        "c0000374" => Some("a crash: corrupted memory"),
+        "c0000135" | "c0000139" | "c0000142" => Some("a library of the engine did not load"),
+        "c0000017" | "c000012d" => Some("the computer ran out of memory"),
+        _ => None,
+    };
+    Some((format!("0x{code}"), meaning))
 }
 
 /// The last thing the engine wrote before it went: a process the driver ends says nothing, and the stage it was
@@ -8152,7 +8179,16 @@ async fn run_ace_job(state: AppState, run: AceRun) {
     let lost = match &outcome {
         Err(error) if !cancelled => {
             if engine_gone(&format!("{error:#}")) {
-                let log = if state.music_server.health().await { previous_run_log() } else { last_run_log() };
+                let log = if state.music_server.health().await {
+                    previous_run_log()
+                } else {
+                    // not restarted yet: the exit code is still on the old supervisor
+                    let exit = state.engine.try_lock().ok().and_then(|mut engine| engine.as_mut().and_then(|engine| engine.exit_status()));
+                    match exit {
+                        Some(exit) => format!("{}\n[studio] the previous engine had already exited: {exit}", last_run_log()),
+                        None => last_run_log(),
+                    }
+                };
                 Some(lost_job_reason(&log))
             } else {
                 None
@@ -9136,6 +9172,9 @@ mod tests {
         assert!(lost_job_reason("ggml_cuda_compute_forward: MUL_MAT failed").contains("CUDA or driver error"));
         assert!(lost_job_reason("[NAR] Step 2/16, 87844 ms\n[NAR] Step 3/16\n[studio] the engine stopped answering").contains("its last line was [NAR] Step 3/16."));
         assert!(lost_job_reason("[LM-Batch] FATAL: kv_len 2049 > max_seq 2048 (set 0)").contains("KV cache"));
+        let crashed = "[Ace-LM] FP16 clamp enabled\n[studio] the previous engine had already exited: exit code: 0xc000001d (0xc000001d)";
+        assert!(lost_job_reason(crashed).contains("(an instruction this processor does not have, exit code 0xc000001d)"), "{}", lost_job_reason(crashed));
+        assert!(lost_job_reason(crashed).contains("its last line was [Ace-LM] FP16 clamp enabled."));
         assert!(lost_job_reason("[Server] listening").contains("stopped during this song"));
     }
 
