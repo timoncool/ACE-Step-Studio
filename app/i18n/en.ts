@@ -475,11 +475,6 @@ export const en = {
 
     // Settings
     language: 'Language',
-    english: 'English',
-    chinese: 'Chinese',
-    japaneseLanguage: 'Japanese',
-    koreanLanguage: 'Korean',
-    russianLanguage: 'Russian',
     appearance: 'Appearance',
     profile: 'Profile',
     viewProfile: 'View Profile',

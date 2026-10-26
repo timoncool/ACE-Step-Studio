@@ -472,11 +472,6 @@ export const ja = {
 
   // Settings
   language: '言語',
-  english: 'English',
-  chinese: '简体中文',
-  japaneseLanguage: '日本語',
-  koreanLanguage: '한국어',
-  russianLanguage: 'ロシア語',
   appearance: '外観',
   profile: 'プロフィール',
   viewProfile: 'プロフィールを表示',

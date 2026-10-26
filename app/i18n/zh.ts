@@ -472,11 +472,6 @@ export const zh = {
 
     // Settings
     language: '语言',
-    english: 'English',
-    chinese: '简体中文',
-    japaneseLanguage: '日本語',
-    koreanLanguage: '한국어',
-    russianLanguage: '俄语',
     appearance: '外观',
     profile: '个人资料',
     viewProfile: '查看个人资料',

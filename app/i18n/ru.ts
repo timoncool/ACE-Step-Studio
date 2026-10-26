@@ -476,11 +476,6 @@ export const ru = {
 
     // Settings
     language: 'Язык',
-    english: 'English',
-    chinese: '简体中文',
-    japaneseLanguage: '日本語',
-    koreanLanguage: '한국어',
-    russianLanguage: 'Русский',
     appearance: 'Оформление',
     profile: 'Профиль',
     viewProfile: 'Просмотр профиля',

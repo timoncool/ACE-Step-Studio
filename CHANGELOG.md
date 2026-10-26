@@ -40,6 +40,7 @@ What changed, newest first. Dates are release dates.
 
 - **Engine updated from acestep.cpp upstream**: the latest ggml and the --device choice of the compute device; our fixes stay on top.
 - **The genre tags under the style show their meaning in Chinese** ([YuE2 Studio #152](https://github.com/timoncool/YuE2-Studio/issues/152)): the tags stay in English, the language the model reads its style in, and a window in Chinese shows each one's Chinese name beside it - dubstep 回响贝斯, cloud rap 云说唱. Another language gets its names from its own `examples/genres.<language>.txt`.
+- **Every window language is named in its own language**: Settings - Appearance - Language wrote Russian in the window's language («俄语» in a Chinese window, "Russian" in an English one) and, in English, Chinese, Japanese and Korean too, so a reader looking for their language did not always find it; the list now reads Русский, English, 简体中文, 日本語, 한국어 in every window.
 
 ## 2026-10-21 — 3.7.0
 

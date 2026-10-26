@@ -472,11 +472,6 @@ export const ko = {
 
     // Settings
     language: '언어',
-    english: 'English',
-    chinese: '简体中文',
-    japaneseLanguage: '日本語',
-    koreanLanguage: '한국어',
-    russianLanguage: '러시아어',
     appearance: '외관',
     profile: '프로필',
     viewProfile: '프로필 보기',
