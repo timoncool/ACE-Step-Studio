@@ -215,12 +215,12 @@ pub fn resume(state: &AppState) {
     let Ok(bytes) = std::fs::read(&path) else { return };
     match serde_json::from_slice::<Job>(&bytes) {
         Ok(job) => {
-            eprintln!("[OK] resuming the preparation of dataset {}", job.dataset);
+            studio_log!("[OK] resuming the preparation of dataset {}", job.dataset);
             if let Err(error) = launch(state, job) {
-                eprintln!("[ERROR] resuming the preparation: {error:#}");
+                studio_log!("[ERROR] resuming the preparation: {error:#}");
             }
         }
-        Err(error) => eprintln!("[ERROR] {} is not a preparation job: {error}", path.display()),
+        Err(error) => studio_log!("[ERROR] {} is not a preparation job: {error}", path.display()),
     }
 }
 
@@ -445,7 +445,7 @@ async fn run(state: &AppState, job: &Job) -> anyhow::Result<()> {
 
     // Binds the machine's ONNX Runtime before anything loads a session
     if let Err(error) = state.lyrics_sync.bind_ort() {
-        eprintln!("[ERROR] preparation runs without ONNX Runtime: {error:#}");
+        studio_log!("[ERROR] preparation runs without ONNX Runtime: {error:#}");
     }
 
     // One model on the card at a time: Whisper, then MOSS, then the assistant
@@ -625,7 +625,7 @@ async fn lyrics_branch(state: &AppState, job: &Job, lyric_items: &[&training::Da
                                 // a failed separation still leaves the mix to recognise
                                 Ok(()) => separated.push((item, vocals)),
                                 Err(error) => {
-                                    eprintln!("[ERROR] separating the vocals of {item}: {error:#}");
+                                    studio_log!("[ERROR] separating the vocals of {item}: {error:#}");
                                     separated.push((item, audio));
                                 }
                             }

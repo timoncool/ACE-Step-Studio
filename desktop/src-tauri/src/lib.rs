@@ -193,7 +193,7 @@ fn start_service() -> Result<(), String> {
             let runtime = match tokio::runtime::Builder::new_multi_thread().enable_all().build() {
                 Ok(runtime) => runtime,
                 Err(error) => {
-                    eprintln!("could not create the studio service runtime: {error}");
+                    music_server::studio_log!("could not create the studio service runtime: {error}");
                     return;
                 }
             };
@@ -206,11 +206,11 @@ fn start_service() -> Result<(), String> {
                 match runtime.block_on(music_server::serve()) {
                     Ok(()) => return,
                     Err(error) if Instant::now() < deadline => {
-                        eprintln!("studio service could not start yet: {error}");
+                        music_server::studio_log!("studio service could not start yet: {error}");
                         std::thread::sleep(Duration::from_millis(400));
                     }
                     Err(error) => {
-                        eprintln!("studio service stopped: {error}");
+                        music_server::studio_log!("studio service stopped: {error}");
                         return;
                     }
                 }
@@ -370,7 +370,7 @@ fn spawn_update_check(app: tauri::AppHandle) {
                 cleanup.cleanup_before_exit();
                 music_engine::process_group::terminate_group_members();
                 if !music_engine::process_group::release_children() {
-                    eprintln!("[ERROR] could not release the update installer from the studio's job");
+                    music_server::studio_log!("[ERROR] could not release the update installer from the studio's job");
                 }
             })
             .build()
@@ -556,7 +556,7 @@ pub fn run() {
     // the engine with it. Without this the engine outlived a force-killed
     // studio, holding the graphics card and the port it listens on.
     if !music_engine::process_group::bind_children_to_this_process() {
-        eprintln!("this process could not create its own job object; the engine is stopped by the supervisor only");
+        music_server::studio_log!("this process could not create its own job object; the engine is stopped by the supervisor only");
     }
 
     configure_studio_runtime_paths();
@@ -568,7 +568,7 @@ pub fn run() {
     music_server::set_studio_version(context.package_info().version.to_string());
 
     if let Err(error) = start_service() {
-        eprintln!("failed to start the studio service: {error}");
+        music_server::studio_log!("failed to start the studio service: {error}");
     }
 
     // The updater is configured only in release builds, where the signing

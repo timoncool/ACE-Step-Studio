@@ -208,7 +208,7 @@ impl Library {
   // a stem wears its song's cover: a new one reaches the stems separated from it
   let separated=|other:&Song|other.metadata.pointer("/derived/tool").and_then(|v|v.as_str())==Some("stems")&&other.metadata.pointer("/derived/from").and_then(|v|v.as_str())==Some(id);
   for stem in self.list_songs()?.into_iter().filter(separated){
-   if let Err(error)=self.store_cover(&stem.id,image,media_type,placeholder,source){eprintln!("[ERROR] the cover of {id} did not reach its stem {}: {error:#}",stem.id)}
+   if let Err(error)=self.store_cover(&stem.id,image,media_type,placeholder,source){studio_log!("[ERROR] the cover of {id} did not reach its stem {}: {error:#}",stem.id)}
   }
   Ok(song)
  }

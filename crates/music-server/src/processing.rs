@@ -114,7 +114,7 @@ pub fn clear_workspace(media: &Path) {
     for entry in entries.flatten() {
         if entry.path().is_file() {
             if let Err(error) = std::fs::remove_file(entry.path()) {
-                eprintln!("[ERROR] processing: remove {}: {error}", entry.path().display());
+                studio_log!("[ERROR] processing: remove {}: {error}", entry.path().display());
             }
         }
     }

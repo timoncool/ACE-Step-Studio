@@ -451,6 +451,6 @@ mod live {
         write_wav16k_mono(&track, &output).expect("decode the track");
         let size = std::fs::metadata(&output).expect("the wav exists").len();
         assert!(size > 44, "the wav is nothing but a header: {size} bytes");
-        eprintln!("wav: {} bytes at {}", size, output.display());
+        studio_log!("wav: {} bytes at {}", size, output.display());
     }
 }

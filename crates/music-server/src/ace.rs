@@ -468,7 +468,7 @@ impl AceClient {
         let (content_type, body) = self.result(job).await?;
         let Ok(planned) = serde_json::from_slice::<Value>(&body) else {
             let answer = answer_excerpt(&content_type, &body);
-            eprintln!("[ERROR] /lm job {job} answered with what is not JSON: {answer}");
+            studio_log!("[ERROR] /lm job {job} answered with what is not JSON: {answer}");
             bail!("the language model's answer is not JSON: {answer}");
         };
         match planned {
@@ -476,7 +476,7 @@ impl AceClient {
             Value::Object(_) => Ok(vec![planned]),
             _ => {
                 let answer = answer_excerpt(&content_type, &body);
-                eprintln!("[ERROR] /lm job {job} planned nothing: {answer}");
+                studio_log!("[ERROR] /lm job {job} planned nothing: {answer}");
                 bail!("the language model planned nothing: {answer}")
             }
         }

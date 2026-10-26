@@ -320,7 +320,7 @@ impl AdapterLibrary {
                         meta.trigger = view.trigger.clone();
                     }
                     if let Err(problem) = self.write_meta(&meta) {
-                        eprintln!("[ERROR] adapters: could not remember the slots of {id}: {problem}");
+                        studio_log!("[ERROR] adapters: could not remember the slots of {id}: {problem}");
                     }
                 }
             }
@@ -390,16 +390,16 @@ impl AdapterLibrary {
             for plan in &planned {
                 if plan.assets.iter().all(|asset| library.downloader.is_installed(asset)) {
                     if let Err(error) = library.drop_replaced_weights(plan) {
-                        eprintln!("[ERROR] adapter {} kept the weights of its earlier version: {error:#}", plan.meta.id);
+                        studio_log!("[ERROR] adapter {} kept the weights of its earlier version: {error:#}", plan.meta.id);
                     }
                     let meta = AdapterMeta { created_at: now(), ..plan.meta.clone() };
                     if let Err(error) = library.write_meta(&meta) {
-                        eprintln!("[ERROR] adapter {} did not record: {error:#}", meta.id);
+                        studio_log!("[ERROR] adapter {} did not record: {error:#}", meta.id);
                     }
                 }
             }
             if let Err(error) = downloaded {
-                eprintln!("[ERROR] LoRA download: {error:#}");
+                studio_log!("[ERROR] LoRA download: {error:#}");
             }
             library.installing_now().clear();
             crate::mcp::announce("lora_installed");

@@ -569,8 +569,8 @@ async fn journal_change(name: &str, args: &Value, before: &str, reply: &str) {
     };
     match written {
         Ok((status, _)) if status.is_success() => {}
-        Ok((status, text)) => eprintln!("[ERROR] the journal refused an agent's change to {name}: {status} {text}"),
-        Err(problem) => eprintln!("[ERROR] the journal did not take an agent's change to {name}: {problem}"),
+        Ok((status, text)) => studio_log!("[ERROR] the journal refused an agent's change to {name}: {status} {text}"),
+        Err(problem) => studio_log!("[ERROR] the journal did not take an agent's change to {name}: {problem}"),
     }
 }
 

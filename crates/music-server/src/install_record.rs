@@ -72,7 +72,7 @@ pub fn read(record: &Path) -> Option<InstallRecord> {
     match serde_json::from_str(&text) {
         Ok(parsed) => Some(parsed),
         Err(error) => {
-            eprintln!("[ERROR] the install record {} is unreadable ({error}); its download counts as not installed", record.display());
+            studio_log!("[ERROR] the install record {} is unreadable ({error}); its download counts as not installed", record.display());
             None
         }
     }

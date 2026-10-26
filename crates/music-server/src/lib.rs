@@ -1,4 +1,6 @@
 #![recursion_limit = "256"]
+#[macro_use]
+pub mod studio_log;
 mod processing;
 mod vst;
 mod adapters;
@@ -378,13 +380,13 @@ async fn resume_unfinished_jobs(state: AppState) {
                 jobs.entry(stored.id.clone()).or_insert_with(|| job_from_stored(stored, status, message));
             }
         }
-        Err(error) => eprintln!("[ERROR] the songs that ended without a result could not be read: {error:#}"),
+        Err(error) => studio_log!("[ERROR] the songs that ended without a result could not be read: {error:#}"),
     }
     let cut_off = match state.library.unfinished_music_jobs() {
         Ok(jobs) if !jobs.is_empty() => jobs,
         Ok(_) => return,
         Err(error) => {
-            eprintln!("[ERROR] the songs cut off by the last run could not be read: {error:#}");
+            studio_log!("[ERROR] the songs cut off by the last run could not be read: {error:#}");
             return;
         }
     };
@@ -399,7 +401,7 @@ async fn resume_unfinished_jobs(state: AppState) {
         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
     }
     if !ready {
-        eprintln!("[ERROR] the engine did not answer; {} cut-off song(s) were not started again", cut_off.len());
+        studio_log!("[ERROR] the engine did not answer; {} cut-off song(s) were not started again", cut_off.len());
         return;
     }
     for old in cut_off {
@@ -431,7 +433,7 @@ async fn resume_unfinished_jobs(state: AppState) {
             }
         };
         if let Err(error) = state.library.cancel_cut_off_music_job(&old.id, resumed_as.as_deref(), &message) {
-            eprintln!("[ERROR] a cut-off song could not be marked: {error:#}");
+            studio_log!("[ERROR] a cut-off song could not be marked: {error:#}");
         }
         state.jobs.write().await.insert(old.id.clone(), job_from_stored(old, MusicJobStatus::Cancelled, message));
     }
@@ -816,12 +818,16 @@ struct OpenRouterResponse {
 /// in-process, so a release is a single executable rather than a launcher that
 /// has to start a second binary and keep it alive.
 pub async fn serve() -> anyhow::Result<()> {
+    match studio_data_root() {
+        Some(root) => studio_log::log_to_file(&root),
+        None => studio_log!("[ERROR] the studio has no data folder; its log goes to the console only"),
+    }
     put_the_engine_folder_on_path();
     let settings_path = studio_settings_path();
     let persisted = load_studio_settings(&settings_path);
     let proxy = persisted.as_ref().and_then(|settings| settings.proxy.clone()).unwrap_or_default();
     if let Err(error) = proxy.clone().validated() {
-        eprintln!("[ERROR] the saved proxy cannot be used, requests go straight out until it is fixed in Settings: {error:#}");
+        studio_log!("[ERROR] the saved proxy cannot be used, requests go straight out until it is fixed in Settings: {error:#}");
     }
     net::set(proxy);
     let (bind_to, network_keyed) = remote::start(persisted.as_ref().and_then(|settings| settings.network.clone()));
@@ -926,7 +932,7 @@ pub async fn serve() -> anyhow::Result<()> {
     state.training.recover();
     if network_keyed {
         if let Err(error) = persist_studio_settings(&state).await {
-            eprintln!("[ERROR] the key made for access from the network was not saved and changes at the next start: {error:#}");
+            studio_log!("[ERROR] the key made for access from the network was not saved and changes at the next start: {error:#}");
         }
     }
     state.lyrics_sync.set_cuda_libraries(state.engine_runtime.library_dir());
@@ -943,9 +949,9 @@ pub async fn serve() -> anyhow::Result<()> {
             let library = state.library.clone();
             match tokio::task::spawn_blocking(move || library.remeasure_imported_mp3s()).await {
                 Ok(Ok(0)) => {}
-                Ok(Ok(fixed)) => eprintln!("[library] measured the length of {fixed} imported MP3s again"),
-                Ok(Err(error)) => eprintln!("[library] the imported MP3s were not measured again: {error:#}"),
-                Err(error) => eprintln!("[library] the imported MP3s were not measured again: {error}"),
+                Ok(Ok(fixed)) => studio_log!("[library] measured the length of {fixed} imported MP3s again"),
+                Ok(Err(error)) => studio_log!("[library] the imported MP3s were not measured again: {error:#}"),
+                Err(error) => studio_log!("[library] the imported MP3s were not measured again: {error}"),
             }
             tag_untagged_songs(state.clone()).await;
             pin_placeholders(state).await;
@@ -1184,7 +1190,7 @@ pub async fn serve() -> anyhow::Result<()> {
                     let state = state.clone();
                     tokio::spawn(async move {
                         if let Err(error) = rescan_resources(&state).await {
-                            eprintln!("[ERROR] finding the downloaded model: {error}");
+                            studio_log!("[ERROR] finding the downloaded model: {error}");
                         }
                     });
                 }
@@ -1221,7 +1227,7 @@ pub async fn serve() -> anyhow::Result<()> {
                             // seconds: a card with too little memory would
                             // otherwise fill the log with the same line.
                             if !complained {
-                                eprintln!("the local engine did not start: {error}");
+                                studio_log!("the local engine did not start: {error}");
                                 complained = true;
                             }
                         }
@@ -1733,12 +1739,12 @@ async fn install_separation_asset(
             match separator.downloader().install_all("separation", &set).await {
                 Ok(()) if gpu => {
                     if let Err(error) = separator.link_cuda_libraries(&libraries) {
-                        eprintln!("[ERROR] BSRoformer.cpp has no cuBLAS beside it: {error:#}");
+                        studio_log!("[ERROR] BSRoformer.cpp has no cuBLAS beside it: {error:#}");
                         separator.downloader().fail("separation", format!("BSRoformer.cpp has no cuBLAS beside it: {error:#}")).await;
                     }
                 }
                 Ok(()) => {}
-                Err(error) => eprintln!("[ERROR] Mel-Band RoFormer could not be installed: {error:#}"),
+                Err(error) => studio_log!("[ERROR] Mel-Band RoFormer could not be installed: {error:#}"),
             }
         });
         return Ok(Json(serde_json::json!({ "started": true })));
@@ -1752,11 +1758,11 @@ async fn install_separation_asset(
         runtime.extend(separation_card_assets(wanted).iter().filter_map(|id| lyrics_sync::asset(id)));
         tokio::spawn(async move {
             if let Err(error) = separator.downloader().install_all("separation", &[&separation::MODEL]).await {
-                eprintln!("the separator model could not be installed: {error}");
+                studio_log!("the separator model could not be installed: {error}");
                 return;
             }
             if let Err(error) = sync.downloader().install_all("separation", &runtime).await {
-                eprintln!("the separator runtime could not be installed: {error}");
+                studio_log!("the separator runtime could not be installed: {error}");
             }
         });
         return Ok(Json(serde_json::json!({ "started": true })));
@@ -1766,7 +1772,7 @@ async fn install_separation_asset(
         let card: Vec<&'static lyrics_sync::Asset> = separation_card_assets(lyrics_sync::OnnxFlavour::Auto).iter().filter_map(|id| lyrics_sync::asset(id)).collect();
         tokio::spawn(async move {
             if let Err(error) = sync.downloader().install_all("separation", &card).await {
-                eprintln!("the card path could not be installed: {error}");
+                studio_log!("the card path could not be installed: {error}");
             }
         });
         return Ok(Json(serde_json::json!({ "started": true })));
@@ -2272,7 +2278,7 @@ async fn keep_processing(
         Err(problem) => {
             // the preview goes back where it was, so the run can still be kept or discarded
             if let Err(error) = std::fs::rename(&stored, &preview) {
-                eprintln!("[ERROR] processing: return {} to the workspace: {error}", stored.display());
+                studio_log!("[ERROR] processing: return {} to the workspace: {error}", stored.display());
             }
             return Err(problem);
         }
@@ -2355,7 +2361,7 @@ async fn remove_song_version(
         .ok_or_else(|| api_error(StatusCode::NOT_FOUND, "Song not found".into()))?;
     if let Some(file) = file {
         if let Err(error) = std::fs::remove_file(&file) {
-            eprintln!("[ERROR] remove version {version} of {id}: {error}");
+            studio_log!("[ERROR] remove version {version} of {id}: {error}");
         }
     }
     Ok(Json(song))
@@ -2569,11 +2575,11 @@ async fn install_training_pack(State(state): State<AppState>) -> Result<Json<Val
     let background = state.clone();
     tokio::spawn(async move {
         if let Err(error) = background.training.install_pack().await {
-            eprintln!("[ERROR] training pack: {error:#}");
+            studio_log!("[ERROR] training pack: {error:#}");
             return;
         }
         if let Err(error) = background.engine_runtime.install_missing(cuda_build::CudaBuild::Cuda13).await {
-            eprintln!("[ERROR] cuBLAS for the trainer: {error:#}");
+            studio_log!("[ERROR] cuBLAS for the trainer: {error:#}");
         }
     });
     Ok(Json(serde_json::json!({ "started": true })))
@@ -2585,13 +2591,13 @@ async fn install_listen_pack(State(state): State<AppState>) -> Json<Value> {
     let background = state.clone();
     tokio::spawn(async move {
         if let Err(error) = background.training.install_listen().await {
-            eprintln!("[ERROR] listening pack: {error:#}");
+            studio_log!("[ERROR] listening pack: {error:#}");
             return;
         }
         if background.lyrics_sync.onnxruntime_library().is_none() {
             let runtime: Vec<&'static lyrics_sync::Asset> = lyrics_sync::asset("onnxruntime").into_iter().collect();
             if let Err(error) = background.lyrics_sync.downloader().install_all("listen", &runtime).await {
-                eprintln!("[ERROR] ONNX Runtime for the listening pack: {error:#}");
+                studio_log!("[ERROR] ONNX Runtime for the listening pack: {error:#}");
             }
         }
     });
@@ -2914,7 +2920,7 @@ async fn card_hooks(state: &AppState) -> training::CardHooks {
                 if keep_loaded {
                     if let Some(engine) = take_state.engine.lock().await.as_mut() {
                         if let Err(error) = tokio::task::block_in_place(|| engine.stop(std::time::Duration::from_secs(10))) {
-                            eprintln!("[ERROR] stopping the engine for training: {error}");
+                            studio_log!("[ERROR] stopping the engine for training: {error}");
                         }
                     }
                 }
@@ -2924,7 +2930,7 @@ async fn card_hooks(state: &AppState) -> training::CardHooks {
             Box::pin(async move {
                 if keep_loaded {
                     if let Err(error) = restart_engine(&back_state).await {
-                        eprintln!("[ERROR] starting the engine after training: {error}");
+                        studio_log!("[ERROR] starting the engine after training: {error}");
                     }
                 }
             })
@@ -3136,7 +3142,7 @@ async fn describe_training_item(
         let draft = match assistant_write(State(state.clone()), Json(request.clone())).await {
             Ok(Json(draft)) => draft,
             Err(error) if attempt == 0 => {
-                eprintln!("[WARN] describing {}: {}", song.title, error.1.0.error);
+                studio_log!("[WARN] describing {}: {}", song.title, error.1.0.error);
                 continue;
             }
             Err(error) => return Err(error),
@@ -3412,7 +3418,7 @@ async fn ensure_local_recogniser(state: &AppState, config: &lyrics_sync::LyricsS
     note_activity(state, song_id, &title, "karaoke", "running", Some("karaoke.downloading".into())).await;
     for asset in missing {
         if let Err(error) = state.lyrics_sync.downloader().install(asset).await {
-            eprintln!("could not fetch the karaoke model {}: {error}", asset.id);
+            studio_log!("could not fetch the karaoke model {}: {error}", asset.id);
             note_activity(state, song_id, &title, "karaoke", "failed", Some(format!("{error:#}"))).await;
             return false;
         }
@@ -3493,7 +3499,7 @@ async fn time_lyrics_for(state: AppState, song_id: String) {
     let words = match words {
         Ok(words) => words,
         Err(error) => {
-            eprintln!("no karaoke for {song_id}: {error}");
+            studio_log!("no karaoke for {song_id}: {error}");
             note_activity(&state, &song_id, &song.title, "karaoke", "failed", Some(format!("{error:#}"))).await;
             return;
         }
@@ -3501,14 +3507,14 @@ async fn time_lyrics_for(state: AppState, song_id: String) {
     let lines = lyrics_sync::align_lyrics_words(&words, &song.lyrics);
     if lines.is_empty() {
         let reason = "karaoke.no-match";
-        eprintln!("no karaoke for {song_id}: {reason}");
+        studio_log!("no karaoke for {song_id}: {reason}");
         note_activity(&state, &song_id, &song.title, "karaoke", "failed", Some(reason.to_string())).await;
         return;
     }
     match state.library.set_song_lrc(&song_id, &lyrics_sync::enhanced_lrc(&lines)) {
         Ok(_) => note_activity(&state, &song_id, &song.title, "karaoke", "done", None).await,
         Err(error) => {
-            eprintln!("could not store karaoke for {song_id}: {error}");
+            studio_log!("could not store karaoke for {song_id}: {error}");
             note_activity(&state, &song_id, &song.title, "karaoke", "failed", Some(format!("{error:#}"))).await;
         }
     }
@@ -3529,7 +3535,7 @@ async fn draw_cover_for(state: AppState, song_id: String) {
     match draw_cover(&state, &song_id).await {
         Ok(()) => note_activity(&state, &song_id, &title, "cover", "done", None).await,
         Err(error) => {
-            eprintln!("no cover for {song_id}: {error}");
+            studio_log!("no cover for {song_id}: {error}");
             note_activity(&state, &song_id, &title, "cover", "failed", Some(format!("{error:#}"))).await;
         }
     }
@@ -3656,14 +3662,14 @@ async fn draw_cover_unused(state: AppState, song_id: String) {
     let request = match providers::openrouter::request_for(&catalog, Capability::CoverArt, &model, &prompt) {
         Ok(request) => request,
         Err(error) => {
-            eprintln!("no cover for {song_id}: {error}");
+            studio_log!("no cover for {song_id}: {error}");
             return;
         }
     };
     let answered = match execute_openrouter_json(request).await {
         Ok(answered) => answered,
         Err(error) => {
-            eprintln!("no cover for {song_id}: {error}");
+            studio_log!("no cover for {song_id}: {error}");
             return;
         }
     };
@@ -3675,13 +3681,13 @@ async fn draw_cover_unused(state: AppState, song_id: String) {
         .and_then(Value::as_str)
         .map(str::to_owned);
     let Some(image) = image else {
-        eprintln!("no cover for {song_id}: the model returned no image");
+        studio_log!("no cover for {song_id}: the model returned no image");
         return;
     };
     use base64::{engine::general_purpose::STANDARD, Engine};
     let Ok(bytes) = STANDARD.decode(image.trim()) else { return };
     if let Err(error) = state.library.store_song_cover(&song_id, &bytes, "image/png") {
-        eprintln!("could not store the cover for {song_id}: {error}");
+        studio_log!("could not store the cover for {song_id}: {error}");
         return;
     }
     tag_stored_song(&state, &song_id).await;
@@ -3745,7 +3751,7 @@ async fn write_file_tags(State(state): State<AppState>, Json(request): Json<File
                         tag_stored_song(&state, &song.id).await;
                     }
                 }
-                Err(error) => eprintln!("[ERROR] the library did not list its tracks for tagging: {error:#}"),
+                Err(error) => studio_log!("[ERROR] the library did not list its tracks for tagging: {error:#}"),
             }
         });
     }
@@ -3840,8 +3846,8 @@ async fn tag_stored_song(state: &AppState, song_id: &str) {
     .await;
     match written {
         Ok(Ok(())) => {}
-        Ok(Err(error)) => eprintln!("could not tag {shown}: {error}"),
-        Err(error) => eprintln!("could not tag {shown}: the tagging task stopped: {error}"),
+        Ok(Err(error)) => studio_log!("could not tag {shown}: {error}"),
+        Err(error) => studio_log!("could not tag {shown}: the tagging task stopped: {error}"),
     }
 }
 
@@ -3853,7 +3859,7 @@ async fn tag_untagged_songs(state: AppState) {
     let songs = match state.library.list_songs() {
         Ok(songs) => songs,
         Err(error) => {
-            eprintln!("[ERROR] the library did not list its tracks for tagging: {error:#}");
+            studio_log!("[ERROR] the library did not list its tracks for tagging: {error:#}");
             return;
         }
     };
@@ -3935,7 +3941,7 @@ async fn write_cover_look(
     match tokio::fs::remove_dir_all(&drawn).await {
         Ok(()) => {}
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-        Err(error) => eprintln!("[ERROR] the old placeholders in {} stay: {error}", drawn.display()),
+        Err(error) => studio_log!("[ERROR] the old placeholders in {} stay: {error}", drawn.display()),
     }
     tokio::spawn(pin_placeholders(state.clone()));
     Ok(Json(cover_look_reply(&state).await))
@@ -3971,7 +3977,7 @@ async fn placeholder_image(
             Ok(None) => {}
             Err(error) => {
                 cover_art::photo_failed(true);
-                eprintln!("[ERROR] no photo for {}: {error:#}", song.id);
+                studio_log!("[ERROR] no photo for {}: {error:#}", song.id);
                 *state.cover_problem.write().await = Some(format!("{error:#}"));
             }
         }
@@ -4056,7 +4062,7 @@ async fn pin_pass(state: &AppState) {
     let songs = match state.library.list_songs() {
         Ok(songs) => songs,
         Err(error) => {
-            eprintln!("[ERROR] the library did not list its tracks for their covers: {error:#}");
+            studio_log!("[ERROR] the library did not list its tracks for their covers: {error:#}");
             return;
         }
     };
@@ -4064,7 +4070,7 @@ async fn pin_pass(state: &AppState) {
         songs.into_iter().partition(|song| derived_from(song).is_some_and(|(_, tool)| tool == "stems"));
     for song in songs.into_iter().chain(stems) {
         if let Err(error) = pin_placeholder(state, &song.id).await {
-            eprintln!("[ERROR] no placeholder cover for {}: {error:#}", song.id);
+            studio_log!("[ERROR] no placeholder cover for {}: {error:#}", song.id);
         }
     }
 }
@@ -4100,7 +4106,7 @@ async fn placeholder_cover(State(state): State<AppState>, Path(id): Path<String>
                 .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("{error:#}")))?;
             let extension = if media_type == "image/png" { "png" } else { "jpg" };
             if let Err(error) = std::fs::create_dir_all(&folder).and_then(|()| std::fs::write(named(&label, extension), &image)) {
-                eprintln!("[ERROR] the placeholder of {id} was drawn but not kept: {error}");
+                studio_log!("[ERROR] the placeholder of {id} was drawn but not kept: {error}");
             }
             (image, media_type)
         }
@@ -4213,7 +4219,7 @@ async fn choose_cover_pattern(
 async fn cover_after_import(state: AppState, song_id: String) {
     draw_cover_for(state.clone(), song_id.clone()).await;
     if let Err(error) = pin_placeholder(&state, &song_id).await {
-        eprintln!("[ERROR] no placeholder cover for {song_id}: {error:#}");
+        studio_log!("[ERROR] no placeholder cover for {song_id}: {error:#}");
     }
 }
 
@@ -4285,7 +4291,7 @@ async fn update_library_song(State(state):State<AppState>,Path(id):Path<String>,
             let stems: Vec<String> = state.library.list_songs().map(|songs| songs.into_iter().filter(|song| derived_from(song) == Some((id.as_str(), "stems"))).map(|song| song.id).collect()).unwrap_or_default();
             for song_id in std::iter::once(id.clone()).chain(stems) {
                 if let Err(error) = pin_placeholder(&state, &song_id).await {
-                    eprintln!("[ERROR] could not draw the unique pattern of {song_id} again: {error:#}");
+                    studio_log!("[ERROR] could not draw the unique pattern of {song_id} again: {error:#}");
                 }
             }
         });
@@ -4303,7 +4309,7 @@ async fn delete_library_song(State(state): State<AppState>, Path(id): Path<Strin
     if let Some(song) = song {
         for path in song_files(&state, &song) {
             if let Err(error) = std::fs::remove_file(&path) {
-                eprintln!("[ERROR] delete song {id}: could not remove {}: {error}", path.display());
+                studio_log!("[ERROR] delete song {id}: could not remove {}: {error}", path.display());
                 left.push(format!("{}: {error}", plain_path(&path)));
             }
         }
@@ -4947,7 +4953,7 @@ fn put_the_engine_folder_on_path() {
         let existing = env::var_os("PATH").unwrap_or_default();
         match path_with_first(&folder, &existing) {
             Some(path) => unsafe { env::set_var("PATH", path) },
-            None => eprintln!("[ERROR] {} cannot go on PATH; the Visual C++ runtime beside the engine is not found through it", folder.display()),
+            None => studio_log!("[ERROR] {} cannot go on PATH; the Visual C++ runtime beside the engine is not found through it", folder.display()),
         }
     }
 }
@@ -4975,7 +4981,7 @@ fn engine_location(options: EngineOptions) -> music_engine::server::ServerLocati
         adapters_root: studio_data_root().map(|root| root.join("adapters")).filter(|folder| match std::fs::create_dir_all(folder) {
             Ok(()) => true,
             Err(error) => {
-                eprintln!("[ERROR] the adapter folder {} cannot be created, the engine starts without adapters: {error}", folder.display());
+                studio_log!("[ERROR] the adapter folder {} cannot be created, the engine starts without adapters: {error}", folder.display());
                 false
             }
         }),
@@ -5372,7 +5378,7 @@ fn start_hub() -> Option<studio_hub_client::Hub> {
             Some(hub)
         }
         Err(error) => {
-            eprintln!("[ERROR] Studio Hub is off for this run, its state file cannot be read: {error}");
+            studio_log!("[ERROR] Studio Hub is off for this run, its state file cannot be read: {error}");
             None
         }
     }
@@ -5676,7 +5682,7 @@ async fn assistant_ready(config: AssistantConfig, runtime: assistant_runtime::Ru
         return assistant_available(&config, &runtime);
     }
     tokio::task::spawn_blocking(move || assistant_available(&config, &runtime)).await.unwrap_or_else(|error| {
-        eprintln!("[ERROR] detecting the agent CLIs stopped: {error}");
+        studio_log!("[ERROR] detecting the agent CLIs stopped: {error}");
         false
     })
 }
@@ -5957,7 +5963,7 @@ async fn assistant_runtime_install(
             .collect();
         tokio::spawn(async move {
             if let Err(error) = runtime.install_all(&ids).await {
-                eprintln!("the assistant could not be installed: {error}");
+                studio_log!("the assistant could not be installed: {error}");
             }
         });
         return Ok(Json(state.assistant_runtime.status().await));
@@ -6192,7 +6198,7 @@ async fn karaoke_install(
         let sync = state.lyrics_sync.clone();
         tokio::spawn(async move {
             if let Err(error) = sync.downloader().install_all("karaoke", &set).await {
-                eprintln!("the karaoke recogniser could not be installed: {error}");
+                studio_log!("the karaoke recogniser could not be installed: {error}");
             }
         });
         return Ok(Json(state.lyrics_sync.status(&config).await));
@@ -7028,7 +7034,7 @@ async fn install_midi(State(state): State<AppState>, Json(input): Json<MidiSizeR
         match transcriber.downloader().install_all("midi", &missing).await {
             Ok(_) if transcriber.tool_installed() => transcriber.remove_older_tools(),
             Ok(_) => {}
-            Err(error) => eprintln!("[ERROR] midi: download failed: {error:#}"),
+            Err(error) => studio_log!("[ERROR] midi: download failed: {error:#}"),
         }
     });
     Ok(Json(serde_json::json!({ "started": true, "size": size.id })))
@@ -8061,7 +8067,7 @@ async fn submit_music_job(state: AppState, request: CreateMusicJobRequest, attem
     // kept at once, so a song the studio is closed on is not lost
     let stored_request = serde_json::to_value(&request).unwrap_or(Value::Null);
     if let Err(error) = state.library.save_music_job(&stored_job(&job, stored_request, attempt)) {
-        eprintln!("[ERROR] the song's request could not be kept: {error:#}");
+        studio_log!("[ERROR] the song's request could not be kept: {error:#}");
     }
     let run = AceRun {
         job_id: job.id.clone(),
@@ -8280,6 +8286,7 @@ async fn run_ace_job(state: AppState, run: AceRun) {
     let parts_at_start = state.selected_component_ids.read().await.clone().unwrap_or_default();
     // timed only when nothing else held the engine: a song waiting its turn would read as a slow card
     let alone = !another_job_under_way(&state, &job_id).await;
+    studio_log!("[song {job_id}] started");
     let started = std::time::Instant::now();
     let outcome = {
         let _using = state.engine_use.read().await;
@@ -8349,6 +8356,10 @@ async fn run_ace_job(state: AppState, run: AceRun) {
         let profiles: Vec<String> = job.songs.iter().filter_map(|made| made.song.profile_id.clone()).collect();
         (job_status_name(&job.status), job.message.clone(), job.songs.len(), profiles, songs_seconds(&job.songs))
     });
+    if let Some((status, message, songs, ..)) = ended.as_ref() {
+        let mark = if *status == "failed" { "[ERROR] " } else { "" };
+        studio_log!("{mark}[song {job_id}] {status} after {:.1} s, {songs} tracks: {message}", worked.as_secs_f64());
+    }
     if let Some(hub) = &state.hub {
         match ended.as_ref() {
             Some(("completed", _, songs, profiles, seconds)) if *songs > 0 => {
@@ -8380,7 +8391,7 @@ async fn run_ace_job(state: AppState, run: AceRun) {
         // a song that reached the library needs no record of its request any more
         let kept = if status == "completed" { state.library.forget_music_job(&job_id) } else { state.library.set_music_job_status(&job_id, status, &message) };
         if let Err(error) = kept {
-            eprintln!("[ERROR] the song's state could not be kept: {error:#}");
+            studio_log!("[ERROR] the song's state could not be kept: {error:#}");
         }
     }
 }
@@ -8875,7 +8886,7 @@ async fn submit_replay_job(state: AppState, request: ReplayMusicJobRequest, atte
     state.jobs.write().await.insert(job.id.clone(), job.clone());
     let stored_request = serde_json::json!({ "replay": serde_json::to_value(&request).unwrap_or(Value::Null) });
     if let Err(error) = state.library.save_music_job(&stored_job(&job, stored_request, attempt)) {
-        eprintln!("[ERROR] the re-render's request could not be kept: {error:#}");
+        studio_log!("[ERROR] the re-render's request could not be kept: {error:#}");
     }
     tokio::spawn(run_ace_job(state.clone(), AceRun { job_id: job.id.clone(), request: prepared, think: false, source_song_id, reference_song_id, fades }));
     Ok((StatusCode::ACCEPTED, Json(job)))
@@ -9020,7 +9031,7 @@ async fn cancel_music_job(
         job.cancel.store(true, std::sync::atomic::Ordering::SeqCst);
         // kept at once: a studio closed right after the stop must not start the song again
         if let Err(error) = state.library.set_music_job_status(&job_id, "cancelled", "Cancelled.") {
-            eprintln!("[ERROR] the stopped song's state could not be kept: {error:#}");
+            studio_log!("[ERROR] the stopped song's state could not be kept: {error:#}");
         }
         if let Some(engine_job) = &job.engine_job {
             state.music_server.cancel(engine_job).await.map_err(|error| {
