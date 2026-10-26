@@ -1207,7 +1207,7 @@ export const ru = {
     templateHint: 'Шаблон заполняет редактируемые описание и текст, не обращаясь ни к каким сервисам.',
     importAudioTab: 'Импорт',
     importAudioTitle: 'Импорт аудио в медиатеку',
-    importAudioHint: 'MP3, WAV, FLAC или OGG. Перетащите файлы сюда или выберите.',
+    importAudioHint: 'MP3, WAV, FLAC, Ogg, M4A, AAC, AIFF, CAF, MKA. Перетащите файлы сюда или выберите.',
     chooseFiles: 'Выбрать файлы',
     allSongs: 'Все песни',
     maxBatchHint: 'Больше одного трека за запрос требует увеличить --max-batch в Настройках → Локальный движок; движок отклоняет запросы сверх лимита.',

@@ -1203,7 +1203,7 @@ export const ja = {
     templateHint: 'テンプレートは編集可能な説明と歌詞を埋めます。どのサービスにも接続しません。',
     importAudioTab: 'インポート',
     importAudioTitle: 'ライブラリに音声をインポート',
-    importAudioHint: 'MP3、WAV、FLAC または OGG。ファイルをドロップするか選択してください。',
+    importAudioHint: 'MP3、WAV、FLAC、Ogg、M4A、AAC、AIFF、CAF、MKA。ファイルをドロップするか選択してください。',
     chooseFiles: 'ファイルを選択',
     allSongs: 'すべての曲',
     maxBatchHint: '1 リクエストで複数曲を生成するには、設定 → ローカルエンジンで --max-batch を上げる必要があります。超過したリクエストは拒否されます。',

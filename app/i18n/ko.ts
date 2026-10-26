@@ -1203,7 +1203,7 @@ export const ko = {
     templateHint: '템플릿은 편집 가능한 설명과 가사를 채우며 어떤 서비스에도 연결하지 않습니다.',
     importAudioTab: '가져오기',
     importAudioTitle: '라이브러리로 오디오 가져오기',
-    importAudioHint: 'MP3, WAV, FLAC 또는 OGG. 파일을 끌어다 놓거나 선택하세요.',
+    importAudioHint: 'MP3, WAV, FLAC, Ogg, M4A, AAC, AIFF, CAF, MKA. 파일을 끌어다 놓거나 선택하세요.',
     chooseFiles: '파일 선택',
     allSongs: '모든 곡',
     maxBatchHint: '요청당 여러 트랙을 생성하려면 설정 → 로컬 엔진에서 --max-batch 를 높여야 합니다. 초과 요청은 거부됩니다.',
