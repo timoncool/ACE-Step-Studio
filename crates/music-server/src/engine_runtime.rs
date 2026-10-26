@@ -462,6 +462,10 @@ mod tests {
                     if !matches!(extension.as_deref(), Some("exe" | "dll")) {
                         continue;
                     }
+                    // ONNX Runtime's archive carries its TensorRT provider, which the studio never registers
+                    if binary.file_name().is_some_and(|name| name.eq_ignore_ascii_case("onnxruntime_providers_tensorrt.dll")) {
+                        continue;
+                    }
                     // a tool resolves beside itself, then in the engine's folder on the studio's PATH
                     let missing = unresolved_in(&[folder.clone(), engine.clone()], &binary).expect("read the import tables");
                     checked += 1;
