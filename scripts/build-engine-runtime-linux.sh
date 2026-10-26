@@ -57,6 +57,8 @@ if command -v nvcc >/dev/null 2>&1; then
     [ -n "$cuda" ] || { echo "[ERROR] the CUDA build completed without libggml-cuda.so" >&2; exit 1; }
     mkdir -p "$output/cuda13"
     cp "$cuda" "$output/cuda13/"
+    # CMake appends the toolkit's library folder of this machine to the RUNPATH
+    patchelf --set-rpath '$ORIGIN:$ORIGIN/..' "$output/cuda13/libggml-cuda.so"
     # the CUDA libraries it names, by the loader's names (.so.13), with the ones those name in turn (cuBLAS -> cuBLASLt)
     cuda_lib="$cuda_root/targets/x86_64-linux/lib"
     [ -d "$cuda_lib" ] || cuda_lib="$cuda_root/lib64"
@@ -76,5 +78,12 @@ if command -v nvcc >/dev/null 2>&1; then
     backend="cuda13,vulkan"
 fi
 printf '{"commit":"%s","backend":"%s","platform":"linux"}\n' "$commit" "$backend" > "$output/runtime.json"
-readelf -d "$output/$server" | grep -iE 'runpath|rpath' || true
+for binary in "$output/$server" "$output"/*.so* "$output"/cuda13/*.so*; do
+    [ -f "$binary" ] || continue
+    if readelf -d "$binary" | grep -iE 'runpath|rpath' | grep -qE '(\[|:)/'; then
+        echo "[ERROR] $binary keeps an absolute RUNPATH:" >&2
+        readelf -d "$binary" | grep -iE 'runpath|rpath' >&2
+        exit 1
+    fi
+done
 echo "$server ($commit) built into $output"
