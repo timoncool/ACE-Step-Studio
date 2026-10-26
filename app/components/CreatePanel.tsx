@@ -19,6 +19,7 @@ import { apiUrl } from '../services/apiBase';
 import { SCHEDULERS, SOLVERS, readAudioCodes } from '../services/aceEngine';
 import { explainCliFailure } from '../services/cliFailure';
 import { AUDIO_ACCEPT } from '../services/audioFiles';
+import { genreGloss } from '../services/styleSuggestions';
 
 /**
  * The ACE-Step 1.5 request form.
@@ -280,7 +281,7 @@ const usesFromRequest = (settings: Record<string, unknown>): AdapterUse[] => {
 };
 
 export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerating, activeJobCount = 0, initialData, playlists, onCreatePlaylist, playlistId, onChoosePlaylist }) => {
-  const { t } = useI18n();
+  const { t, language: uiLanguage } = useI18n();
   const tt = t as unknown as (key: string) => string;
 
   const [name, setName] = useState(() => keptDraft().name ?? '');
@@ -1298,11 +1299,15 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
                   </Field>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  {genres.map(genre => (
-                    <button key={genre} type="button" onClick={() => setCaption(current => (current.trim() ? `${current.trim().replace(/,$/, '')}, ${genre}` : genre))} className="rounded-full border border-zinc-200 bg-zinc-100 px-2.5 py-1 text-[10px] font-medium text-zinc-600 hover:border-pink-300 hover:text-pink-600 dark:border-white/5 dark:bg-white/5 dark:text-zinc-400">
-                      {genre}
-                    </button>
-                  ))}
+                  {genres.map(genre => {
+                    const gloss = genreGloss(genre, uiLanguage);
+                    return (
+                      <button key={genre} type="button" title={gloss} onClick={() => setCaption(current => (current.trim() ? `${current.trim().replace(/,$/, '')}, ${genre}` : genre))} className="rounded-full border border-zinc-200 bg-zinc-100 px-2.5 py-1 text-[10px] font-medium text-zinc-600 hover:border-pink-300 hover:text-pink-600 dark:border-white/5 dark:bg-white/5 dark:text-zinc-400">
+                        {genre}
+                        {gloss && <span className="ml-1 font-normal text-zinc-400 dark:text-zinc-500">{gloss}</span>}
+                      </button>
+                    );
+                  })}
                   <button type="button" onClick={() => setGenres(someGenres())} className={ICON} title={tt('aceMoreGenres')}><Dices size={13} /></button>
                 </div>
               </Card>

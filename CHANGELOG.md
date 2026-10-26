@@ -38,6 +38,7 @@ What changed, newest first. Dates are release dates.
 ### Changed
 
 - **Engine updated from acestep.cpp upstream**: the latest ggml and the --device choice of the compute device; our fixes stay on top.
+- **The genre tags under the style show their meaning in Chinese** ([YuE2 Studio #152](https://github.com/timoncool/YuE2-Studio/issues/152)): the tags stay in English, the language the model reads its style in, and a window in Chinese shows each one's Chinese name beside it - dubstep 回响贝斯, cloud rap 云说唱. Another language gets its names from its own `examples/genres.<language>.txt`.
 
 ## 2026-10-21 — 3.7.0
 
