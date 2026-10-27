@@ -332,7 +332,7 @@ pub struct AceClient {
 impl AceClient {
     pub fn from_environment() -> Self {
         let base_url = std::env::var("STUDIO_ENGINE_URL")
-            .unwrap_or_else(|_| format!("http://127.0.0.1:{}", music_engine::server::default_port()))
+            .unwrap_or_else(|_| format!("http://127.0.0.1:{}", music_engine::server::engine_port()))
             .trim_end_matches('/')
             .to_owned();
         // The engine is on loopback: a connection takes microseconds when it

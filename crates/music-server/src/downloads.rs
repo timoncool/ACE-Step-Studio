@@ -501,7 +501,6 @@ impl Downloader {
         if progress.as_ref().is_some_and(|active| !active.done && active.error.is_none()) {
             bail!("another download is already running");
         }
-        // the panel reads the refusal from the progress, as it reads a download that failed
         if let Err(error) = self.ensure_space(&pending) {
             *progress = Some(DownloadProgress {
                 asset_id: if pending.len() == 1 { pending[0].id.to_string() } else { SET.to_string() },
@@ -631,7 +630,6 @@ impl Downloader {
             if progress.as_ref().is_some_and(|active| !active.done && active.error.is_none()) {
                 bail!("another download is already running");
             }
-            // the panel reads the refusal from the progress, as it reads a download that failed
             if let Err(error) = self.ensure_space(&[asset]) {
                 *progress = Some(DownloadProgress {
                     asset_id: asset.id.to_string(),
@@ -1190,8 +1188,15 @@ fn write_entry(entry: &mut impl io::Read, target: &Path, mode: Option<u32>) -> R
         if !target.is_file() {
             return Err(error).with_context(|| format!("publish {}", target.display()));
         }
-        crate::install_record::set_aside(target).with_context(|| format!("publish {}: {error}", target.display()))?;
-        fs::rename(&partial, target).with_context(|| format!("publish {}", target.display()))?;
+        let aside = crate::install_record::set_aside(target).with_context(|| format!("publish {}: {error}", target.display()))?;
+        if let Err(error) = fs::rename(&partial, target) {
+            // the earlier file goes back, so a failed replace leaves the program as it was
+            let restored = fs::rename(&aside, target);
+            return Err(error).with_context(|| match restored {
+                Ok(()) => format!("publish {}", target.display()),
+                Err(back) => format!("publish {} (the earlier file stays at {}: {back})", target.display(), aside.display()),
+            });
+        }
     }
     Ok(())
 }

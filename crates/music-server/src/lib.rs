@@ -831,6 +831,9 @@ pub async fn serve() -> anyhow::Result<()> {
         None => studio_log!("[ERROR] the studio has no data folder; its log goes to the console only"),
     }
     put_the_engine_folder_on_path();
+    if let Some(note) = music_engine::server::engine_port_note() {
+        studio_log!("{note}");
+    }
     let settings_path = studio_settings_path();
     let persisted = load_studio_settings(&settings_path);
     let proxy = persisted.as_ref().and_then(|settings| settings.proxy.clone()).unwrap_or_default();
@@ -4834,6 +4837,14 @@ fn lost_job_reason(log: &str) -> String {
             Some(error) => format!("The graphics card failed during this song ({error}){card} and the engine restarted, so the song was lost. The engine log is in Settings, Engine."),
             None => "The graphics card failed during this song (a CUDA or driver error) and the engine restarted, so the song was lost. The engine log is in Settings, Engine.".into(),
         }
+    } else if lowered.contains("cannot bind") {
+        let port = music_engine::server::engine_port();
+        if music_engine::server::engine_port_is_set() {
+            format!("The engine could not listen on port {port}, which STUDIO_ENGINE_PORT sets, so the song was lost: another program holds it. Close that program or set another port.")
+        } else {
+            let chosen = music_engine::server::engine_port_note().map(|note| format!(" (At start {note}.)")).unwrap_or_default();
+            format!("The engine could not listen on port {port}, so the song was lost: another program took the port after the studio chose it.{chosen} Restart the studio: it chooses a free port at start.")
+        }
     } else if lowered.contains("> max_seq") {
         "The language model ran out of room on this song: its KV cache (Settings, Engine, LM KV cache) is smaller than the song needs, and the engine stopped. Leave that field empty to use the model's own size, or set it higher.".into()
     } else {
@@ -4995,7 +5006,7 @@ fn engine_location(options: EngineOptions) -> music_engine::server::ServerLocati
             }
         }),
         host: env::var("STUDIO_ENGINE_HOST").ok(),
-        port: env::var("STUDIO_ENGINE_PORT").ok().and_then(|value| value.parse().ok()),
+        port: Some(music_engine::server::engine_port()),
         options: options.to_engine(),
     }
 }
@@ -9499,6 +9510,8 @@ mod tests {
         assert!(lost_job_reason(crashed).contains("(an instruction this processor does not have, exit code 0xc000001d)"), "{}", lost_job_reason(crashed));
         assert!(lost_job_reason(crashed).contains("its last line was [Ace-LM] FP16 clamp enabled."));
         assert!(lost_job_reason("[Server] listening").contains("stopped during this song"));
+        let taken = lost_job_reason("[Server] FATAL: cannot bind 127.0.0.1:8089");
+        assert!(taken.contains(&format!("could not listen on port {}", music_engine::server::engine_port())) && taken.contains("another program"), "{taken}");
     }
 
     #[test]

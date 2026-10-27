@@ -2,6 +2,12 @@
 
 What changed, newest first. Dates are release dates.
 
+## 2026-10-27 — 3.8.2
+
+### Fixed
+
+- **The engine starts when its port is taken or reserved**: the engine listens on port 8089, and when another program held it - or Windows had reserved it for Hyper-V, WSL or Docker - every song was lost with "cannot bind 127.0.0.1:8089". The studio now checks the port before the engine starts and, when it cannot have it, gives the engine a free one; the studio's log says which program held 8089 (its name and PID) or which reserved range it lies in.
+
 ## 2026-10-27 — 3.8.1
 
 ### Fixed
