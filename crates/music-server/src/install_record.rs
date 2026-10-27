@@ -162,6 +162,11 @@ pub fn set_aside(path: &Path) -> Result<PathBuf> {
     Ok(aside)
 }
 
+/// Whether a file name is one `set_aside` gives: the name, `ASIDE`, then a UUID's 32 hex digits at the end.
+fn set_aside_name(name: &str) -> bool {
+    name.rsplit_once(ASIDE).is_some_and(|(before, id)| !before.is_empty() && id.len() == 32 && id.bytes().all(|byte| byte.is_ascii_hexdigit()))
+}
+
 /// Removes what `set_aside` left under `root` in an earlier run, passing by the folders of the person's work.
 pub fn sweep_aside(root: &Path) {
     const WORK: [&str; 11] = ["media", "workspace", "processing", "voices", "skins", "logs", "frontend", "fonts", "recordings", "projects", "reports"];
@@ -174,7 +179,7 @@ pub fn sweep_aside(root: &Path) {
             if !WORK.contains(&name.as_str()) {
                 sweep_aside(&path);
             }
-        } else if kind.is_file() && name.contains(ASIDE) {
+        } else if kind.is_file() && set_aside_name(&name) {
             match fs::remove_file(&path) {
                 Ok(()) => studio_log!("removed {}, moved aside by an earlier update", path.display()),
                 Err(error) => studio_log!("[ERROR] {} was not removed: {error}", path.display()),
@@ -336,8 +341,13 @@ mod tests {
         assert!(!held.exists() && aside.exists() && aside.parent() == held.parent());
         let song = root.join("media").join(format!("song.flac{ASIDE}x"));
         fs::write(&song, b"song").unwrap();
+        let dataset = root.join("training").join("datasets").join("d1");
+        fs::create_dir_all(&dataset).unwrap();
+        let named_alike = dataset.join("0-My.stale-mix.wav");
+        fs::write(&named_alike, b"song").unwrap();
         sweep_aside(&root);
         assert!(!aside.exists(), "removed at the next start");
         assert!(song.exists(), "the person's work is not swept");
+        assert!(named_alike.exists(), "only the names set_aside gives are swept");
     }
 }

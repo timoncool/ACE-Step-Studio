@@ -145,8 +145,9 @@ fn heard_words(transcript: &acpp_server::Transcript) -> Vec<(f64, String)> {
     transcript
         .words
         .iter()
-        // a segment's end is the next one's start: a word there belongs to the next
-        .filter(|word| !made_up.iter().any(|(start, end)| word.start >= *start && (word.start < *end || start == end)))
+        // a segment's end is the next one's start: a word there belongs to the next; a segment of no length holds
+        // only a word at its very time
+        .filter(|word| !made_up.iter().any(|(start, end)| if start == end { word.start == *start } else { word.start >= *start && word.start < *end }))
         .map(|word| (word.start, word.text.clone()))
         .collect()
 }
@@ -1930,6 +1931,13 @@ mod tests {
             segments: vec![span("[Music]", 0.0, 5.2), span(" Тьма во", 5.2, 6.0)],
         };
         assert_eq!(heard_words(&touching).len(), 2, "the first word of the line after a filler is sung");
+        let instant = acpp_server::Transcript {
+            text: String::new(),
+            language: Some("ru".into()),
+            words: vec![word("Тьма", 12.5), word("во", 20.0), word("мне", 40.0)],
+            segments: vec![span("[Music]", 12.0, 12.0), span(" Тьма во мне", 12.5, 41.0)],
+        };
+        assert_eq!(heard_words(&instant).len(), 3, "a filler of no length takes no later word");
     }
 
     // The releases every runtime download is pinned to.

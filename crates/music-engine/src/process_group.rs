@@ -170,8 +170,10 @@ pub fn release_children() -> bool {
 pub fn terminate_group_members() {
     unsafe {
         if libc::getpgrp() == libc::getpid() {
-            libc::signal(libc::SIGTERM, libc::SIG_IGN);
+            let earlier = libc::signal(libc::SIGTERM, libc::SIG_IGN);
             libc::killpg(libc::getpgrp(), libc::SIGTERM);
+            // an ignored signal is dropped when sent, so the earlier disposition can come back: what starts after inherits it
+            libc::signal(libc::SIGTERM, if earlier == libc::SIG_ERR { libc::SIG_DFL } else { earlier });
         }
     }
 }

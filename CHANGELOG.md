@@ -2,6 +2,15 @@
 
 What changed, newest first. Dates are release dates.
 
+## 2026-10-27 — 3.8.1
+
+### Fixed
+
+- **Karaoke keeps the words of a song with a "[Music]" mark**: when the recogniser marked a filler of no length - "[Music]" at a single moment, often at the start - 3.8.0 dropped every word sung after it, and the song got no timings ("no sung words"); such a mark now takes only a word at its very moment.
+- **A file of yours named like a set-aside one stays**: 3.8.0 removed at start every file whose name held ".stale-", a dataset recording among them; only the names an update gives the files it moves aside are removed now.
+- **A download refused for want of room says so where it was asked for**: the drive check ran before the download's progress began, so the panel kept its button as if nothing had happened; the refusal now shows in the panel's progress, as a failed download does.
+- **A Studio Hub popup stays until it is closed**: one on screen left when a song started being made and came back afterwards, counted as shown again.
+
 ## 2026-10-27 — 3.8.0
 
 ### Fixed
