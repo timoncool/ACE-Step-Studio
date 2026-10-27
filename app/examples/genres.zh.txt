@@ -1,0 +1,105 @@
+16-bit	16 位芯片音乐
+2-step	二步舞曲（英国车库）
+acid house	迷幻浩室
+acid techno	迷幻铁克诺
+acid trance	迷幻恍惚
+acoustic chicago blues	原声芝加哥布鲁斯
+acoustic rock	原声摇滚
+acoustic texas blues	原声德州布鲁斯
+african folk	非洲民谣
+afrikaner folk	南非荷裔民谣
+afro house	非洲浩室
+afro trap	非洲陷阱说唱
+afro-cuban jazz	非洲古巴爵士
+afro-funk	非洲放克
+afro-jazz	非洲爵士
+afro-rock	非洲摇滚
+afrobeat	非洲节拍
+afropiano	非洲钢琴（Amapiano）
+afroswing	非洲摇摆
+algorave	算法锐舞
+alternative r &b	另类节奏布鲁斯
+alternative rock	另类摇滚
+ambient techno	氛围铁克诺
+anti-folk	反民谣
+avant-garde jazz	先锋爵士
+bachata	巴恰塔
+bedroom pop	卧室流行
+bluegrass	蓝草音乐
+blues rock	布鲁斯摇滚
+boogie	布吉
+bossa nova	波萨诺瓦
+bubblegum bass	泡泡糖贝斯
+bubblegum dance	泡泡糖舞曲
+cabaret	卡巴莱
+cajun	卡津音乐
+cape verdean	佛得角音乐
+caribbean	加勒比风
+carnatic	卡纳提克（南印度古典）
+celtic	凯尔特
+chanson	法国香颂
+chillstep	舒缓回响贝斯
+chillsynth	舒缓合成器
+classical	古典
+cloud rap	云说唱
+coptic	科普特音乐
+cumbia	昆比亚
+dance	舞曲
+dancehall	舞厅雷鬼
+dancepop	舞曲流行
+dembow	登博节奏
+dirty south	南方说唱
+dream pop	梦幻流行
+drill	钻头说唱
+dubstep	回响贝斯
+edm	电子舞曲
+egyptian	埃及风
+garage	车库
+gnawa	格纳瓦
+goa trance	果阿恍惚
+grime	污垢说唱（Grime）
+griot	格里奥（西非说唱诗人）
+grunge	垃圾摇滚
+hip hop	嘻哈
+house	浩室
+hyphy	海菲（湾区说唱）
+illbient	暗黑氛围
+indie	独立
+jazz	爵士
+jungle	丛林
+k-pop	韩国流行
+kawaii future bass	可爱未来贝斯
+klezmer	克莱兹默
+liquid drum and bass	液态鼓打贝斯
+mariachi	墨西哥流浪乐队
+math rock	数学摇滚
+merengue	梅伦格
+motown	摩城
+new jack swing	新杰克摇摆
+new wave	新浪潮
+p-funk	P 放克
+pacific reggae	太平洋雷鬼
+polka	波尔卡
+pop	流行
+raga	拉格（印度调式）
+rap	说唱
+reggae	雷鬼
+rock	摇滚
+rockabilly	山区乡村摇滚
+rumba	伦巴
+salsa	萨尔萨
+samba	桑巴
+ska	斯卡
+soul	灵魂乐
+southern rock	南方摇滚
+surf	冲浪音乐
+surf rock	冲浪摇滚
+swamp blues	沼泽布鲁斯
+swing	摇摆
+symphonic metal	交响金属
+synthpop	合成器流行
+synthwave	合成器浪潮
+tango	探戈
+trance	恍惚
+trap	陷阱说唱
+tuareg	图阿雷格音乐

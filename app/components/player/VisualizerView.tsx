@@ -21,7 +21,7 @@ export type { VisualizerEngine };
 const SPECTRUM_LOOKS: { id: string; options: ConstructorOptions }[] = [
   { id: 'winamp', options: { mode: 6, gradient: 'classic', barSpace: 0.2, showPeaks: true, ledBars: false, reflexRatio: 0 } },
   { id: 'led', options: { mode: 3, gradient: 'classic', ledBars: true, trueLeds: true, showPeaks: true, reflexRatio: 0 } },
-  { id: 'hifi', options: { mode: 8, gradient: 'classic', ledBars: true, trueLeds: true, barSpace: 0.3, showScaleX: true, reflexRatio: 0 } },
+  { id: 'hifi', options: { mode: 8, gradient: 'classic', ledBars: true, trueLeds: true, barSpace: 0.3, showScaleX: true, maxFreq: 22000, reflexRatio: 0 } },
   { id: 'rainbow', options: { mode: 5, gradient: 'rainbow', barSpace: 0.1, reflexRatio: 0.3, reflexAlpha: 0.25 } },
   { id: 'radial', options: { mode: 4, gradient: 'prism', radial: true, spinSpeed: 1, reflexRatio: 0 } },
   { id: 'mirror', options: { mode: 6, gradient: 'orangered', mirror: -1, reflexRatio: 0.5, reflexAlpha: 0.3 } },
@@ -29,6 +29,13 @@ const SPECTRUM_LOOKS: { id: string; options: ConstructorOptions }[] = [
   { id: 'stereo', options: { mode: 5, gradient: 'prism', channelLayout: 'dual-vertical', barSpace: 0.15, reflexRatio: 0 } },
   { id: 'lumi', options: { mode: 4, gradient: 'rainbow', lumiBars: true, reflexRatio: 0 } },
   { id: 'discrete', options: { mode: 0, gradient: 'prism', frequencyScale: 'log', reflexRatio: 0 } },
+  {
+    id: 'analyzer',
+    options: {
+      mode: 10, gradient: 'steelblue', lineWidth: 1.5, fillAlpha: 0.15, minFreq: 20, maxFreq: 22000, fftSize: 16384, smoothing: 0.5,
+      showScaleX: true, showScaleY: true, minDecibels: -100, maxDecibels: -10, showPeaks: true, peakLine: true, reflexRatio: 0,
+    },
+  },
 ];
 
 const BASE: ConstructorOptions = {
@@ -48,6 +55,10 @@ const BASE: ConstructorOptions = {
   lumiBars: false,
   channelLayout: 'single',
   frequencyScale: 'log',
+  fftSize: 8192,
+  minDecibels: -85,
+  maxDecibels: -25,
+  peakLine: false,
 };
 
 let milkdropPresets: Promise<[string, object][]> | null = null;

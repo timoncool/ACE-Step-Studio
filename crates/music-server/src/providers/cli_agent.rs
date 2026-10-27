@@ -1008,7 +1008,7 @@ fn quote_for_cmd(arg: &std::ffi::OsString) -> std::ffi::OsString {
 /// `/s` cmd takes off only the outer pair of quotes, so the shim path and every quoted argument reach the script as
 /// written, where Rust's own quoting would escape those quotes a second time.
 fn command_line(resolved: &ResolvedCli, args: &[std::ffi::OsString]) -> std::process::Command {
-    let mut command = std::process::Command::new(&resolved.program);
+    let mut command = dub_core::proc::host_command(&resolved.program);
     #[cfg(windows)]
     if resolved.via_shell {
         use std::os::windows::process::CommandExt;

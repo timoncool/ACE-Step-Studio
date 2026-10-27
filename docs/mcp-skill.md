@@ -147,7 +147,7 @@ trigger word in the caption.
    `dataset_add_folder` with the folder.
 3. `dataset_prepare` with `lyrics: missing, style: missing, writer: agent`, then
    `studio_wait until: preparation`. The studio finds the lyrics in LRCLIB, QQ Music and
-   Kugou, recognises only what they miss with Whisper, and has MOSS-Music describe every
+   Kugou, recognises only what they miss with CrisperWhisper, and has MOSS-Music describe every
    song by ear with the tempo and key measured. It leaves the lyric layout to you.
 4. `dataset_get`. For each song:
    - `lyrics_state: found` - the words are there (from a database when `lyrics_source`
@@ -226,8 +226,8 @@ move around. Check the result with `ui_screenshot`.
 - **settings**: `settings_get`, `settings_set`.
 - **network**: `network_proxy_get`, `network_proxy_set` (no proxy, the system's or your own), `network_proxy_test`, `network_access_get`, `network_access_set` (opening the studio from other computers, a new key).
 - **journal**: `journal_read` (the Activity page), `journal_clear`, `journal_remove`.
-- **models**: `models_status`, `models_catalog`, `models_download`, `models_adopt` (files already on disk), `models_select`, `models_cancel_download`, `models_remove`.
-- **engine**: `engine_options_get`, `engine_options_set`, `engine_restart`, `engine_presets_get`, `engine_preset_apply`, `engine_logs`.
+- **models**: `models_status`, `models_catalog`, `models_download`, `models_adopt` (files already on disk), `models_select`, `models_cancel_download`, `models_remove`, `models_update_plan` (what this release updates, adds and no longer needs, with the reasons: the update screen), `models_update_apply` (its button: downloads, then removes what former releases left), `models_update_later` (its «Later»).
+- **engine**: `engine_options_get`, `engine_options_set`, `engine_restart`, `engine_presets_get`, `engine_preset_apply`, `engine_logs`, `diagnostics_get` (the diagnostics and their text for an issue), `diagnostics_report` (a bug-report zip in the data folder's reports).
 - **song**: `song_defaults` (what a field left out becomes), `song_create` (playlist_id puts the made songs into a playlist), `song_plan` (ACE-Step's planner), `song_understand` (listen to a library song), `song_job_get`, `song_jobs_list`, `song_job_cancel`, `song_replay`.
 - **writing**: `writing_guide`, `writing_examples`.
 - **assistant**: `assistant_requests_wait`, `assistant_request_answer` (when you are the assistant), `assistant_sections`, `assistant_write`, `assistant_status`, `assistant_set`, `assistant_local_models`, `assistant_cli_agents` (Claude Code, Codex, opencode, Antigravity, Muse Code: installed or how to install), `assistant_runtime`, `assistant_model_install`, `assistant_model_remove`, `assistant_cancel_download`, `assistant_start`, `assistant_stop`.

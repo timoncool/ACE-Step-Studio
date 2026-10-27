@@ -5,6 +5,7 @@ import { useI18n } from '../context/I18nContext';
 import { ConfirmDialog } from './ConfirmDialog';
 import { StemPlayer } from './StemPlayer';
 import { TrainingGuide } from './TrainingGuide';
+import { AUDIO_ACCEPT } from '../services/audioFiles';
 import {
   Dataset,
   DatasetItem,
@@ -207,7 +208,7 @@ const PackCard: React.FC<{ state: TrainingState; onError: (message: string) => v
       <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{t('trainingSetupNeeds').replace('{size}', gigabytes(total)).replace('{vram}', String(state.min_vram_gb))}</p>
       {!state.card_trains && (
         <p role="note" className="mt-2 text-sm text-amber-700 dark:text-amber-300">
-          {state.card_needs === 'driver' ? t('trainingNeedsDriver').replace('{driver}', String(state.trainer_driver ?? '')) : t('trainingNeedsNvidia')}
+          {state.card_needs === 'driver' ? t('trainingNeedsDriver').replace('{driver}', String(state.trainer_driver ?? '')) : state.card_needs === 'platform' ? t('trainingNeedsWindows') : t('trainingNeedsNvidia')}
         </p>
       )}
       <ul className="mt-3 space-y-1.5">
@@ -352,9 +353,9 @@ const separateOnCard = async () => {
   if (!response.ok) throw new Error(`Separation: HTTP ${response.status}`);
 };
 
-/** Turns on the recogniser dataset lyrics need: Whisper large-v3, fetched on its first use. */
+/** Turns on the recogniser dataset lyrics need: CrisperWhisper, fetched on its first use. */
 const enableRecogniser = () =>
-  fetch('/v1/karaoke/status', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: true, provider: 'whisper', whisper_model: 'whisper-large-v3' }) }).then(response => {
+  fetch('/v1/karaoke/status', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: true, provider: 'whisper' }) }).then(response => {
     if (!response.ok) throw new Error(`Karaoke: HTTP ${response.status}`);
     karaokeStatusChanged();
   });
@@ -418,7 +419,7 @@ const DropZone: React.FC<{ onPicked: (files: PickedFile[]) => void; disabled?: b
         <button type="button" onClick={() => fileInput.current?.click()} className={OUTLINE}><Music size={13} />{t('trainingDropFiles')}</button>
       </div>
       <input ref={folderInput} type="file" multiple className="hidden" onChange={event => { take(pickedFromInput(event.target.files)); event.target.value = ''; }} />
-      <input ref={fileInput} type="file" multiple accept="audio/*,.wav,.mp3,.flac,.ogg,.m4a,.aiff,.aif,.txt,.lrc,.cue" className="hidden" onChange={event => { take(pickedFromInput(event.target.files)); event.target.value = ''; }} />
+      <input ref={fileInput} type="file" multiple accept={`${AUDIO_ACCEPT},.txt,.lrc,.cue`} className="hidden" onChange={event => { take(pickedFromInput(event.target.files)); event.target.value = ''; }} />
     </div>
   );
 };
@@ -1028,7 +1029,7 @@ const RunCard: React.FC<{ run: TrainingRun; epochs: boolean; onChanged: () => vo
       )}
       {running && run.device && !onCpu && <p className="mt-1.5 text-[11px] text-zinc-500">{t('trainingOnDevice').replace('{device}', run.device)}</p>}
       {onCpu && <p role="alert" className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">{t('trainingOnCpuWarning')}</p>}
-      {running && !onCpu && cardFull && <p role="alert" className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">{t('trainingCardFullWarning')}</p>}
+      {running && !onCpu && cardFull && <p role="alert" className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">{t('trainingCardFullWarning').replace('{size}', t(run.recipe.adapter === 'lokr' ? 'trainingField_lokr_dim' : 'trainingField_rank'))}</p>}
 
       {run.checkpoints.length > 0 && (
         <div className="mt-3">

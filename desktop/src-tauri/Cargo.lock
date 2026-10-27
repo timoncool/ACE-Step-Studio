@@ -3,6 +3,22 @@
 version = 4
 
 [[package]]
+name = "acpp-server"
+version = "2.0.0"
+source = "git+https://github.com/timoncool/dub-studio?rev=d7d3f7600ff23c25ba497a1636002e429b571641#d7d3f7600ff23c25ba497a1636002e429b571641"
+dependencies = [
+ "base64 0.23.1",
+ "dub-core",
+ "dub-tcpp",
+ "hound",
+ "libc",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -883,7 +899,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d045de693cb712d0b22c6a64be5b953f67b3ce00ab5ad3dd5d8b441886ab8e1a"
 dependencies = [
  "quote",
- "syn 3.0.6",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -1211,7 +1227,7 @@ dependencies = [
 [[package]]
 name = "dub-core"
 version = "2.0.0"
-source = "git+https://github.com/timoncool/dub-studio?rev=b8581e3555c2cab047b1b5d4418a7ec2f9c3095c#b8581e3555c2cab047b1b5d4418a7ec2f9c3095c"
+source = "git+https://github.com/timoncool/dub-studio?rev=d7d3f7600ff23c25ba497a1636002e429b571641#d7d3f7600ff23c25ba497a1636002e429b571641"
 dependencies = [
  "libc",
  "serde",
@@ -1221,17 +1237,18 @@ dependencies = [
 [[package]]
 name = "dub-sep"
 version = "2.0.0"
-source = "git+https://github.com/timoncool/dub-studio?rev=b8581e3555c2cab047b1b5d4418a7ec2f9c3095c#b8581e3555c2cab047b1b5d4418a7ec2f9c3095c"
+source = "git+https://github.com/timoncool/dub-studio?rev=d7d3f7600ff23c25ba497a1636002e429b571641#d7d3f7600ff23c25ba497a1636002e429b571641"
 dependencies = [
  "dub-core",
- "hound",
  "thiserror 2.0.21",
+ "tracing",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
 name = "dub-tcpp"
 version = "2.0.0"
-source = "git+https://github.com/timoncool/dub-studio?rev=e3373d99a4830f8fe068713685f7b807e373c29e#e3373d99a4830f8fe068713685f7b807e373c29e"
+source = "git+https://github.com/timoncool/dub-studio?rev=d7d3f7600ff23c25ba497a1636002e429b571641#d7d3f7600ff23c25ba497a1636002e429b571641"
 dependencies = [
  "libloading 0.9.0",
 ]
@@ -3042,6 +3059,7 @@ name = "music-engine"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "dub-core",
  "libc",
  "music-core",
  "serde",
@@ -3054,6 +3072,7 @@ dependencies = [
 name = "music-server"
 version = "0.1.0"
 dependencies = [
+ "acpp-server",
  "anyhow",
  "audio-post",
  "axum",
@@ -3061,6 +3080,7 @@ dependencies = [
  "chrono",
  "dicebear-core",
  "dicebear-styles",
+ "dub-core",
  "dub-sep",
  "dub-tcpp",
  "encoding_rs",
@@ -3072,6 +3092,7 @@ dependencies = [
  "http",
  "hyper-util",
  "include_dir",
+ "libc",
  "lofty",
  "lzma-rust2",
  "music-core",
@@ -5067,11 +5088,14 @@ dependencies = [
  "symphonia-bundle-flac",
  "symphonia-bundle-mp3",
  "symphonia-codec-aac",
+ "symphonia-codec-adpcm",
  "symphonia-codec-alac",
  "symphonia-codec-pcm",
  "symphonia-codec-vorbis",
  "symphonia-core",
+ "symphonia-format-caf",
  "symphonia-format-isomp4",
+ "symphonia-format-mkv",
  "symphonia-format-ogg",
  "symphonia-format-riff",
  "symphonia-metadata",
@@ -5109,6 +5133,16 @@ dependencies = [
  "lazy_static",
  "log",
  "symphonia-common",
+ "symphonia-core",
+]
+
+[[package]]
+name = "symphonia-codec-adpcm"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "445932ecb0c59362fde9c082dd63a75380650c5077fdb8b80b8cac850442a74c"
+dependencies = [
+ "log",
  "symphonia-core",
 ]
 
@@ -5171,6 +5205,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "symphonia-format-caf"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab64327ee1920531c5bf86cf7e9cd1a599d57013ddc30691da62683cefc65191"
+dependencies = [
+ "log",
+ "symphonia-common",
+ "symphonia-core",
+]
+
+[[package]]
 name = "symphonia-format-isomp4"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5180,6 +5225,18 @@ dependencies = [
  "symphonia-common",
  "symphonia-core",
  "symphonia-metadata",
+]
+
+[[package]]
+name = "symphonia-format-mkv"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d015c5c0558864665894b3f4cbd95e10abb01b9c868e751c72670f326a56360e"
+dependencies = [
+ "lazy_static",
+ "log",
+ "symphonia-common",
+ "symphonia-core",
 ]
 
 [[package]]

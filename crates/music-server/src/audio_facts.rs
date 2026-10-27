@@ -96,7 +96,7 @@ fn session(model: &Path, card: Option<crate::lyrics_sync::OnnxCard>) -> Result<(
     if took {
         match on_card.commit_from_file(model) {
             Ok(session) => return Ok((session, true)),
-            Err(error) => eprintln!("[ERROR] the card could not load {}, the processor measures instead: {error}", model.display()),
+            Err(error) => studio_log!("[ERROR] the card could not load {}, the processor measures instead: {error}", model.display()),
         }
     }
     let session = builder.commit_from_file(model).with_context(|| format!("load {}", model.display()))?;

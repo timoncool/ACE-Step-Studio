@@ -1,5 +1,41 @@
 [
   {
+    "id": "ace-step-studio-3-8-0",
+    "date": "2026-10-27",
+    "title": {
+      "en": "ACE-Step Studio 3.8.0",
+      "ru": "ACE-Step Studio 3.8.0",
+      "zh": "ACE-Step Studio 3.8.0",
+      "ja": "ACE-Step Studio 3.8.0",
+      "ko": "ACE-Step Studio 3.8.0"
+    },
+    "body": {
+      "en": "Karaoke on CrisperWhisper, an update screen that says what changes, an Analyzer spectrum, and the most frequent failures of 3.7.0 fixed.\n\n- **The compute device chosen in Settings is used again,** and the engine tests the card when it starts: \"GGML_BACKEND=CUDA0 not found\" is gone.\n- **A failed song names its cause:** a crash, the computer's memory, a LoRA made for the other DiT, a source over 10 minutes - instead of \"its log names no cause\".\n- **No more silence passed off as a song,** a long cover no longer runs the card out of memory in the VAE, and a data folder in any alphabet works.\n- **Karaoke hears with CrisperWhisper 2.0 turbo** on audio.cpp's server, with a time for every word.\n- **The update screen:** the first start says what this version updates, adds and no longer needs, with the space it frees; one button does it all.\n- **Every download is checked against its publisher's hash,** fails fast and names the server it cannot reach, and offers HF-Mirror when Hugging Face does not answer.\n- **An Analyzer spectrum** with Hz and dB scales up to 22 kHz, diagnostics with a bug-report pack, more audio formats, and the Library's details beside the list.\n\nThe whole list is in News.",
+      "ru": "Караоке на CrisperWhisper, экран обновления, который говорит, что меняется, спектр «Анализ» и самые частые сбои 3.7.0 исправлены.\n\n- **Устройство, выбранное в настройках, снова работает,** а движок проверяет карту при запуске: ошибки «GGML_BACKEND=CUDA0 not found» больше нет.\n- **Песня, которая не вышла, называет причину:** сбой движка, нехватка памяти компьютера, LoRA для другого DiT, исходник длиннее 10 минут - вместо «в логе нет причины».\n- **Тишина больше не выдаётся за песню,** длинный кавер не переполняет карту в VAE, папка данных с любыми буквами работает.\n- **Караоке слушает CrisperWhisper 2.0 turbo** на сервере audio.cpp, со временем каждого слова.\n- **Экран обновления:** при первом запуске студия показывает, что эта версия обновит, добавит и уберёт, и сколько места освободится; одна кнопка делает всё.\n- **Каждая закачка сверяется с хешем издателя,** быстро сдаётся и называет сервер, до которого нет связи, и предлагает HF-Mirror, когда Hugging Face не отвечает.\n- **Спектр «Анализ»** со шкалами Гц и дБ до 22 кГц, диагностика с архивом для отчёта об ошибке, больше аудиоформатов, сведения о песне рядом со списком в Медиатеке.\n\nПолный список — в «Новостях».",
+      "zh": "卡拉OK 改用 CrisperWhisper，新增说明变化的更新界面和「分析」频谱，并修复了 3.7.0 最常见的故障。\n\n- **设置中选择的计算设备重新生效，**引擎启动时会测试显卡：「GGML_BACKEND=CUDA0 not found」已消失。\n- **失败的歌曲会说明原因：**引擎崩溃、电脑内存不足、为另一种 DiT 训练的 LoRA、超过 10 分钟的源音频，不再是「日志中没有原因」。\n- **不再把静音当作歌曲，**较长的翻唱不再在 VAE 中耗尽显存，任何文字的数据文件夹都能使用。\n- **卡拉OK 使用 CrisperWhisper 2.0 turbo** 在 audio.cpp 服务器上识别，每个词都有时间。\n- **更新界面：**首次启动时列出本版本更新、新增和不再需要的内容及释放的空间，一个按钮全部完成。\n- **每个下载都按发布者公布的哈希校验，**连不上时很快放弃并说明是哪个服务器，Hugging Face 无响应时提供 HF-Mirror。\n- **「分析」频谱**带 Hz 和 dB 刻度，最高 22 kHz；诊断与错误报告包、更多音频格式、媒体库中详情显示在列表旁。\n\n完整列表见「新闻」。",
+      "ja": "カラオケは CrisperWhisper に、変更内容を伝える更新画面、アナライザースペクトル、そして 3.7.0 で多かった不具合を修正。\n\n- **設定で選んだ計算デバイスが再び使われます。**エンジンは起動時にカードをテストします：「GGML_BACKEND=CUDA0 not found」は解消。\n- **失敗した曲は原因を示します：**エンジンのクラッシュ、PC のメモリ不足、別の DiT 用の LoRA、10 分を超える元音源 -「ログに原因がない」ではなく。\n- **無音が曲として扱われなくなりました。**長いカバーで VAE がカードのメモリを使い切ることもなく、どの文字のデータフォルダでも動作します。\n- **カラオケは CrisperWhisper 2.0 turbo** が audio.cpp サーバーで聞き取り、単語ごとの時間付き。\n- **更新画面：**初回起動時に、このバージョンで更新・追加・不要になるものと空く容量を表示し、ボタン一つで実行。\n- **すべてのダウンロードを配布元のハッシュで検証し、**つながらないときはすぐに諦めてサーバー名を示し、Hugging Face が応答しないときは HF-Mirror を提案します。\n- **アナライザー**スペクトル（Hz と dB の目盛り、22 kHz まで）、診断とバグ報告パック、対応音声形式の追加、ライブラリで一覧の横に詳細。\n\nすべての変更は「ニュース」に。",
+      "ko": "노래방은 CrisperWhisper로, 무엇이 바뀌는지 알려 주는 업데이트 화면, 분석기 스펙트럼, 그리고 3.7.0에서 가장 잦던 오류를 고쳤습니다.\n\n- **설정에서 고른 연산 장치를 다시 사용합니다.** 엔진은 시작할 때 카드를 시험합니다: \"GGML_BACKEND=CUDA0 not found\"가 사라졌습니다.\n- **실패한 곡은 원인을 알려 줍니다:** 엔진 충돌, 컴퓨터 메모리 부족, 다른 DiT용 LoRA, 10분이 넘는 원본 - \"로그에 원인이 없음\" 대신.\n- **무음을 곡으로 내놓지 않습니다.** 긴 커버가 VAE에서 카드 메모리를 넘치게 하지 않고, 어떤 문자의 데이터 폴더도 동작합니다.\n- **노래방은 CrisperWhisper 2.0 turbo**가 audio.cpp 서버에서 듣고, 단어마다 시간을 붙입니다.\n- **업데이트 화면:** 처음 실행할 때 이 버전이 업데이트·추가·정리하는 것과 확보되는 공간을 보여 주고, 버튼 하나로 처리합니다.\n- **모든 다운로드를 배포처의 해시로 확인하고,** 연결이 안 되면 빨리 포기하며 서버 이름을 알려 주고, Hugging Face가 응답하지 않으면 HF-Mirror를 제안합니다.\n- **분석기** 스펙트럼(Hz·dB 눈금, 22 kHz까지), 진단과 오류 보고 묶음, 더 많은 오디오 형식, 미디어 라이브러리에서 목록 옆의 상세 정보.\n\n전체 목록은 뉴스에 있습니다."
+    },
+    "tags": [
+      "ACE-Step",
+      "3.8.0"
+    ],
+    "links": [
+      {
+        "label": "YuE2 Studio",
+        "url": "https://timoncool.github.io/YuE2-Studio/"
+      },
+      {
+        "label": "MiniMax Music3 Studio",
+        "url": "https://timoncool.github.io/MiniMax-Music3-Studio/"
+      },
+      {
+        "label": "ACE-Step Studio",
+        "url": "https://timoncool.github.io/ACE-Step-Studio/"
+      }
+    ]
+  },
+  {
     "id": "ace-step-studio-3-7-0",
     "date": "2026-10-20",
     "title": {

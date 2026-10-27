@@ -28,13 +28,13 @@ use crate::downloads::{Asset, AssetKind, Downloader};
 pub const CUDA13_LIBRARIES: [&str; 2] = ["cublas64_13.dll", "cublasLt64_13.dll"];
 pub const CUDA12_LIBRARIES: [&str; 2] = ["cublas64_12.dll", "cublasLt64_12.dll"];
 
-/// The Visual C++ runtime the engine and ggml are compiled against, by the
-/// names in their import tables.
-pub const VC_RUNTIME_LIBRARIES: [&str; 4] =
-    ["vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll", "vcomp140.dll"];
+/// The Visual C++ runtime the engine, ggml and the ONNX Runtime the studio
+/// loads are compiled against, by the names in their import tables:
+/// onnxruntime.dll imports msvcp140_1.dll.
+pub const VC_RUNTIME_LIBRARIES: [&str; 5] =
+    ["vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll", "msvcp140_1.dll", "vcomp140.dll"];
 
 
-#[cfg(test)]
 pub const ASSETS: &[Asset] = &[CUBLAS13, CUBLAS12];
 
 const CUBLAS13: Asset = Asset {
@@ -154,6 +154,10 @@ impl EngineRuntime {
     /// Toolkit installation - downloads nothing: the engine inherits that path
     /// and finds them there.
     pub fn missing(&self, build: CudaBuild) -> Vec<&'static Asset> {
+        // off Windows the CUDA libraries ship beside the engine
+        if !cfg!(windows) {
+            return Vec::new();
+        }
         let asset = cublas_asset(build);
         if self.downloader.is_installed(asset) || asset.pick.iter().all(|library| is_on_the_search_path(library)) {
             return Vec::new();
@@ -193,7 +197,7 @@ fn is_on_the_search_path(library: &str) -> bool {
     std::env::split_paths(&path).any(|directory| directory.join(library).is_file())
 }
 
-/// The DLLs a Windows binary names in its import table.
+/// The DLLs a Windows binary names in its import table and its delay-load table.
 ///
 /// NVIDIA's deployment guide says to read this with `dumpbin /IMPORTS` and
 /// redistribute exactly what it lists, because the binary compatibility
@@ -220,10 +224,6 @@ pub fn imported_libraries(binary: &Path) -> Result<Vec<String>> {
     let optional = pe + 24;
     // 0x20b is PE32+, whose data directories start 16 bytes further in.
     let directories = optional + if short(optional)? == 0x20b { 112 } else { 96 };
-    let import_rva = at(directories + 8)?;
-    if import_rva == 0 {
-        return Ok(Vec::new());
-    }
 
     let headers: Vec<(u32, u32, u32)> = (0..sections)
         .map(|index| {
@@ -239,17 +239,25 @@ pub fn imported_libraries(binary: &Path) -> Result<Vec<String>> {
     };
 
     let mut names = Vec::new();
-    let mut entry = offset_of(import_rva).context("import table points outside the file")?;
-    loop {
-        let descriptor = data.get(entry..entry + 20).context("truncated import table")?;
-        if descriptor.iter().all(|byte| *byte == 0) {
-            break;
+    // (data directory, descriptor size, offset of the name's RVA in it): the import table (1) and the delay-load
+    // table (13), where a library loaded on first use is named.
+    for (directory, descriptor_size, name_field) in [(1usize, 20usize, 12usize), (13, 32, 4)] {
+        let table_rva = at(directories + directory * 8)?;
+        if table_rva == 0 {
+            continue;
         }
-        let name_rva = u32::from_le_bytes(descriptor[12..16].try_into().expect("four bytes"));
-        let start = offset_of(name_rva).context("an import name points outside the file")?;
-        let end = data[start..].iter().position(|byte| *byte == 0).context("unterminated import name")? + start;
-        names.push(String::from_utf8_lossy(&data[start..end]).into_owned());
-        entry += 20;
+        let mut entry = offset_of(table_rva).context("import table points outside the file")?;
+        loop {
+            let descriptor = data.get(entry..entry + descriptor_size).context("truncated import table")?;
+            if descriptor.iter().all(|byte| *byte == 0) {
+                break;
+            }
+            let name_rva = u32::from_le_bytes(descriptor[name_field..name_field + 4].try_into().expect("four bytes"));
+            let start = offset_of(name_rva).context("an import name points outside the file")?;
+            let end = data[start..].iter().position(|byte| *byte == 0).context("unterminated import name")? + start;
+            names.push(String::from_utf8_lossy(&data[start..end]).into_owned());
+            entry += descriptor_size;
+        }
     }
     Ok(names)
 }
@@ -263,6 +271,8 @@ fn is_provided_by_the_system(name: &str) -> bool {
         // The display driver's own library: NVIDIA's guide is explicit that
         // this one is never redistributed - the user installs a driver.
         || name == "nvcuda.dll"
+        // The Vulkan loader arrives with every display driver, AMD's and Intel's as NVIDIA's.
+        || name == "vulkan-1.dll"
         || [
             "kernel32.dll",
             "kernelbase.dll",
@@ -274,6 +284,7 @@ fn is_provided_by_the_system(name: &str) -> bool {
             "ws2_32.dll",
             "crypt32.dll",
             "bcrypt.dll",
+            "bcryptprimitives.dll",
             "ntdll.dll",
             "rpcrt4.dll",
             "setupapi.dll",
@@ -286,6 +297,15 @@ fn is_provided_by_the_system(name: &str) -> bool {
             "userenv.dll",
             "winmm.dll",
             "msvcrt.dll",
+            "d3d12.dll",
+            "dxgi.dll",
+            "dxcore.dll",
+            "shlwapi.dll",
+            "imm32.dll",
+            "pdh.dll",
+            "iphlpapi.dll",
+            "secur32.dll",
+            "ncrypt.dll",
         ]
         .contains(&name.as_str())
 }
@@ -297,28 +317,32 @@ fn is_provided_by_the_system(name: &str) -> bool {
 /// executable's own imports would have found nothing wrong with the release
 /// that could not start.
 pub fn unresolved_dependencies(directory: &Path, entry_point: &str) -> Result<Vec<String>> {
+    unresolved_in(&[directory.to_path_buf()], &directory.join(entry_point))
+}
+
+/// What `entry_point` needs that none of `directories` holds and Windows does
+/// not supply: a downloaded tool resolves beside itself first, then in the
+/// engine's folder, which the studio puts on its PATH.
+pub fn unresolved_in(directories: &[PathBuf], entry_point: &Path) -> Result<Vec<String>> {
     let mut seen: Vec<String> = Vec::new();
-    let mut queue = vec![entry_point.to_string()];
+    let mut queue = vec![entry_point.to_path_buf()];
     let mut missing = Vec::new();
-    while let Some(name) = queue.pop() {
-        let lowered = name.to_ascii_lowercase();
-        if seen.contains(&lowered) {
-            continue;
-        }
-        seen.push(lowered);
-        let path = directory.join(&name);
-        if !path.is_file() {
-            missing.push(name);
-            continue;
-        }
+    while let Some(path) = queue.pop() {
         for import in imported_libraries(&path)? {
-            if !is_provided_by_the_system(&import) {
-                queue.push(import);
+            let lowered = import.to_ascii_lowercase();
+            if is_provided_by_the_system(&import) || seen.contains(&lowered) {
+                continue;
+            }
+            seen.push(lowered);
+            match directories.iter().map(|directory| directory.join(&import)).find(|candidate| candidate.is_file()) {
+                Some(found) => queue.push(found),
+                None => missing.push(import),
             }
         }
     }
     Ok(missing)
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -387,8 +411,9 @@ mod tests {
         if !bundle.join(&executable).is_file() {
             return;
         }
-        // The CUDA backends load at run time from their folders and resolve
-        // their imports from the executable's, so each is checked from there.
+        // The backends load at run time - the CUDA ones from their folders, Vulkan and the processor generations
+        // beside the executable - and resolve their imports from the executable's folder, so each is checked
+        // from there, not only what the executable imports.
         let mut entry_points = vec![executable.clone()];
         for build in [CudaBuild::Cuda13, CudaBuild::Cuda12] {
             let backend = format!("{}/ggml-cuda.dll", build.folder());
@@ -398,6 +423,12 @@ mod tests {
         }
         let handled: Vec<&str> =
             CUDA13_LIBRARIES.iter().chain(CUDA12_LIBRARIES.iter()).chain(VC_RUNTIME_LIBRARIES.iter()).copied().collect();
+        for entry in std::fs::read_dir(&bundle).expect("read the bundle").flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if name.to_ascii_lowercase().starts_with("ggml-") && name.to_ascii_lowercase().ends_with(".dll") {
+                entry_points.push(name);
+            }
+        }
         for entry_point in entry_points {
             let missing = unresolved_dependencies(&bundle, &entry_point).expect("read the bundle's import tables");
             let unexpected: Vec<&String> = missing
@@ -416,6 +447,44 @@ mod tests {
     /// read, the check silently passes on anything.
     #[test]
     #[cfg(windows)]
+    #[ignore = "reads runtimes downloaded into a data folder: scripts/check-dll-imports.ps1"]
+    fn downloaded_runtimes_can_be_loaded() {
+        let data = PathBuf::from(std::env::var("ACE_DLL_DATA").expect("ACE_DLL_DATA names a studio data folder"));
+        let engine = PathBuf::from(std::env::var("ACE_DLL_ENGINE").expect("ACE_DLL_ENGINE names the engine folder"));
+        let mut checked = 0;
+        let mut problems = Vec::new();
+        for area in ["hotstep", "midi/runtime", "training/runtime", "separation/runtime", "karaoke/runtime", "karaoke/models", "assistant/runtime"] {
+            let Ok(folders) = std::fs::read_dir(data.join(area)) else { continue };
+            for folder in folders.flatten().map(|entry| entry.path()).filter(|path| path.is_dir()) {
+                for binary in std::fs::read_dir(&folder).into_iter().flatten().flatten().map(|entry| entry.path()) {
+                    let extension = binary.extension().map(|extension| extension.to_string_lossy().to_ascii_lowercase());
+                    if !matches!(extension.as_deref(), Some("exe" | "dll")) {
+                        continue;
+                    }
+                    // ONNX Runtime's archive carries its TensorRT provider, which the studio never registers
+                    if binary.file_name().is_some_and(|name| name.eq_ignore_ascii_case("onnxruntime_providers_tensorrt.dll")) {
+                        continue;
+                    }
+                    // a tool resolves beside itself, then in the engine's folder on the studio's PATH
+                    // the engine's cuBLAS 13 arrives with its first CUDA start; a tool on the card finds it on PATH or gets a link beside it
+                    let missing: Vec<String> = unresolved_in(&[folder.clone(), engine.clone()], &binary)
+                        .expect("read the import tables")
+                        .into_iter()
+                        .filter(|name| !CUDA13_LIBRARIES.iter().any(|library| library.eq_ignore_ascii_case(name)))
+                        .collect();
+                    checked += 1;
+                    if !missing.is_empty() {
+                        problems.push(format!("{}: {missing:?}", binary.display()));
+                    }
+                }
+            }
+        }
+        assert!(checked > 0, "no downloaded runtime under {}", data.display());
+        assert!(problems.is_empty(), "downloaded runtimes import libraries nothing supplies:\n{}", problems.join("\n"));
+    }
+
+    #[test]
+    #[cfg(windows)]
     fn imports_are_read_out_of_a_real_binary() {
         let system = Path::new("C:/Windows/System32/notepad.exe");
         if !system.is_file() {
@@ -423,7 +492,10 @@ mod tests {
         }
         let imports = imported_libraries(system).expect("notepad has an import table");
         assert!(!imports.is_empty(), "no imports were read at all");
-        assert!(imports.iter().all(|name| name.to_ascii_lowercase().ends_with(".dll")));
+        assert!(
+            imports.iter().all(|name| [".dll", ".drv"].iter().any(|extension| name.to_ascii_lowercase().ends_with(extension))),
+            "{imports:?}"
+        );
     }
 
     /// The libraries count as installed only once they are beside the engine.
@@ -444,6 +516,9 @@ mod tests {
         for library in CUDA13_LIBRARIES {
             std::fs::write(runtime.library_dir().join(library), b"x").unwrap();
         }
+        assert!(!runtime.downloader().is_installed(asset), "libraries without the record of their pin are not taken for it");
+        let unpacked: Vec<_> = CUDA13_LIBRARIES.iter().map(|library| runtime.library_dir().join(library)).collect();
+        crate::install_record::write(&runtime.downloader().record_of(asset), asset.url, "", &unpacked, runtime.downloader().root()).unwrap();
         assert!(runtime.downloader().is_installed(asset));
         assert!(runtime.missing(CudaBuild::Cuda13).is_empty());
         // The other build asks for its own cuBLAS, unless PATH has it.

@@ -67,7 +67,7 @@ pub enum ComputeBackend {
 }
 
 impl ComputeBackend {
-    /// The device name `engine server` reads from `GGML_BACKEND`, none for `Auto`.
+    /// The device name `engine server` takes as `--device`, none for `Auto`.
     pub fn ggml_device(self) -> Option<&'static str> {
         match self {
             Self::Auto => None,
@@ -84,7 +84,7 @@ impl ComputeBackend {
 /// restart of the engine.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ServerOptions {
-    /// The device to compute on, passed as `GGML_BACKEND`.
+    /// The device to compute on, passed as `--device`.
     pub backend: ComputeBackend,
     /// `--keep-loaded`: hold every module in VRAM between jobs instead of
     /// evicting between stages. Much faster back-to-back generation, at the
@@ -214,11 +214,12 @@ impl ServerLaunchConfig {
     pub fn cuda_backend(&self) -> Result<Option<PathBuf>> {
         let Some(folder) = self.options.cuda_folder else { return Ok(None) };
         let directory = self.executable.parent().context("the engine executable has no folder")?;
-        let backend = directory.join(folder).join("ggml-cuda.dll");
+        let library = if cfg!(windows) { "ggml-cuda.dll" } else { "libggml-cuda.so" };
+        let backend = directory.join(folder).join(library);
         if backend.is_file() {
             return Ok(Some(backend));
         }
-        if directory.join("ggml-cuda.dll").is_file() {
+        if directory.join(library).is_file() {
             return Ok(None);
         }
         bail!("the engine's CUDA backend {} is missing; reinstall the studio", backend.display())
@@ -325,6 +326,7 @@ impl ServerSupervisor {
         if let Some(path) = music_core::process::own_libraries_first(&self.config.executable) {
             command.env("LD_LIBRARY_PATH", path);
         }
+        dub_core::proc::outside_appimage(&mut command);
         command
             .arg("--models")
             .arg(&self.config.models_root)
@@ -336,13 +338,8 @@ impl ServerSupervisor {
             command.arg("--adapters").arg(adapters);
         }
         self.config.options.apply(&mut command);
-        match self.config.options.backend.ggml_device() {
-            Some(device) => {
-                command.env("GGML_BACKEND", device);
-            }
-            None => {
-                command.env_remove("GGML_BACKEND");
-            }
+        if let Some(device) = self.config.options.backend.ggml_device() {
+            command.arg("--device").arg(device);
         }
         match self.config.cuda_backend()? {
             Some(backend) => {
@@ -437,6 +434,14 @@ impl ServerSupervisor {
     /// health probe and still be at work.
     pub fn process_alive(&mut self) -> bool {
         self.child.as_mut().is_some_and(|child| matches!(child.try_wait(), Ok(None)))
+    }
+
+    /// How the owned engine ended, if it has: its status and, on Windows, the
+    /// NTSTATUS in hex - 0xc0000005 an access violation, 0xc000001d an
+    /// instruction the processor does not have.
+    pub fn exit_status(&mut self) -> Option<String> {
+        let status = self.child.as_mut()?.try_wait().ok()??;
+        Some(format!("{status}{}", status.code().map(|code| format!(" (0x{:x})", code as u32)).unwrap_or_default()))
     }
 
     fn clear_exited_child(&mut self) -> Result<()> {

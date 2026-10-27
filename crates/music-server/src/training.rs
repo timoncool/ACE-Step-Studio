@@ -366,7 +366,7 @@ pub fn remove_older_tool_folders(downloader: &Downloader, current_folder: &str, 
             let name = entry.file_name().to_string_lossy().to_string();
             if name.starts_with(prefix) && entry.path() != current && entry.path().is_dir() {
                 if let Err(error) = std::fs::remove_dir_all(entry.path()) {
-                    eprintln!("[ERROR] could not remove the older {} {}: {error}", prefix, entry.path().display());
+                    studio_log!("[ERROR] could not remove the older {} {}: {error}", prefix, entry.path().display());
                 }
             }
         }
@@ -387,7 +387,7 @@ fn trainer_folder() -> &'static str {
 
 /// Everything training needs: the trainer, released beside the studio, and
 /// the engine's weights for it.
-fn pack() -> &'static [Asset] {
+pub(crate) fn pack() -> &'static [Asset] {
     static PACK: OnceLock<Vec<Asset>> = OnceLock::new();
     PACK.get_or_init(|| {
         let leak = |text: String| -> &'static str { Box::leak(text.into_boxed_str()) };
@@ -443,11 +443,22 @@ const CAPTIONER_PICK: [&str; 12] = [
     "ggml-cpu-x64.dll",
 ];
 
+/// The captioner the macOS app bundle and the Linux packages carry in
+/// `resources/music-midi`, built with the MIDI transcriber from the same
+/// HOT-Step; the downloadable archive is a Windows build.
+fn bundled_captioner() -> Option<PathBuf> {
+    if cfg!(windows) {
+        return None;
+    }
+    let tool = crate::engine_bundle_root().parent()?.join("music-midi").join("music-caption");
+    tool.is_file().then_some(tool)
+}
+
 /// Describing dataset songs by ear, optional: HOT-Step's `ace-caption` beside
 /// the trainer, MOSS-Music-8B-Instruct (OpenMOSS, Apache-2.0; GGUF by
 /// scragnog) for what it hears, Beat This! (CPJKU, MIT; ONNX by mosynthkey)
 /// for the beat and S-KEY (Deezer, MIT; ONNX by aaatmy) for the key.
-fn listen_pack() -> &'static [Asset] {
+pub(crate) fn listen_pack() -> &'static [Asset] {
     static PACK: OnceLock<Vec<Asset>> = OnceLock::new();
     PACK.get_or_init(|| {
         let leak = |text: String| -> &'static str { Box::leak(text.into_boxed_str()) };
@@ -482,21 +493,21 @@ fn listen_pack() -> &'static [Asset] {
             model(
                 "moss-audio",
                 "MOSS-Music audio tower (F16)",
-                "https://huggingface.co/scragnog/MOSS-Music-8B-Instruct-GGUF/resolve/main/moss-aud-f16.gguf",
+                "https://huggingface.co/scragnog/MOSS-Music-8B-Instruct-GGUF/resolve/9fe86435bd542bf29cbf4984e9e0ab0ea8ca7e00/moss-aud-f16.gguf",
                 "models/moss/moss-aud-f16.gguf",
                 1_724_480_640,
             ),
             model(
                 "moss-lm",
                 "MOSS-Music 8B (Q8_0)",
-                "https://huggingface.co/scragnog/MOSS-Music-8B-Instruct-GGUF/resolve/main/moss-lm-q8_0.gguf",
+                "https://huggingface.co/scragnog/MOSS-Music-8B-Instruct-GGUF/resolve/9fe86435bd542bf29cbf4984e9e0ab0ea8ca7e00/moss-lm-q8_0.gguf",
                 "models/moss/moss-lm-q8_0.gguf",
                 8_709_513_792,
             ),
             model(
                 "beat-this",
                 "Beat This! (tempo)",
-                "https://github.com/mosynthkey/beat_this_cpp/raw/main/onnx/beat_this.onnx",
+                "https://github.com/mosynthkey/beat_this_cpp/raw/07ab790a9ec2eda8093d52d249e3ec4f0510ee72/onnx/beat_this.onnx",
                 "models/audio-facts/beat_this.onnx",
                 83_077_778,
             ),
@@ -564,11 +575,13 @@ impl Training {
         self.root.join("models")
     }
 
-    /// The captioner: `STUDIO_CAPTION_BIN` in a developer build, else the one the
+    /// The captioner: `STUDIO_CAPTION_BIN` in a developer build, the one bundled
+    /// beside the MIDI transcriber on macOS and Linux, else the one the
     /// listening pack unpacked beside the trainer.
     pub fn captioner(&self) -> PathBuf {
         std::env::var_os("STUDIO_CAPTION_BIN")
             .map(PathBuf::from)
+            .or_else(bundled_captioner)
             .unwrap_or_else(|| self.downloader.runtime_dir(trainer_folder()).join(CAPTIONER))
     }
 
@@ -682,7 +695,7 @@ impl Training {
             .filter_map(|entry| match read_dataset(&entry.path().join("dataset.json")) {
                 Ok(dataset) => Some(dataset),
                 Err(error) => {
-                    eprintln!("[ERROR] {error:#}");
+                    studio_log!("[ERROR] {error:#}");
                     None
                 }
             })
@@ -1273,10 +1286,12 @@ impl Training {
                 }
             }
             log.write_all(format!("==== {}\n", stage.id).as_bytes()).await?;
+            crate::cpu::tool_runs_here("trainer")?;
             let mut command = tokio::process::Command::new(trainer);
             if let Some(path) = music_core::process::own_libraries_first(trainer) {
                 command.env("LD_LIBRARY_PATH", path);
             }
+            dub_core::proc::outside_appimage(command.as_std_mut());
             command
                 .args(&stage.args)
                 .current_dir(run_dir)

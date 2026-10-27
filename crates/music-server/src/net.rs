@@ -62,6 +62,28 @@ pub struct ProxySettings {
     /// As the user wrote it.
     pub address: Option<String>,
     pub kind: ProxyKind,
+    /// Public Hugging Face downloads through HF-Mirror (hf-mirror.com).
+    pub huggingface_mirror: bool,
+}
+
+/// The address a Hugging Face download is fetched from: the mirror keeps the
+/// repository, the pinned revision and the query; other hosts stay as they are.
+fn model_url_with(settings: &ProxySettings, original: &str) -> String {
+    if settings.huggingface_mirror {
+        if let Some(path) = original.strip_prefix("https://huggingface.co/") {
+            return format!("https://hf-mirror.com/{path}");
+        }
+    }
+    original.to_owned()
+}
+
+pub fn model_url(original: &str) -> String {
+    model_url_with(&current(), original)
+}
+
+/// The HF-Mirror address of a Hugging Face file, whether or not the mirror is chosen.
+pub fn mirror_url(original: &str) -> String {
+    model_url_with(&ProxySettings { huggingface_mirror: true, ..ProxySettings::default() }, original)
 }
 
 const SCHEMES: [&str; 6] = ["http", "https", "socks5", "socks5h", "socks4", "socks4a"];
@@ -277,25 +299,39 @@ pub fn download_client() -> reqwest::Client {
 
 /// Whether Hugging Face, where the models come from, and OpenRouter answer
 /// through `settings`, before they are kept. An answer of any status counts;
-/// a connection that fails does not.
+/// a connection that fails does not. Without the mirror chosen, HF-Mirror is
+/// asked too, so a window can offer it when Hugging Face does not answer.
 pub async fn test(settings: ProxySettings) -> Result<serde_json::Value> {
     let settings = settings.validated()?;
+    let hub_url = model_url_with(&settings, "https://huggingface.co/api/models?limit=1");
+    let mirror_chosen = settings.huggingface_mirror;
     let system = Matcher::from_system();
     let client = reqwest::Client::builder()
         .user_agent(user_agent())
         .proxy(reqwest::Proxy::custom(move |url| proxy_for(&settings, &system, url)))
         .timeout(std::time::Duration::from_secs(15))
         .build()?;
-    let reach = |url: &'static str| {
+    let reach = |url: String, answered: bool| {
         let client = client.clone();
-        async move { client.get(url).send().await.map(|_| ()).map_err(|error| why(&error)) }
+        async move {
+            let response = client.get(url).send().await.map_err(|error| why(&error))?;
+            // a mirror's error page is no source of models
+            if !answered { response.error_for_status().map_err(|error| why(&error))?; }
+            Ok::<(), String>(())
+        }
     };
-    let (hub, openrouter) = tokio::join!(reach("https://huggingface.co/api/models?limit=1"), reach("https://openrouter.ai/api/v1/models"));
+    let mirror = async {
+        if mirror_chosen { None } else { Some(reach(mirror_url("https://huggingface.co/api/models?limit=1"), false).await) }
+    };
+    let (hub, openrouter, mirror) = tokio::join!(reach(hub_url, !mirror_chosen), reach("https://openrouter.ai/api/v1/models".into(), true), mirror);
     Ok(serde_json::json!({
         "huggingface": hub.is_ok(),
         "huggingface_error": hub.err(),
         "openrouter": openrouter.is_ok(),
         "openrouter_error": openrouter.err(),
+        "mirror_chosen": mirror_chosen,
+        "mirror": mirror.as_ref().map(|answer| answer.is_ok()),
+        "mirror_error": mirror.and_then(|answer| answer.err()),
     }))
 }
 
@@ -324,7 +360,36 @@ mod tests {
     }
 
     fn custom(address: &str, kind: ProxyKind) -> ProxySettings {
-        ProxySettings { mode: ProxyMode::Custom, address: Some(address.into()), kind }
+        ProxySettings { mode: ProxyMode::Custom, address: Some(address.into()), kind, ..ProxySettings::default() }
+    }
+
+    #[test]
+    fn the_mirror_keeps_the_pinned_file_and_changes_hugging_face_alone() {
+        let settings = ProxySettings { huggingface_mirror: true, ..ProxySettings::default() };
+        assert_eq!(model_url_with(&settings, "https://huggingface.co/org/repo/resolve/abc123/weights.gguf?download=true"), "https://hf-mirror.com/org/repo/resolve/abc123/weights.gguf?download=true");
+        for original in ["https://openrouter.ai/api/v1/models", "https://github.com/a/b", "https://huggingface.co.evil.test/a", "https://hf-mirror.com/a"] {
+            assert_eq!(model_url_with(&settings, original), original);
+        }
+        let kept: ProxySettings = serde_json::from_str(r#"{"mode":"system","address":null,"kind":"http"}"#).unwrap();
+        assert!(!kept.huggingface_mirror);
+    }
+
+    /// The check asks HF-Mirror only while it is not the chosen source, so the
+    /// start screen can offer it; a proxy that refuses every connection answers
+    /// for neither.
+    #[tokio::test]
+    async fn the_check_asks_the_mirror_only_when_it_is_not_chosen() {
+        let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = closed.local_addr().unwrap().to_string();
+        drop(closed);
+        let answer = test(custom(&address, ProxyKind::Http)).await.unwrap();
+        assert_eq!(answer["huggingface"], false);
+        assert_eq!(answer["mirror_chosen"], false);
+        assert_eq!(answer["mirror"], false);
+        assert!(answer["mirror_error"].is_string());
+        let answer = test(ProxySettings { huggingface_mirror: true, ..custom(&address, ProxyKind::Http) }).await.unwrap();
+        assert_eq!(answer["mirror_chosen"], true);
+        assert!(answer["mirror"].is_null());
     }
 
     #[test]

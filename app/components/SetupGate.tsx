@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { openRouterSettingsChanged } from '../services/studioQueries';
+import { openRouterSettingsChanged, SELF_READ } from '../services/studioQueries';
 import { Check, ChevronDown, Download, FolderDown, FolderOpen, Loader2, Square, Trash2, X } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import { RescanButton } from './RescanButton';
+import { UpdatePlanView } from './UpdateScreen';
+import { ManualDownloads } from './ManualDownloads';
+import { MirrorOffer } from './MirrorOffer';
 import { DevicePicker, type Device } from './DevicePicker';
 import { AssistantExtras } from './AssistantSettings';
 import { KaraokeExtras } from './KaraokeSettings';
@@ -55,6 +58,10 @@ type SetupStatus = {
   active: DownloadJob | null;
   installed_components: string[];
   data_directory?: string | null;
+  /** Where the model files go. */
+  model_root?: string | null;
+  /** Whether downloads take Hugging Face files from HF-Mirror. */
+  huggingface_mirror?: boolean;
   portable?: boolean;
   /** Models taken from another program of timoncool's in this run instead of being downloaded, by id. */
   taken_from?: Record<string, { app: string; file: string }>;
@@ -87,6 +94,13 @@ type OptionalStatus = {
 };
 
 const bytes = (value: number) => (value < 1024 ** 3 ? `${Math.round(value / 1024 ** 2)} MB` : `${(value / 1024 ** 3).toFixed(1)} GB`);
+
+/** What "use models I already have" took from the chosen folder, and what it left and why. */
+interface AdoptReport {
+  folder: string;
+  adopted: string[];
+  refused: Array<{ file: string; kind: 'size' | 'unknown' | 'copy'; size?: number; needs?: number; repository?: string; revision?: string; error?: string }>;
+}
 
 const errorMessage = async (response: Response) => {
   const body = await response.json().catch(() => null);
@@ -169,7 +183,7 @@ export const OptionalGroup: React.FC<{
   const choiceRead = useRef(false);
   const modelRead = useRef(false);
   const load = useCallback(async () => {
-    const response = await fetch(statusUrl);
+    const response = await fetch(statusUrl, { headers: SELF_READ });
     if (response.ok) {
       const body = await response.json();
       setStatus(body);
@@ -262,10 +276,8 @@ export const OptionalGroup: React.FC<{
   const models = assets.filter((asset) => {
     if (asset.kind !== 'model') return false;
     if (!engines || engines.length === 0) return false;
-    // A faster-whisper model is a directory of files - weights, tokenizer,
-    // vocabulary - and only the weights are a choice. The rest carry no VRAM
-    // figure, which is how they are told apart here.
-    if (engine === 'whisper') return asset.id.startsWith('whisper-') && asset.vram_gb != null;
+    // CrisperWhisper is one model, its weights the row that stands for the whole folder.
+    if (engine === 'whisper') return asset.id === 'crisperwhisper-turbo';
     // Parakeet comes as v3 and Ultra; the engine build follows the card, so only the models are a choice.
     if (engine === 'parakeet') return asset.id === 'parakeet-tdt-int8' || asset.id === 'parakeet-ultra-int8';
     if (engine === 'open_router') return false;
@@ -627,7 +639,7 @@ const WHERE_IT_RUNS: { part: TranslationKey; name: string; nvidia: Path; other: 
   { part: 'hubPartTempoKey', name: 'Beat This!, S-KEY', nvidia: 'cuda', other: 'directml', none: 'cpu' },
   { part: 'hubPartStems', name: 'HT-Demucs', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
   { part: 'hubPartKaraoke', name: 'Parakeet', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
-  { part: 'hubPartKaraoke', name: 'Whisper', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
+  { part: 'hubPartKaraoke', name: 'CrisperWhisper', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
   { part: 'hubPartAssistant', name: 'llama.cpp', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
   { part: 'hubPartMidi', name: 'MuScriptor', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
 ];
@@ -683,6 +695,8 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
   const { t } = useI18n();
   const [status, setStatus] = useState<SetupStatus | null>(null);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [adoptReport, setAdoptReport] = useState<AdoptReport | null>(null);
+  const [updateOpen, setUpdateOpen] = useState(false);
   const [choice, setChoice] = useState<Record<string, string>>({});
   const chosenValues = useMemo(() => Object.values(choice).filter((id): id is string => typeof id === 'string' && id.length > 0), [choice]);
   const [error, setError] = useState<string | null>(null);
@@ -697,7 +711,7 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
   }, [mode]);
 
   const refresh = useCallback(async () => {
-    const response = await fetch('/setup/status');
+    const response = await fetch('/setup/status', { headers: SELF_READ });
     if (!response.ok) throw new Error(await errorMessage(response));
     const next: SetupStatus = await response.json();
     setStatus(next);
@@ -841,11 +855,30 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
 
         {mode === 'settings' && <WhereItRuns trainingVram={trainingInfo?.min_vram_gb ?? null} />}
         {mode === 'settings' && <div className="mt-4"><RescanButton onDone={() => void refresh().catch((problem: unknown) => setError(problem instanceof Error ? problem.message : String(problem)))} /></div>}
+        {mode === 'settings' && (
+          <details className="group mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-suno-card" onToggle={(event) => setUpdateOpen(event.currentTarget.open)}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-white/5">
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-zinc-900 dark:text-white">{t('updateSettingsEntry')}</span>
+                <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">{t('updateSettingsHint')}</span>
+              </span>
+              <ChevronDown size={15} className="shrink-0 text-zinc-500 transition-transform group-open:rotate-180" />
+            </summary>
+            {updateOpen && <div className="border-t border-zinc-100 p-4 dark:border-white/5"><UpdatePlanView onDone={() => void refresh().catch((problem: unknown) => setError(problem instanceof Error ? problem.message : String(problem)))} /></div>}
+          </details>
+        )}
 
         {error && (
           <div className="mt-5 flex gap-2 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
             <X size={16} className="mt-0.5 shrink-0" />{error}
           </div>
+        )}
+
+        {mode === 'first-run' && (
+          <MirrorOffer
+            recheck={status?.active?.status === 'failed' ? status.active.id : ''}
+            onSwitched={() => void refresh().catch((reason) => setError(reason.message))}
+          />
         )}
 
         {mode === 'first-run' && <div className="mt-5 rounded-xl border border-pink-300/50 bg-pink-50 px-4 py-3 text-sm text-zinc-700 dark:border-pink-500/25 dark:bg-pink-500/10 dark:text-zinc-200">
@@ -995,6 +1028,11 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
               );
             })}
             {!chosenIds && <p className="text-xs text-amber-600 dark:text-amber-300">{t('incompleteSet')}</p>}
+            <ManualDownloads
+              files={missing.flatMap((id) => catalog?.components.find((component) => component.id === id) ?? [])}
+              folder={status?.model_root}
+              mirror={status?.huggingface_mirror === true}
+            />
             {status?.taken_from && Object.keys(status.taken_from).length > 0 && (
               <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-[11px] leading-5 text-emerald-700 dark:text-emerald-300">
                 <p className="font-semibold">{t('takenNotice')}</p>
@@ -1028,8 +1066,10 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
                   onClick={() => {
                     void fetch('/setup/adopt', { method: 'POST' })
                       .then((response) => (response.ok ? response.json() : null))
-                      .then((body: { picked?: boolean; adopted?: string[] } | null) => {
-                        if (body?.picked) void refresh();
+                      .then((body: { picked?: boolean; folder?: string; adopted?: string[]; refused?: AdoptReport['refused'] } | null) => {
+                        if (!body?.picked) return;
+                        setAdoptReport({ folder: body.folder ?? '', adopted: body.adopted ?? [], refused: body.refused ?? [] });
+                        void refresh();
                       })
                       .catch(() => undefined);
                   }}
@@ -1038,6 +1078,27 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
                   <FolderDown size={13} />
                   {t('useExistingModels')}
                 </button>
+                {adoptReport && (
+                  <div className="mt-2 space-y-1 text-[11px] leading-4">
+                    {adoptReport.adopted.length > 0 ? (
+                      <p className="text-emerald-600 dark:text-emerald-300">{t('adoptTaken').replace('{count}', String(adoptReport.adopted.length))}</p>
+                    ) : (
+                      <p className="text-amber-600 dark:text-amber-300">{t('adoptNone').replace('{folder}', adoptReport.folder)}</p>
+                    )}
+                    {adoptReport.refused.map((refusal) => (
+                      <p key={refusal.file} className="break-all text-amber-600 dark:text-amber-300">
+                        <span className="font-mono">{refusal.file}</span> — {refusal.kind === 'size'
+                          ? t('adoptRefusedSize')
+                              .replace('{size}', (refusal.size ?? 0).toLocaleString())
+                              .replace('{needs}', (refusal.needs ?? 0).toLocaleString())
+                              .replace('{source}', `huggingface.co/${refusal.repository ?? ''} @ ${(refusal.revision ?? '').slice(0, 7)}`)
+                          : refusal.kind === 'copy'
+                            ? t('adoptRefusedCopy').replace('{error}', refusal.error ?? '')
+                            : t('adoptRefusedUnknown')}
+                      </p>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1155,7 +1216,7 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
               cancelUrl="/v1/karaoke/cancel"
               engines={[
                 { id: 'parakeet', label: 'Parakeet' },
-                { id: 'whisper', label: 'Whisper' },
+                { id: 'whisper', label: 'CrisperWhisper' },
                 { id: 'open_router', label: 'OpenRouter', device: false },
               ]}
             >

@@ -6,7 +6,7 @@
 //! driver predates CUDA 13. Both hold device code for each architecture, so no
 //! driver ever compiles PTX.
 
-use std::{process::Command, sync::OnceLock};
+use std::sync::OnceLock;
 
 use serde::Serialize;
 
@@ -62,7 +62,7 @@ pub fn chosen_card() -> Vec<String> {
 
 /// Every NVIDIA card: its nvidia-smi index, name and memory in GB.
 pub fn nvidia_cards() -> Vec<(u32, String, f64)> {
-    let mut command = Command::new("nvidia-smi");
+    let mut command = dub_core::proc::host_command("nvidia-smi");
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -90,7 +90,7 @@ pub fn nvidia_cards() -> Vec<(u32, String, f64)> {
 fn device() -> Option<((u32, u32), u32)> {
     static DEVICE: OnceLock<Option<((u32, u32), u32)>> = OnceLock::new();
     *DEVICE.get_or_init(|| {
-        let mut command = Command::new("nvidia-smi");
+        let mut command = dub_core::proc::host_command("nvidia-smi");
         #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;
@@ -121,7 +121,7 @@ fn parse_query(line: &str) -> Option<((u32, u32), u32)> {
 pub fn nvidia_card() -> bool {
     static PRESENT: OnceLock<bool> = OnceLock::new();
     *PRESENT.get_or_init(|| {
-        let mut command = Command::new("nvidia-smi");
+        let mut command = dub_core::proc::host_command("nvidia-smi");
         #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;
@@ -135,8 +135,46 @@ pub fn nvidia_card() -> bool {
 /// The build this machine runs, none without an NVIDIA card one of the builds
 /// supports.
 pub fn current() -> Option<CudaBuild> {
+    device().and_then(|(compute, driver)| cuda_build(compute, driver)).filter(|build| SHIPPED.contains(build))
+}
+
+/// The CUDA line this card and driver run, whether or not the engine ships that build here: for the programs that
+/// come with both of their own (llama.cpp's CUDA 12 and 13 builds).
+pub fn card() -> Option<CudaBuild> {
     device().and_then(|(compute, driver)| cuda_build(compute, driver))
 }
+
+/// The card a CUDA failure happened on, in the words a report needs to tell a
+/// missing architecture from an old driver: `NVIDIA GeForce GTX 1050, compute
+/// 6.1, driver 581.29, cuda12 build`. Probed once.
+pub fn describe() -> Option<String> {
+    static CARD: OnceLock<Option<String>> = OnceLock::new();
+    CARD.get_or_init(|| {
+        let mut command = dub_core::proc::host_command("nvidia-smi");
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
+        let output = command.args(chosen_card()).args(["--query-gpu=name,compute_cap,driver_version", "--format=csv,noheader"]).output().ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        let line = String::from_utf8_lossy(&output.stdout).lines().next()?.trim().to_string();
+        let mut fields = line.split(',').map(str::trim);
+        let (name, compute, driver) = (fields.next()?, fields.next()?, fields.next()?);
+        let build = current().map(CudaBuild::folder).unwrap_or("no");
+        Some(format!("{name}, compute {compute}, driver {driver}, {build} build"))
+    })
+    .clone()
+}
+
+/// The CUDA builds this platform's engine carries: both on Windows, CUDA 13 in the Linux package.
+#[cfg(windows)]
+const SHIPPED: &[CudaBuild] = &[CudaBuild::Cuda13, CudaBuild::Cuda12];
+#[cfg(not(windows))]
+const SHIPPED: &[CudaBuild] = &[CudaBuild::Cuda13];
 
 /// Tensor cores before Ampere accumulate in FP16, where the V projection can
 /// overflow to infinity and poison every later attention; the engine's clamp
@@ -147,7 +185,10 @@ pub fn accumulates_in_fp16() -> bool {
 
 /// Why the engine cannot start on CUDA here, in words for the person at the
 /// machine.
+#[cfg(windows)]
 pub const UNSUPPORTED: &str = "CUDA was chosen, but this card or its driver runs neither CUDA build of the engine: it needs an NVIDIA card from the GTX 900 series on and driver 525 or newer. Update the NVIDIA driver, or choose Vulkan in Settings.";
+#[cfg(not(windows))]
+pub const UNSUPPORTED: &str = "CUDA was chosen, but this card or its driver does not run the engine's CUDA build: it needs an NVIDIA card from the GTX 16 and RTX 20 series on and driver 580 or newer. Update the NVIDIA driver, or choose Vulkan in Settings.";
 
 #[cfg(test)]
 mod tests {

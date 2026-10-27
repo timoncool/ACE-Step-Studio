@@ -22,6 +22,8 @@ import { loadNativeOpenRouterCatalog, refreshNativeOpenRouterCatalog, type Nativ
 
 interface RuntimeStatus {
   running_model?: string | null;
+  /** This Linux's glibc and the one the CUDA build of llama.cpp needs, when the card runs the Vulkan build instead. */
+  llama_note?: { glibc: string; need: string } | null;
   active_download?: { error?: string | null } | null;
 }
 
@@ -339,6 +341,11 @@ export const AssistantExtras: React.FC<{ engine: string }> = ({ engine }) => {
           <span className="text-xs text-red-600 dark:text-red-300">{runtime.active_download.error}</span>
         )}
       </div>
+      {runtime?.llama_note && (
+        <p className="px-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+          {t('assistantVulkanGlibc').replace('{need}', runtime.llama_note.need).replace('{glibc}', runtime.llama_note.glibc)}
+        </p>
+      )}
     </div>
   );
 };

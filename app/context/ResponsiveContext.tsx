@@ -3,9 +3,12 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useMe
 interface ResponsiveContextType {
   isMobile: boolean;
   isDesktop: boolean;
+  /** Wide enough for the song details beside the list (Tailwind's xl). */
+  hasSidePanel: boolean;
 }
 
 const MOBILE_BREAKPOINT = 768;
+const SIDE_PANEL_QUERY = '(min-width: 80rem)';
 
 const ResponsiveContext = createContext<ResponsiveContextType | undefined>(undefined);
 
@@ -18,6 +21,7 @@ function getInitialState(): boolean {
 
 export function ResponsiveProvider({ children }: { children: ReactNode }): React.ReactElement {
   const [isMobile, setIsMobile] = useState<boolean>(getInitialState);
+  const [hasSidePanel, setHasSidePanel] = useState<boolean>(() => typeof window !== 'undefined' && window.matchMedia(SIDE_PANEL_QUERY).matches);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -33,15 +37,21 @@ export function ResponsiveProvider({ children }: { children: ReactNode }): React
     setIsMobile(mediaQuery.matches);
 
     mediaQuery.addEventListener('change', handleChange);
+    const sidePanelQuery = window.matchMedia(SIDE_PANEL_QUERY);
+    const handleSidePanel = (event: MediaQueryListEvent) => setHasSidePanel(event.matches);
+    setHasSidePanel(sidePanelQuery.matches);
+    sidePanelQuery.addEventListener('change', handleSidePanel);
     return () => {
       mediaQuery.removeEventListener('change', handleChange);
+      sidePanelQuery.removeEventListener('change', handleSidePanel);
     };
   }, []);
 
   const value = useMemo<ResponsiveContextType>(() => ({
     isMobile,
     isDesktop: !isMobile,
-  }), [isMobile]);
+    hasSidePanel,
+  }), [isMobile, hasSidePanel]);
 
   return <ResponsiveContext.Provider value={value}>{children}</ResponsiveContext.Provider>;
 }

@@ -133,7 +133,7 @@ impl Library {
  pub fn import_audio_song(&self,input:AudioImportInput)->Result<ImportedSong>{
   if input.audio.is_empty(){anyhow::bail!("cannot import an empty audio file")}
   let extension=input.audio_extension.trim().to_ascii_lowercase();
-  if !matches!(extension.as_str(), "mp3" | "wav" | "flac" | "ogg"){anyhow::bail!("only MP3, WAV, FLAC and OGG audio can be imported")}
+  if !crate::audio_pcm::plays_in_window(&extension, &input.audio){anyhow::bail!("only audio the player plays is kept as it is (MP3, FLAC, Ogg, AAC, plain WAV); {extension} has to be converted first")}
   fs::create_dir_all(&self.media_dir).with_context(||format!("create media directory {}",self.media_dir.display()))?;
   let id=uuid::Uuid::now_v7().to_string(); let filename=format!("{id}.{extension}"); let target=self.media_dir.join(&filename); let temporary=self.media_dir.join(format!("{filename}.part"));
   {let mut file=fs::OpenOptions::new().create_new(true).write(true).open(&temporary)?;use std::io::Write;file.write_all(&input.audio)?;file.sync_all()?;}
@@ -208,7 +208,7 @@ impl Library {
   // a stem wears its song's cover: a new one reaches the stems separated from it
   let separated=|other:&Song|other.metadata.pointer("/derived/tool").and_then(|v|v.as_str())==Some("stems")&&other.metadata.pointer("/derived/from").and_then(|v|v.as_str())==Some(id);
   for stem in self.list_songs()?.into_iter().filter(separated){
-   if let Err(error)=self.store_cover(&stem.id,image,media_type,placeholder,source){eprintln!("[ERROR] the cover of {id} did not reach its stem {}: {error:#}",stem.id)}
+   if let Err(error)=self.store_cover(&stem.id,image,media_type,placeholder,source){studio_log!("[ERROR] the cover of {id} did not reach its stem {}: {error:#}",stem.id)}
   }
   Ok(song)
  }

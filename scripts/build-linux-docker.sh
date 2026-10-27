@@ -30,6 +30,15 @@ if [ "${1:-}" = "--inside" ]; then
     curl -sSfL "https://sdk.lunarg.com/sdk/download/$vulkan/linux/vulkansdk-linux-x86_64-$vulkan.tar.xz" | tar -xJ -C /cache/vulkansdk-$vulkan --strip-components=1
   fi
   export VULKAN_SDK=/cache/vulkansdk-$vulkan/x86_64 PATH=/cache/vulkansdk-$vulkan/x86_64/bin:$PATH
+  # the engine's CUDA 13 backend: nvcc, the runtime and cuBLAS from NVIDIA's Ubuntu 22.04 repository, the packages kept in the cache
+  cuda=13-3
+  echo "[..] CUDA $cuda"
+  curl -sSfL -o /tmp/cuda-keyring.deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+  dpkg -i /tmp/cuda-keyring.deb >/dev/null
+  mkdir -p /cache/apt
+  apt-get update -q >/dev/null
+  apt-get install -y -q --no-install-recommends -o Dir::Cache::Archives=/cache/apt cuda-nvcc-$cuda cuda-cudart-dev-$cuda libcublas-dev-$cuda >/dev/null
+  export PATH=/usr/local/cuda/bin:$PATH
   echo "[..] source $(git -c safe.directory=/src -C /src rev-parse --short HEAD)"
   rm -rf /cache/src && mkdir -p /cache/src
   git -c safe.directory=/src -C /src archive HEAD | tar -x -C /cache/src
@@ -40,11 +49,17 @@ if [ "${1:-}" = "--inside" ]; then
   bash scripts/build-release-linux.sh > /out/build.log 2>&1 || { echo "[ERROR] build failed"; tail -40 /out/build.log; exit 1; }
   engine=desktop/src-tauri/resources/engine/ace-server
   if ldd "$engine" | grep -i 'not found'; then echo "[ERROR] the engine misses libraries"; exit 1; fi
+  # libcuda.so.1 comes with the display driver, which a build container has not got
+  backend=desktop/src-tauri/resources/engine/cuda13/libggml-cuda.so
+  [ -f "$backend" ] || { echo "[ERROR] the engine was built without its CUDA backend"; exit 1; }
+  if ldd "$backend" | grep -i 'not found' | grep -v 'libcuda.so'; then echo "[ERROR] the CUDA backend misses libraries"; exit 1; fi
   # the engine answers --help with its usage and a non-zero code
   "$engine" --help > /tmp/engine-help.txt 2>&1 || true
   grep -q 'Usage' /tmp/engine-help.txt || { echo "[ERROR] the engine does not start"; head -5 /tmp/engine-help.txt; exit 1; }
   midi=desktop/src-tauri/resources/music-midi/music-midi
   if ldd "$midi" | grep -i 'not found'; then echo "[ERROR] the MIDI transcriber misses libraries"; exit 1; fi
+  caption=desktop/src-tauri/resources/music-midi/music-caption
+  if ldd "$caption" | grep -i 'not found'; then echo "[ERROR] the captioner misses libraries"; exit 1; fi
   version="$(node -p "require('./desktop/src-tauri/tauri.conf.json').version")"
   # the cache keeps the packages of earlier versions: take this version's by name
   deb="$(find /cache/target/release/bundle/deb -name "*_${version}_amd64.deb" | head -n 1)"

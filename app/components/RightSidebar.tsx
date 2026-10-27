@@ -5,6 +5,7 @@ import { TRACK_ARTIST } from '../services/studio';
 import { Song } from '../types';
 import { Heart, Share2, Play, Pause, MoreHorizontal, X, Copy, Wand2, MoreVertical, Download, Repeat, Video, Music, Link as LinkIcon, Sparkles, Globe, Lock, Trash2, Edit3, Layers, ChevronDown, ClipboardCopy, Braces, ImagePlus, Loader2, Mic2, Clapperboard } from 'lucide-react';
 import { mapNativeLibrarySong, setNativeSongNote, updateNativeSong } from '../services/nativeLibrary';
+import { pendingNotes } from '../services/generations';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
 import { openExternal } from '../services/externalLinks';
@@ -129,13 +130,20 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
             setIsEditingTitle(false);
             setTitleError(null);
             setIsSavingTitle(false);
-            setNoteDraft(song.note ?? '');
             setNoteError(null);
-            setParamsJsonOpen(false);
         }
     }, [song?.id]);
 
+    // a finished song's note can arrive after the song itself, from the note written while it was made
+    useEffect(() => {
+        if (song) setNoteDraft(song.note ?? (song.isGenerating ? pendingNotes.get(song.id) : undefined) ?? '');
+    }, [song?.id, song?.note]);
+
     const saveNote = async () => {
+        if (song?.isGenerating) {
+            pendingNotes.set(song.id, noteDraft);
+            return;
+        }
         if (!song || noteDraft.trim() === (song.note ?? '')) return;
         try {
             const updated = await setNativeSongNote(song.id, noteDraft);
@@ -588,7 +596,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                         <label className="mb-1 block text-[11px] font-medium text-zinc-500">{t('songNote')}</label>
                         <textarea
                             value={noteDraft}
-                            onChange={event => setNoteDraft(event.target.value)}
+                            onChange={event => { setNoteDraft(event.target.value); if (song?.isGenerating) pendingNotes.set(song.id, event.target.value); }}
                             onBlur={() => void saveNote()}
                             placeholder={t('songNotePlaceholder')}
                             rows={2}

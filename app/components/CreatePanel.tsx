@@ -1,7 +1,7 @@
 import { NumberField } from './NumberField';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { scriptLanguage } from '../services/lyricsLanguage';
-import { libraryChanged, setupStatusChanged, updateLibrarySongs, useActivity, useAssistantStatus, useLibrarySongs, useSetupStatus, type ActivityEntry } from '../services/studioQueries';
+import { libraryChanged, SELF_READ, setupStatusChanged, updateLibrarySongs, useActivity, useAssistantStatus, useLibrarySongs, useSetupStatus, type ActivityEntry } from '../services/studioQueries';
 import { mapNativeLibrarySong } from '../services/nativeLibrary';
 import { karaokeReason } from '../services/karaoke';
 import { AlertTriangle, ChevronDown, CircleAlert, Dices, Ear, FolderOpen, Loader2, Pause, Play, RotateCcw, Save, Sparkles, Square, Tags, Undo2, Upload, Wand2, Lightbulb, ListChecks } from 'lucide-react';
@@ -16,8 +16,10 @@ import { ModelSwitcher, type SwitcherStatus } from './ModelSwitcher';
 import type { AdapterUse } from '../services/adapters';
 import { randomExample, randomIdea, someGenres } from '../services/examples';
 import { apiUrl } from '../services/apiBase';
-import { SCHEDULERS, SOLVERS } from '../services/aceEngine';
+import { SCHEDULERS, SOLVERS, readAudioCodes } from '../services/aceEngine';
 import { explainCliFailure } from '../services/cliFailure';
+import { AUDIO_ACCEPT } from '../services/audioFiles';
+import { genreGloss } from '../services/styleSuggestions';
 
 /**
  * The ACE-Step 1.5 request form.
@@ -97,7 +99,27 @@ const keptDuration = (): string => {
     return '';
   }
 };
-/** The file format last chosen by hand, kept between sessions like the duration. */
+/** The generation settings, kept across restarts like the words until Reset puts the defaults back. */
+const SETTINGS_KEY = 'studio.createSettings';
+function keptSettings(): Record<string, unknown> {
+  try {
+    const kept: unknown = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) ?? '{}');
+    return kept && typeof kept === 'object' ? (kept as Record<string, unknown>) : {};
+  } catch { return {}; }
+}
+function useKeptSetting(key: string, fallback: string): [string, React.Dispatch<React.SetStateAction<string>>];
+function useKeptSetting(key: string, fallback: boolean): [boolean, React.Dispatch<React.SetStateAction<boolean>>];
+function useKeptSetting(key: string, fallback: string | boolean): [string | boolean, React.Dispatch<React.SetStateAction<string | boolean>>] {
+  const [value, setValue] = useState<string | boolean>(() => {
+    const kept = keptSettings()[key];
+    return typeof kept === typeof fallback ? (kept as string | boolean) : fallback;
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...keptSettings(), [key]: value })); } catch { /* kept until a reload */ }
+  }, [key, value]);
+  return [value, setValue];
+}
+
 /** The words of the form (name, style, lyrics), kept across restarts until Reset clears them. */
 const DRAFT_KEY = 'studio.createDraft';
 function keptDraft(): Record<string, string> {
@@ -258,7 +280,7 @@ const usesFromRequest = (settings: Record<string, unknown>): AdapterUse[] => {
 };
 
 export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerating, activeJobCount = 0, initialData, playlists, onCreatePlaylist, playlistId, onChoosePlaylist }) => {
-  const { t } = useI18n();
+  const { t, language: uiLanguage } = useI18n();
   const tt = t as unknown as (key: string) => string;
 
   const [name, setName] = useState(() => keptDraft().name ?? '');
@@ -288,58 +310,64 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const [sourceSong, setSourceSong] = useState('');
   const [referenceSong, setReferenceSong] = useState('');
   const [tracks, setTracks] = useState<string[]>([]);
-  const [coverStrength, setCoverStrength] = useState('');
-  const [coverNoise, setCoverNoise] = useState('');
+  const [coverStrength, setCoverStrength] = useKeptSetting('coverStrength', '');
+  const [coverNoise, setCoverNoise] = useKeptSetting('coverNoise', '');
   const [repaintStart, setRepaintStart] = useState('');
   const [repaintEnd, setRepaintEnd] = useState('');
 
   const [think, setThink] = useState(true);
   // off as in ACE-Step's own interface: a written caption goes to the model word for word
   const [cotCaption, setCotCaption] = useState(false);
-  const [lmTemperature, setLmTemperature] = useState('');
-  const [lmCfg, setLmCfg] = useState('');
-  const [lmTopP, setLmTopP] = useState('');
-  const [lmTopK, setLmTopK] = useState('');
-  const [repPenalty, setRepPenalty] = useState('');
-  const [repMode, setRepMode] = useState('');
-  const [repWindow, setRepWindow] = useState('');
-  const [dryBase, setDryBase] = useState('');
-  const [dryMinLen, setDryMinLen] = useState('');
-  const [lmNegative, setLmNegative] = useState('');
-  const [lmSeed, setLmSeed] = useState('');
-  const [songs, setSongs] = useState('');
+  const [lmTemperature, setLmTemperature] = useKeptSetting('lmTemperature', '');
+  const [lmCfg, setLmCfg] = useKeptSetting('lmCfg', '');
+  const [lmTopP, setLmTopP] = useKeptSetting('lmTopP', '');
+  const [lmTopK, setLmTopK] = useKeptSetting('lmTopK', '');
+  const [repPenalty, setRepPenalty] = useKeptSetting('repPenalty', '');
+  const [repMode, setRepMode] = useKeptSetting('repMode', '');
+  const [repWindow, setRepWindow] = useKeptSetting('repWindow', '');
+  const [dryBase, setDryBase] = useKeptSetting('dryBase', '');
+  const [dryMinLen, setDryMinLen] = useKeptSetting('dryMinLen', '');
+  const [lmNegative, setLmNegative] = useKeptSetting('lmNegative', '');
+  const [lmSeed, setLmSeed] = useKeptSetting('lmSeed', '');
+  const [songs, setSongs] = useKeptSetting('songs', '');
   const [audioCodes, setAudioCodes] = useState('');
+  const codesRead = useMemo(() => readAudioCodes(audioCodes), [audioCodes]);
+  const codesProblem = 'codes' in codesRead
+    ? null
+    : 'code' in codesRead
+      ? tt('aceCodesForeign').replace('{code}', String(codesRead.code))
+      : tt('aceCodesNotCodes').replace('{piece}', codesRead.piece);
 
-  const [steps, setSteps] = useState('');
-  const [guidance, setGuidance] = useState('');
-  const [shift, setShift] = useState('');
-  const [solver, setSolver] = useState('');
-  const [scheduler, setScheduler] = useState('');
-  const [guidanceMode, setGuidanceMode] = useState('');
-  const [apgMomentum, setApgMomentum] = useState('');
-  const [apgNorm, setApgNorm] = useState('');
-  const [dcwMode, setDcwMode] = useState('');
-  const [dcwScaler, setDcwScaler] = useState('');
-  const [dcwHigh, setDcwHigh] = useState('');
-  const [customTimesteps, setCustomTimesteps] = useState('');
-  const [latentShift, setLatentShift] = useState('');
-  const [latentRescale, setLatentRescale] = useState('');
-  const [cfgStart, setCfgStart] = useState('');
-  const [cfgEnd, setCfgEnd] = useState('');
+  const [steps, setSteps] = useKeptSetting('steps', '');
+  const [guidance, setGuidance] = useKeptSetting('guidance', '');
+  const [shift, setShift] = useKeptSetting('shift', '');
+  const [solver, setSolver] = useKeptSetting('solver', '');
+  const [scheduler, setScheduler] = useKeptSetting('scheduler', '');
+  const [guidanceMode, setGuidanceMode] = useKeptSetting('guidanceMode', '');
+  const [apgMomentum, setApgMomentum] = useKeptSetting('apgMomentum', '');
+  const [apgNorm, setApgNorm] = useKeptSetting('apgNorm', '');
+  const [dcwMode, setDcwMode] = useKeptSetting('dcwMode', '');
+  const [dcwScaler, setDcwScaler] = useKeptSetting('dcwScaler', '');
+  const [dcwHigh, setDcwHigh] = useKeptSetting('dcwHigh', '');
+  const [customTimesteps, setCustomTimesteps] = useKeptSetting('customTimesteps', '');
+  const [latentShift, setLatentShift] = useKeptSetting('latentShift', '');
+  const [latentRescale, setLatentRescale] = useKeptSetting('latentRescale', '');
+  const [cfgStart, setCfgStart] = useKeptSetting('cfgStart', '');
+  const [cfgEnd, setCfgEnd] = useKeptSetting('cfgEnd', '');
   const [retakeVariance, setRetakeVariance] = useState('');
   const [retakeSeed, setRetakeSeed] = useState('');
-  const [fadeIn, setFadeIn] = useState('');
-  const [fadeOut, setFadeOut] = useState('');
+  const [fadeIn, setFadeIn] = useKeptSetting('fadeIn', '');
+  const [fadeOut, setFadeOut] = useKeptSetting('fadeOut', '');
   const [bulk, setBulk] = useState('');
   const [uploading, setUploading] = useState<'source' | 'reference' | null>(null);
   const [listening, setListening] = useState<'codes' | 'describe' | null>(null);
   const [playing, setPlaying] = useState<string | null>(null);
   const preview = useRef<HTMLAudioElement | null>(null);
 
-  const [takes, setTakes] = useState('');
-  const [randomizeSeed, setRandomizeSeed] = useState(true);
-  const [seed, setSeed] = useState('');
-  const [mp3Bitrate, setMp3Bitrate] = useState('320');
+  const [takes, setTakes] = useKeptSetting('takes', '');
+  const [randomizeSeed, setRandomizeSeed] = useKeptSetting('randomizeSeed', true);
+  const [seed, setSeed] = useKeptSetting('seed', '');
+  const [mp3Bitrate, setMp3Bitrate] = useKeptSetting('mp3Bitrate', '320');
   const [format, setFormat] = useState<AceCreateRequest['output_format']>(keptFormat);
   const chooseFormat = (value: AceCreateRequest['output_format']) => {
     setFormat(value);
@@ -382,6 +410,14 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const [mode, setMode] = useState<'simple' | 'studio'>('simple');
   const [idea, setIdea] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // the form scrolls above the Create button: a refusal at its foot is brought into view, or a click seems to do nothing
+  const errorBox = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!error) return undefined;
+    // after the frame the assistant's card leaves: a scroll started before it shrinks the form stops short
+    const frame = window.requestAnimationFrame(() => errorBox.current?.scrollIntoView({ block: 'nearest' }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [error]);
   const promptFile = useRef<HTMLInputElement | null>(null);
 
   // A cover or a lyric timing finished: the library is read again for it.
@@ -411,7 +447,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
 
 
   useEffect(() => {
-    void fetch('/v1/local-models/music')
+    void fetch('/v1/local-models/music', { headers: SELF_READ })
       .then(response => (response.ok ? response.json() : Promise.reject(new Error())))
       .then((body: { catalog?: EngineCatalog }) => setCatalog(body.catalog ?? null))
       .catch(() => setCatalog(null));
@@ -551,7 +587,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       }
     }
     put('lm_negative_prompt', lmNegative.trim());
-    put('audio_codes', audioCodes.trim());
+    put('audio_codes', 'codes' in codesRead ? codesRead.codes : audioCodes.trim());
     put('guidance', guidanceMode);
     put('apg_momentum', numberOrUndefined(apgMomentum));
     put('apg_norm_threshold', numberOrUndefined(apgNorm));
@@ -965,6 +1001,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     if (!caption.trim() && !baseOnly(task)) { setError(t('captionRequired')); return; }
     // with the assistant set up, empty lyrics would be written by the planner after all
     if (assistantReady && think && !instrumental && !lyrics.trim() && !baseOnly(task)) { setError(tt('aceLyricsFromAssistant')); return; }
+    if (codesProblem) { setError(codesProblem); return; }
     if (needsSource(task) && !sourceSong) { setError(tt('aceSourceRequired')); return; }
     if (baseOnly(task) && tracks.length === 0) { setError(tt('aceTrackRequired')); return; }
     if (totalTracks > MAX_TAKES) { setError(tt('aceTooManyTakes')); return; }
@@ -1072,7 +1109,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       )}
       <label className={`${ICON} cursor-pointer`} title={tt('aceUpload')}>
         {uploading === target ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-        <input type="file" accept="audio/*,.mp3,.wav,.flac,.ogg,.m4a,.aiff,.aif" className="hidden" onChange={event => { const file = event.target.files?.[0]; if (file) void upload(target, file); event.target.value = ''; }} />
+        <input type="file" accept={AUDIO_ACCEPT} className="hidden" onChange={event => { const file = event.target.files?.[0]; if (file) void upload(target, file); event.target.value = ''; }} />
       </label>
     </div>
   );
@@ -1261,11 +1298,15 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
                   </Field>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  {genres.map(genre => (
-                    <button key={genre} type="button" onClick={() => setCaption(current => (current.trim() ? `${current.trim().replace(/,$/, '')}, ${genre}` : genre))} className="rounded-full border border-zinc-200 bg-zinc-100 px-2.5 py-1 text-[10px] font-medium text-zinc-600 hover:border-pink-300 hover:text-pink-600 dark:border-white/5 dark:bg-white/5 dark:text-zinc-400">
-                      {genre}
-                    </button>
-                  ))}
+                  {genres.map(genre => {
+                    const gloss = genreGloss(genre, uiLanguage);
+                    return (
+                      <button key={genre} type="button" title={gloss} onClick={() => setCaption(current => (current.trim() ? `${current.trim().replace(/,$/, '')}, ${genre}` : genre))} className="rounded-full border border-zinc-200 bg-zinc-100 px-2.5 py-1 text-[10px] font-medium text-zinc-600 hover:border-pink-300 hover:text-pink-600 dark:border-white/5 dark:bg-white/5 dark:text-zinc-400">
+                        {genre}
+                        {gloss && <span className="ml-1 font-normal text-zinc-400 dark:text-zinc-500">{gloss}</span>}
+                      </button>
+                    );
+                  })}
                   <button type="button" onClick={() => setGenres(someGenres())} className={ICON} title={tt('aceMoreGenres')}><Dices size={13} /></button>
                 </div>
               </Card>
@@ -1533,7 +1574,8 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
                     <Field label={tt('aceNegative')}><input value={lmNegative} onChange={event => setLmNegative(event.target.value)} className={CONTROL} /></Field>
                     <Field label={t('lmSeedShort')}><input value={lmSeed} onChange={event => setLmSeed(event.target.value)} placeholder={tt('aceRandom')} inputMode="numeric" className={CONTROL} /></Field>
                     <Field label={tt('aceCodes')} hint={tt('aceCodesHint')}>
-                      <textarea value={audioCodes} onChange={event => setAudioCodes(event.target.value)} rows={2} className={`${CONTROL} resize-y font-mono text-[11px]`} />
+                      <textarea value={audioCodes} onChange={event => setAudioCodes(event.target.value)} rows={2} aria-invalid={Boolean(codesProblem)} className={`${CONTROL} resize-y font-mono text-[11px]`} />
+                      {codesProblem && <span role="alert" className="mt-1 block text-[11px] leading-4 text-rose-600 dark:text-rose-300">{codesProblem}</span>}
                     </Field>
                   </div>
                 </Stage>
@@ -1642,7 +1684,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
             </>
           )}
 
-          {error && <div role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs leading-5 text-red-700 dark:text-red-200">{error}</div>}
+          {error && <div ref={errorBox} role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs leading-5 text-red-700 dark:text-red-200">{error}</div>}
         </div>
       </div>
 

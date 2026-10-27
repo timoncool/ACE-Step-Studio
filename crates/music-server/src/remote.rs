@@ -198,12 +198,12 @@ fn same(a: &str, b: &str) -> bool {
 pub async fn guard(ConnectInfo(peer): ConnectInfo<SocketAddr>, request: Request, next: Next) -> Response {
     let shown = |name: header::HeaderName| request.headers().get(name).map(|value| String::from_utf8_lossy(value.as_bytes()).into_owned()).unwrap_or_default();
     if from_another_site(request.headers()) {
-        eprintln!("[ERROR] refused {} {}: a page of {} is not the studio's", request.method(), request.uri().path(), shown(header::ORIGIN));
+        studio_log!("[ERROR] refused {} {}: a page of {} is not the studio's", request.method(), request.uri().path(), shown(header::ORIGIN));
         return (StatusCode::FORBIDDEN, "A page of another site cannot use the studio.").into_response();
     }
     if from_this_computer(&peer, request.headers()) {
         if !request.headers().get(header::HOST).and_then(|host| host.to_str().ok()).is_none_or(loopback_host) {
-            eprintln!("[ERROR] refused {} {}: asked for as {}, not 127.0.0.1 or localhost", request.method(), request.uri().path(), shown(header::HOST));
+            studio_log!("[ERROR] refused {} {}: asked for as {}, not 127.0.0.1 or localhost", request.method(), request.uri().path(), shown(header::HOST));
             return (StatusCode::FORBIDDEN, "The studio answers this computer at 127.0.0.1 or localhost only.").into_response();
         }
         return next.run(request).await;

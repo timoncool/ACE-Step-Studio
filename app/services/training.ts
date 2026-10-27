@@ -2,6 +2,7 @@
  * Adapter training: the optional pack, engine-neutral datasets and the runs
  * that turn them into LoRA.
  */
+import { SELF_READ } from './studioQueries';
 
 export interface PackFile {
   id: string;
@@ -98,7 +99,7 @@ export interface TrainingState {
   /** Whether this machine's card runs the trainer: an NVIDIA card whose driver runs CUDA 13. */
   card_trains: boolean;
   /** What the card lacks for the trainer: no CUDA card at all, or a driver or card that runs CUDA 12 only. */
-  card_needs?: 'nvidia' | 'driver' | null;
+  card_needs?: 'nvidia' | 'driver' | 'platform' | null;
   /** The oldest NVIDIA driver the trainer's CUDA 13 runs on. */
   trainer_driver?: number;
   /** What checkpoints and "train further" count: steps, or epochs. */
@@ -135,7 +136,7 @@ const json = (method: string, body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
-export const fetchTraining = () => call<TrainingState>('/v1/training');
+export const fetchTraining = () => call<TrainingState>('/v1/training', { headers: SELF_READ });
 /** Fetches the training base without making it the studio's set. */
 export const downloadTrainingBase = (componentIds: string[]) => call<void>('/setup/download', json('POST', { component_ids: componentIds, select: false }));
 export const installTrainingPack = () => call<void>('/v1/training/pack/install', { method: 'POST' });

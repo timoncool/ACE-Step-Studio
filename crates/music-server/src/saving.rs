@@ -230,7 +230,7 @@ fn show_in_file_manager(path: &std::path::Path) -> std::io::Result<()> {
     // Explorer reads /select,"path" as one switch; quoting the whole of it
     // breaks the switch.
     std::os::windows::process::CommandExt::raw_arg(&mut explorer, format!("/select,\"{}\"", path.display()));
-    explorer.spawn().map(drop)
+    music_engine::process_group::detach_from_group(&mut explorer).spawn().map(drop)
 }
 
 #[cfg(target_os = "macos")]
@@ -242,7 +242,7 @@ fn show_in_file_manager(path: &std::path::Path) -> std::io::Result<()> {
 /// where no file manager offers it, the folder opens without the selection.
 #[cfg(all(not(windows), not(target_os = "macos")))]
 fn show_in_file_manager(path: &std::path::Path) -> std::io::Result<()> {
-    let shown = std::process::Command::new("dbus-send")
+    let shown = dub_core::proc::host_command("dbus-send")
         .args(["--session", "--print-reply", "--reply-timeout=3000", "--dest=org.freedesktop.FileManager1", "/org/freedesktop/FileManager1", "org.freedesktop.FileManager1.ShowItems"])
         .arg(format!("array:string:{}", file_uri(path)))
         .arg("string:")
@@ -254,7 +254,7 @@ fn show_in_file_manager(path: &std::path::Path) -> std::io::Result<()> {
         return Ok(());
     }
     let folder = path.parent().unwrap_or(path);
-    std::process::Command::new("xdg-open").arg(folder).spawn().map(drop)
+    music_engine::process_group::detach_from_group(&mut dub_core::proc::host_command("xdg-open")).arg(folder).spawn().map(drop)
 }
 
 /// `file://` and the path with every byte outside the unreserved set escaped.

@@ -57,15 +57,12 @@ pub struct Asset {
     pub note: &'static str,
 }
 
-/// llama.cpp is pinned to one build so a working setup keeps working.
-const LLAMA_BUILD: &str = "b11236";
-
 pub const ASSETS: &[Asset] = &[
     Asset {
         id: "gemma-4-e4b-q4_0",
         label: "Gemma 4 E4B IT (QAT q4_0)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf/resolve/main/gemma-4-E4B_q4_0-it.gguf",
+        url: "https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf/resolve/4b4a2c1d584be7264f87aac328a1bc739ce81b6c/gemma-4-E4B_q4_0-it.gguf",
         relative_path: "models/gemma-4-E4B_q4_0-it.gguf",
         bytes: 5_154_941_280,
         unzip_into: None,
@@ -77,7 +74,7 @@ pub const ASSETS: &[Asset] = &[
         id: "gemma-4-12b-q4_0",
         label: "Gemma 4 12B IT (QAT q4_0)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/google/gemma-4-12b-it-qat-q4_0-gguf/resolve/main/gemma-4-12b-it-qat-q4_0.gguf",
+        url: "https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf/resolve/29d097773436b69ff9feafd636ab4cf873786537/gemma-4-12b-it-qat-q4_0.gguf",
         relative_path: "models/gemma-4-12b-it-qat-q4_0.gguf",
         bytes: 6_975_879_296,
         unzip_into: None,
@@ -89,7 +86,7 @@ pub const ASSETS: &[Asset] = &[
         id: "gemma-4-12b-q5_k_m",
         label: "Gemma 4 12B IT (Q5_K_M)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/main/gemma-4-12b-it-Q5_K_M.gguf",
+        url: "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/fc034cfff751157913579611efad8462ac1be606/gemma-4-12b-it-Q5_K_M.gguf",
         relative_path: "models/gemma-4-12b-it-Q5_K_M.gguf",
         bytes: 8_413_576_000,
         unzip_into: None,
@@ -101,7 +98,7 @@ pub const ASSETS: &[Asset] = &[
         id: "gemma-4-12b-q6_k",
         label: "Gemma 4 12B IT (Q6_K)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/main/gemma-4-12b-it-Q6_K.gguf",
+        url: "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/fc034cfff751157913579611efad8462ac1be606/gemma-4-12b-it-Q6_K.gguf",
         relative_path: "models/gemma-4-12b-it-Q6_K.gguf",
         bytes: 9_786_022_720,
         unzip_into: None,
@@ -113,7 +110,7 @@ pub const ASSETS: &[Asset] = &[
         id: "gemma-4-12b-q8_0",
         label: "Gemma 4 12B IT (Q8_0)",
         kind: AssetKind::Model,
-        url: "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/main/gemma-4-12b-it-Q8_0.gguf",
+        url: "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/fc034cfff751157913579611efad8462ac1be606/gemma-4-12b-it-Q8_0.gguf",
         relative_path: "models/gemma-4-12b-it-Q8_0.gguf",
         bytes: 12_669_647_680,
         unzip_into: None,
@@ -126,9 +123,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-cuda",
         label: "llama.cpp runtime (CUDA 13.4)",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-win-cuda-13.4-x64.zip",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11900/llama-b11900-bin-win-cuda-13.4-x64.zip",
         relative_path: "runtime/llama-cuda.zip",
-        bytes: 153_540_960,
+        bytes: 164_721_212,
         unzip_into: Some("cuda"),
         marker: "llama-server",
         vram_gb: None,
@@ -154,9 +151,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-cuda12",
         label: "llama.cpp runtime (CUDA 12.4)",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-win-cuda-12.4-x64.zip",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11900/llama-b11900-bin-win-cuda-12.4-x64.zip",
         relative_path: "runtime/llama-cuda12.zip",
-        bytes: 264_523_826,
+        bytes: 279_417_051,
         unzip_into: Some("cuda12"),
         marker: "llama-server",
         vram_gb: None,
@@ -182,9 +179,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-vulkan",
         label: "llama.cpp runtime (Vulkan)",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-win-vulkan-x64.zip",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11900/llama-b11900-bin-win-vulkan-x64.zip",
         relative_path: "runtime/llama-vulkan.zip",
-        bytes: 33_064_176,
+        bytes: 37_051_563,
         unzip_into: Some("vulkan"),
         marker: "llama-server",
         vram_gb: None,
@@ -195,9 +192,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-cpu",
         label: "llama.cpp runtime (CPU)",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-win-cpu-x64.zip",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11900/llama-b11900-bin-win-cpu-x64.zip",
         relative_path: "runtime/llama-cpu.zip",
-        bytes: 19_160_483,
+        bytes: 24_228_419,
         unzip_into: Some("cpu"),
         marker: "llama-server",
         vram_gb: None,
@@ -208,9 +205,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-cuda",
         label: "llama.cpp runtime (CUDA 13.4)",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-ubuntu-cuda-13.4-x64.tar.gz",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11900/llama-b11900-bin-ubuntu-cuda-13.4-x64.tar.gz",
         relative_path: "runtime/llama-cuda.tar.gz",
-        bytes: 152_868_922,
+        bytes: 163_678_003,
         unzip_into: Some("cuda"),
         marker: "llama-server",
         vram_gb: None,
@@ -221,9 +218,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-cuda-runtime",
         label: "CUDA runtime for llama.cpp",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/cudart-llama-b11236-bin-ubuntu-cuda-13.4-x64.tar.gz",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11900/cudart-llama-b11900-bin-ubuntu-cuda-13.4-x64.tar.gz",
         relative_path: "runtime/cudart.tar.gz",
-        bytes: 440_236_534,
+        bytes: 440_236_550,
         unzip_into: Some("cuda"),
         marker: "libcudart",
         vram_gb: None,
@@ -234,9 +231,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-cuda12",
         label: "llama.cpp runtime (CUDA 12.8)",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-ubuntu-cuda-12.8-x64.tar.gz",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11900/llama-b11900-bin-ubuntu-cuda-12.8-x64.tar.gz",
         relative_path: "runtime/llama-cuda12.tar.gz",
-        bytes: 172_237_886,
+        bytes: 182_211_176,
         unzip_into: Some("cuda12"),
         marker: "llama-server",
         vram_gb: None,
@@ -247,9 +244,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-cuda12-runtime",
         label: "CUDA 12 runtime for llama.cpp",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/cudart-llama-b11236-bin-ubuntu-cuda-12.8-x64.tar.gz",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11900/cudart-llama-b11900-bin-ubuntu-cuda-12.8-x64.tar.gz",
         relative_path: "runtime/cudart12.tar.gz",
-        bytes: 594_377_263,
+        bytes: 594_377_835,
         unzip_into: Some("cuda12"),
         marker: "libcudart",
         vram_gb: None,
@@ -260,9 +257,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-vulkan",
         label: "llama.cpp runtime (Vulkan)",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-ubuntu-vulkan-x64.tar.gz",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11900/llama-b11900-bin-ubuntu-vulkan-x64.tar.gz",
         relative_path: "runtime/llama-vulkan.tar.gz",
-        bytes: 31_351_800,
+        bytes: 35_162_561,
         unzip_into: Some("vulkan"),
         marker: "llama-server",
         vram_gb: None,
@@ -273,9 +270,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-cpu",
         label: "llama.cpp runtime (CPU)",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-ubuntu-x64.tar.gz",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11900/llama-b11900-bin-ubuntu-x64.tar.gz",
         relative_path: "runtime/llama-cpu.tar.gz",
-        bytes: 17_406_283,
+        bytes: 22_497_562,
         unzip_into: Some("cpu"),
         marker: "llama-server",
         vram_gb: None,
@@ -286,9 +283,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-cpu",
         label: "llama.cpp runtime (Metal)",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/llama-b11236-bin-macos-arm64.tar.gz",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11900/llama-b11900-bin-macos-arm64.tar.gz",
         relative_path: "runtime/llama-cpu.tar.gz",
-        bytes: 11_761_043,
+        bytes: 16_295_973,
         unzip_into: Some("cpu"),
         marker: "llama-server",
         vram_gb: None,
@@ -299,17 +296,61 @@ pub const ASSETS: &[Asset] = &[
 /// The llama.cpp build this machine's card runs: CUDA 13 on Turing and newer
 /// with driver 580 or later, CUDA 12 on anything older CUDA still runs,
 /// Vulkan on every other card; none without a card, and none on a Mac, whose
-/// one build runs on its graphics through Metal by itself.
+/// one build runs on its graphics through Metal by itself. On a Linux whose
+/// glibc is older than the upstream CUDA builds need, the card runs Vulkan.
 pub fn card_flavour() -> Option<&'static str> {
     if cfg!(target_os = "macos") {
         return None;
     }
-    match crate::cuda_build::current() {
+    let card = match crate::cuda_build::card() {
         Some(crate::cuda_build::CudaBuild::Cuda12) => Some("cuda12"),
         Some(_) => Some("cuda"),
         None if crate::presets::display_card().is_some() => Some("vulkan"),
         None => None,
+    };
+    flavour_for(card, glibc_version())
+}
+
+/// The oldest glibc the upstream llama.cpp CUDA builds for Linux start on (b11900 needs GLIBC_2.38 and GLIBCXX_3.4.32).
+pub const LLAMA_CUDA_GLIBC: (u32, u32) = (2, 38);
+
+fn flavour_for(card: Option<&'static str>, glibc: Option<(u32, u32)>) -> Option<&'static str> {
+    match (card, glibc) {
+        (Some("cuda" | "cuda12"), Some(version)) if version < LLAMA_CUDA_GLIBC => Some("vulkan"),
+        _ => card,
     }
+}
+
+/// Why the assistant does not run the card's CUDA build - this Linux's glibc and the one the CUDA build needs - for
+/// Settings; None when it does.
+pub fn llama_note() -> Option<serde_json::Value> {
+    let glibc = glibc_version().filter(|version| *version < LLAMA_CUDA_GLIBC)?;
+    crate::cuda_build::card()?;
+    Some(serde_json::json!({
+        "glibc": format!("{}.{}", glibc.0, glibc.1),
+        "need": format!("{}.{}", LLAMA_CUDA_GLIBC.0, LLAMA_CUDA_GLIBC.1),
+    }))
+}
+
+/// The C library version of this Linux (`gnu_get_libc_version`); None on other systems.
+pub fn glibc_version() -> Option<(u32, u32)> {
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    {
+        let text = unsafe { std::ffi::CStr::from_ptr(libc::gnu_get_libc_version()) };
+        parse_glibc(text.to_str().ok()?)
+    }
+    #[cfg(not(all(target_os = "linux", target_env = "gnu")))]
+    {
+        None
+    }
+}
+
+#[cfg(any(all(target_os = "linux", target_env = "gnu"), test))]
+fn parse_glibc(text: &str) -> Option<(u32, u32)> {
+    let mut parts = text.trim().split('.');
+    let major = parts.next()?.parse().ok()?;
+    let minor = parts.next()?.chars().take_while(char::is_ascii_digit).collect::<String>().parse().ok()?;
+    Some((major, minor))
 }
 
 pub fn asset(id: &str) -> Option<&'static Asset> {
@@ -454,7 +495,84 @@ impl AssistantRuntime {
             .collect()
     }
 
-    fn is_installed(&self, asset: &Asset) -> bool {
+    /// Installed when its files are there and, for a runtime, its record names
+    /// today's pin (`install_record`); a runtime from before records counts as
+    /// in `take_over`. A model counts by its file at the pinned size: its address
+    /// can move to another commit of the same weights without them being fetched again.
+    pub fn is_installed(&self, asset: &Asset) -> bool {
+        if !self.present(asset) {
+            return false;
+        }
+        if asset.kind == AssetKind::Model {
+            // the pin names a commit, so its size is exact: a file of another size is another build
+            return fs::metadata(self.path_of(asset)).is_ok_and(|meta| meta.len() == asset.bytes);
+        }
+        let record = self.record_of(asset);
+        match crate::install_record::matches(&record, asset.url, &self.root) {
+            Some(current) => current,
+            None => self.take_over(asset, &record),
+        }
+    }
+
+    /// What an earlier release left of `asset` for today's pin to replace, as `Downloader::earlier` says it.
+    pub fn earlier(&self, asset: &Asset) -> Option<Option<String>> {
+        if asset.kind == AssetKind::Model || self.is_installed(asset) {
+            return None;
+        }
+        if let Some(record) = crate::install_record::read(&self.record_of(asset)) {
+            if record.url != asset.url {
+                return Some(Some(record.url));
+            }
+        }
+        self.present(asset).then_some(None)
+    }
+
+    fn record_of(&self, asset: &Asset) -> PathBuf {
+        crate::install_record::record_path(&self.path_of(asset))
+    }
+
+    /// A download from before records existed: a model by its presence, a
+    /// runtime only when the key file its pin names has the pinned size.
+    fn take_over(&self, asset: &Asset, record: &Path) -> bool {
+        if asset.kind == AssetKind::Model {
+            return true;
+        }
+        let key = match asset.unzip_into {
+            Some(flavour) => crate::install_record::key_file(asset.url).map(|(file, size)| (self.root.join("runtime").join(flavour).join(file), size)),
+            None => Some((self.path_of(asset), asset.bytes)),
+        };
+        // the .pin a development build of this version wrote names the URL it came from
+        let earlier_pin = self.root.join("runtime").join(asset.unzip_into.unwrap_or(".")).join(format!(".pin-{}", asset.id));
+        let path = if crate::downloads::pin_names(&earlier_pin, asset.url) {
+            key.map(|(path, _)| path).filter(|path| path.is_file()).or_else(|| Some(self.path_of(asset)).filter(|path| path.is_file()))
+        } else {
+            key.filter(|(path, size)| fs::metadata(path).is_ok_and(|meta| meta.len() == *size)).map(|(path, _)| path)
+        };
+        let Some(path) = path else {
+            return false;
+        };
+        if let Err(error) = crate::install_record::write(record, asset.url, "", &[path], &self.root) {
+            studio_log!("[ERROR] {}: the record of the download already on disk was not written: {error:#}", asset.label);
+        }
+        true
+    }
+
+    /// Fetched, checked, then what an earlier pin put down goes, and today's is extracted and recorded: the record
+    /// makes it count as today's pin.
+    fn finish(asset: &Asset, target: &Path, root: &Path) -> Result<()> {
+        let sha256 = crate::pin_sha::check(asset.url, target)?;
+        let record = crate::install_record::record_path(target);
+        crate::downloads::replace_earlier(&record, root, target)?;
+        let files = match asset.unzip_into {
+            Some(flavour) => crate::downloads::extract_archive(target, &root.join("runtime").join(flavour))?,
+            None => vec![target.to_path_buf()],
+        };
+        crate::downloads::make_programs_executable(asset.marker, &files)?;
+        crate::install_record::write(&record, asset.url, &sha256, &files, root)
+    }
+
+    /// The files of the asset are on disk, whichever pin put them there.
+    fn present(&self, asset: &Asset) -> bool {
         if let Some(flavour) = asset.unzip_into {
             // A runtime counts as installed once its own directory has content:
             // the CUDA libraries carry no llama-server of their own.
@@ -476,7 +594,7 @@ impl AssistantRuntime {
         fs::metadata(self.path_of(asset)).map(|meta| meta.len() > 0).unwrap_or(false)
     }
 
-    fn partial_bytes(&self, asset: &Asset) -> u64 {
+    pub fn partial_bytes(&self, asset: &Asset) -> u64 {
         let part = self.path_of(asset).with_extension("part");
         fs::metadata(part).map(|meta| meta.len()).unwrap_or(0)
     }
@@ -548,7 +666,7 @@ impl AssistantRuntime {
                 Err(error) => return Err(error).with_context(|| format!("remove {}", directory.display())),
             }
         }
-        for path in [self.path_of(asset), self.path_of(asset).with_extension("part")] {
+        for path in [self.path_of(asset), self.path_of(asset).with_extension("part"), self.record_of(asset)] {
             if let Ok(meta) = fs::metadata(&path) {
                 freed += meta.len();
                 fs::remove_file(&path).with_context(|| format!("remove {}", path.display()))?;
@@ -598,10 +716,7 @@ impl AssistantRuntime {
         for asset in &pending {
             let target = self.path_of(asset);
             let outcome = match download_asset(&self.http, asset, &target, &self.state, base, self.cancel.clone()).await {
-                Ok(()) => match asset.unzip_into {
-                    Some(flavour) => crate::downloads::extract_archive(&target, &self.root.join("runtime").join(flavour)),
-                    None => Ok(()),
-                },
+                Ok(()) => finish_apart(asset, &target, &self.root).await,
                 Err(error) => Err(error),
             };
             if let Err(error) = outcome {
@@ -652,25 +767,13 @@ impl AssistantRuntime {
         let state = self.state.clone();
         let root = self.root.clone();
         tokio::spawn(async move {
-            let outcome = download_asset(&http, asset, &target, &state, 0, Arc::new(std::sync::atomic::AtomicBool::new(false))).await;
-            let mut guard = state.lock().await;
-            match outcome {
-                Ok(()) => {
-                    let extraction = match asset.unzip_into {
-                        Some(flavour) => crate::downloads::extract_archive(&target, &root.join("runtime").join(flavour)),
-                        None => Ok(()),
-                    };
-                    if let Some(progress) = guard.download.as_mut() {
-                        progress.done = true;
-                        progress.error = extraction.err().map(|error| error.to_string());
-                    }
-                }
-                Err(error) => {
-                    if let Some(progress) = guard.download.as_mut() {
-                        progress.done = true;
-                        progress.error = Some(error.to_string());
-                    }
-                }
+            let outcome = match download_asset(&http, asset, &target, &state, 0, Arc::new(std::sync::atomic::AtomicBool::new(false))).await {
+                Ok(()) => finish_apart(asset, &target, &root).await,
+                Err(error) => Err(error),
+            };
+            if let Some(progress) = state.lock().await.download.as_mut() {
+                progress.done = true;
+                progress.error = outcome.err().map(|error| error.to_string());
             }
         });
         Ok(())
@@ -729,6 +832,7 @@ impl AssistantRuntime {
         if let Some(path) = music_core::process::own_libraries_first(&binary) {
             command.env("LD_LIBRARY_PATH", path);
         }
+        dub_core::proc::outside_appimage(&mut command);
         command
             .arg("--model")
             .arg(&model_path)
@@ -841,11 +945,17 @@ async fn download_asset(
     if let Some(parent) = target.parent() {
         fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
     }
-    if fs::metadata(target).map(|meta| meta.len() > 0).unwrap_or(false) {
+    // a model counts here as `is_installed` counts it, by the pin's exact size: a file of another size is replaced
+    let todays = match asset.kind {
+        AssetKind::Model => fs::metadata(target).is_ok_and(|meta| meta.len() == asset.bytes),
+        _ => crate::downloads::holds_todays(false, asset.url, target).await,
+    };
+    if todays {
         return Ok(());
     }
 
-    let plan = crate::chunked::probe(http, asset.url).await?;
+    let url = crate::net::model_url(asset.url);
+    let plan = crate::chunked::probe(http, &url).await?;
     if plan.total > 0 {
         crate::sizes::learn(asset.url, plan.total);
     }
@@ -864,7 +974,7 @@ async fn download_asset(
             }
         })
     };
-    let outcome = crate::chunked::fetch(http, asset.url, &part, plan, written.clone(), cancel).await;
+    let outcome = crate::chunked::fetch(http, &url, &part, plan, written.clone(), cancel).await;
     reporter.abort();
     outcome?;
     if let Some(progress) = state.lock().await.download.as_mut() {
@@ -877,6 +987,12 @@ async fn download_asset(
     }
     fs::rename(&part, target).with_context(|| format!("publish {}", target.display()))?;
     Ok(())
+}
+
+/// `AssistantRuntime::finish` off the async workers: it hashes the whole download, gigabytes for a model.
+async fn finish_apart(asset: &'static Asset, target: &Path, root: &Path) -> Result<()> {
+    let (target, root) = (target.to_path_buf(), root.to_path_buf());
+    tokio::task::spawn_blocking(move || AssistantRuntime::finish(asset, &target, &root)).await.map_err(|error| anyhow!("the download's check stopped: {error}"))?
 }
 
 fn free_port() -> Result<u16> {
@@ -903,21 +1019,79 @@ fn hide_console(command: &mut Command) {
 mod tests {
     use super::*;
 
+    /// llama.cpp is pinned to one build so a working setup keeps working.
+    const LLAMA_BUILD: &str = "b11900";
+    /// The Windows CUDA runtimes carry no build number in their names and are the
+    /// same bytes in every build since: they stay at the build that first shipped
+    /// them, so an update of llama.cpp does not fetch 800 MB of the same files.
+    #[cfg(windows)]
+    const CUDART_BUILD: &str = "b11236";
+
+    #[test]
+    fn a_cuda_card_runs_vulkan_where_glibc_is_older_than_the_cuda_build_needs() {
+        assert_eq!(parse_glibc("2.35"), Some((2, 35)));
+        assert_eq!(parse_glibc("2.39\n"), Some((2, 39)));
+        assert_eq!(parse_glibc("2.38-ubuntu"), Some((2, 38)));
+        assert_eq!(parse_glibc("x"), None);
+        for card in ["cuda", "cuda12"] {
+            assert_eq!(flavour_for(Some(card), Some((2, 35))), Some("vulkan"));
+            assert_eq!(flavour_for(Some(card), Some((2, 38))), Some(card));
+            assert_eq!(flavour_for(Some(card), None), Some(card));
+        }
+        assert_eq!(flavour_for(None, Some((2, 35))), None);
+        assert_eq!(flavour_for(Some("vulkan"), Some((2, 35))), Some("vulkan"));
+    }
+
     #[test]
     fn every_asset_has_a_size_and_a_distinct_id() {
         for entry in ASSETS {
             assert!(entry.bytes > 0, "{} has no size", entry.id);
             assert_eq!(ASSETS.iter().filter(|other| other.id == entry.id).count(), 1);
             assert!(entry.url.starts_with("https://"), "{} is not fetched over https", entry.id);
+            assert!(!entry.url.contains("/resolve/main/"), "{} follows a branch instead of a pinned revision", entry.id);
         }
         assert!(ASSETS.iter().any(|entry| entry.kind == AssetKind::Model));
         assert!(ASSETS.iter().any(|entry| entry.kind == AssetKind::Runtime));
     }
 
+    /// A model is fetched from a pinned revision: the repository's latest files can be other builds under the same name.
+    #[test]
+    fn every_model_is_pinned_to_a_revision() {
+        for entry in ASSETS.iter().filter(|entry| entry.kind == AssetKind::Model) {
+            assert!(entry.url.contains("/resolve/") && !entry.url.contains("/resolve/main/"), "{} is not pinned", entry.url);
+        }
+    }
+
+    /// A 3.7.0 install keeps an earlier llama.cpp without a record: it is not taken for today's pin and is fetched
+    /// again; the same folder with today's build is taken and its record written.
+    #[cfg(windows)]
+    #[test]
+    fn a_3_7_0_llama_without_a_record_is_fetched_again() {
+        let temp = std::env::temp_dir().join(format!("assistant-runtime-{}", uuid::Uuid::now_v7()));
+        let runtime = AssistantRuntime::new(&temp);
+        let server = asset("llama-cpu").expect("the processor build");
+        let (key, pinned) = crate::install_record::key_file(server.url).expect("the pin names its key file");
+        let directory = runtime.root.join("runtime").join(server.unzip_into.unwrap());
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(directory.join("llama-server.exe"), b"server").unwrap();
+        let library = fs::File::create(directory.join(key)).unwrap();
+        library.set_len(pinned + 4096).unwrap();
+        assert!(!runtime.is_installed(server), "an earlier build's library is another size");
+        library.set_len(pinned).unwrap();
+        drop(library);
+        assert!(runtime.is_installed(server), "today's build without a record is taken");
+        assert!(runtime.record_of(server).is_file(), "and its record is written");
+        fs::remove_dir_all(temp).unwrap();
+    }
+
     #[test]
     fn the_runtime_is_pinned_to_one_llama_cpp_build() {
         for entry in ASSETS.iter().filter(|entry| entry.kind == AssetKind::Runtime) {
-            assert!(entry.url.contains(LLAMA_BUILD), "{} is not pinned", entry.id);
+            #[cfg(windows)]
+            let build = if entry.url.contains("/cudart-llama-bin-win-") { CUDART_BUILD } else { LLAMA_BUILD };
+            #[cfg(not(windows))]
+            let build = LLAMA_BUILD;
+            assert!(entry.url.contains(&format!("/download/{build}/")), "{} is not pinned", entry.id);
             assert!(entry.unzip_into.is_some(), "{} has nowhere to extract to", entry.id);
             assert!(!entry.marker.is_empty(), "{} has no proof of extraction", entry.id);
         }

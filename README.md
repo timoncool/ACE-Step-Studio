@@ -132,12 +132,12 @@ Code, save [docs/mcp-skill.md](docs/mcp-skill.md) as `~/.claude/skills/ace-step-
     folders.
   - **Preparation on its own** — lyrics come from the lyric databases players use (LRCLIB,
     QQ Music, Kugou), word for word; only a song none of them knows has its vocals separated
-    and is heard by Whisper. MOSS-Music listens to every song and describes it, with the
+    and is heard by CrisperWhisper. MOSS-Music listens to every song and describes it, with the
     tempo and key measured.
   - **Train further** — not there yet? Set more epochs and the run goes on from the adapter
     it left, with the same recipe, songs and model.
 - **Word-level karaoke** — enhanced LRC with a timestamp on every word, aligned by Parakeet
-  or Whisper. Your lyrics are kept; only the timing is borrowed.
+  or CrisperWhisper 2.0 turbo (in audio.cpp). Your lyrics are kept; only the timing is borrowed.
 - **Six stems on the GPU** — drums, bass, other, vocals, guitar and piano with HT-Demucs.
 - **Any track to MIDI** — a song, a stem or a processed take becomes multi-instrument MIDI
   with MuScriptor on the GPU, through HOT-Step's native port. A piano roll fills in while it
@@ -265,7 +265,7 @@ the fixes back as a pull request.** The studio keeps its data in `~/.local/share
 | Tempo and key · Beat This!, S-KEY | CUDA | DirectML | processor |
 | Stems · HT-Demucs | CUDA | processor | processor |
 | Karaoke timing · Parakeet | CUDA | Vulkan | processor |
-| Karaoke timing · Whisper | CUDA | processor | processor |
+| Karaoke timing · CrisperWhisper | CUDA | Vulkan | processor |
 | Writing assistant · llama.cpp | CUDA | Vulkan | processor |
 | Audio to MIDI · MuScriptor | CUDA | processor | processor |
 

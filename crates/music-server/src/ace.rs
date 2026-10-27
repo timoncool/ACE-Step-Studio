@@ -119,6 +119,50 @@ pub const GUIDANCE: &[&str] = &["apg", "cfg_pp", "dynamic_cfg", "rescaled_cfg", 
 /// The engine's largest batch: every take of one synthesis job together.
 pub const MAX_TAKES: u64 = 9;
 
+/// The last index of ACE-Step 1.5's FSQ codebook (levels 8·8·8·5·5·5); the engine's
+/// detokenizer wraps a larger one into another code without a word.
+const MAX_AUDIO_CODE: u32 = 63_999;
+
+/// Audio codes as the engine reads them, numbers joined by commas. Taken as the
+/// studio writes them (numbers separated by commas or spaces) or as ACE-Step's
+/// Python tools write them (`<|audio_code_N|>` tokens), both indices of one codebook.
+pub fn audio_codes(text: &str) -> Result<String> {
+    const TOKEN: &str = "<|audio_code_";
+    let separator = |c: char| c == ',' || c.is_whitespace();
+    let code = |piece: &str| -> Result<u32> {
+        let value: u32 = piece.parse().map_err(|_| {
+            anyhow::anyhow!("audio codes are numbers from 0 to {MAX_AUDIO_CODE} separated by commas, or ACE-Step's <|audio_code_N|> tokens; `{piece}` is neither")
+        })?;
+        if value > MAX_AUDIO_CODE {
+            bail!("audio code {value} is outside ACE-Step 1.5's codebook (0 to {MAX_AUDIO_CODE}): these codes come from another model");
+        }
+        Ok(value)
+    };
+    let mut codes = Vec::new();
+    if text.contains(TOKEN) {
+        let mut rest = text;
+        while let Some(start) = rest.find(TOKEN) {
+            let between = rest[..start].trim_matches(separator);
+            if !between.is_empty() {
+                bail!("the audio codes hold `{between}` between their <|audio_code_N|> tokens");
+            }
+            let after = &rest[start + TOKEN.len()..];
+            let end = after.find("|>").context("an <|audio_code_ token of the audio codes has no closing |>")?;
+            codes.push(code(&after[..end])?);
+            rest = &after[end + 2..];
+        }
+        let tail = rest.trim_matches(separator);
+        if !tail.is_empty() {
+            bail!("the audio codes hold `{tail}` after their <|audio_code_N|> tokens");
+        }
+    } else {
+        for piece in text.split(separator).filter(|piece| !piece.is_empty()) {
+            codes.push(code(piece)?);
+        }
+    }
+    Ok(codes.iter().map(u32::to_string).collect::<Vec<_>>().join(","))
+}
+
 /// Checks a request from the page and completes it into what the engine gets:
 /// seeds rolled here so every take can be named and replayed, the studio's
 /// own MP3 encoding asked for as 32-bit float.
@@ -130,6 +174,14 @@ pub fn prepare(input: &Value) -> Result<Value> {
             bail!("unknown request field `{key}`");
         }
         out.insert(key.clone(), value.clone());
+    }
+    if let Some(written) = out.get("audio_codes").and_then(Value::as_str) {
+        let codes = audio_codes(written)?;
+        if codes.is_empty() {
+            out.remove("audio_codes");
+        } else {
+            out.insert("audio_codes".into(), Value::from(codes));
+        }
     }
     let task = out.get("task_type").and_then(Value::as_str).unwrap_or("text2music").to_owned();
     if !TASKS.contains(&task.as_str()) {
@@ -412,15 +464,37 @@ impl AceClient {
         Ok((content_type, response.bytes().await?.to_vec()))
     }
 
-    /// The planned requests of a finished `/lm` job.
     pub async fn lm_result(&self, job: &str) -> Result<Vec<Value>> {
-        let (_, body) = self.result(job).await?;
-        let planned: Value = serde_json::from_slice(&body).context("the language model's answer is not JSON")?;
+        let (content_type, body) = self.result(job).await?;
+        let Ok(planned) = serde_json::from_slice::<Value>(&body) else {
+            let answer = answer_excerpt(&content_type, &body);
+            studio_log!("[ERROR] /lm job {job} answered with what is not JSON: {answer}");
+            bail!("the language model's answer is not JSON: {answer}");
+        };
         match planned {
             Value::Array(items) if !items.is_empty() => Ok(items),
             Value::Object(_) => Ok(vec![planned]),
-            _ => bail!("the language model planned nothing"),
+            _ => {
+                let answer = answer_excerpt(&content_type, &body);
+                studio_log!("[ERROR] /lm job {job} planned nothing: {answer}");
+                bail!("the language model planned nothing: {answer}")
+            }
         }
+    }
+}
+
+/// What an engine answer was, for an error that has to name it: its media type,
+/// its size and, when it is text, its first characters.
+fn answer_excerpt(content_type: &str, body: &[u8]) -> String {
+    const SHOWN: usize = 80;
+    let kind = if content_type.is_empty() { "no content type" } else { content_type };
+    match std::str::from_utf8(body) {
+        Ok(text) => {
+            let start: String = text.chars().take(SHOWN).collect();
+            let more = if text.chars().count() > SHOWN { "…" } else { "" };
+            format!("{kind}, {} bytes: `{start}{more}`", body.len())
+        }
+        Err(_) => format!("{kind}, {} bytes, not text", body.len()),
     }
 }
 
@@ -490,5 +564,30 @@ mod tests {
         assert_eq!(takes[2].replay["caption"], "b");
         assert_eq!(takes[2].audio, b"A3");
         assert_eq!(takes[2].latent, b"L3");
+    }
+
+    #[test]
+    fn audio_codes_reach_the_engine_as_numbers_or_say_what_is_wrong() {
+        assert_eq!(audio_codes("12, 7  63999\n0").unwrap(), "12,7,63999,0");
+        assert_eq!(audio_codes("<|audio_code_12|><|audio_code_7|>\n<|audio_code_0|>").unwrap(), "12,7,0");
+        assert_eq!(audio_codes("  ").unwrap(), "");
+        assert!(audio_codes("12, x").is_err());
+        assert!(audio_codes("64000").is_err());
+        assert!(audio_codes("-3").is_err());
+        assert!(audio_codes("<|audio_code_12|> noise <|audio_code_7|>").is_err());
+        assert!(audio_codes("<|audio_code_70000|>").is_err());
+        assert!(audio_codes("<|audio_code_12").is_err());
+        let prepared = prepare(&json!({ "caption": "x", "audio_codes": "<|audio_code_5|><|audio_code_6|>" })).unwrap();
+        assert_eq!(prepared["audio_codes"], "5,6");
+        assert!(prepare(&json!({ "caption": "x", "audio_codes": " " })).unwrap().get("audio_codes").is_none());
+        assert!(prepare(&json!({ "caption": "x", "audio_codes": "abc" })).is_err());
+    }
+
+    #[test]
+    fn an_engine_answer_is_named_by_its_type_size_and_first_characters() {
+        assert_eq!(answer_excerpt("application/json", b"[]"), "application/json, 2 bytes: `[]`");
+        assert_eq!(answer_excerpt("", &[0xff, 0xfe]), "no content type, 2 bytes, not text");
+        let long = "x".repeat(100);
+        assert_eq!(answer_excerpt("text/plain", long.as_bytes()), format!("text/plain, 100 bytes: `{}…`", "x".repeat(80)));
     }
 }

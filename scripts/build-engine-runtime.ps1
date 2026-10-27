@@ -127,14 +127,7 @@ function Invoke-CustomCudaBuild {
         # The backends load at run time (GGML_BACKEND_DL), so the CUDA 12
         # backend of Invoke-Cuda12Build can take this one's place, and Vulkan
         # serves AMD and Intel cards and NVIDIA cards neither CUDA build runs.
-        # The trailing 120-virtual follows NVIDIA's "Building for Maximum
-        # Compatibility" rule: without PTX for the newest architecture there is
-        # nothing to JIT from and the kernel launch simply fails. ggml rewrites
-        # it to 120a-virtual on the way through - its Blackwell kernels use FP4
-        # tensor core instructions that only exist in 12Xa - so this buys PTX
-        # for Blackwell variants, not for whatever comes after them. ggml's own
-        # comment puts that boundary at Rubin.
-        'universal' { '-DGGML_NATIVE=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON -DGGML_VULKAN=ON "-DCMAKE_CUDA_ARCHITECTURES=75-real;80-real;86-real;89-real;90-real;120a-real;120-virtual"' }
+        'universal' { '-DGGML_NATIVE=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON -DGGML_VULKAN=ON "-DCMAKE_CUDA_ARCHITECTURES=75-real;80-real;86-real;89-real;90-real;120a-real"' }
         'native' { '-DCMAKE_CUDA_ARCHITECTURES=native' }
         'sm_89' { '-DCMAKE_CUDA_ARCHITECTURES=89' }
         default { throw "No custom CMake architecture is defined for '$CudaArchitecture'." }
@@ -172,7 +165,8 @@ function Invoke-CustomCudaBuild {
     # variants, so naming the two executables alone would skip them: the
     # universal build builds the whole tree, as upstream's buildall does.
     $targets = if ($CudaArchitecture -eq 'universal') { '' } else { (@($server) + @($engineSource.tools) | ForEach-Object { "--target $_" }) -join ' ' }
-    $command = "set `"VSLANG=1033`" && call `"$vcvars`" >nul && cmake -S . -B `"$buildDirectoryName`" -G Ninja -DCMAKE_BUILD_TYPE=Release -DGGML_CUDA=ON $ccache $flashAttention $symbols $settings && cmake --build `"$buildDirectoryName`" $targets --parallel $parallelism"
+    # --fresh: nothing is kept from an earlier configure.
+    $command = "set `"VSLANG=1033`" && call `"$vcvars`" >nul && cmake --fresh -S . -B `"$buildDirectoryName`" -G Ninja -DCMAKE_BUILD_TYPE=Release -DGGML_CUDA=ON -DGGML_CUDA_NCCL=OFF $ccache $flashAttention $symbols $settings && cmake --build `"$buildDirectoryName`" $targets --parallel $parallelism"
     Push-Location $engineWorktree
     # The compiler's own output must not become this function's return value:
     # PowerShell returns everything a function writes, and the build directory
@@ -196,7 +190,7 @@ function Invoke-Cuda12Build {
     # -Wno-deprecated-gpu-targets silences the notice that CUDA 12 is the last
     # toolkit for Maxwell, Pascal and Volta.
     $cudaFlags = '-Wno-deprecated-gpu-targets'
-    $flags = "-DGGML_NATIVE=OFF -DGGML_BACKEND_DL=ON -DGGML_CUDA=ON -DGGML_CUDA_FA_ALL_QUANTS=ON `"-DCMAKE_CUDA_ARCHITECTURES=52-real;60-real;61-real;70-real;75-real;80-real;86-real;89-real;90-real;120a-real`" `"-DCMAKE_CUDA_COMPILER=$root/bin/nvcc.exe`" `"-DCUDAToolkit_ROOT=$root`" `"-DCMAKE_CUDA_FLAGS=$cudaFlags`""
+    $flags = "-DGGML_NATIVE=OFF -DGGML_BACKEND_DL=ON -DGGML_CUDA=ON -DGGML_CUDA_NCCL=OFF -DGGML_CUDA_FA_ALL_QUANTS=ON `"-DCMAKE_CUDA_ARCHITECTURES=52-real;60-real;61-real;70-real;75-real;80-real;86-real;89-real;90-real;120a-real`" `"-DCMAKE_CUDA_COMPILER=$root/bin/nvcc.exe`" `"-DCUDAToolkit_ROOT=$root`" `"-DCMAKE_CUDA_FLAGS=$cudaFlags`""
     $ccache = if (Get-Command ccache -ErrorAction SilentlyContinue) { '-DGGML_CCACHE=ON' } else { '-DGGML_CCACHE=OFF' }
     $symbols = '-DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=ProgramDatabase -DCMAKE_EXE_LINKER_FLAGS=/DEBUG -DCMAKE_SHARED_LINKER_FLAGS=/DEBUG'
     $parallelism = [Math]::Max(1, [Environment]::ProcessorCount)
@@ -298,7 +292,7 @@ $redist = Get-ChildItem -Path (Join-Path $vsRoot 'VC\Redist\MSVC') -Directory | 
 if (-not $redist) { throw 'The Visual C++ redistributable folder was not found in this Visual Studio.' }
 $crt = Get-ChildItem -Path (Join-Path $redist.FullName 'x64') -Directory -Filter 'Microsoft.VC*.CRT' | Select-Object -First 1
 $openmp = Get-ChildItem -Path (Join-Path $redist.FullName 'x64') -Directory -Filter 'Microsoft.VC*.OpenMP' | Select-Object -First 1
-foreach ($library in @((Join-Path $crt.FullName 'msvcp140.dll'), (Join-Path $crt.FullName 'vcruntime140.dll'), (Join-Path $crt.FullName 'vcruntime140_1.dll'), (Join-Path $openmp.FullName 'vcomp140.dll'))) {
+foreach ($library in @((Join-Path $crt.FullName 'msvcp140.dll'), (Join-Path $crt.FullName 'msvcp140_1.dll'), (Join-Path $crt.FullName 'vcruntime140.dll'), (Join-Path $crt.FullName 'vcruntime140_1.dll'), (Join-Path $openmp.FullName 'vcomp140.dll'))) {
     if (-not (Test-Path $library)) { throw "Visual C++ runtime library missing: $library" }
     Copy-Item $library $resolvedOutputDirectory -Force
 }

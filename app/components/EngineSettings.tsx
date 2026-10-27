@@ -1,6 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Check, Cpu, FolderOpen, Loader2, RotateCw , Terminal } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
+import { SELF_READ } from '../services/studioQueries';
+import { DiagnosticsPanel } from './DiagnosticsPanel';
 
 /**
  * Launch options for the local engine.
@@ -114,6 +116,21 @@ export const EngineSettings: React.FC = () => {
 
   const dirty = JSON.stringify(options) !== JSON.stringify(saved);
 
+  // Closing the page with another device chosen saves and restarts, as the save button does: the choice is never lost unsaved.
+  const latest = useRef({ options, saved });
+  latest.current = { options, saved };
+  useEffect(() => () => {
+    const { options: chosen, saved: running } = latest.current;
+    if (chosen.backend === running.backend) return;
+    void fetch('/engine/options', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(chosen) })
+      .then(async response => {
+        const body = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(body?.error || `Saving the engine options failed (${response.status})`);
+        window.dispatchEvent(new CustomEvent('studio:toast', { detail: { message: body.engine_restarted ? t('engineOptionsSavedRestarted') : t('engineOptionsSavedLater'), type: 'success' } }));
+      })
+      .catch((reason: unknown) => window.dispatchEvent(new CustomEvent('studio:toast', { detail: { message: reason instanceof Error ? reason.message : String(reason), type: 'error' } })));
+  }, []);
+
   const save = async () => {
     setBusy(true);
     setError(null);
@@ -145,7 +162,7 @@ export const EngineSettings: React.FC = () => {
   const [logsOpen, setLogsOpen] = useState(false);
   useEffect(() => {
     if (!logsOpen) return;
-    const read = () => void fetch('/v1/engine/logs')
+    const read = () => void fetch('/v1/engine/logs', { headers: SELF_READ })
       .then(response => (response.ok ? response.json() : Promise.reject(new Error())))
       .then((body: { lines?: string[] }) => setLogs((body.lines ?? []).slice(-200)))
       .catch(() => undefined);
@@ -355,6 +372,8 @@ export const EngineSettings: React.FC = () => {
           </div>
         )}
       </div>
+
+      <DiagnosticsPanel />
 
       {notice && (
         <p className="flex items-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-300">

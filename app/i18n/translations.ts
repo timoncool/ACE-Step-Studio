@@ -14,6 +14,15 @@ import { shellStrings } from './shell';
 
 export type Language = 'en' | 'zh' | 'ja' | 'ko' | 'ru';
 
+/** Each window language by its own name, the same in every language, so a reader finds theirs in any window. */
+export const LANGUAGE_NAMES: Record<Language, string> = {
+  ru: 'Русский',
+  en: 'English',
+  zh: '简体中文',
+  ja: '日本語',
+  ko: '한국어',
+};
+
 const enAll = { ...en, ...processingStrings.en, ...adapterStrings.en, ...trainingStrings.en, ...hubStrings.en, ...aceStrings.en, ...midiEditorStrings.en, ...noticeStrings.en, ...shellStrings.en };
 
 export type TranslationKey = keyof typeof enAll;

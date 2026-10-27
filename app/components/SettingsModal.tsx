@@ -4,7 +4,7 @@ import { BarChart3, Boxes, Cloud, Cpu, Image as ImageIcon, Info, Monitor, Plug, 
 import { SiGithub } from '@icons-pack/react-simple-icons';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
-import type { Language } from '../i18n/translations';
+import { LANGUAGE_NAMES, type Language } from '../i18n/translations';
 import { ProviderSettings } from './ProviderSettings';
 import { EngineSettings } from './EngineSettings';
 import { SetupGate } from './SetupGate';
@@ -187,11 +187,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
                     </div>
                   </div>
                   <select value={language} onChange={(event) => setLanguage(event.target.value as Language)} className={INPUT}>
-                    <option value="ru">{t('russianLanguage')}</option>
-                    <option value="en">{t('english')}</option>
-                    <option value="zh">{t('chinese')}</option>
-                    <option value="ja">{t('japaneseLanguage')}</option>
-                    <option value="ko">{t('koreanLanguage')}</option>
+                    {(Object.entries(LANGUAGE_NAMES) as [Language, string][]).map(([code, name]) => (
+                      <option key={code} value={code} lang={code}>{name}</option>
+                    ))}
                   </select>
                 </div>
 

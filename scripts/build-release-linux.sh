@@ -16,7 +16,7 @@ fi
 
 midi="$root/desktop/src-tauri/resources/music-midi"
 midi_commit="$(sed -n 's/.*"commit": "\(.*\)".*/\1/p' "$root/engines/music-midi-source.json")"
-if [ ! -x "$midi/music-midi" ] || [ "$(cat "$midi/runtime.commit" 2>/dev/null)" != "$midi_commit" ]; then
+if [ ! -x "$midi/music-midi" ] || [ ! -x "$midi/music-caption" ] || [ "$(cat "$midi/runtime.commit" 2>/dev/null)" != "$midi_commit" ]; then
     rm -rf "$midi"
     "$root/scripts/build-midi-runtime-linux.sh" "$midi"
 fi
@@ -25,6 +25,8 @@ cd "$root"
 npm --prefix app ci --no-audit --no-fund
 npm --prefix desktop ci --no-audit --no-fund
 cd desktop
+# libcuda.so.1 is the display driver's, never packaged: the AppImage's dependency scan of the CUDA backend leaves it out
+export LINUXDEPLOY_EXCLUDED_LIBRARIES="libcuda.so*"
 npm exec tauri build -- --config src-tauri/tauri.linux-release.conf.json --bundles deb,appimage
 
 find src-tauri/target/release/bundle -name '*.deb' -o -name '*.AppImage'

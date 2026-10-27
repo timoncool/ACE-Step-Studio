@@ -169,6 +169,21 @@ pub const ROFORMER_ENGINE_CPU: Asset = Asset {
     vram_gb: None,
     note: "Runs Mel-Band RoFormer on the processor: slower, the same result.",
 };
+/// The author's Apple silicon build: ggml with Metal and the processor, its libraries by their full versions only.
+#[cfg(target_os = "macos")]
+pub const ROFORMER_ENGINE_CPU: Asset = Asset {
+    id: "bsroformer-engine-cpu",
+    label: "BSRoformer.cpp (Metal)",
+    kind: AssetKind::Runtime,
+    url: "https://github.com/chenmozhijin/BSRoformer.cpp/releases/download/v0.1.0/BSRoformer-macos-arm64.tar.xz",
+    relative_path: "bsroformer-cpu.tar.xz",
+    bytes: 636_996,
+    unzip_into: Some("bsroformer-cpu"),
+    marker: "bs_roformer-cli",
+    pick: &[],
+    vram_gb: None,
+    note: "Runs Mel-Band RoFormer on Apple silicon: Metal, and the processor where Metal cannot.",
+};
 
 /// Owns the separation model's directory and the runs that use it.
 pub struct Separator {
@@ -205,7 +220,13 @@ impl Separator {
         {
             Some(if gpu { &ROFORMER_ENGINE } else { &ROFORMER_ENGINE_CPU })
         }
-        #[cfg(not(any(windows, target_os = "linux")))]
+        // one build on a Mac: Metal and the processor, chosen by the engine itself
+        #[cfg(target_os = "macos")]
+        {
+            let _ = gpu;
+            Some(&ROFORMER_ENGINE_CPU)
+        }
+        #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
         {
             let _ = gpu;
             None
@@ -264,6 +285,7 @@ impl Separator {
             right: samples.iter().skip(1).step_by(CHANNELS).copied().collect(),
         };
         crate::audio_pcm::write_wav_f32(&mix, &stereo)?;
+        crate::cpu::tool_runs_here("Mel-Band RoFormer separator")?;
         let separated = dub_sep::separate(&mix, &work.path().join("stems"), &cli, &self.downloader.path_of(&ROFORMER_MODEL))
             .map_err(|error| anyhow::anyhow!("Mel-Band RoFormer: {error}"))?;
         Ok((crate::audio_pcm::decode_stereo_44k(&separated.vocals)?, crate::audio_pcm::decode_stereo_44k(&separated.instrumental)?))

@@ -1,7 +1,8 @@
 #!/bin/bash
-# macOS counterpart of the Windows music-midi.exe: builds HOT-Step's `ace-midi`
-# (MuScriptor audio-to-MIDI) at the pinned commit with Metal, and copies it as
-# `music-midi`, with its ggml libraries, into OUTPUT_DIRECTORY.
+# macOS counterpart of the Windows music-midi.exe and ace-caption.exe: builds
+# HOT-Step's `ace-midi` (MuScriptor audio-to-MIDI) and `ace-caption` (MOSS-Music,
+# Style by ear) at the pinned commit with Metal, and copies them as `music-midi`
+# and `music-caption`, with their ggml libraries, into OUTPUT_DIRECTORY.
 set -euo pipefail
 
 output="${1:?usage: build-midi-runtime.sh OUTPUT_DIRECTORY}"
@@ -22,14 +23,15 @@ git -C "$worktree" submodule update --init --recursive engine/ggml
 git -C "$worktree" submodule update --init engine/vendor/vst3sdk
 git -C "$worktree/engine/vendor/vst3sdk" submodule update --init base pluginterfaces public.sdk
 
-cmake -S "$worktree/engine" -B "$worktree/engine/build" -DCMAKE_BUILD_TYPE=Release \
+cmake --fresh -S "$worktree/engine" -B "$worktree/engine/build" -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON -DCMAKE_INSTALL_RPATH=@executable_path \
     -DGGML_METAL=ON -DGGML_METAL_EMBED_LIBRARY=ON
-cmake --build "$worktree/engine/build" --config Release --target ace-midi \
+cmake --build "$worktree/engine/build" --config Release --target ace-midi ace-caption \
     -j "$(getconf _NPROCESSORS_ONLN)"
 
 mkdir -p "$output"
 cp "$worktree/engine/build/ace-midi" "$output/music-midi"
+cp "$worktree/engine/build/ace-caption" "$output/music-caption"
 cp -a "$worktree"/engine/build/*.dylib "$output/"
 # the binaries look for their dylibs beside themselves: an absolute build-machine path would only resolve on the runner
 for binary in "$output"/*; do
@@ -40,4 +42,4 @@ for binary in "$output"/*; do
         exit 1
     fi
 done
-echo "music-midi ($commit) built into $output"
+echo "music-midi and music-caption ($commit) built into $output"
