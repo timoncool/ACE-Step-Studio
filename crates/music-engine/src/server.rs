@@ -42,6 +42,120 @@ pub fn default_port() -> u16 {
     engine_source().port
 }
 
+/// The loopback port the engine listens on and the studio asks it on: `STUDIO_ENGINE_PORT` when set, else the
+/// engine's own (`default_port`) when this computer lets the studio listen there, else one the system gives. Decided
+/// once per run; `engine_port_note` says why it is not the engine's own.
+pub fn engine_port() -> u16 {
+    resolved_port().0
+}
+
+/// Why `engine_port` is not the engine's own port: what holds it, or that Windows reserves it.
+pub fn engine_port_note() -> Option<&'static str> {
+    resolved_port().1.as_deref()
+}
+
+fn resolved_port() -> &'static (u16, Option<String>) {
+    static PORT: std::sync::OnceLock<(u16, Option<String>)> = std::sync::OnceLock::new();
+    PORT.get_or_init(|| match std::env::var("STUDIO_ENGINE_PORT").ok().and_then(|value| value.parse::<u16>().ok()) {
+        Some(port) => (port, None),
+        None => choose_port(default_port()),
+    })
+}
+
+/// `wanted` when the studio can listen on it on loopback, else a free port the system gives, with the reason.
+fn choose_port(wanted: u16) -> (u16, Option<String>) {
+    let refused = match std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, wanted)) {
+        Ok(_) => return (wanted, None),
+        Err(error) => error,
+    };
+    let why = port_unavailable(wanted, &refused);
+    let note = match std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0)).and_then(|listener| listener.local_addr()) {
+        Ok(address) => (address.port(), format!("port {wanted} is not available to the engine ({why}); it listens on {} instead", address.port())),
+        Err(error) => (wanted, format!("port {wanted} is not available to the engine ({why}) and the system gave no other: {error}")),
+    };
+    note_in_log(&note.1);
+    (note.0, Some(note.1))
+}
+
+/// What keeps the studio from listening on `port`: the program that holds it, or the range Windows reserves it in.
+fn port_unavailable(port: u16, error: &std::io::Error) -> String {
+    #[cfg(windows)]
+    {
+        // WSAEACCES: Hyper-V, WSL or Docker reserved the port (netsh int ipv4 show excludedportrange)
+        if error.raw_os_error() == Some(10013) {
+            return match excluded_range(port) {
+                Some((first, last)) => format!("Windows reserves ports {first}-{last}"),
+                None => format!("Windows refused it: {error}"),
+            };
+        }
+        if let Some((pid, name)) = listener_of(port) {
+            return format!("{name} (PID {pid}) listens on it");
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = port;
+    if error.kind() == std::io::ErrorKind::AddrInUse { format!("another program listens on it: {error}") } else { error.to_string() }
+}
+
+/// The range of `netsh interface ipv4 show excludedportrange protocol=tcp` that holds `port`.
+#[cfg(windows)]
+fn excluded_range(port: u16) -> Option<(u16, u16)> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let output = Command::new("netsh")
+        .args(["interface", "ipv4", "show", "excludedportrange", "protocol=tcp"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .ok()?;
+    excluded_range_in(&String::from_utf8_lossy(&output.stdout), port)
+}
+
+/// The range of a netsh port-range listing (lines of a first and a last port) that holds `port`.
+#[cfg(any(windows, test))]
+fn excluded_range_in(listing: &str, port: u16) -> Option<(u16, u16)> {
+    listing.lines().find_map(|line| {
+        let mut numbers = line.split_whitespace().map(str::parse::<u16>);
+        let (Some(Ok(first)), Some(Ok(last))) = (numbers.next(), numbers.next()) else { return None };
+        (first <= port && port <= last).then_some((first, last))
+    })
+}
+
+/// The process listening on `port` on IPv4, by its PID and program name.
+#[cfg(windows)]
+fn listener_of(port: u16) -> Option<(u32, String)> {
+    use windows_sys::Win32::Foundation::CloseHandle;
+    use windows_sys::Win32::NetworkManagement::IpHelper::{GetExtendedTcpTable, MIB_TCPROW_OWNER_PID, TCP_TABLE_OWNER_PID_LISTENER};
+    use windows_sys::Win32::System::Threading::{OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION};
+    const AF_INET: u32 = 2;
+    let mut size = 0u32;
+    unsafe { GetExtendedTcpTable(std::ptr::null_mut(), &mut size, 0, AF_INET, TCP_TABLE_OWNER_PID_LISTENER, 0) };
+    if size == 0 {
+        return None;
+    }
+    let mut buffer = vec![0u32; (size as usize).div_ceil(4)];
+    if unsafe { GetExtendedTcpTable(buffer.as_mut_ptr().cast(), &mut size, 0, AF_INET, TCP_TABLE_OWNER_PID_LISTENER, 0) } != 0 {
+        return None;
+    }
+    let count = buffer[0] as usize;
+    let rows = unsafe { std::slice::from_raw_parts(buffer.as_ptr().add(1).cast::<MIB_TCPROW_OWNER_PID>(), count) };
+    // the port is in network byte order in the row's low 16 bits
+    let pid = rows.iter().find(|row| u16::from_be(row.dwLocalPort as u16) == port)?.dwOwningPid;
+    let mut name = format!("process {pid}");
+    unsafe {
+        let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+        if !process.is_null() {
+            let mut path = vec![0u16; 1024];
+            let mut length = path.len() as u32;
+            if QueryFullProcessImageNameW(process, 0, path.as_mut_ptr(), &mut length) != 0 {
+                let full = String::from_utf16_lossy(&path[..length as usize]);
+                name = full.rsplit(['\\', '/']).next().unwrap_or(&full).to_string();
+            }
+            CloseHandle(process);
+        }
+    }
+    Some((pid, name))
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ServerLaunchConfig {
     pub executable: PathBuf,
@@ -714,6 +828,29 @@ mod tests {
     #[test]
     fn health_check_is_false_without_a_server() {
         assert!(!health_check("127.0.0.1", 65534, Duration::from_millis(10)));
+    }
+
+    #[test]
+    fn a_port_another_program_holds_gives_way_to_a_free_one_with_the_holder_named() {
+        let held = std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let wanted = held.local_addr().unwrap().port();
+        let (port, note) = choose_port(wanted);
+        assert_ne!(port, wanted);
+        let note = note.expect("a reason for the other port");
+        assert!(note.contains(&format!("port {wanted} is not available")) && note.contains(&format!("listens on {port} instead")), "{note}");
+        #[cfg(windows)]
+        assert!(note.contains(&format!("PID {}", std::process::id())), "the holder is named: {note}");
+        assert!(std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port)).is_ok(), "the port given is free");
+        drop(held);
+        assert_eq!(choose_port(wanted), (wanted, None), "a free port is the one wanted");
+    }
+
+    #[test]
+    fn a_port_in_a_reserved_range_is_found_in_the_listing() {
+        let listing = "\nProtocol tcp Port Exclusion Ranges\n\nStart Port    End Port\n----------    --------\n      5357        5357\n      8040        8139\n     50000       50059     *\n\n* - Administered port exclusions.\n";
+        assert_eq!(excluded_range_in(listing, 8089), Some((8040, 8139)));
+        assert_eq!(excluded_range_in(listing, 50000), Some((50000, 50059)));
+        assert_eq!(excluded_range_in(listing, 9000), None);
     }
 }
 
