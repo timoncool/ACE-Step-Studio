@@ -172,6 +172,8 @@ pub fn terminate_group_members() {
         if libc::getpgrp() == libc::getpid() {
             libc::signal(libc::SIGTERM, libc::SIG_IGN);
             libc::killpg(libc::getpgrp(), libc::SIGTERM);
+            // an ignored signal is dropped when sent, so the default can come back: what starts after inherits it
+            libc::signal(libc::SIGTERM, libc::SIG_DFL);
         }
     }
 }
