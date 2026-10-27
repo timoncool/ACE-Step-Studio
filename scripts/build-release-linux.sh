@@ -27,6 +27,6 @@ npm --prefix desktop ci --no-audit --no-fund
 cd desktop
 # libcuda.so.1 is the display driver's, never packaged: the AppImage's dependency scan of the CUDA backend leaves it out
 export LINUXDEPLOY_EXCLUDED_LIBRARIES="libcuda.so*"
-npm exec tauri build ----config src-tauri/tauri.linux-release.conf.json --bundles deb,appimage
+npm exec tauri build -- --config src-tauri/tauri.linux-release.conf.json --bundles deb,appimage
 
 find src-tauri/target/release/bundle -name '*.deb' -o -name '*.AppImage'
