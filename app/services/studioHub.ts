@@ -92,7 +92,6 @@ export function stackTheme(theme: HubTheme | null, index: number): HubTheme {
   return theme ?? THEMES[index % THEMES.length];
 }
 
-/** The service decided the notice may show in this launch; its delay and sections are the window's to apply. */
 /** The hub's name for the screen on view (`rules.views`): create, library, news, tools or settings. */
 export function hubView(view: string, settingsOpen: boolean): string {
   if (settingsOpen) return 'settings';

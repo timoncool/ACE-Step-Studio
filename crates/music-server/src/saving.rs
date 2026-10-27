@@ -254,7 +254,7 @@ fn show_in_file_manager(path: &std::path::Path) -> std::io::Result<()> {
         return Ok(());
     }
     let folder = path.parent().unwrap_or(path);
-    dub_core::proc::host_command("xdg-open").arg(folder).spawn().map(drop)
+    music_engine::process_group::detach_from_group(&mut dub_core::proc::host_command("xdg-open")).arg(folder).spawn().map(drop)
 }
 
 /// `file://` and the path with every byte outside the unreserved set escaped.

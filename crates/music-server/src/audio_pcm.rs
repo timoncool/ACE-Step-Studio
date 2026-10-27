@@ -197,11 +197,19 @@ pub fn reads_audio(extension: &str) -> bool {
 }
 
 /// Whether the window's player plays this file as it is: MP3, FLAC, Ogg, AAC
-/// and a WAV of plain or float samples. Anything else the library keeps as
-/// FLAC.
+/// (an MP4 or M4A only when its audio is AAC, not ALAC) and a WAV of plain or
+/// float samples. Anything else the library keeps as FLAC.
 pub fn plays_in_window(extension: &str, audio: &[u8]) -> bool {
     match extension.to_ascii_lowercase().as_str() {
-        "mp3" | "flac" | "ogg" | "oga" | "m4a" | "mp4" | "aac" => true,
+        "mp3" | "flac" | "ogg" | "oga" | "aac" => true,
+        "m4a" | "mp4" => {
+            let Ok(format) = probe(Box::new(std::io::Cursor::new(audio.to_vec())), Some(extension)) else {
+                return false;
+            };
+            format.default_track(TrackType::Audio).and_then(|track| track.codec_params.as_ref()).is_some_and(|params| {
+                matches!(params, CodecParameters::Audio(audio) if audio.codec == symphonia::core::codecs::audio::well_known::CODEC_ID_AAC)
+            })
+        }
         // the fmt chunk's format tag: 1 PCM, 3 float, 0xFFFE extensible
         "wav" => audio.get(20..22).is_some_and(|tag| matches!(u16::from_le_bytes([tag[0], tag[1]]), 1 | 3 | 0xFFFE)),
         _ => false,
@@ -408,7 +416,8 @@ mod tests {
         };
         assert!(plays_in_window("wav", &wav(1)) && plays_in_window("WAV", &wav(3)) && plays_in_window("wav", &wav(0xFFFE)));
         assert!(!plays_in_window("wav", &wav(2)), "ADPCM");
-        assert!(plays_in_window("mp3", &[]) && plays_in_window("m4a", &[]));
+        assert!(plays_in_window("mp3", &[]) && plays_in_window("aac", &[]));
+        assert!(!plays_in_window("m4a", &[]), "an M4A whose codec is not read as AAC is converted");
         assert!(!plays_in_window("mka", &[]) && !plays_in_window("caf", &[]) && !plays_in_window("aiff", &[]));
     }
 

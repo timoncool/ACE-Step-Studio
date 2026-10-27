@@ -156,8 +156,7 @@ pub async fn probe(http: &reqwest::Client, url: &str) -> Result<Plan> {
 
 /// Attempts at a host that cannot be connected to at all - no route, no DNS
 /// answer, a refused or timed-out connection - before the download says so.
-/// Each costs up to the connect timeout, and a blocked host stays blocked:
-/// eight of them kept the user at a still bar for six minutes.
+/// Each costs up to the connect timeout, and a blocked host stays blocked.
 const CONNECT_RETRIES: u32 = 3;
 
 /// Whether the request never reached the server: a connection that failed, not

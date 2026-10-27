@@ -99,7 +99,6 @@ const keptDuration = (): string => {
     return '';
   }
 };
-/** The file format last chosen by hand, kept between sessions like the duration. */
 /** The generation settings, kept across restarts like the words until Reset puts the defaults back. */
 const SETTINGS_KEY = 'studio.createSettings';
 function keptSettings(): Record<string, unknown> {

@@ -194,7 +194,15 @@ pub fn detach_from_group(cmd: &mut Command) -> &mut Command {
     cmd
 }
 
-#[cfg(not(windows))]
+/// Unix: a process group of its own, so the studio's `killpg` at exit passes it by.
+#[cfg(unix)]
+pub fn detach_from_group(cmd: &mut Command) -> &mut Command {
+    use std::os::unix::process::CommandExt;
+
+    cmd.process_group(0)
+}
+
+#[cfg(not(any(windows, unix)))]
 pub fn detach_from_group(cmd: &mut Command) -> &mut Command {
     cmd
 }

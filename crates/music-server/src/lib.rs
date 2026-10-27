@@ -2694,7 +2694,7 @@ async fn reveal_training_dataset(State(state): State<AppState>, Path(id): Path<S
     #[cfg(target_os = "macos")]
     let opened = std::process::Command::new("open").arg(&folder).spawn();
     #[cfg(all(not(windows), not(target_os = "macos")))]
-    let opened = dub_core::proc::host_command("xdg-open").arg(&folder).spawn();
+    let opened = music_engine::process_group::detach_from_group(&mut dub_core::proc::host_command("xdg-open")).arg(&folder).spawn();
     opened.map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
     Ok(Json(serde_json::json!({ "opened": folder.display().to_string() })))
 }
@@ -7738,7 +7738,7 @@ async fn open_data_directory() -> Result<Json<Value>, (StatusCode, Json<ApiError
     #[cfg(target_os = "macos")]
     let opened = std::process::Command::new("open").arg(&root).spawn();
     #[cfg(all(not(windows), not(target_os = "macos")))]
-    let opened = dub_core::proc::host_command("xdg-open").arg(&root).spawn();
+    let opened = music_engine::process_group::detach_from_group(&mut dub_core::proc::host_command("xdg-open")).arg(&root).spawn();
     opened.map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
     Ok(Json(serde_json::json!({ "opened": root.display().to_string() })))
 }

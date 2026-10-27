@@ -716,7 +716,7 @@ impl AssistantRuntime {
         for asset in &pending {
             let target = self.path_of(asset);
             let outcome = match download_asset(&self.http, asset, &target, &self.state, base, self.cancel.clone()).await {
-                Ok(()) => Self::finish(asset, &target, &self.root),
+                Ok(()) => finish_apart(asset, &target, &self.root).await,
                 Err(error) => Err(error),
             };
             if let Err(error) = outcome {
@@ -767,22 +767,13 @@ impl AssistantRuntime {
         let state = self.state.clone();
         let root = self.root.clone();
         tokio::spawn(async move {
-            let outcome = download_asset(&http, asset, &target, &state, 0, Arc::new(std::sync::atomic::AtomicBool::new(false))).await;
-            let mut guard = state.lock().await;
-            match outcome {
-                Ok(()) => {
-                    let extraction = Self::finish(asset, &target, &root);
-                    if let Some(progress) = guard.download.as_mut() {
-                        progress.done = true;
-                        progress.error = extraction.err().map(|error| error.to_string());
-                    }
-                }
-                Err(error) => {
-                    if let Some(progress) = guard.download.as_mut() {
-                        progress.done = true;
-                        progress.error = Some(error.to_string());
-                    }
-                }
+            let outcome = match download_asset(&http, asset, &target, &state, 0, Arc::new(std::sync::atomic::AtomicBool::new(false))).await {
+                Ok(()) => finish_apart(asset, &target, &root).await,
+                Err(error) => Err(error),
+            };
+            if let Some(progress) = state.lock().await.download.as_mut() {
+                progress.done = true;
+                progress.error = outcome.err().map(|error| error.to_string());
             }
         });
         Ok(())
@@ -954,7 +945,12 @@ async fn download_asset(
     if let Some(parent) = target.parent() {
         fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
     }
-    if crate::downloads::holds_todays(asset.kind == AssetKind::Model, asset.url, target).await {
+    // a model counts here as `is_installed` counts it, by the pin's exact size: a file of another size is replaced
+    let todays = match asset.kind {
+        AssetKind::Model => fs::metadata(target).is_ok_and(|meta| meta.len() == asset.bytes),
+        _ => crate::downloads::holds_todays(false, asset.url, target).await,
+    };
+    if todays {
         return Ok(());
     }
 
@@ -991,6 +987,12 @@ async fn download_asset(
     }
     fs::rename(&part, target).with_context(|| format!("publish {}", target.display()))?;
     Ok(())
+}
+
+/// `AssistantRuntime::finish` off the async workers: it hashes the whole download, gigabytes for a model.
+async fn finish_apart(asset: &'static Asset, target: &Path, root: &Path) -> Result<()> {
+    let (target, root) = (target.to_path_buf(), root.to_path_buf());
+    tokio::task::spawn_blocking(move || AssistantRuntime::finish(asset, &target, &root)).await.map_err(|error| anyhow!("the download's check stopped: {error}"))?
 }
 
 fn free_port() -> Result<u16> {

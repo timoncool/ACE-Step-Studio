@@ -28,7 +28,6 @@ export const queryClient = new QueryClient({
 export const SELF_READ: Record<string, string> = { 'x-hub-skip': '1' };
 
 /** A state read the window makes by itself. */
-
 export async function readJson<T>(path: string): Promise<T> {
   const response = await fetch(path, { headers: SELF_READ });
   if (!response.ok) throw new Error(`${path} answered ${response.status}`);

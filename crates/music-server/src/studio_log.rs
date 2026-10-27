@@ -65,7 +65,7 @@ pub fn log_to_file(root: &Path) {
     let earlier = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         let thread = std::thread::current();
-        append_apart(&format!("{} [PANIC] thread {}: {info}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"), thread.name().unwrap_or("?")));
+        append_apart(&masked(&format!("{} [PANIC] thread {}: {info}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"), thread.name().unwrap_or("?"))));
         earlier(info);
     }));
     #[cfg(windows)]
@@ -92,6 +92,7 @@ fn append_apart(line: &str) {
 }
 
 /// One line to the log file, when there is one; past `LOG_FILE_MAX` the file is moved aside and a new one begins.
+/// A file that cannot be moved aside takes the lines on, and the move is tried again after another `LOG_FILE_MAX`.
 fn to_file(line: &str) {
     let Some(dir) = LOG_DIR.get() else { return };
     let mut sink = SINK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -102,7 +103,16 @@ fn to_file(line: &str) {
             Ok(fresh) => *sink = Some(fresh),
             Err(error) => {
                 eprintln!("[ERROR] {}: the log file was not rotated: {error}", dir.join(LOG_FILE).display());
-                return;
+                match open_sink(dir, false) {
+                    Ok(mut same) => {
+                        same.written = 0;
+                        *sink = Some(same);
+                    }
+                    Err(error) => {
+                        eprintln!("[ERROR] {}: the log file was not opened again: {error}", dir.join(LOG_FILE).display());
+                        return;
+                    }
+                }
             }
         }
     }
