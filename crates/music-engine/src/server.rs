@@ -56,37 +56,54 @@ pub fn engine_port_note() -> Option<&'static str> {
 
 fn resolved_port() -> &'static (u16, Option<String>) {
     static PORT: std::sync::OnceLock<(u16, Option<String>)> = std::sync::OnceLock::new();
-    PORT.get_or_init(|| match std::env::var("STUDIO_ENGINE_PORT").ok().and_then(|value| value.parse::<u16>().ok()) {
-        Some(port) => (port, None),
-        None => choose_port(default_port()),
+    PORT.get_or_init(|| match std::env::var("STUDIO_ENGINE_PORT") {
+        Ok(text) => match text.trim().parse::<u16>() {
+            Ok(port) if port > 0 => (port, None),
+            _ => {
+                let (port, note) = choose_port(default_port());
+                let note = format!("STUDIO_ENGINE_PORT={text} is not a port, so the studio chose one{}", note.map(|note| format!(": {note}")).unwrap_or_default());
+                note_in_log(&note);
+                (port, Some(note))
+            }
+        },
+        Err(_) => choose_port(default_port()),
     })
 }
 
-/// `wanted` when the studio can listen on it on loopback, else a free port the system gives, with the reason.
+/// `wanted` when the studio can listen on it on loopback or an engine already answers there, else the first free
+/// port of the hundred above it, which the system does not hand out to outgoing connections as it does its dynamic
+/// range, else one the system gives; with the reason.
 fn choose_port(wanted: u16) -> (u16, Option<String>) {
-    let refused = match std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, wanted)) {
-        Ok(_) => return (wanted, None),
+    let bindable = |port: u16| std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port)).map(drop);
+    let refused = match bindable(wanted) {
+        Ok(()) => return (wanted, None),
         Err(error) => error,
     };
+    if health_check(DEFAULT_HOST, wanted, Duration::from_millis(300)) {
+        return (wanted, None);
+    }
     let why = port_unavailable(wanted, &refused);
-    let note = match std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0)).and_then(|listener| listener.local_addr()) {
-        Ok(address) => (address.port(), format!("port {wanted} is not available to the engine ({why}); it listens on {} instead", address.port())),
+    let other = (wanted.saturating_add(1)..=wanted.saturating_add(100))
+        .find(|port| bindable(*port).is_ok())
+        .map(Ok)
+        .unwrap_or_else(|| std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0)).and_then(|listener| listener.local_addr()).map(|address| address.port()));
+    let (port, note) = match other {
+        Ok(port) => (port, format!("port {wanted} is not available to the engine ({why}); it listens on {port} instead")),
         Err(error) => (wanted, format!("port {wanted} is not available to the engine ({why}) and the system gave no other: {error}")),
     };
-    note_in_log(&note.1);
-    (note.0, Some(note.1))
+    note_in_log(&note);
+    (port, Some(note))
 }
 
-/// What keeps the studio from listening on `port`: the program that holds it, or the range Windows reserves it in.
+/// What keeps the studio from listening on `port`: the range Windows reserves it in, or the program that holds it.
 fn port_unavailable(port: u16, error: &std::io::Error) -> String {
     #[cfg(windows)]
     {
-        // WSAEACCES: Hyper-V, WSL or Docker reserved the port (netsh int ipv4 show excludedportrange)
+        // 10013 is WSAEACCES, which a reserved range gives
         if error.raw_os_error() == Some(10013) {
-            return match excluded_range(port) {
-                Some((first, last)) => format!("Windows reserves ports {first}-{last}"),
-                None => format!("Windows refused it: {error}"),
-            };
+            if let Some((first, last)) = excluded_range(port) {
+                return format!("Windows reserves ports {first}-{last}");
+            }
         }
         if let Some((pid, name)) = listener_of(port) {
             return format!("{name} (PID {pid}) listens on it");
@@ -97,17 +114,33 @@ fn port_unavailable(port: u16, error: &std::io::Error) -> String {
     if error.kind() == std::io::ErrorKind::AddrInUse { format!("another program listens on it: {error}") } else { error.to_string() }
 }
 
-/// The range of `netsh interface ipv4 show excludedportrange protocol=tcp` that holds `port`.
+/// The range of `netsh interface ipv4 show excludedportrange protocol=tcp` that holds `port`; none when netsh does
+/// not answer within three seconds.
 #[cfg(windows)]
 fn excluded_range(port: u16) -> Option<(u16, u16)> {
+    use std::io::Read;
     use std::os::windows::process::CommandExt;
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    let output = Command::new("netsh")
+    let mut child = Command::new("netsh")
         .args(["interface", "ipv4", "show", "excludedportrange", "protocol=tcp"])
         .creation_flags(CREATE_NO_WINDOW)
-        .output()
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
         .ok()?;
-    excluded_range_in(&String::from_utf8_lossy(&output.stdout), port)
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while child.try_wait().ok()?.is_none() {
+        if Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            return None;
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+    let mut listing = String::new();
+    child.stdout.take()?.read_to_string(&mut listing).ok()?;
+    excluded_range_in(&listing, port)
 }
 
 /// The range of a netsh port-range listing (lines of a first and a last port) that holds `port`.
@@ -138,8 +171,9 @@ fn listener_of(port: u16) -> Option<(u32, String)> {
     }
     let count = buffer[0] as usize;
     let rows = unsafe { std::slice::from_raw_parts(buffer.as_ptr().add(1).cast::<MIB_TCPROW_OWNER_PID>(), count) };
-    // the port is in network byte order in the row's low 16 bits
-    let pid = rows.iter().find(|row| u16::from_be(row.dwLocalPort as u16) == port)?.dwOwningPid;
+    // address and port in network byte order, the port in the row's low 16 bits; loopback or every address
+    let loopback = u32::from_ne_bytes([127, 0, 0, 1]);
+    let pid = rows.iter().find(|row| u16::from_be(row.dwLocalPort as u16) == port && (row.dwLocalAddr == loopback || row.dwLocalAddr == 0))?.dwOwningPid;
     let mut name = format!("process {pid}");
     unsafe {
         let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
