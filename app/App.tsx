@@ -1455,10 +1455,8 @@ function AppContent() {
     setHubClosed(previous => new Set(previous).add(id));
     hubStateChanged();
   };
-  // a popup waits until nothing is being made to appear, and once on screen it stays until it is closed
-  const heldPopup = hubPopupOnScreen ? hubItems.find(item => item.id === hubPopupOnScreen && !hubClosed.has(item.id)) : undefined;
+  const heldPopup = hubPopupOnScreen ? hubItems.find(item => item.id === hubPopupOnScreen && !hubClosed.has(item.id) && showsNow(item, hubElapsed, hubSection)) : undefined;
   const hubPopup = heldPopup ?? (making ? undefined : hubItems.find(item => item.kind === 'popup' && !hubClosed.has(item.id) && showsNow(item, hubElapsed, hubSection)));
-  // what was on screen is known once the render that showed it is committed
   useEffect(() => { setHubPopupOnScreen(hubPopup?.id ?? null); }, [hubPopup?.id]);
   const openHubTarget = (target: NonNullable<HubButton['target']>) => {
     if (target === 'news') {

@@ -501,7 +501,6 @@ impl Downloader {
         if progress.as_ref().is_some_and(|active| !active.done && active.error.is_none()) {
             bail!("another download is already running");
         }
-        // the panel reads the refusal from the progress, as it reads a download that failed
         if let Err(error) = self.ensure_space(&pending) {
             *progress = Some(DownloadProgress {
                 asset_id: if pending.len() == 1 { pending[0].id.to_string() } else { SET.to_string() },
@@ -631,7 +630,6 @@ impl Downloader {
             if progress.as_ref().is_some_and(|active| !active.done && active.error.is_none()) {
                 bail!("another download is already running");
             }
-            // the panel reads the refusal from the progress, as it reads a download that failed
             if let Err(error) = self.ensure_space(&[asset]) {
                 *progress = Some(DownloadProgress {
                     asset_id: asset.id.to_string(),

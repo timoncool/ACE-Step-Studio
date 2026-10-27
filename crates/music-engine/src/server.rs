@@ -129,6 +129,12 @@ fn excluded_range(port: u16) -> Option<(u16, u16)> {
         .stderr(Stdio::null())
         .spawn()
         .ok()?;
+    // read while it runs, so a listing longer than the pipe holds does not stop it
+    let mut stdout = child.stdout.take()?;
+    let reader = thread::spawn(move || {
+        let mut listing = String::new();
+        stdout.read_to_string(&mut listing).map(|_| listing)
+    });
     let deadline = Instant::now() + Duration::from_secs(3);
     while child.try_wait().ok()?.is_none() {
         if Instant::now() >= deadline {
@@ -138,8 +144,7 @@ fn excluded_range(port: u16) -> Option<(u16, u16)> {
         }
         thread::sleep(Duration::from_millis(50));
     }
-    let mut listing = String::new();
-    child.stdout.take()?.read_to_string(&mut listing).ok()?;
+    let listing = reader.join().ok()?.ok()?;
     excluded_range_in(&listing, port)
 }
 
