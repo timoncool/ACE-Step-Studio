@@ -4839,7 +4839,7 @@ fn lost_job_reason(log: &str) -> String {
         }
     } else if lowered.contains("cannot bind") {
         let port = music_engine::server::engine_port();
-        if env::var_os("STUDIO_ENGINE_PORT").is_some() {
+        if music_engine::server::engine_port_is_set() {
             format!("The engine could not listen on port {port}, which STUDIO_ENGINE_PORT sets, so the song was lost: another program holds it. Close that program or set another port.")
         } else {
             let chosen = music_engine::server::engine_port_note().map(|note| format!(" (At start {note}.)")).unwrap_or_default();

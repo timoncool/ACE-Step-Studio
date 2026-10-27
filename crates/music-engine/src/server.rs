@@ -56,18 +56,26 @@ pub fn engine_port_note() -> Option<&'static str> {
 
 fn resolved_port() -> &'static (u16, Option<String>) {
     static PORT: std::sync::OnceLock<(u16, Option<String>)> = std::sync::OnceLock::new();
-    PORT.get_or_init(|| match std::env::var("STUDIO_ENGINE_PORT") {
-        Ok(text) => match text.trim().parse::<u16>() {
-            Ok(port) if port > 0 => (port, None),
-            _ => {
-                let (port, note) = choose_port(default_port());
-                let note = format!("STUDIO_ENGINE_PORT={text} is not a port, so the studio chose one{}", note.map(|note| format!(": {note}")).unwrap_or_default());
-                note_in_log(&note);
-                (port, Some(note))
-            }
-        },
-        Err(_) => choose_port(default_port()),
+    PORT.get_or_init(|| match (std::env::var("STUDIO_ENGINE_PORT"), port_from_environment()) {
+        (_, Some(port)) => (port, None),
+        (Ok(text), None) => {
+            note_in_log(&format!("STUDIO_ENGINE_PORT={text} is not a port, so the studio chooses one"));
+            let (port, note) = choose_port(default_port());
+            let note = format!("STUDIO_ENGINE_PORT={text} is not a port, so the studio chose one{}", note.map(|note| format!(": {note}")).unwrap_or_default());
+            (port, Some(note))
+        }
+        (Err(_), None) => choose_port(default_port()),
     })
+}
+
+/// The port STUDIO_ENGINE_PORT sets, when it holds one.
+fn port_from_environment() -> Option<u16> {
+    std::env::var("STUDIO_ENGINE_PORT").ok()?.trim().parse::<u16>().ok().filter(|port| *port > 0)
+}
+
+/// Whether the engine's port is the one STUDIO_ENGINE_PORT sets rather than one the studio chose.
+pub fn engine_port_is_set() -> bool {
+    port_from_environment().is_some()
 }
 
 /// `wanted` when the studio can listen on it on loopback or this engine already answers there, else the first free
@@ -713,11 +721,10 @@ fn health_check(host: &str, port: u16, timeout: Duration) -> bool {
     http_get(host, port, "/health", timeout).is_some_and(|response| response.starts_with("HTTP/1.1 200"))
 }
 
-/// Whether the server on `port` is this engine: its /props lists the model buckets ace-server keeps, which a
-/// program that merely answers /health does not.
+/// Whether the server on `port` is a music engine: its /props is a JSON object naming its models, which a program
+/// that merely answers /health does not give.
 fn answers_as_engine(host: &str, port: u16, timeout: Duration) -> bool {
-    http_get(host, port, "/props", timeout)
-        .is_some_and(|response| response.starts_with("HTTP/1.1 200") && response.contains("\"models\"") && response.contains("\"dit\""))
+    http_get(host, port, "/props", timeout).is_some_and(|response| response.starts_with("HTTP/1.1 200") && response.contains("\"models\""))
 }
 
 /// The whole answer of a plain HTTP/1.1 GET of `path` on loopback, none when nothing answers within `timeout`.
