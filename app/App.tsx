@@ -1436,7 +1436,7 @@ function AppContent() {
   const making = generations.isGenerating || generations.activeJobCount > 0 || (activity.data ?? []).some(entry => entry.state === 'running');
   const hubSection = hubView(currentView, showSettingsModal);
   const [hubClosed, setHubClosed] = useState<Set<string>>(() => new Set());
-  const hubPopupOnScreen = useRef<string | null>(null);
+  const [hubPopupOnScreen, setHubPopupOnScreen] = useState<string | null>(null);
   const hubStart = useRef(Date.now());
   const [hubElapsed, setHubElapsed] = useState(0);
   const hubNextDelay = hubItems.reduce<number | null>((next, item) => (item.rules.delay_s > hubElapsed && (next === null || item.rules.delay_s < next) ? item.rules.delay_s : next), null);
@@ -1456,9 +1456,10 @@ function AppContent() {
     hubStateChanged();
   };
   // a popup waits until nothing is being made to appear, and once on screen it stays until it is closed
-  const heldPopup = hubPopupOnScreen.current ? hubItems.find(item => item.id === hubPopupOnScreen.current && !hubClosed.has(item.id)) : undefined;
+  const heldPopup = hubPopupOnScreen ? hubItems.find(item => item.id === hubPopupOnScreen && !hubClosed.has(item.id)) : undefined;
   const hubPopup = heldPopup ?? (making ? undefined : hubItems.find(item => item.kind === 'popup' && !hubClosed.has(item.id) && showsNow(item, hubElapsed, hubSection)));
-  hubPopupOnScreen.current = hubPopup?.id ?? null;
+  // what was on screen is known once the render that showed it is committed
+  useEffect(() => { setHubPopupOnScreen(hubPopup?.id ?? null); }, [hubPopup?.id]);
   const openHubTarget = (target: NonNullable<HubButton['target']>) => {
     if (target === 'news') {
       setCurrentView('news');

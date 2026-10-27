@@ -169,7 +169,9 @@ fn set_aside_name(name: &str) -> bool {
 
 /// Removes what `set_aside` left under `root` in an earlier run, passing by the folders of the person's work.
 pub fn sweep_aside(root: &Path) {
-    const WORK: [&str; 11] = ["media", "workspace", "processing", "voices", "skins", "logs", "frontend", "fonts", "recordings", "projects", "reports"];
+    // midi and training hold downloaded runtimes beside the person's work, so they are walked; their work is safe
+    // because only set_aside's own names are removed
+    const WORK: [&str; 11] = ["workspace", "media", "processing", "voices", "skins", "logs", "frontend", "fonts", "recordings", "projects", "reports"];
     let Ok(entries) = fs::read_dir(root) else { return };
     for entry in entries.flatten() {
         let Ok(kind) = entry.file_type() else { continue };

@@ -1190,8 +1190,15 @@ fn write_entry(entry: &mut impl io::Read, target: &Path, mode: Option<u32>) -> R
         if !target.is_file() {
             return Err(error).with_context(|| format!("publish {}", target.display()));
         }
-        crate::install_record::set_aside(target).with_context(|| format!("publish {}: {error}", target.display()))?;
-        fs::rename(&partial, target).with_context(|| format!("publish {}", target.display()))?;
+        let aside = crate::install_record::set_aside(target).with_context(|| format!("publish {}: {error}", target.display()))?;
+        if let Err(error) = fs::rename(&partial, target) {
+            // the earlier file goes back, so a failed replace leaves the program as it was
+            let restored = fs::rename(&aside, target);
+            return Err(error).with_context(|| match restored {
+                Ok(()) => format!("publish {}", target.display()),
+                Err(back) => format!("publish {} (the earlier file stays at {}: {back})", target.display(), aside.display()),
+            });
+        }
     }
     Ok(())
 }

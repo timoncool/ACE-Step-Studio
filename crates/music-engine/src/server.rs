@@ -70,7 +70,7 @@ fn resolved_port() -> &'static (u16, Option<String>) {
     })
 }
 
-/// `wanted` when the studio can listen on it on loopback or an engine already answers there, else the first free
+/// `wanted` when the studio can listen on it on loopback or this engine already answers there, else the first free
 /// port of the hundred above it, which the system does not hand out to outgoing connections as it does its dynamic
 /// range, else one the system gives; with the reason.
 fn choose_port(wanted: u16) -> (u16, Option<String>) {
@@ -79,7 +79,7 @@ fn choose_port(wanted: u16) -> (u16, Option<String>) {
         Ok(()) => return (wanted, None),
         Err(error) => error,
     };
-    if health_check(DEFAULT_HOST, wanted, Duration::from_millis(300)) {
+    if answers_as_engine(DEFAULT_HOST, wanted, Duration::from_millis(500)) {
         return (wanted, None);
     }
     let why = port_unavailable(wanted, &refused);
@@ -153,27 +153,39 @@ fn excluded_range_in(listing: &str, port: u16) -> Option<(u16, u16)> {
     })
 }
 
-/// The process listening on `port` on IPv4, by its PID and program name.
+/// The process listening on `port` on loopback or every address, IPv4 or IPv6 (a dual-stack listener on [::] holds
+/// the IPv4 port too), by its PID and program name.
 #[cfg(windows)]
 fn listener_of(port: u16) -> Option<(u32, String)> {
     use windows_sys::Win32::Foundation::CloseHandle;
-    use windows_sys::Win32::NetworkManagement::IpHelper::{GetExtendedTcpTable, MIB_TCPROW_OWNER_PID, TCP_TABLE_OWNER_PID_LISTENER};
+    use windows_sys::Win32::NetworkManagement::IpHelper::{GetExtendedTcpTable, MIB_TCP6ROW_OWNER_PID, MIB_TCPROW_OWNER_PID, TCP_TABLE_OWNER_PID_LISTENER};
     use windows_sys::Win32::System::Threading::{OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION};
     const AF_INET: u32 = 2;
-    let mut size = 0u32;
-    unsafe { GetExtendedTcpTable(std::ptr::null_mut(), &mut size, 0, AF_INET, TCP_TABLE_OWNER_PID_LISTENER, 0) };
-    if size == 0 {
-        return None;
-    }
-    let mut buffer = vec![0u32; (size as usize).div_ceil(4)];
-    if unsafe { GetExtendedTcpTable(buffer.as_mut_ptr().cast(), &mut size, 0, AF_INET, TCP_TABLE_OWNER_PID_LISTENER, 0) } != 0 {
-        return None;
-    }
-    let count = buffer[0] as usize;
-    let rows = unsafe { std::slice::from_raw_parts(buffer.as_ptr().add(1).cast::<MIB_TCPROW_OWNER_PID>(), count) };
-    // address and port in network byte order, the port in the row's low 16 bits; loopback or every address
-    let loopback = u32::from_ne_bytes([127, 0, 0, 1]);
-    let pid = rows.iter().find(|row| u16::from_be(row.dwLocalPort as u16) == port && (row.dwLocalAddr == loopback || row.dwLocalAddr == 0))?.dwOwningPid;
+    const AF_INET6: u32 = 23;
+    // the table: a u32 count, then the rows
+    let table = |family: u32| -> Option<Vec<u32>> {
+        let mut size = 0u32;
+        unsafe { GetExtendedTcpTable(std::ptr::null_mut(), &mut size, 0, family, TCP_TABLE_OWNER_PID_LISTENER, 0) };
+        if size == 0 {
+            return None;
+        }
+        let mut buffer = vec![0u32; (size as usize).div_ceil(4)];
+        (unsafe { GetExtendedTcpTable(buffer.as_mut_ptr().cast(), &mut size, 0, family, TCP_TABLE_OWNER_PID_LISTENER, 0) } == 0).then_some(buffer)
+    };
+    // addresses and ports in network byte order, a port in its field's low 16 bits
+    let v4 = table(AF_INET).and_then(|buffer| {
+        let rows = unsafe { std::slice::from_raw_parts(buffer.as_ptr().add(1).cast::<MIB_TCPROW_OWNER_PID>(), buffer[0] as usize) };
+        let loopback = u32::from_ne_bytes([127, 0, 0, 1]);
+        rows.iter().find(|row| u16::from_be(row.dwLocalPort as u16) == port && (row.dwLocalAddr == loopback || row.dwLocalAddr == 0)).map(|row| row.dwOwningPid)
+    });
+    let pid = v4.or_else(|| {
+        table(AF_INET6).and_then(|buffer| {
+            let rows = unsafe { std::slice::from_raw_parts(buffer.as_ptr().add(1).cast::<MIB_TCP6ROW_OWNER_PID>(), buffer[0] as usize) };
+            let any = [0u8; 16];
+            let loopback = std::net::Ipv6Addr::LOCALHOST.octets();
+            rows.iter().find(|row| u16::from_be(row.dwLocalPort as u16) == port && (row.ucLocalAddr == any || row.ucLocalAddr == loopback)).map(|row| row.dwOwningPid)
+        })
+    })?;
     let mut name = format!("process {pid}");
     unsafe {
         let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
@@ -693,22 +705,26 @@ fn validate_loopback_host(host: &str) -> Result<()> {
 }
 
 fn health_check(host: &str, port: u16, timeout: Duration) -> bool {
-    let Ok(address) = host.parse::<IpAddr>() else {
-        return false;
-    };
-    let Ok(mut stream) = TcpStream::connect_timeout(&SocketAddr::new(address, port), timeout) else {
-        return false;
-    };
+    http_get(host, port, "/health", timeout).is_some_and(|response| response.starts_with("HTTP/1.1 200"))
+}
+
+/// Whether the server on `port` is this engine: its /props lists the model buckets ace-server keeps, which a
+/// program that merely answers /health does not.
+fn answers_as_engine(host: &str, port: u16, timeout: Duration) -> bool {
+    http_get(host, port, "/props", timeout)
+        .is_some_and(|response| response.starts_with("HTTP/1.1 200") && response.contains("\"models\"") && response.contains("\"dit\""))
+}
+
+/// The whole answer of a plain HTTP/1.1 GET of `path` on loopback, none when nothing answers within `timeout`.
+fn http_get(host: &str, port: u16, path: &str, timeout: Duration) -> Option<String> {
+    let address = host.parse::<IpAddr>().ok()?;
+    let mut stream = TcpStream::connect_timeout(&SocketAddr::new(address, port), timeout).ok()?;
     let _ = stream.set_read_timeout(Some(timeout));
     let _ = stream.set_write_timeout(Some(timeout));
-    if stream
-        .write_all(b"GET /health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
-        .is_err()
-    {
-        return false;
-    }
+    stream.write_all(format!("GET {path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n").as_bytes()).ok()?;
     let mut response = String::new();
-    stream.read_to_string(&mut response).is_ok() && response.starts_with("HTTP/1.1 200")
+    stream.read_to_string(&mut response).ok()?;
+    Some(response)
 }
 
 #[cfg(windows)]
