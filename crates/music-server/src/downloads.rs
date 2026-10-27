@@ -1164,7 +1164,15 @@ fn write_entry(entry: &mut impl io::Read, target: &Path, mode: Option<u32>) -> R
     }
     #[cfg(not(unix))]
     let _ = mode;
-    fs::rename(&partial, target).with_context(|| format!("publish {}", target.display()))
+    if let Err(error) = fs::rename(&partial, target) {
+        // a file of the same name a running program holds cannot be replaced, only moved aside
+        if !target.is_file() {
+            return Err(error).with_context(|| format!("publish {}", target.display()));
+        }
+        crate::install_record::set_aside(target).with_context(|| format!("publish {}: {error}", target.display()))?;
+        fs::rename(&partial, target).with_context(|| format!("publish {}", target.display()))?;
+    }
+    Ok(())
 }
 
 /// Gives the file `target` beside `link` the name `link` as well; a copy where

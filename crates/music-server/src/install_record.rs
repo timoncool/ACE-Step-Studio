@@ -139,6 +139,40 @@ pub fn write(record: &Path, url: &str, sha256: &str, files: &[PathBuf], root: &P
     remove_if_there(&installing_mark(record))
 }
 
+/// The mark in the name of a file moved aside by `set_aside`.
+const ASIDE: &str = ".stale-";
+
+/// Moves `path` aside under a name of its own beside it, for a file a running program holds, which Windows lets be
+/// renamed but not removed or replaced; `sweep_aside` removes it at a later start.
+pub fn set_aside(path: &Path) -> Result<PathBuf> {
+    let name = path.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
+    let aside = path.with_file_name(format!("{name}{ASIDE}{}", uuid::Uuid::now_v7().simple()));
+    fs::rename(path, &aside).with_context(|| format!("move {} aside", path.display()))?;
+    studio_log!("{} is held by a running program and was moved aside as {}; it is removed at the next start", path.display(), aside.display());
+    Ok(aside)
+}
+
+/// Removes what `set_aside` left under `root` in an earlier run, passing by the folders of the person's work.
+pub fn sweep_aside(root: &Path) {
+    const WORK: [&str; 11] = ["media", "workspace", "processing", "voices", "skins", "logs", "frontend", "fonts", "recordings", "projects", "reports"];
+    let Ok(entries) = fs::read_dir(root) else { return };
+    for entry in entries.flatten() {
+        let Ok(kind) = entry.file_type() else { continue };
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if kind.is_dir() {
+            if !WORK.contains(&name.as_str()) {
+                sweep_aside(&path);
+            }
+        } else if kind.is_file() && name.contains(ASIDE) {
+            match fs::remove_file(&path) {
+                Ok(()) => studio_log!("removed {}, moved aside by an earlier update", path.display()),
+                Err(error) => studio_log!("[ERROR] {} was not removed: {error}", path.display()),
+            }
+        }
+    }
+}
+
 fn remove_if_there(path: &Path) -> Result<()> {
     match fs::remove_file(path) {
         Ok(()) => Ok(()),
@@ -148,13 +182,15 @@ fn remove_if_there(path: &Path) -> Result<()> {
 }
 
 /// Deletes the files an earlier pin's record lists under `root` but `kept` (the file today's download replaced in
-/// place), and that record; the mark of today's install stays.
+/// place), and that record; the mark of today's install stays. A file a running program holds is moved aside.
 pub fn remove_earlier(record: &Path, root: &Path, kept: &Path) -> Result<()> {
     if let Some(parsed) = read(record) {
         for file in &parsed.files {
             let path = root.join(&file.path);
             if path != kept {
-                remove_if_there(&path)?;
+                if let Err(error) = remove_if_there(&path) {
+                    set_aside(&path).with_context(|| format!("{error:#}"))?;
+                }
             }
         }
     }
@@ -276,5 +312,22 @@ mod tests {
                 assert!((file, size) != (other_file, other_size), "{url} and {other} share the key {file} of {size} bytes");
             }
         }
+    }
+
+    #[test]
+    fn a_file_moved_aside_is_gone_at_the_next_start_and_the_work_is_left() {
+        let root = scratch("aside");
+        let runtime = root.join("karaoke").join("runtime");
+        fs::create_dir_all(&runtime).unwrap();
+        fs::create_dir_all(root.join("media")).unwrap();
+        let held = runtime.join("engine.dll");
+        fs::write(&held, b"old").unwrap();
+        let aside = set_aside(&held).unwrap();
+        assert!(!held.exists() && aside.exists() && aside.parent() == held.parent());
+        let song = root.join("media").join(format!("song.flac{ASIDE}x"));
+        fs::write(&song, b"song").unwrap();
+        sweep_aside(&root);
+        assert!(!aside.exists(), "removed at the next start");
+        assert!(song.exists(), "the person's work is not swept");
     }
 }

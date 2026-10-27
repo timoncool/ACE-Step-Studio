@@ -824,7 +824,10 @@ struct OpenRouterResponse {
 /// has to start a second binary and keep it alive.
 pub async fn serve() -> anyhow::Result<()> {
     match studio_data_root() {
-        Some(root) => studio_log::log_to_file(&root),
+        Some(root) => {
+            studio_log::log_to_file(&root);
+            std::thread::spawn(move || install_record::sweep_aside(&root));
+        }
         None => studio_log!("[ERROR] the studio has no data folder; its log goes to the console only"),
     }
     put_the_engine_folder_on_path();
