@@ -610,14 +610,7 @@ impl Downloader {
         }
         let target = self.path_of(asset);
         fetch(&self.http, asset, &target, cell, self.cancel.clone()).await?;
-        let sha256 = crate::pin_sha::check(asset.url, &target)?;
-        replace_earlier(&record, &self.root, &target)?;
-        let files = match asset.unzip_into {
-            Some(flavour) => extract_archive(&target, &self.runtime_dir(flavour))?,
-            None => vec![target.clone()],
-        };
-        make_programs_executable(asset.marker, &files)?;
-        crate::install_record::write(&record, asset.url, &sha256, &files, &self.root)
+        settle_apart(asset, target, record, self.root.clone(), asset.unzip_into.map(|flavour| self.runtime_dir(flavour))).await
     }
 
     /// Starts one download in the background. Only one runs at a time, and an
@@ -670,16 +663,10 @@ impl Downloader {
                 }
                 return;
             }
-            let outcome = fetch(&http, asset, &target, &progress, cancel).await.and_then(|()| {
-                let sha256 = crate::pin_sha::check(asset.url, &target)?;
-                replace_earlier(&record, &root, &target)?;
-                let files = match asset.unzip_into {
-                    Some(flavour) => extract_archive(&target, &runtime_root.join(flavour))?,
-                    None => vec![target.clone()],
-                };
-                make_programs_executable(asset.marker, &files)?;
-                crate::install_record::write(&record, asset.url, &sha256, &files, &root)
-            });
+            let outcome = match fetch(&http, asset, &target, &progress, cancel).await {
+                Ok(()) => settle_apart(asset, target, record, root, asset.unzip_into.map(|flavour| runtime_root.join(flavour))).await,
+                Err(error) => Err(error),
+            };
             let mut guard = progress.lock().await;
             let error = outcome.err().map(|error| error.to_string());
             if let Some(active) = guard.as_mut() {
@@ -898,6 +885,23 @@ async fn download_and_extract_named(
 pub(crate) fn replace_earlier(record: &Path, root: &Path, kept: &Path) -> Result<()> {
     crate::install_record::begin(record)?;
     crate::install_record::remove_earlier(record, root, kept)
+}
+
+/// What follows the download of one file, off the async workers since it hashes the whole file: checked against its
+/// pin, the earlier pin's files gone, unpacked into `unpack_into` when it is an archive, made executable and recorded.
+async fn settle_apart(asset: &'static Asset, target: PathBuf, record: PathBuf, root: PathBuf, unpack_into: Option<PathBuf>) -> Result<()> {
+    tokio::task::spawn_blocking(move || {
+        let sha256 = crate::pin_sha::check(asset.url, &target)?;
+        replace_earlier(&record, &root, &target)?;
+        let files = match unpack_into {
+            Some(folder) => extract_archive(&target, &folder)?,
+            None => vec![target.clone()],
+        };
+        make_programs_executable(asset.marker, &files)?;
+        crate::install_record::write(&record, asset.url, &sha256, &files, &root)
+    })
+    .await
+    .map_err(|error| anyhow::anyhow!("the download's check stopped: {error}"))?
 }
 
 /// Whether the file a download of `url` lands on already holds today's pin: a model by its presence, as models

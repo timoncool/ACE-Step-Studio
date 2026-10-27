@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Bug, Check, Copy, FolderOpen, Loader2, Package, RefreshCw } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import { issueReportUrl, type ReportFacts } from '../services/issueReport';
-import { useSetupStatus } from '../services/studioQueries';
+import { SELF_READ, useSetupStatus } from '../services/studioQueries';
 import { STUDIO_REPO_URL } from '../studio';
 
 type Diagnostics = { text: string };
@@ -32,15 +32,15 @@ export const DiagnosticsPanel: React.FC = () => {
   const [pack, setPack] = useState<string | null>(null);
   const reason = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-  const load = useCallback(() => {
-    fetch('/v1/diagnostics')
+  const load = useCallback((byItself: boolean) => {
+    fetch('/v1/diagnostics', byItself ? { headers: SELF_READ } : undefined)
       .then(async (response) => {
         if (!response.ok) throw new Error(await failure(response));
         return response.json() as Promise<Diagnostics>;
       })
       .then((next) => { setDiagnostics(next); setProblem(null); }, (error: unknown) => setProblem(reason(error)));
   }, []);
-  useEffect(load, [load]);
+  useEffect(() => load(true), [load]);
 
   const copy = () => {
     if (!diagnostics) return;
@@ -79,7 +79,7 @@ export const DiagnosticsPanel: React.FC = () => {
           <Bug size={13} />{t('diagnosticsReport')}
         </a>
         <button type="button" onClick={revealLogs} className={button}><FolderOpen size={13} />{t('diagnosticsLogs')}</button>
-        <button type="button" onClick={load} className={button}><RefreshCw size={13} />{t('diagnosticsRefresh')}</button>
+        <button type="button" onClick={() => load(false)} className={button}><RefreshCw size={13} />{t('diagnosticsRefresh')}</button>
       </div>
       {pack && (
         <p className="flex flex-wrap items-center gap-2 text-[11px]">

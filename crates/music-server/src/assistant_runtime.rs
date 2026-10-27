@@ -302,7 +302,7 @@ pub fn card_flavour() -> Option<&'static str> {
     if cfg!(target_os = "macos") {
         return None;
     }
-    let card = match crate::cuda_build::current() {
+    let card = match crate::cuda_build::card() {
         Some(crate::cuda_build::CudaBuild::Cuda12) => Some("cuda12"),
         Some(_) => Some("cuda"),
         None if crate::presets::display_card().is_some() => Some("vulkan"),
@@ -325,7 +325,7 @@ fn flavour_for(card: Option<&'static str>, glibc: Option<(u32, u32)>) -> Option<
 /// Settings; None when it does.
 pub fn llama_note() -> Option<serde_json::Value> {
     let glibc = glibc_version().filter(|version| *version < LLAMA_CUDA_GLIBC)?;
-    crate::cuda_build::current()?;
+    crate::cuda_build::card()?;
     Some(serde_json::json!({
         "glibc": format!("{}.{}", glibc.0, glibc.1),
         "need": format!("{}.{}", LLAMA_CUDA_GLIBC.0, LLAMA_CUDA_GLIBC.1),

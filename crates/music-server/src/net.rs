@@ -323,7 +323,7 @@ pub async fn test(settings: ProxySettings) -> Result<serde_json::Value> {
     let mirror = async {
         if mirror_chosen { None } else { Some(reach(mirror_url("https://huggingface.co/api/models?limit=1"), false).await) }
     };
-    let (hub, openrouter, mirror) = tokio::join!(reach(hub_url, false), reach("https://openrouter.ai/api/v1/models".into(), true), mirror);
+    let (hub, openrouter, mirror) = tokio::join!(reach(hub_url, !mirror_chosen), reach("https://openrouter.ai/api/v1/models".into(), true), mirror);
     Ok(serde_json::json!({
         "huggingface": hub.is_ok(),
         "huggingface_error": hub.err(),

@@ -8,5 +8,7 @@ fn main() -> anyhow::Result<()> {
         music_server::studio_log!("this process could not create its own job object; the engine is stopped by the supervisor only");
     }
     music_server::apply_saved_gpu();
-    tokio::runtime::Builder::new_multi_thread().enable_all().build()?.block_on(music_server::serve())
+    let served = tokio::runtime::Builder::new_multi_thread().enable_all().build()?.block_on(music_server::serve());
+    music_engine::process_group::terminate_group_members();
+    served
 }

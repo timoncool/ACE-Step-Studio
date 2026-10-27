@@ -138,6 +138,12 @@ pub fn current() -> Option<CudaBuild> {
     device().and_then(|(compute, driver)| cuda_build(compute, driver)).filter(|build| SHIPPED.contains(build))
 }
 
+/// The CUDA line this card and driver run, whether or not the engine ships that build here: for the programs that
+/// come with both of their own (llama.cpp's CUDA 12 and 13 builds).
+pub fn card() -> Option<CudaBuild> {
+    device().and_then(|(compute, driver)| cuda_build(compute, driver))
+}
+
 /// The card a CUDA failure happened on, in the words a report needs to tell a
 /// missing architecture from an old driver: `NVIDIA GeForce GTX 1050, compute
 /// 6.1, driver 581.29, cuda12 build`. Probed once.

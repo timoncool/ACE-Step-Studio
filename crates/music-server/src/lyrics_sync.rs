@@ -145,7 +145,8 @@ fn heard_words(transcript: &acpp_server::Transcript) -> Vec<(f64, String)> {
     transcript
         .words
         .iter()
-        .filter(|word| !made_up.iter().any(|(start, end)| word.start >= *start && word.start <= *end))
+        // a segment's end is the next one's start: a word there belongs to the next
+        .filter(|word| !made_up.iter().any(|(start, end)| word.start >= *start && (word.start < *end || start == end)))
         .map(|word| (word.start, word.text.clone()))
         .collect()
 }
@@ -1466,12 +1467,15 @@ impl LyricsSync {
     fn crisper_transcribe(&self, server: &acpp_server::Server, audio: &Path, language: Option<&str>) -> Result<Vec<(f64, String)>> {
         let work = self.downloader.root().join("work");
         fs::create_dir_all(&work).with_context(|| format!("create {}", work.display()))?;
-        let wav = work.join(format!("sync-{}.wav", uuid::Uuid::now_v7()));
-        crate::audio_pcm::write_wav16k_mono(audio, &wav).with_context(|| format!("decode {} for recognition", audio.display()))?;
         let told = match language.map(str::trim).filter(|code| !code.is_empty() && *code != "auto") {
             Some(code) => Some(acpp_server::language::whisper_code(code).map_err(|error| anyhow!("{error}"))?.to_string()),
             None => None,
         };
+        let wav = work.join(format!("sync-{}.wav", uuid::Uuid::now_v7()));
+        if let Err(error) = crate::audio_pcm::write_wav16k_mono(audio, &wav) {
+            fs::remove_file(&wav).ok();
+            return Err(error.context(format!("decode {} for recognition", audio.display())));
+        }
         let request = acpp_server::TranscribeRequest {
             model: CRISPERWHISPER.to_string(),
             wav: wav.clone(),
@@ -1919,6 +1923,13 @@ mod tests {
         let words = heard_words(&transcript);
         assert_eq!(words.iter().map(|(_, word)| word.as_str()).collect::<Vec<_>>(), ["Тьма", "во", "мне"]);
         assert_eq!(words[0].0, 5.0);
+        let touching = acpp_server::Transcript {
+            text: String::new(),
+            language: Some("ru".into()),
+            words: vec![word("Тьма", 5.2), word("во", 5.6)],
+            segments: vec![span("[Music]", 0.0, 5.2), span(" Тьма во", 5.2, 6.0)],
+        };
+        assert_eq!(heard_words(&touching).len(), 2, "the first word of the line after a filler is sung");
     }
 
     // The releases every runtime download is pinned to.

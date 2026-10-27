@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowRight, Check, Download, Loader2, X } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import { SELF_READ } from '../services/studioQueries';
@@ -48,16 +48,19 @@ export const UpdatePlanView: React.FC<{ onDone?: () => void; onLater?: () => voi
   useEffect(() => { void load(); }, [load]);
 
   const running = state?.job?.status === 'running';
+  // a parent that renders every second hands a new onDone each time; the poll must not restart with it
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
   useEffect(() => {
     if (!running) return;
     const timer = window.setInterval(() => {
       void readUpdatePlan().then((next) => {
         setState(next);
-        if (next.job?.status === 'done') onDone?.();
+        if (next.job?.status === 'done') onDoneRef.current?.();
       }, (problem: unknown) => setError(problem instanceof Error ? problem.message : String(problem)));
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [running, onDone]);
+  }, [running]);
 
   const apply = async () => {
     setError(null);

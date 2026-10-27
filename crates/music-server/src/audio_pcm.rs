@@ -211,9 +211,27 @@ pub fn plays_in_window(extension: &str, audio: &[u8]) -> bool {
             })
         }
         // the fmt chunk's format tag: 1 PCM, 3 float, 0xFFFE extensible
-        "wav" => audio.get(20..22).is_some_and(|tag| matches!(u16::from_le_bytes([tag[0], tag[1]]), 1 | 3 | 0xFFFE)),
+        "wav" => wav_format_tag(audio).is_some_and(|tag| matches!(tag, 1 | 3 | 0xFFFE)),
         _ => false,
     }
+}
+
+/// The format tag of a WAV's `fmt ` chunk, wherever it stands among the chunks (a JUNK, bext or LIST chunk may come
+/// first).
+fn wav_format_tag(audio: &[u8]) -> Option<u16> {
+    if audio.get(0..4)? != b"RIFF" || audio.get(8..12)? != b"WAVE" {
+        return None;
+    }
+    let mut at = 12usize;
+    while let Some(header) = audio.get(at..at + 8) {
+        let size = u32::from_le_bytes([header[4], header[5], header[6], header[7]]) as usize;
+        if &header[0..4] == b"fmt " {
+            let tag = audio.get(at + 8..at + 10)?;
+            return Some(u16::from_le_bytes([tag[0], tag[1]]));
+        }
+        at = at.checked_add(8 + size + (size & 1))?;
+    }
+    None
 }
 
 /// Decodes audio held in memory - a track as the engine sent it - to stereo
@@ -409,13 +427,18 @@ mod tests {
 
     #[test]
     fn only_what_the_player_plays_is_kept_as_it_is() {
-        let wav = |tag: u16| {
-            let mut header = vec![0u8; 44];
-            header[20..22].copy_from_slice(&tag.to_le_bytes());
-            header
+        let chunk = |id: &[u8; 4], body: &[u8]| [id.as_slice(), &(body.len() as u32).to_le_bytes(), body, &vec![0u8; body.len() & 1]].concat();
+        let wav_with = |before: &[u8], tag: u16| {
+            let mut fmt = vec![0u8; 16];
+            fmt[0..2].copy_from_slice(&tag.to_le_bytes());
+            let body = [b"WAVE".as_slice(), before, &chunk(b"fmt ", &fmt), &chunk(b"data", &[0u8; 4])].concat();
+            chunk(b"RIFF", &body)
         };
+        let wav = |tag: u16| wav_with(&[], tag);
         assert!(plays_in_window("wav", &wav(1)) && plays_in_window("WAV", &wav(3)) && plays_in_window("wav", &wav(0xFFFE)));
         assert!(!plays_in_window("wav", &wav(2)), "ADPCM");
+        assert!(plays_in_window("wav", &wav_with(&chunk(b"JUNK", &[0u8; 27]), 3)), "a chunk before fmt, of odd size");
+        assert!(!plays_in_window("wav", &[0u8; 44]), "not a RIFF WAVE");
         assert!(plays_in_window("mp3", &[]) && plays_in_window("aac", &[]));
         assert!(!plays_in_window("m4a", &[]), "an M4A whose codec is not read as AAC is converted");
         assert!(!plays_in_window("mka", &[]) && !plays_in_window("caf", &[]) && !plays_in_window("aiff", &[]));

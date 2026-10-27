@@ -90,11 +90,16 @@ async fn report(state: &AppState) -> Value {
     let resources = crate::resources::snapshot();
     let state_for_dll = state.clone();
     let dll = tokio::task::spawn_blocking(move || dll_missing(&state_for_dll)).await.unwrap_or_else(|error| json!([format!("the check failed: {error}")]));
+    // nvidia-smi is a process of its own: it waits off the async workers
+    let (gpu, cards) = tokio::task::spawn_blocking(|| (crate::cuda_build::describe(), crate::cuda_build::nvidia_cards())).await.unwrap_or_else(|error| {
+        studio_log!("[ERROR] the card query of the diagnostics stopped: {error}");
+        (None, Vec::new())
+    });
     json!({
         "version": crate::studio_version(),
         "os": format!("{} ({})", sysinfo::System::long_os_version().or_else(sysinfo::System::name).unwrap_or_else(|| std::env::consts::OS.to_string()), std::env::consts::ARCH),
-        "gpu": crate::cuda_build::describe(),
-        "cards": crate::cuda_build::nvidia_cards().into_iter().map(|(index, name, vram_gb)| json!({ "index": index, "name": name, "vram_gb": vram_gb })).collect::<Vec<_>>(),
+        "gpu": gpu,
+        "cards": cards.into_iter().map(|(index, name, vram_gb)| json!({ "index": index, "name": name, "vram_gb": vram_gb })).collect::<Vec<_>>(),
         "memory": { "ram_used_mb": resources.ram_used_mb, "ram_total_mb": resources.ram_total_mb, "vram": resources.gpus.iter().map(|gpu| json!({ "name": gpu.name, "used_mb": gpu.vram_used_mb, "total_mb": gpu.vram_total_mb })).collect::<Vec<_>>() },
         "engine_device": serde_json::to_value(*state.active_device.read().await).unwrap_or(Value::Null),
         "engine_options": serde_json::to_value(state.engine_options.read().await.clone()).unwrap_or(Value::Null),

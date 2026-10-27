@@ -7994,10 +7994,21 @@ async fn setup_update(State(state): State<AppState>) -> Result<Json<Value>, (Sta
 /// in the background, and once all of it is in place removes what former releases left; with nothing to download it
 /// removes them at once. The plan counts as shown.
 async fn setup_update_apply(State(state): State<AppState>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
-    if state.update_job.read().await.as_ref().is_some_and(|job| job.status == update_screen::JobStatus::Running) {
-        return Err(api_error(StatusCode::CONFLICT, "the update is already running".into()));
-    }
-    let plan = update_plan(&state).await?;
+    // the check and the claim under one lock, so a second press or an agent cannot start a second update
+    let earlier = {
+        let mut job = state.update_job.write().await;
+        if job.as_ref().is_some_and(|job| job.status == update_screen::JobStatus::Running) {
+            return Err(api_error(StatusCode::CONFLICT, "the update is already running".into()));
+        }
+        job.replace(update_screen::Job { status: update_screen::JobStatus::Running, error: None, updated: Vec::new(), added: Vec::new() })
+    };
+    let plan = match update_plan(&state).await {
+        Ok(plan) => plan,
+        Err(error) => {
+            *state.update_job.write().await = earlier;
+            return Err(error);
+        }
+    };
     if let Err(error) = update_screen::mark_seen(update_data_root(&state), studio_version()) {
         studio_log!("[ERROR] {error}");
     }
