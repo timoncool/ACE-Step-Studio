@@ -315,7 +315,7 @@ ${DONATE['donate.css']}
 .donate .hero .apps{text-align:left}
 </style>
 </head>
-<body>
+<body data-hub-app="${STUDIO.id}">
 <header>
   <div class="utility"><div class="wrap utility-bar">
     <nav class="family" aria-label="Studios">
