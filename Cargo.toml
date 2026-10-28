@@ -34,9 +34,9 @@ tokio-stream = { version = "0.1", features = ["sync", "time"] }
 tower-http = { version = "0.7", features = ["cors", "trace", "fs", "set-header"] }
 include_dir = "0.7"
 # transcribe.cpp for karaoke, the binding Dub Studio and Speech Studio share (dub-studio crates/dub-tcpp)
-dub-tcpp = { git = "https://github.com/timoncool/dub-studio", rev = "d7d3f7600ff23c25ba497a1636002e429b571641" }
+dub-tcpp = { git = "https://github.com/timoncool/dub-studio", rev = "ba53e572bd7cc5bd5e57dfe9ed386f1746640a7a" }
 # audio.cpp's server (audiocpp_server), the client Dub Studio and Speech Studio share: CrisperWhisper for karaoke
-acpp-server = { git = "https://github.com/timoncool/dub-studio", rev = "d7d3f7600ff23c25ba497a1636002e429b571641", features = ["langid"] }
+acpp-server = { git = "https://github.com/timoncool/dub-studio", rev = "ba53e572bd7cc5bd5e57dfe9ed386f1746640a7a", features = ["langid"] }
 ort = { version = "=2.0.0-rc.13", default-features = false, features = ["load-dynamic", "api-24", "cuda", "directml"] }
 symphonia = { version = "0.6", default-features = false, features = ["mp1", "mp2", "mp3", "wav", "pcm", "adpcm", "isomp4", "aac", "flac", "ogg", "vorbis", "aiff", "caf", "mkv", "alac", "all-meta", "opt-simd"] }
 flate2 = "1"

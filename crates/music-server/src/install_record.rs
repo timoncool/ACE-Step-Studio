@@ -56,8 +56,12 @@ const KEY_FILES: &[(&str, &str, u64)] = &[
     ("https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/windows-x86_64/cudnn-windows-x86_64-9.25.0.15_cuda12-archive.zip", "cudnn64_9.dll", 267_888),
     ("https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime.directml/1.24.4/microsoft.ml.onnxruntime.directml.1.24.4.nupkg", "onnxruntime.dll", 17_328_152),
     ("https://api.nuget.org/v3-flatcontainer/microsoft.ai.directml/1.15.4/microsoft.ai.directml.1.15.4.nupkg", "DirectML.dll", 18_527_776),
-    ("https://github.com/chenmozhijin/BSRoformer.cpp/releases/download/v0.1.0/BSRoformer-windows-cuda-13.1.0.zip", "bs_roformer-cli.exe", 182_784),
-    ("https://github.com/chenmozhijin/BSRoformer.cpp/releases/download/v0.1.0/BSRoformer-windows-x64-msvc.zip", "bs_roformer-cli.exe", 183_808),
+    // BSRoformer.cpp and transcribe.cpp all-variants archives: the cli/library is one file across the builds, so a build's key is its GPU module (unique by build and version); the processor build, which has none, keeps the cli/library.
+    ("https://github.com/timoncool/BSRoformer.cpp/releases/download/studio-0.1.1/BSRoformer-windows-cuda13-x64.zip", "ggml-cuda.dll", 129_091_584),
+    ("https://github.com/timoncool/BSRoformer.cpp/releases/download/studio-0.1.1/BSRoformer-windows-cpu-x64.zip", "bs_roformer-cli.exe", 183_808),
+    ("https://github.com/timoncool/transcribe.cpp/releases/download/engine-0.2.0/transcribe-windows-cuda13-x64.zip", "ggml-cuda.dll", 140_795_392),
+    ("https://github.com/timoncool/transcribe.cpp/releases/download/engine-0.2.0/transcribe-windows-vulkan-x64.zip", "ggml-vulkan.dll", 45_308_928),
+    ("https://github.com/timoncool/transcribe.cpp/releases/download/engine-0.2.0/transcribe-windows-cpu-x64.zip", "transcribe.dll", 2_054_144),
     // Linux and macOS: the regular file a tar's links point to, under its own versioned name
     ("https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-linux-x64-1.30.0.tgz", "libonnxruntime.so.1.30.0", 28_985_152),
     ("https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-linux-x64-gpu_cuda12-1.30.0.tgz", "libonnxruntime_providers_cuda.so", 597_264_112),
@@ -66,8 +70,11 @@ const KEY_FILES: &[(&str, &str, u64)] = &[
     ("https://developer.download.nvidia.com/compute/cuda/redist/libcufft/linux-x86_64/libcufft-linux-x86_64-11.4.1.4-archive.tar.xz", "libcufft.so.11.4.1.4", 289_566_960),
     ("https://developer.download.nvidia.com/compute/cuda/redist/libcurand/linux-x86_64/libcurand-linux-x86_64-10.3.10.19-archive.tar.xz", "libcurand.so.10.3.10.19", 166_965_432),
     ("https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-9.25.0.15_cuda12-archive.tar.xz", "libcudnn.so.9.25.0", 129_240),
-    ("https://github.com/chenmozhijin/BSRoformer.cpp/releases/download/v0.1.0/BSRoformer-linux-cuda-13.1.0.tar.xz", "bs_roformer-cli", 304_904),
-    ("https://github.com/chenmozhijin/BSRoformer.cpp/releases/download/v0.1.0/BSRoformer-linux-x64-cpu.tar.xz", "bs_roformer-cli", 295_400),
+    ("https://github.com/timoncool/BSRoformer.cpp/releases/download/studio-0.1.1/BSRoformer-linux-cuda13-x64.tar.gz", "libggml-cuda.so", 141_711_088),
+    ("https://github.com/timoncool/BSRoformer.cpp/releases/download/studio-0.1.1/BSRoformer-linux-cpu-x64.tar.gz", "bs_roformer-cli", 295_632),
+    ("https://github.com/timoncool/transcribe.cpp/releases/download/engine-0.2.0/transcribe-linux-cuda13-x64.tar.gz", "libggml-cuda.so", 156_080_848),
+    ("https://github.com/timoncool/transcribe.cpp/releases/download/engine-0.2.0/transcribe-linux-vulkan-x64.tar.gz", "libggml-vulkan.so", 46_006_184),
+    ("https://github.com/timoncool/transcribe.cpp/releases/download/engine-0.2.0/transcribe-linux-cpu-x64.tar.gz", "libtranscribe.so", 2_655_880),
 ];
 
 /// The record of the archive or file at `path`.
