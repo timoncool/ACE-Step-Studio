@@ -13,6 +13,9 @@ const VERSION = JSON.parse(readFileSync(new URL('../desktop/src-tauri/tauri.conf
 const docs = join(dirname(fileURLToPath(import.meta.url)), '..', 'docs');
 const css = readFileSync(join(docs, 'site', 'page.css'), 'utf8');
 const { name: NAME, repo: REPO, site: SITE } = STUDIO;
+// The donation page is the same on every studio site; this site only frames it.
+const DONATE = Object.fromEntries(['donate.css', 'donate-lang.html', 'donate-body.html']
+  .map((name) => [name, readFileSync(join(docs, 'site', name), 'utf8').trimEnd()]));
 
 // The studio family as tabs over the page: the same language on each site.
 const FAMILY = [
@@ -246,7 +249,7 @@ ${faq.map(({ q, html }) => `    <details><summary>${escape(q)}</summary><div cla
       <a class="pill" href="https://t.me/nerual_dreming">Telegram · @nerual_dreming</a>
       <a class="pill" href="https://t.me/neuroport">Telegram · @neuroport</a>
       <a class="pill" href="https://artgeneration.me">ArtGeneration.me</a>
-      <a class="pill" href="${REPO}/blob/main/DONATE.md">${escape(s.ctaDonate)}</a>
+      <a class="pill" href="donate.html?lang=${lang}">${escape(s.ctaDonate)}</a>
     </div>
   </section>
 
@@ -292,10 +295,57 @@ fetch('https://api.github.com/repos/${REPO.replace('https://github.com/', '')}/r
 `;
 }
 
+// The donation content picks its own language (?lang=, the reader's choice, the browser), so one page serves all.
+function donatePage() {
+  const family = FAMILY
+    .map(([id, label, url]) => `    <a href="${url}"${id === STUDIO.id ? ' aria-current="page"' : ''}>${label}</a>`)
+    .join('\n');
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Support the work · ${NAME}</title>
+<link rel="canonical" href="${SITE}donate.html" />
+<link rel="icon" type="image/png" href="logo.png" />
+<style>
+${css.trimEnd()}
+.donate,.donate-lang{--bg2:var(--bg);--surface:var(--panel);--surface2:var(--panel-2);--line2:rgba(255,255,255,.14);--ink:var(--text);--body:#c4c4cc;--mut:var(--muted);--faint:#6b6b75;--accent:var(--pink);--accent-ink:#f472b6;--on-accent:#fff;--accent-soft:rgba(236,72,153,.12);--accent-line:rgba(236,72,153,.34);--r:16px;--r2:12px;--r3:8px;--fs-s:13px;--fs-m:15px;--btn:44px;--btn-s:36px;--maxw:900px;--ease:cubic-bezier(.33,1,.68,1);--font:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif}
+${DONATE['donate.css']}
+.donate .hero .apps{text-align:left}
+</style>
+</head>
+<body>
+<header>
+  <div class="utility"><div class="wrap utility-bar">
+    <nav class="family" aria-label="Studios">
+${family}
+    </nav>
+    <div class="donate-lang">
+${DONATE['donate-lang.html']}
+    </div>
+  </div></div>
+  <div class="wrap bar">
+    <img class="mark" src="logo.png" alt="" width="30" height="30" />
+    <div class="name">${NAME}</div>
+    <a class="head-github" href="${REPO}">GitHub${starsBadge('GitHub stars')}</a>
+  </div>
+</header>
+
+<main class="wrap donate">
+${DONATE['donate-body.html']}
+</main>
+</body>
+</html>
+`;
+}
+
 for (const lang of ORDER) {
   writeFileSync(join(docs, file(lang)), page(lang), 'utf8');
   console.log(`[OK] docs/${file(lang)}`);
 }
+writeFileSync(join(docs, 'donate.html'), donatePage(), 'utf8');
+console.log('[OK] docs/donate.html');
 
 // The sitemap names every language of the page and ties them together, as the pages do.
 const links = [...ORDER.map((code) => `    <xhtml:link rel="alternate" hreflang="${code}" href="${pageUrl(code)}"/>`),
