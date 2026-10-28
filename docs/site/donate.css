@@ -49,10 +49,10 @@
 .donate .give + .give{margin-top:12px}
 .donate .ghead{margin-bottom:8px}
 .donate .ghead h3{font-size:18px;font-weight:700}
-.donate .give > p.sub{margin-bottom:12px}
+.donate .give > p{margin-bottom:12px}
 .donate .give > .pmeth{margin-top:-4px}
 .donate .give > .mut{margin:20px 0 12px}
-.donate .sub{font-size:var(--fs-m);font-weight:700;color:var(--ink);margin:24px 0 10px;letter-spacing:0}
+.donate .dsub{font-size:var(--fs-m);font-weight:700;color:var(--ink);margin:24px 0 10px;letter-spacing:0}
 .donate ol.flow{margin:0 0 16px;padding:0;list-style:none;counter-reset:f}
 .donate ol.flow li{counter-increment:f;display:grid;grid-template-columns:26px minmax(0,1fr);column-gap:12px;align-items:baseline;padding:4px 0;color:var(--body)}
 .donate ol.flow li::before,.donate ol.dsteps li::before{width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink);font-size:var(--fs-s);font-weight:700;display:flex;align-items:center;justify-content:center}
