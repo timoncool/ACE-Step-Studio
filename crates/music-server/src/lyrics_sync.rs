@@ -446,8 +446,8 @@ pub const ASSETS: &[Asset] = &[
         url: dub_tcpp::Build::Cuda.download().url,
         relative_path: TCPP_CUDA,
         bytes: dub_tcpp::Build::Cuda.download().size,
-        unzip_into: None,
-        marker: "",
+        unzip_into: Some("transcribe-engine"),
+        marker: dub_tcpp::LIBRARY,
         pick: &[],
         vram_gb: None,
         note: "Runs Parakeet on an NVIDIA card.",
@@ -460,8 +460,8 @@ pub const ASSETS: &[Asset] = &[
         url: dub_tcpp::Build::Vulkan.download().url,
         relative_path: TCPP_VULKAN,
         bytes: dub_tcpp::Build::Vulkan.download().size,
-        unzip_into: None,
-        marker: "",
+        unzip_into: Some("transcribe-engine-vulkan"),
+        marker: dub_tcpp::LIBRARY,
         pick: &[],
         vram_gb: None,
         note: "Runs Parakeet on an AMD or Intel card, or an NVIDIA card CUDA does not run on.",
@@ -474,8 +474,8 @@ pub const ASSETS: &[Asset] = &[
         url: dub_tcpp::Build::Cpu.download().url,
         relative_path: TCPP_CPU,
         bytes: dub_tcpp::Build::Cpu.download().size,
-        unzip_into: None,
-        marker: "",
+        unzip_into: Some("transcribe-engine-cpu"),
+        marker: dub_tcpp::LIBRARY,
         pick: &[],
         vram_gb: None,
         note: "Runs Parakeet on the processor: slower, the same words.",
@@ -1005,21 +1005,24 @@ pub const RETIRED_WHISPER: &[&str] = &[
     "runtime/whisper-cudnn.tar.part",
 ];
 
-/// Where each transcribe.cpp build lands in the karaoke folder: `dub_tcpp::engine_dir` and its library.
+/// Where each transcribe.cpp build's download lands in the karaoke runtime. Windows and Linux fetch the engine-0.2.0
+/// archive (the library and a ggml-cpu per instruction level, so any x86-64 runs it) and unpack it into the build's
+/// folder under `runtime/`; the Mac fetches the single dylib straight into its folder. The loader opens
+/// `dub_tcpp::LIBRARY` in `runtime_dir(build.dir())`.
 #[cfg(windows)]
-const TCPP_CUDA: &str = "models/transcribe-engine/transcribe_engine.dll";
+const TCPP_CUDA: &str = "runtime/transcribe-cuda.zip";
 #[cfg(windows)]
-const TCPP_VULKAN: &str = "models/transcribe-engine-vulkan/transcribe_engine.dll";
+const TCPP_VULKAN: &str = "runtime/transcribe-vulkan.zip";
 #[cfg(windows)]
-const TCPP_CPU: &str = "models/transcribe-engine-cpu/transcribe_engine.dll";
+const TCPP_CPU: &str = "runtime/transcribe-cpu.zip";
 #[cfg(target_os = "linux")]
-const TCPP_CUDA: &str = "models/transcribe-engine/libtranscribe_engine.so";
+const TCPP_CUDA: &str = "runtime/transcribe-cuda.tar.gz";
 #[cfg(target_os = "linux")]
-const TCPP_VULKAN: &str = "models/transcribe-engine-vulkan/libtranscribe_engine.so";
+const TCPP_VULKAN: &str = "runtime/transcribe-vulkan.tar.gz";
 #[cfg(target_os = "linux")]
-const TCPP_CPU: &str = "models/transcribe-engine-cpu/libtranscribe_engine.so";
+const TCPP_CPU: &str = "runtime/transcribe-cpu.tar.gz";
 #[cfg(target_os = "macos")]
-const TCPP_CPU: &str = "models/transcribe-engine-cpu/libtranscribe_engine.dylib";
+const TCPP_CPU: &str = "runtime/transcribe-engine-cpu/libtranscribe_engine.dylib";
 
 /// The transcribe.cpp model the dropdown names.
 pub fn parakeet_model(variant: Option<&str>) -> &'static dub_tcpp::Model {
@@ -1186,10 +1189,9 @@ impl LyricsSync {
     }
 
     /// The running server of `runtime`'s build carrying CrisperWhisper: the one there is, or a new one. An error, before
-    /// the program starts, when the processor lacks the server's floor or a part of it is missing.
+    /// the program starts, when a part of it is missing.
     fn crisper_server(&self, runtime: OnnxFlavour) -> Result<std::sync::Arc<acpp_server::Server>> {
         let build = crisper_build(runtime)?;
-        dub_tcpp::cpu_floor("audio.cpp").map_err(|error| anyhow!(error))?;
         let folder = self.downloader.runtime_dir(build.folder());
         let exe = self.crisper_server_exe(runtime).ok_or_else(|| anyhow!("the audio.cpp server ({}) is not downloaded: download CrisperWhisper in Settings - Models", build.folder()))?;
         let model = self.downloader.root().join(CRISPERWHISPER_DIR);
@@ -1266,7 +1268,7 @@ impl LyricsSync {
         let build = parakeet_build(runtime).ok_or_else(|| anyhow!("transcribe.cpp has no build for this system: choose Whisper"))?;
         let root = self.downloader.root().join("models");
         let model = parakeet_model(variant);
-        let engine = dub_tcpp::engine_dir(&root, build);
+        let engine = self.downloader.runtime_dir(build.dir());
         if build == dub_tcpp::Build::Cuda {
             self.link_cuda13(&engine, "transcribe.cpp")?;
         }
@@ -2166,13 +2168,20 @@ mod live_recognition {
         #[cfg(target_os = "macos")]
         {
             assert_eq!(parakeet_build(OnnxFlavour::Auto), Some(dub_tcpp::Build::Cpu));
-            let asset = asset(dub_tcpp::Build::Cpu.dir()).unwrap();
-            assert_eq!(Path::new("karaoke-root").join(asset.relative_path), dub_tcpp::engine_dir(&root, dub_tcpp::Build::Cpu).join(dub_tcpp::LIBRARY));
+            let asset = asset("transcribe-engine-cpu").unwrap();
+            // the Mac fetches the single dylib straight into the build's folder under runtime/, where the loader opens it
+            assert_eq!(
+                Path::new("karaoke-root").join(asset.relative_path),
+                Path::new("karaoke-root").join("runtime").join(dub_tcpp::Build::Cpu.dir()).join(dub_tcpp::LIBRARY),
+            );
         }
+        // Windows and Linux fetch the engine-0.2.0 archive and unpack it into the build's folder under runtime/, where the
+        // loader (runtime_dir(build.dir())) opens LIBRARY; the studio ships the CUDA 13, Vulkan and processor builds.
         #[cfg(any(windows, target_os = "linux"))]
-        for build in dub_tcpp::Build::ALL {
+        for build in [dub_tcpp::Build::Cuda, dub_tcpp::Build::Vulkan, dub_tcpp::Build::Cpu] {
             let asset = asset(build.dir()).unwrap();
-            assert_eq!(Path::new("karaoke-root").join(asset.relative_path), dub_tcpp::engine_dir(&root, build).join(dub_tcpp::LIBRARY));
+            assert_eq!(asset.unzip_into, Some(build.dir()));
+            assert_eq!(asset.marker, dub_tcpp::LIBRARY);
             assert_eq!((asset.url, asset.bytes), (build.download().url, build.download().size));
         }
     }

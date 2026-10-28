@@ -5,10 +5,10 @@ version = 4
 [[package]]
 name = "acpp-server"
 version = "2.0.0"
-source = "git+https://github.com/timoncool/dub-studio?rev=d7d3f7600ff23c25ba497a1636002e429b571641#d7d3f7600ff23c25ba497a1636002e429b571641"
+source = "git+https://github.com/timoncool/dub-studio?rev=ba53e572bd7cc5bd5e57dfe9ed386f1746640a7a#ba53e572bd7cc5bd5e57dfe9ed386f1746640a7a"
 dependencies = [
  "base64",
- "dub-core",
+ "dub-core 2.0.0 (git+https://github.com/timoncool/dub-studio?rev=ba53e572bd7cc5bd5e57dfe9ed386f1746640a7a)",
  "dub-tcpp",
  "hound",
  "libc",
@@ -543,6 +543,18 @@ checksum = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2"
 [[package]]
 name = "dub-core"
 version = "2.0.0"
+source = "git+https://github.com/timoncool/dub-studio?rev=ba53e572bd7cc5bd5e57dfe9ed386f1746640a7a#ba53e572bd7cc5bd5e57dfe9ed386f1746640a7a"
+dependencies = [
+ "iced-x86",
+ "libc",
+ "object",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "dub-core"
+version = "2.0.0"
 source = "git+https://github.com/timoncool/dub-studio?rev=d7d3f7600ff23c25ba497a1636002e429b571641#d7d3f7600ff23c25ba497a1636002e429b571641"
 dependencies = [
  "libc",
@@ -555,7 +567,7 @@ name = "dub-sep"
 version = "2.0.0"
 source = "git+https://github.com/timoncool/dub-studio?rev=d7d3f7600ff23c25ba497a1636002e429b571641#d7d3f7600ff23c25ba497a1636002e429b571641"
 dependencies = [
- "dub-core",
+ "dub-core 2.0.0 (git+https://github.com/timoncool/dub-studio?rev=d7d3f7600ff23c25ba497a1636002e429b571641)",
  "thiserror",
  "tracing",
  "windows-sys 0.61.2",
@@ -564,7 +576,7 @@ dependencies = [
 [[package]]
 name = "dub-tcpp"
 version = "2.0.0"
-source = "git+https://github.com/timoncool/dub-studio?rev=d7d3f7600ff23c25ba497a1636002e429b571641#d7d3f7600ff23c25ba497a1636002e429b571641"
+source = "git+https://github.com/timoncool/dub-studio?rev=ba53e572bd7cc5bd5e57dfe9ed386f1746640a7a#ba53e572bd7cc5bd5e57dfe9ed386f1746640a7a"
 dependencies = [
  "libloading 0.9.0",
 ]
@@ -1088,6 +1100,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f31827a206f56af32e590ba56d5d2d085f558508192593743f16b2306495269f"
 dependencies = [
  "cc",
+]
+
+[[package]]
+name = "iced-x86"
+version = "1.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c447cff8c7f384a7d4f741cfcff32f75f3ad02b406432e8d6c878d56b1edf6b"
+dependencies = [
+ "lazy_static",
 ]
 
 [[package]]
@@ -1636,7 +1657,7 @@ name = "music-engine"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "dub-core",
+ "dub-core 2.0.0 (git+https://github.com/timoncool/dub-studio?rev=d7d3f7600ff23c25ba497a1636002e429b571641)",
  "libc",
  "music-core",
  "serde",
@@ -1657,7 +1678,7 @@ dependencies = [
  "chrono",
  "dicebear-core",
  "dicebear-styles",
- "dub-core",
+ "dub-core 2.0.0 (git+https://github.com/timoncool/dub-studio?rev=d7d3f7600ff23c25ba497a1636002e429b571641)",
  "dub-sep",
  "dub-tcpp",
  "encoding_rs",
@@ -1878,6 +1899,15 @@ dependencies = [
  "objc2",
  "objc2-core-foundation",
  "objc2-foundation",
+]
+
+[[package]]
+name = "object"
+version = "0.40.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd229a0361b9d0d4396176e02d65897f487eebeab7caa6d443855ee152ca0b9c"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]
