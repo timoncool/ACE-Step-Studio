@@ -1165,6 +1165,9 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
             <button type="button" onClick={() => setTelemetryPreview(true)} className="text-sm leading-5 text-zinc-600 underline underline-offset-2 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white">
               {t('hubTelemetryWhat')}
             </button>
+            <button type="button" onClick={() => window.open('https://timoncool.github.io/ACE-Step-Studio/stats.html', '_blank', 'noreferrer')} className="text-sm leading-5 text-zinc-600 underline underline-offset-2 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white">
+              {t('hubTelemetryStats')}
+            </button>
             {telemetryPreview && <HubTelemetryPreview onClose={() => setTelemetryPreview(false)} />}
           </div>
         )}

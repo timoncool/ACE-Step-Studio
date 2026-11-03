@@ -38,6 +38,7 @@ export const HubSettings: React.FC = () => {
         )}
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => setPreview(true)} className="rounded-lg bg-zinc-100 px-3 py-1.5 font-medium hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15">{t('hubTelemetryWhat')}</button>
+          <button type="button" onClick={() => window.open('https://timoncool.github.io/ACE-Step-Studio/stats.html', '_blank', 'noreferrer')} className="rounded-lg bg-zinc-100 px-3 py-1.5 font-medium hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15">{t('hubTelemetryStats')}</button>
           {telemetry?.install && (
             <button type="button" disabled={busy} onClick={() => run(resetInstall)} className="rounded-lg bg-zinc-100 px-3 py-1.5 font-medium hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15">{t('hubTelemetryReset')}</button>
           )}
