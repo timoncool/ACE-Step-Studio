@@ -1,346 +1,228 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Support the work · ACE-Step Studio</title>
-<link rel="canonical" href="https://timoncool.github.io/ACE-Step-Studio/donate.html" />
-<link rel="icon" type="image/png" href="logo.png" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Support the work</title>
 <style>
-:root {
-  --bg: #0b0b0e;
-  --panel: #141419;
-  --panel-2: #1b1b22;
-  --line: rgba(255,255,255,.08);
-  --text: #ececef;
-  --muted: #a3a3ad;
-  --pink: #ec4899;
-  --orange: #f97316;
-}
-* { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font: 16px/1.65 -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-  -webkit-font-smoothing: antialiased;
-}
-a { color: inherit; }
-img { max-width: 100%; }
-.wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+  :root{
+    --bg:#0b0b0d; --bg2:#101013; --surface:#151519; --surface2:#1b1b20;
+    --line:rgba(255,255,255,.07); --line2:rgba(255,255,255,.12);
+    --ink:#f4f4f6; --body:#bdbdc6; --mut:#86868f; --faint:#62626b;
+    --accent:#e25a86; --accent-ink:#f07ba3; --accent-soft:rgba(226,90,134,.10); --accent-line:rgba(226,90,134,.30);
+    --r:16px; --r2:12px; --r3:8px;
+    --fs-s:13px; --fs-m:15px;
+    --btn:44px; --btn-s:36px;
+    --maxw:900px; --ease:cubic-bezier(.33,1,.68,1);
+    --on-accent:#fff; --font:"Plus Jakarta Sans",ui-sans-serif,-apple-system,"Segoe UI",sans-serif;
+  }
+  :root{
+    --bg:#0b0b0e; --bg2:#0f0f13; --surface:#141419; --surface2:#1b1b22;
+    --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.14);
+    --ink:#ececef; --body:#c4c4cc; --mut:#a3a3ad; --faint:#6b6b75;
+    --accent:#ec4899; --accent-ink:#f472b6; --on-accent:#ffffff;
+    --accent-soft:color-mix(in srgb,var(--accent) 12%,transparent); --accent-line:color-mix(in srgb,var(--accent) 34%,transparent);
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--body);
+    font:16.5px/1.65 var(--font);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  h1,h2,h3,h4{color:var(--ink);margin:0;letter-spacing:-.02em;line-height:1.2;font-weight:800}
+  p{margin:0 0 16px;text-wrap:pretty}
+  .wrap > p:last-child{margin-bottom:0}
+  a{color:var(--accent-ink);text-decoration:none}
+  a:hover{text-decoration:underline}
+  strong{color:var(--ink);font-weight:700}
+  :focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
 
-header {
-  position: sticky; top: 0; z-index: 10;
-  background: rgba(11,11,14,.85); backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--line);
-}
-.utility { border-bottom: 1px solid var(--line); }
-.utility-bar { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
-.family { display: flex; gap: 4px; padding-top: 8px; overflow-x: auto; }
-.family a {
-  padding: 6px 14px; border: 1px solid transparent; border-bottom: none; border-radius: 9px 9px 0 0;
-  color: var(--muted); font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap;
-}
-.family a:hover { color: var(--text); background: rgba(255,255,255,.04); }
-.family a[aria-current="page"] { color: var(--text); border-color: var(--line); background: rgba(236,72,153,.14); box-shadow: inset 0 2px 0 var(--pink); }
-.langs { display: flex; gap: 14px; padding: 0 0 8px; white-space: nowrap; }
-.langs a { font-size: 12px; color: var(--muted); text-decoration: none; }
-.langs a:hover { color: var(--text); }
-.langs a[aria-current="page"] { color: var(--text); font-weight: 700; }
-.bar { display: flex; align-items: center; gap: 12px; padding-block: 10px; }
-.mark { width: 30px; height: 30px; border-radius: 9px; flex: none; }
-.name { font-weight: 800; letter-spacing: -.01em; white-space: nowrap; }
-.head-github, .head-download {
-  box-sizing: border-box; height: 40px; display: inline-flex; align-items: center; gap: 8px;
-  padding: 0 16px; border-radius: 10px; border: 1px solid transparent;
-  font-size: 14px; font-weight: 700; line-height: 1; white-space: nowrap; text-decoration: none;
-  transition: border-color .15s, background .15s, filter .15s;
-}
-.head-github { margin-left: auto; padding-right: 10px; color: var(--text); background: #2a2a34; }
-.head-github:hover { background: #34343f; }
-/* its word is mostly lowercase without ascenders: lifted 2px so the letters, not the line box, sit in the middle */
-.head-download { margin-left: 10px; padding-bottom: 4px; color: #fff; background: linear-gradient(90deg, var(--orange), var(--pink)); }
-.head-download:hover { filter: brightness(1.08); }
+  .btn,.cta,details.howto summary,.copy,.qrbtn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:var(--btn);padding:0 20px;border-radius:999px;border:1px solid transparent;font:700 14px/1 var(--font);white-space:nowrap;cursor:pointer;transition:transform .4s var(--ease),border-color .3s,color .3s,filter .3s}
+  .btn.p,.cta,.copy.big{background:var(--accent);color:var(--on-accent)}
+  .btn.p:hover,.cta:hover,.copy.big:hover{filter:brightness(1.06);transform:translateY(-2px);text-decoration:none;color:var(--on-accent)}
+  .btn.g,details.howto summary,.copy,.qrbtn{background:var(--surface);border-color:var(--line2);color:var(--ink)}
+  .btn.g:hover,details.howto summary:hover,.copy:hover,.qrbtn:hover{border-color:var(--accent-line);text-decoration:none}
+  .btn:active,.cta:active,.copy:active,.qrbtn:active{transform:translateY(0) scale(.98)}
+  .copy,.qrbtn{height:var(--btn-s);padding:0 16px;font-size:var(--fs-s);font-weight:600}
+  .copy.big{height:var(--btn);padding:0 20px;font-size:14px;font-weight:700}
+  .copy.done{color:var(--accent-ink);border-color:var(--accent-line)}
+  .copy.big.done{color:var(--on-accent);border-color:transparent}
 
-.hero { padding-top: 56px; text-align: center; }
-h1 { font-size: clamp(34px, 6.4vw, 64px); line-height: 1.05; letter-spacing: -.025em; margin: 0 auto; max-width: 15em; }
-.lead { color: var(--muted); font-size: clamp(17px, 2.2vw, 20px); margin: 18px auto 0; max-width: 38em; }
-.cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 30px 0 10px; }
-.btn {
-  display: inline-flex; align-items: center; gap: 10px; text-decoration: none;
-  border-radius: 12px; padding: 13px 20px; font-weight: 700; font-size: 16px;
-  border: 1px solid var(--line); color: var(--text); background: var(--panel);
-}
-.btn:hover { border-color: rgba(255,255,255,.2); }
-.btn small { font-weight: 600; font-size: 12px; opacity: .8; }
-.btn img { display: block; }
-.btn.primary { background: linear-gradient(90deg, var(--orange), var(--pink)); border-color: transparent; color: #fff; }
-.note { color: var(--muted); font-size: 13px; margin: 6px auto 0; max-width: 60em; }
-.hero-shot { margin: 36px 0 0; }
-.hero-shot img {
-  width: 100%; height: auto; display: block; border-radius: 16px; border: 1px solid var(--line); cursor: zoom-in;
-  box-shadow: 0 30px 80px rgba(236,72,153,.12), 0 10px 40px rgba(0,0,0,.5);
-}
+  .label{display:block;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
 
-section { padding: 72px 0 0; }
-h2 { font-size: clamp(26px, 3.6vw, 36px); letter-spacing: -.02em; margin: 0 0 8px; }
-.sub { color: var(--muted); margin: 0 0 24px; max-width: 46em; }
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:72px}
+  .brand{font-weight:800;font-size:16px;letter-spacing:-.01em;color:var(--ink)}
+  .brand:hover{color:var(--accent-ink);text-decoration:none}
+  .langbar{position:relative;z-index:10}
+  @media (max-width:520px){.topbar{margin-bottom:48px}}
+  .langbtn{display:inline-flex;align-items:center;gap:8px;height:var(--btn-s);background:var(--surface);color:var(--body);border:1px solid var(--line2);border-radius:999px;font:600 var(--fs-s) var(--font);padding:0 14px 0 11px;cursor:pointer;transition:border-color .3s,color .3s}
+  .langbtn:hover,.langbtn[aria-expanded="true"]{border-color:var(--accent-line);color:var(--ink)}
+  .langbtn::after{content:"";width:6px;height:6px;margin-left:3px;border-right:2px solid var(--mut);border-bottom:2px solid var(--mut);transform:translateY(-2px) rotate(45deg)}
+  .flag{width:20px;height:15px;flex:none;border-radius:3px;object-fit:cover;box-shadow:0 0 0 1px var(--line2)}
+  .langlist{position:absolute;right:0;top:calc(100% + 6px);min-width:180px;margin:0;padding:6px;list-style:none;background:var(--surface);border:1px solid var(--line2);border-radius:var(--r2);box-shadow:0 14px 36px rgba(0,0,0,.28)}
+  .langlist li{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r3);font:600 14px var(--font);color:var(--body);cursor:pointer;white-space:nowrap}
+  .langlist li:hover,.langlist li:focus{background:var(--surface2);color:var(--ink);outline:none}
+  .langlist li[aria-selected="true"]{color:var(--accent-ink)}
 
-.samples { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
-.sample { margin: 0; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
-.sample figcaption { display: grid; gap: 2px; margin-bottom: 10px; }
-.sample b { font-size: 15px; }
-.sample span { color: var(--muted); font-size: 13px; }
-.sample audio { width: 100%; height: 36px; }
-details.more summary { cursor: pointer; color: var(--muted); font-weight: 600; margin: 16px 0 12px; }
+  header{padding:20px 0 8px}
+  header .label{margin-bottom:16px}
+  header h1{font-size:clamp(36px,6.5vw,56px);letter-spacing:-.035em}
+  header .lede{max-width:720px;margin:16px 0 0;color:var(--mut);font-size:18px;line-height:1.6}
+  .cta{margin-top:28px}
 
-/* each tile is title, picture, text; the three rows line up across tiles side by side */
-.bento { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 14px; row-gap: 0; margin-top: 24px; }
-.tile {
-  display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: 14px; margin-bottom: 14px; padding: 22px;
-  border: 1px solid var(--line); border-radius: 20px; background: linear-gradient(180deg, var(--panel-2), var(--panel));
-}
-.tile h3 { margin: 0; font-size: 19px; letter-spacing: -.01em; align-self: start; }
-.tile p { margin: 0; color: var(--muted); font-size: 14.5px; line-height: 1.5; }
-.shot { margin: 0; align-self: start; }
-.shot img {
-  display: block; width: 100%; height: auto;
-  border-radius: 10px; border: 1px solid rgba(255,255,255,.1); cursor: zoom-in;
-  box-shadow: 0 12px 30px rgba(0,0,0,.45);
-}
+  .apps{margin-top:36px}
+  .apps .label{margin-bottom:12px}
+  .appgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+  @media (max-width:820px){.appgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media (max-width:480px){.appgrid{grid-template-columns:1fr}}
+  .app{display:flex;flex-direction:column;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);padding:14px;color:var(--body);transition:border-color .3s,transform .4s var(--ease)}
+  .app:hover{border-color:var(--accent-line);transform:translateY(-2px);text-decoration:none}
+  .atop{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+  .aname{font-weight:700;color:var(--ink);font-size:15px;line-height:1.3}
+  .astar{font-size:var(--fs-s);font-weight:700;color:var(--accent-ink);white-space:nowrap}
+  .adesc{font-size:var(--fs-s);color:var(--mut);line-height:1.45}
+  .anum{font-size:22px;font-weight:800;color:var(--ink);letter-spacing:-.02em;line-height:1.2}
+  .alink{margin-top:auto;padding-top:6px;font-size:var(--fs-s);font-weight:700;color:var(--accent-ink)}
+  .alink::after{content:" ↗"}
 
-.gallery { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
-.gallery figure { margin: 0; }
-.gallery img {
-  display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; object-position: top left;
-  border-radius: 10px; border: 1px solid var(--line); cursor: zoom-in;
-}
-.gallery figcaption {
-  margin-top: 8px; color: var(--muted); font-size: 13px; line-height: 1.45;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-}
-.stars { display: block; }
+  section{padding:56px 0}
+  .wrap > h2{font-size:26px;margin-bottom:16px}
+  .lead{color:var(--body);max-width:68ch}
+  .mut{color:var(--mut)}
+  .author{float:left;width:250px;height:auto;object-fit:cover;margin:7px 24px 0 0;border-radius:var(--r2);border:1px solid var(--line2)}
+  .author + p{margin-top:0}
+  .wrap:has(> .author)::after{content:"";display:block;clear:both}
+  @media (max-width:520px){.author{width:150px;margin-right:16px}}
+  .divider{height:1px;background:var(--line);max-width:calc(var(--maxw) - 48px);margin:0 auto}
 
-.steps { list-style: none; margin: 20px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
-.steps li { padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); display: grid; gap: 6px; align-content: start; }
-.steps b { font-size: 16px; display: flex; align-items: baseline; gap: 10px; }
-.steps .num { color: var(--pink); font-weight: 800; }
-.steps span { color: var(--muted); font-size: 14px; line-height: 1.5; }
-#start .cta { justify-content: flex-start; margin-top: 24px; }
+  ul.points{list-style:none;padding:0;margin:0}
+  ul.points li{position:relative;padding:5px 0 5px 22px;color:var(--body)}
+  ul.points li::before{content:"";position:absolute;left:2px;top:calc(5px + .5lh - 3px);width:6px;height:6px;border-radius:50%;background:var(--accent)}
 
-#faq details { border-bottom: 1px solid var(--line); }
-#faq details:first-of-type { border-top: 1px solid var(--line); }
-#faq summary {
-  list-style: none; cursor: pointer; padding: 18px 36px 18px 0; font-weight: 700; font-size: 17px; position: relative;
-}
-#faq summary::-webkit-details-marker { display: none; }
-#faq summary::after { content: '+'; position: absolute; right: 4px; top: 14px; font-size: 24px; color: var(--muted); font-weight: 400; }
-#faq details[open] summary::after { content: '−'; }
-.answer { padding: 0 0 20px; color: var(--muted); max-width: 48em; }
-.answer p { margin: 0 0 10px; }
-.answer b { color: var(--text); }
-.answer ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+  .give{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:24px;margin-top:16px}
+  .give + .give{margin-top:12px}
+  .ghead{margin-bottom:8px}
+  .ghead h3{font-size:18px;font-weight:700}
+  .give > p.lead{margin-bottom:12px}
+  .give > .pmeth{margin-top:-4px}
+  .give > .mut{margin:20px 0 12px}
+  .sub{font-size:var(--fs-m);font-weight:700;color:var(--ink);margin:24px 0 10px;letter-spacing:0}
 
-.scroll { overflow-x: auto; margin: 10px 0; }
-table { border-collapse: collapse; width: 100%; font-size: 14px; }
-th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); }
-th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
-td { color: var(--text); }
-pre { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; overflow-x: auto; font-size: 13px; color: var(--text); }
+  ol.flow{margin:0 0 16px;padding:0;list-style:none;counter-reset:f}
+  ol.flow li{counter-increment:f;display:grid;grid-template-columns:26px minmax(0,1fr);column-gap:12px;align-items:baseline;padding:4px 0;color:var(--body)}
+  ol.flow li::before,ol.steps li::before{width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink);font-size:var(--fs-s);font-weight:700;display:flex;align-items:center;justify-content:center}
+  ol.flow li::before{content:counter(f);display:inline-flex}
 
-.pills { display: flex; flex-wrap: wrap; gap: 8px; }
-.pill { text-decoration: none; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); font-size: 14px; }
-.pill:hover { border-color: var(--pink); }
-footer { margin: 72px 0 40px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
-footer p { margin: 0 0 8px; }
+  .world,.fee{font-size:var(--fs-m);border-radius:var(--r2);padding:12px 16px}
+  .world{background:var(--accent-soft);border:1px solid var(--accent-line);color:var(--ink);margin:4px 0 12px}
+  .fee{background:var(--surface2);border:1px solid var(--line);color:var(--body);margin:0}
+  .pnotes{display:grid;gap:8px;margin-top:12px}
 
-.viewer { position: fixed; inset: 0; background: rgba(0,0,0,.9); display: none; align-items: center; justify-content: center; z-index: 50; padding: 24px; }
-.viewer.open { display: flex; }
-.viewer img { max-width: 100%; max-height: 100%; border-radius: 10px; }
-.viewer button { position: absolute; top: 14px; right: 18px; background: none; border: 0; color: #fff; font-size: 34px; cursor: pointer; }
+  .wcard{background:var(--surface2);border:1px solid var(--line);border-radius:var(--r2);padding:16px;margin:12px 0}
+  .wcard.mine{border-color:var(--accent-line)}
+  .whead{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+  .wicon{width:28px;height:28px;flex:none}
+  .wcoin{font-weight:800;color:var(--ink);font-size:16px}
+  .wnet{font-size:12px;font-weight:700;letter-spacing:.03em;color:var(--accent-ink);background:var(--accent-soft);border-radius:999px;padding:3px 10px}
+  .whead .qrbtn{margin-left:auto}
+  .wlabel{font-size:var(--fs-s);color:var(--mut);margin-bottom:6px}
+  .wfield{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--line2);border-radius:var(--r3);padding:6px 6px 6px 14px}
+  .wfield code{flex:1;min-width:0;font:13.5px ui-monospace,Consolas,monospace;color:var(--ink);overflow-wrap:anywhere;user-select:all}
+  .anote{font-size:var(--fs-s);color:var(--mut);margin-top:8px}
+  .wcard:not(.mine) .whead{padding-right:7px}
+  .wcard:not(.mine) .qrbtn,.wcard:not(.mine) .copy{width:176px}
+  @media (max-width:520px){.wcard:not(.mine) .whead{padding-right:0}.wcard:not(.mine) .whead .qrbtn{width:calc(100% - 22px);margin:0 11px}.wcard:not(.mine) .wfield{flex-wrap:wrap;padding:10px}.wcard:not(.mine) .wfield code{flex-basis:100%}.wcard:not(.mine) .copy{width:100%}}
 
-@media (max-width: 860px) {
-  .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 560px) {
-  .hero { padding-top: 36px; }
-  .name { display: none; }
-  .utility-bar { flex-direction: column; align-items: stretch; gap: 0; }
-  .langs { order: -1; justify-content: flex-end; padding: 8px 0 0; }
-  .btn { width: 100%; justify-content: center; }
-}
-.donate,.donate-lang{--bg2:var(--bg);--surface:var(--panel);--surface2:var(--panel-2);--line2:rgba(255,255,255,.14);--ink:var(--text);--body:#c4c4cc;--mut:var(--muted);--faint:#6b6b75;--accent:var(--pink);--accent-ink:#f472b6;--on-accent:#fff;--accent-soft:rgba(236,72,153,.12);--accent-line:rgba(236,72,153,.34);--r:16px;--r2:12px;--r3:8px;--fs-s:13px;--fs-m:15px;--btn:44px;--btn-s:36px;--maxw:900px;--ease:cubic-bezier(.33,1,.68,1);--font:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif}
-.donate a:not(.btn){color:var(--accent-ink);text-decoration:none}
-.donate a:not(.btn):hover{text-decoration:underline}
-.donate strong{color:var(--ink);font-weight:700}
-.donate :focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
-.donate details.howto summary,.donate .copy,.donate .qrbtn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:var(--btn);padding:0 20px;border-radius:999px;border:1px solid transparent;font:700 14px/1 var(--font);white-space:nowrap;cursor:pointer;transition:transform .4s var(--ease),border-color .3s,color .3s,filter .3s}
-.donate .copy.big{background:var(--accent);color:var(--on-accent)}
-.donate .copy.big:hover{filter:brightness(1.06);transform:translateY(-2px);text-decoration:none;color:var(--on-accent)}
-.donate details.howto summary,.donate .copy,.donate .qrbtn{background:var(--surface);border-color:var(--line2);color:var(--ink)}
-.donate details.howto summary:hover,.donate .copy:hover,.donate .qrbtn:hover{border-color:var(--accent-line);text-decoration:none}
-.donate .copy:active,.donate .qrbtn:active{transform:translateY(0) scale(.98)}
-.donate .copy,.donate .qrbtn{height:var(--btn-s);padding:0 16px;font-size:var(--fs-s);font-weight:600}
-.donate .copy.big{height:var(--btn);padding:0 20px;font-size:14px;font-weight:700}
-.donate .copy.done{color:var(--accent-ink);border-color:var(--accent-line)}
-.donate .copy.big.done{color:var(--on-accent);border-color:transparent}
-.donate .label{display:block;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
-.donate-lang .langbar{position:relative;z-index:10}
-.donate-lang .langbtn{display:inline-flex;align-items:center;gap:8px;height:var(--btn-s);background:var(--surface);color:var(--body);border:1px solid var(--line2);border-radius:999px;font:600 var(--fs-s) var(--font);padding:0 14px 0 11px;cursor:pointer;transition:border-color .3s,color .3s}
-.donate-lang .langbtn:hover,.donate-lang .langbtn[aria-expanded="true"]{border-color:var(--accent-line);color:var(--ink)}
-.donate-lang .langbtn::after{content:"";width:6px;height:6px;margin-left:3px;border-right:2px solid var(--mut);border-bottom:2px solid var(--mut);transform:translateY(-2px) rotate(45deg)}
-.donate-lang .flag{width:20px;height:15px;flex:none;border-radius:3px;object-fit:cover;box-shadow:0 0 0 1px var(--line2)}
-.donate-lang .langlist{position:absolute;right:0;top:calc(100% + 6px);min-width:180px;margin:0;padding:6px;list-style:none;background:var(--surface);border:1px solid var(--line2);border-radius:var(--r2);box-shadow:0 14px 36px rgba(0,0,0,.28)}
-.donate-lang .langlist li{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r3);font:600 14px var(--font);color:var(--body);cursor:pointer;white-space:nowrap}
-.donate-lang .langlist li:hover,.donate-lang .langlist li:focus{background:var(--surface2);color:var(--ink);outline:none}
-.donate-lang .langlist li[aria-selected="true"]{color:var(--accent-ink)}
-.donate .apps{margin-top:36px}
-.donate .apps .label{margin-bottom:12px}
-.donate .appgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-@media (max-width:820px){.donate .appgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:480px){.donate .appgrid{grid-template-columns:1fr}}
-.donate .app{display:flex;flex-direction:column;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);padding:14px;color:var(--body);transition:border-color .3s,transform .4s var(--ease)}
-.donate .app:hover{border-color:var(--accent-line);transform:translateY(-2px);text-decoration:none}
-.donate .atop{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
-.donate .aname{font-weight:700;color:var(--ink);font-size:15px;line-height:1.3}
-.donate .astar{font-size:var(--fs-s);font-weight:700;color:var(--accent-ink);white-space:nowrap}
-.donate .adesc{font-size:var(--fs-s);color:var(--mut);line-height:1.45}
-.donate .anum{font-size:22px;font-weight:800;color:var(--ink);letter-spacing:-.02em;line-height:1.2}
-.donate .alink{margin-top:auto;padding-top:6px;font-size:var(--fs-s);font-weight:700;color:var(--accent-ink)}
-.donate .alink::after{content:" ↗"}
-.donate .mut{color:var(--mut)}
-.donate .author{float:left;width:250px;height:auto;object-fit:cover;margin:7px 24px 0 0;border-radius:var(--r2);border:1px solid var(--line2)}
-.donate .author + p{margin-top:0}
-.donate .wrap:has(> .author)::after{content:"";display:block;clear:both}
-@media (max-width:520px){.donate .author{width:150px;margin-right:16px}}
-.donate .divider{height:1px;background:var(--line);max-width:calc(var(--maxw) - 48px);margin:0 auto}
-.donate ul.points{list-style:none;padding:0;margin:0}
-.donate ul.points li{position:relative;padding:5px 0 5px 22px;color:var(--body)}
-.donate ul.points li::before{content:"";position:absolute;left:2px;top:calc(5px + .5lh - 3px);width:6px;height:6px;border-radius:50%;background:var(--accent)}
-.donate .give{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:24px;margin-top:16px}
-.donate .give + .give{margin-top:12px}
-.donate .ghead{margin-bottom:8px}
-.donate .ghead h3{font-size:18px;font-weight:700}
-.donate .give > p{margin-bottom:12px}
-.donate .give > .pmeth{margin-top:-4px}
-.donate .give > .mut{margin:20px 0 12px}
-.donate .dsub{font-size:var(--fs-m);font-weight:700;color:var(--ink);margin:24px 0 10px;letter-spacing:0}
-.donate ol.flow{margin:0 0 16px;padding:0;list-style:none;counter-reset:f}
-.donate ol.flow li{counter-increment:f;display:grid;grid-template-columns:26px minmax(0,1fr);column-gap:12px;align-items:baseline;padding:4px 0;color:var(--body)}
-.donate ol.flow li::before,.donate ol.dsteps li::before{width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink);font-size:var(--fs-s);font-weight:700;display:flex;align-items:center;justify-content:center}
-.donate ol.flow li::before{content:counter(f);display:inline-flex}
-.donate .world,.donate .fee{font-size:var(--fs-m);border-radius:var(--r2);padding:12px 16px}
-.donate .world{background:var(--accent-soft);border:1px solid var(--accent-line);color:var(--ink);margin:4px 0 12px}
-.donate .fee{background:var(--surface2);border:1px solid var(--line);color:var(--body);margin:0}
-.donate .pnotes{display:grid;gap:8px;margin-top:12px}
-.donate .wcard{background:var(--surface2);border:1px solid var(--line);border-radius:var(--r2);padding:16px;margin:12px 0}
-.donate .wcard.mine{border-color:var(--accent-line)}
-.donate .whead{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
-.donate .wicon{width:28px;height:28px;flex:none}
-.donate .wcoin{font-weight:800;color:var(--ink);font-size:16px}
-.donate .wnet{font-size:12px;font-weight:700;letter-spacing:.03em;color:var(--accent-ink);background:var(--accent-soft);border-radius:999px;padding:3px 10px}
-.donate .whead .qrbtn{margin-left:auto}
-.donate .wlabel{font-size:var(--fs-s);color:var(--mut);margin-bottom:6px}
-.donate .wfield{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--line2);border-radius:var(--r3);padding:6px 6px 6px 14px}
-.donate .wfield code{flex:1;min-width:0;font:13.5px ui-monospace,Consolas,monospace;color:var(--ink);overflow-wrap:anywhere;user-select:all}
-.donate .anote{font-size:var(--fs-s);color:var(--mut);margin-top:8px}
-.donate .wcard:not(.mine) .whead{padding-right:7px}
-.donate .wcard:not(.mine) .qrbtn,.donate .wcard:not(.mine) .copy{width:176px}
-@media (max-width:520px){.donate .wcard:not(.mine) .whead{padding-right:0}.donate .wcard:not(.mine) .whead .qrbtn{width:calc(100% - 22px);margin:0 11px}.donate .wcard:not(.mine) .wfield{flex-wrap:wrap;padding:10px}.donate .wcard:not(.mine) .wfield code{flex-basis:100%}.donate .wcard:not(.mine) .copy{width:100%}}
-.donate .ptabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
-.donate .ptab{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:2px;background:var(--surface2);border:1px solid var(--line2);color:var(--ink);font:700 14px var(--font);padding:8px 14px;border-radius:var(--r2);cursor:pointer;transition:border-color .3s,background .3s}
-.donate .ptab:hover{border-color:var(--accent-line)}
-.donate .ptab[aria-selected="true"]{background:var(--accent-soft);border-color:var(--accent-line)}
-.donate .tmin{font-size:12px;font-weight:600;color:var(--mut)}
-.donate .ptab[aria-selected="true"] .tmin{color:var(--accent-ink)}
-.donate .ppanel{background:var(--surface2);border:1px solid var(--line);border-radius:var(--r2);padding:16px}
-.donate .ppanel[hidden]{display:none}
-.donate .phead{display:flex;gap:14px;align-items:center}
-.donate .phead .pinfo{flex:1;min-width:0}
-.donate .ppanel .btn.primary{flex:none;gap:5px}
-.donate .ppanel .btn.primary::after{content:"↗"}
-.donate .pmeth{font-size:var(--fs-s);color:var(--mut)}
-.donate .pnote{font-size:var(--fs-s);margin-top:4px;color:var(--body)}
-.donate .pnote.ok{color:var(--accent-ink)}
-.donate .pnote .copy{margin-left:6px}
-@media (max-width:520px){.donate .phead{flex-wrap:wrap}.donate .ppanel .btn.primary{width:100%}}
-.donate details.howto{margin-top:16px}
-.donate details.howto summary{list-style:none;font-size:14px}
-.donate details.howto summary::-webkit-details-marker{display:none}
-.donate details.howto summary::before{content:"▸";color:var(--accent-ink)}
-.donate details.howto[open] summary::before{content:"▾"}
-.donate .act{position:relative;margin-top:16px}
-.donate .act > details.howto{margin-top:0}
-.donate .act > .btn{position:absolute;top:0;right:0}
-@media (max-width:520px){.donate .act{display:flex;flex-direction:column;gap:10px}.donate .act > .btn{position:static;order:-1}}
-.donate ol.dsteps{list-style:none;counter-reset:s;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:12px}
-.donate ol.dsteps li{counter-increment:s;background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);padding:14px;font-size:var(--fs-m);line-height:1.55;color:var(--body);display:grid;grid-template-columns:26px minmax(0,1fr);column-gap:12px;row-gap:12px}
-.donate ol.dsteps li::before{content:counter(s)}
-.donate ol.dsteps li > span{align-self:center}
-.donate ol.dsteps li > a{grid-column:2}
-.donate ol.dsteps img{display:block;width:auto;max-width:100%;border-radius:var(--r3);border:1px solid var(--line2)}
-@media (max-width:520px){.donate ol.dsteps li > a{grid-column:1 / -1}}
-.donate .qrmodal{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:16px}
-.donate .qrmodal[hidden]{display:none}
-.donate .qrbox{position:relative;background:var(--surface);border:1px solid var(--line2);border-radius:var(--r);padding:24px;width:100%;max-width:360px;text-align:center}
-.donate .qrnet{font-weight:800;color:var(--ink);font-size:18px;margin-bottom:12px}
-.donate #qrimg{display:block;width:100%;max-width:280px;aspect-ratio:1;background:#fff;border-radius:var(--r2);padding:10px;margin:0 auto 12px}
-.donate #qraddr{display:block;font:13px ui-monospace,Consolas,monospace;color:var(--ink);overflow-wrap:anywhere;margin-bottom:12px}
-.donate .qrclose{position:absolute;top:6px;right:10px;background:none;border:0;color:var(--mut);font-size:26px;line-height:1;cursor:pointer}
-.donate .qrbox .copy.big{width:100%}
-.donate .costs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-@media (max-width:700px){.donate .costs{grid-template-columns:1fr}}
-.donate .cost{background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);padding:16px}
-.donate .cost p{margin:4px 0 0;font-size:var(--fs-m);color:var(--body)}
-.donate .chead{display:flex;justify-content:space-between;gap:4px 10px;align-items:baseline;flex-wrap:wrap}
-.donate .cname{font-weight:700;color:var(--ink)}
-.donate .camt{font-weight:800;color:var(--accent-ink);white-space:nowrap}
-.donate .camt span{font-weight:600;font-size:var(--fs-s);color:var(--mut)}
-.donate .dfoot{padding:56px 0 64px}
-.donate .dfoot .ty{font-size:26px;font-weight:800;color:var(--ink);letter-spacing:-.02em}
-.donate .dfoot p{color:var(--mut);margin:8px 0 0}
-.donate .dfoot .links{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:16px;font-size:var(--fs-m)}
-.donate .hero .apps{text-align:left}
+  .ptabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+  .ptab{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:2px;background:var(--surface2);border:1px solid var(--line2);color:var(--ink);font:700 14px var(--font);padding:8px 14px;border-radius:var(--r2);cursor:pointer;transition:border-color .3s,background .3s}
+  .ptab:hover{border-color:var(--accent-line)}
+  .ptab[aria-selected="true"]{background:var(--accent-soft);border-color:var(--accent-line)}
+  .tmin{font-size:12px;font-weight:600;color:var(--mut)}
+  .ptab[aria-selected="true"] .tmin{color:var(--accent-ink)}
+  .ppanel{background:var(--surface2);border:1px solid var(--line);border-radius:var(--r2);padding:16px}
+  .ppanel[hidden]{display:none}
+  .phead{display:flex;gap:14px;align-items:center}
+  .phead .pinfo{flex:1;min-width:0}
+  .ppanel .btn.p{flex:none;gap:5px}
+  .ppanel .btn.p::after{content:"↗"}
+  .pmeth{font-size:var(--fs-s);color:var(--mut)}
+  .pnote{font-size:var(--fs-s);margin-top:4px;color:var(--body)}
+  .pnote.ok{color:var(--accent-ink)}
+  .pnote .copy{margin-left:6px}
+  @media (max-width:520px){.phead{flex-wrap:wrap}.ppanel .btn.p{width:100%}}
+
+  details.howto{margin-top:16px}
+  details.howto summary{list-style:none;font-size:14px}
+  details.howto summary::-webkit-details-marker{display:none}
+  details.howto summary::before{content:"▸";color:var(--accent-ink)}
+  details.howto[open] summary::before{content:"▾"}
+  .act{position:relative;margin-top:16px}
+  .act > details.howto{margin-top:0}
+  .act > .btn{position:absolute;top:0;right:0}
+  @media (max-width:520px){.act{display:flex;flex-direction:column;gap:10px}.act > .btn{position:static;order:-1}}
+  ol.steps{list-style:none;counter-reset:s;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:12px}
+  ol.steps li{counter-increment:s;background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);padding:14px;font-size:var(--fs-m);line-height:1.55;color:var(--body);display:grid;grid-template-columns:26px minmax(0,1fr);column-gap:12px;row-gap:12px}
+  ol.steps li::before{content:counter(s)}
+  ol.steps li > span{align-self:center}
+  ol.steps li > a{grid-column:2}
+  ol.steps img{display:block;width:auto;max-width:100%;border-radius:var(--r3);border:1px solid var(--line2)}
+  @media (max-width:520px){ol.steps li > a{grid-column:1 / -1}}
+
+  .qrmodal{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:16px}
+  .qrmodal[hidden]{display:none}
+  .qrbox{position:relative;background:var(--surface);border:1px solid var(--line2);border-radius:var(--r);padding:24px;width:100%;max-width:360px;text-align:center}
+  .qrnet{font-weight:800;color:var(--ink);font-size:18px;margin-bottom:12px}
+  #qrimg{display:block;width:100%;max-width:280px;aspect-ratio:1;background:#fff;border-radius:var(--r2);padding:10px;margin:0 auto 12px}
+  #qraddr{display:block;font:13px ui-monospace,Consolas,monospace;color:var(--ink);overflow-wrap:anywhere;margin-bottom:12px}
+  .qrclose{position:absolute;top:6px;right:10px;background:none;border:0;color:var(--mut);font-size:26px;line-height:1;cursor:pointer}
+  .qrbox .copy.big{width:100%}
+
+  .costs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  @media (max-width:700px){.costs{grid-template-columns:1fr}}
+  .cost{background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);padding:16px}
+  .cost p{margin:4px 0 0;font-size:var(--fs-m);color:var(--body)}
+  .chead{display:flex;justify-content:space-between;gap:4px 10px;align-items:baseline;flex-wrap:wrap}
+  .cname{font-weight:700;color:var(--ink)}
+  .camt{font-weight:800;color:var(--accent-ink);white-space:nowrap}
+  .camt span{font-weight:600;font-size:var(--fs-s);color:var(--mut)}
+
+  .faq details{border-top:1px solid var(--line)}
+  .faq details:last-child{border-bottom:1px solid var(--line)}
+  .faq summary{cursor:pointer;list-style:none;padding:16px 30px 16px 0;font-weight:700;color:var(--ink);position:relative}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary::after{content:"+";position:absolute;right:4px;top:13px;font-size:21px;font-weight:600;color:var(--accent-ink)}
+  .faq details[open] summary::after{content:"−"}
+  .faq details p{margin:0 0 16px;color:var(--body);max-width:68ch}
+
+  footer{padding:56px 0 64px}
+  footer .ty{font-size:26px;font-weight:800;color:var(--ink);letter-spacing:-.02em}
+  footer p{color:var(--mut);margin:8px 0 0}
+  footer .links{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:16px;font-size:var(--fs-m)}
 </style>
 </head>
-<body data-hub-app="ace">
-<header>
-  <div class="utility"><div class="wrap utility-bar">
-    <nav class="family" aria-label="Studios">
-    <a href="https://timoncool.github.io/YuE2-Studio/">YuE2 Studio</a>
-    <a href="https://timoncool.github.io/MiniMax-Music3-Studio/">MiniMax Music3 Studio</a>
-    <a href="https://timoncool.github.io/ACE-Step-Studio/" aria-current="page">ACE-Step Studio</a>
-    </nav>
-    <div class="donate-lang">
-<div class="langbar">
-  <button id="lang" class="langbtn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="langlist" aria-label="Language"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/us.svg" alt=""><span class="lname">English</span></button>
-  <ul id="langlist" class="langlist" role="listbox" aria-label="Language" hidden>
-    <li role="option" tabindex="-1" data-lang="en"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/us.svg" alt="">English</li>
-    <li role="option" tabindex="-1" data-lang="ru"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/ru.svg" alt="">Русский</li>
-    <li role="option" tabindex="-1" data-lang="zh"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/cn.svg" alt="">中文</li>
-    <li role="option" tabindex="-1" data-lang="ja"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/jp.svg" alt="">日本語</li>
-    <li role="option" tabindex="-1" data-lang="ko"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/kr.svg" alt="">한국어</li>
-    <li role="option" tabindex="-1" data-lang="pt"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/br.svg" alt="">Português</li>
-    <li role="option" tabindex="-1" data-lang="es"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/es.svg" alt="">Español</li>
-    <li role="option" tabindex="-1" data-lang="fr"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/fr.svg" alt="">Français</li>
-  </ul>
-</div>
-    </div>
-  </div></div>
-  <div class="wrap bar">
-    <img class="mark" src="logo.png" alt="" width="30" height="30" />
-    <div class="name">ACE-Step Studio</div>
-    <a class="head-github" href="https://github.com/timoncool/ACE-Step-Studio">GitHub<img class="stars" src="https://img.shields.io/github/stars/timoncool/ACE-Step-Studio?style=flat&amp;label=%E2%98%85&amp;color=3f3f46" alt="GitHub stars" height="20" /></a>
-  </div>
-</header>
+<body>
 
-<main class="wrap donate">
-  <section class="hero">
+  <header>
+    <div class="wrap">
+    <div class="topbar">
+      <a class="brand" href="./">ACE-Step Studio</a>
+      <div class="langbar">
+        <button id="lang" class="langbtn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="langlist" aria-label="Language"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/us.svg" alt=""><span class="lname">English</span></button>
+        <ul id="langlist" class="langlist" role="listbox" aria-label="Language" hidden>
+          <li role="option" tabindex="-1" data-lang="en"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/us.svg" alt="">English</li>
+          <li role="option" tabindex="-1" data-lang="ru"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/ru.svg" alt="">Русский</li>
+          <li role="option" tabindex="-1" data-lang="zh"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/cn.svg" alt="">中文</li>
+          <li role="option" tabindex="-1" data-lang="ja"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/jp.svg" alt="">日本語</li>
+          <li role="option" tabindex="-1" data-lang="ko"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/kr.svg" alt="">한국어</li>
+          <li role="option" tabindex="-1" data-lang="pt"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/br.svg" alt="">Português</li>
+          <li role="option" tabindex="-1" data-lang="es"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/es.svg" alt="">Español</li>
+          <li role="option" tabindex="-1" data-lang="fr"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/fr.svg" alt="">Français</li>
+        </ul>
+      </div>
+    </div>
     <span class="label" data-i18n="eyebrow">Free &amp; open source</span>
     <h1 data-i18n="title">Support the work</h1>
-    <p class="lead lede" data-i18n="lede">I build free apps that run on your own computer: music, dubbing, voice and more.</p>
+    <p class="lede" data-i18n="lede">I build free apps that run on your own computer: music, dubbing, voice and more.</p>
     <div class="apps">
       <div class="label" data-i18n="apps_label">Featured apps</div>
       <div class="appgrid">
@@ -354,58 +236,77 @@ footer p { margin: 0 0 8px; }
         <a class="app" href="https://github.com/timoncool" target="_blank" rel="noopener"><span class="anum" id="stars-total">★ 3 000+</span><span class="adesc" data-i18n="stars_total">stars in total</span><span class="alink" data-i18n="apps_all">All projects on GitHub</span></a>
       </div>
     </div>
-    <div class="cta"><a class="btn primary" data-hub-b="b17" href="#give" data-i18n="how_h">How to donate</a></div>
-  </section>
+    <a class="cta" data-hub-b="b17" href="#give" data-i18n="how_h">How to donate</a>
+    </div>
+  </header>
 
   <section>
+    <div class="wrap">
       <h2 data-i18n="why_h">Why it matters</h2>
-      <p data-i18n="why_p1">Open source feels free because downloading it never asks for your card. That's the point. It's also the catch: building the apps, fixing bugs every week, answering issues, and shipping for Windows, Linux and macOS take real time, and real money in tools, before a single new feature.</p>
+      <p class="lead" data-i18n="why_p1">Open source feels free because downloading it never asks for your card. That's the point. It's also the catch: building the apps, fixing bugs every week, answering issues, and shipping for Windows, Linux and macOS take real time, and real money in tools, before a single new feature.</p>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <section>
+    <div class="wrap" id="community" hidden>
+      <h2 id="comm-h">You'd be in good company</h2>
+      <p class="world" id="comm-p" style="font-size:16.5px;line-height:1.6;margin:16px 0 0">Right now these apps are used by <strong>—</strong> people. Your support helps every one of them.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px">
+        <div class="cost"><span class="camt" id="c-issues" style="font-size:24px">—</span><div class="cname" id="comm-issues-l" style="margin-top:4px">issues closed</div></div>
+        <div class="cost"><span class="camt" id="c-commits" style="font-size:24px">—</span><div class="cname" id="comm-commits-l" style="margin-top:4px">commits a month</div></div>
+        <div class="cost"><span class="camt" id="c-releases" style="font-size:24px">—</span><div class="cname" id="comm-releases-l" style="margin-top:4px">releases shipped</div></div>
+      </div>
+      <p style="margin:16px 0 0"><a href="stats.html" id="comm-see" data-hub-b="to-stats">See the open telemetry →</a></p>
+    </div>
   </section>
 
   <div class="divider"></div>
 
   <section id="give">
+    <div class="wrap">
       <h2 data-i18n="how_h">How to donate</h2>
 
       <div class="give">
         <div class="ghead"><h3 data-i18n="dalink_h">Bank card</h3></div>
-        <p data-i18n="dalink_p">The simplest option: a regular payment page.</p>
+        <p class="lead" data-i18n="dalink_p">The simplest option: a regular payment page.</p>
         <div class="pmeth" data-i18n="dalink_meth">Visa / Mastercard from any country, in USD or EUR</div>
         <div class="act">
           <details class="howto"><summary data-i18n="howto">Instructions</summary>
-            <ol class="dsteps">
+            <ol class="steps">
               <li><span data-i18n="dl_1">Step 1</span><a href="donate-img/dalink-1.png" target="_blank" rel="noopener"><img src="donate-img/dalink-1.png" alt="dalink, step 1" loading="lazy"></a></li>
               <li><span data-i18n="dl_2">Step 2</span><a href="donate-img/dalink-2.png" target="_blank" rel="noopener"><img src="donate-img/dalink-2.png" alt="dalink, step 2" loading="lazy"></a></li>
               <li><span data-i18n="dl_3">Step 3</span></li>
             </ol>
           </details>
-          <a class="btn primary" data-hub-b="b1" href="https://dalink.to/nerual_dreming" target="_blank" rel="noopener" data-i18n="dalink_btn">Donate by card</a>
+          <a class="btn p" data-hub-b="b1" href="https://dalink.to/nerual_dreming" target="_blank" rel="noopener" data-i18n="dalink_btn">Donate by card</a>
         </div>
       </div>
 
       <div class="give">
         <div class="ghead"><h3 data-i18n="boosty_h">Monthly subscription by card</h3></div>
-        <p data-i18n="boosty_p">A monthly subscription or a one-time donation, whichever you prefer.</p>
+        <p class="lead" data-i18n="boosty_p">A monthly subscription or a one-time donation, whichever you prefer.</p>
         <div class="pmeth" data-i18n="boosty_meth">Visa / Mastercard from any country, in USD or EUR</div>
         <div class="act">
           <details class="howto"><summary data-i18n="howto">Instructions</summary>
-            <ol class="dsteps">
+            <ol class="steps">
               <li><span data-i18n="bs_1">Step 1</span><a href="donate-img/boosty-1.png" target="_blank" rel="noopener"><img src="donate-img/boosty-1.png" alt="Boosty, step 1" loading="lazy"></a></li>
               <li><span data-i18n="bs_2">Step 2</span><a href="donate-img/boosty-2.png" target="_blank" rel="noopener"><img src="donate-img/boosty-2.png" alt="Boosty, step 2" loading="lazy"></a></li>
               <li><span data-i18n="bs_3">Step 3</span></li>
               <li><span data-i18n="bs_4">Step 4</span></li>
             </ol>
           </details>
-          <a class="btn primary" data-hub-b="b2" href="https://boosty.to/neuro_art" target="_blank" rel="noopener" data-i18n="boosty_btn">Subscribe on Boosty</a>
+          <a class="btn p" data-hub-b="b2" href="https://boosty.to/neuro_art" target="_blank" rel="noopener" data-i18n="boosty_btn">Subscribe on Boosty</a>
         </div>
       </div>
 
       <div class="give">
         <div class="ghead"><h3 data-i18n="card_h">Via an exchange service: card, Apple Pay, Google Pay</h3></div>
-        <p data-i18n="card_p">Exchange services take a regular card payment, buy crypto and send it straight to my wallet.</p>
+        <p class="lead" data-i18n="card_p">Exchange services take a regular card payment, buy crypto and send it straight to my wallet.</p>
         <p class="world" data-i18n="card_world">Works all over the world, in your own currency.</p>
 
-        <h4 class="dsub" data-i18n="flow_h">How it works</h4>
+        <h4 class="sub" data-i18n="flow_h">How it works</h4>
         <ol class="flow">
           <li data-i18n="flow_1">Copy my address below.</li>
           <li data-i18n="flow_2">Open any service from the list.</li>
@@ -420,7 +321,7 @@ footer p { margin: 0 0 8px; }
         </div>
 
 
-        <h4 class="dsub" data-i18n="prov_h">Services, from the lowest minimum</h4>
+        <h4 class="sub" data-i18n="prov_h">Services, from the lowest minimum</h4>
         <div class="ptabs" role="tablist">
           <button class="ptab" role="tab" aria-selected="true" data-tab="transak" data-hub-b="b20">Transak<span class="tmin"><span data-i18n="from">from</span> $5</span></button>
           <button class="ptab" role="tab" aria-selected="false" data-tab="moonpay" data-hub-b="b21">MoonPay<span class="tmin"><span data-i18n="from">from</span> $20</span></button>
@@ -436,10 +337,10 @@ footer p { margin: 0 0 8px; }
             <div class="pmeth">Visa / Mastercard · Apple Pay · Google Pay</div>
             <div class="pnote" data-i18n="n_choose">Choose USDT · TRON yourself</div>
             </div>
-            <a class="btn primary" data-hub-b="b3" href="https://global.transak.com/" target="_blank" rel="noopener"><span data-i18n="open">Open</span>Transak</a>
+            <a class="btn p" data-hub-b="b3" href="https://global.transak.com/" target="_blank" rel="noopener"><span data-i18n="open">Open</span>Transak</a>
           </div>
           <details class="howto"><summary data-i18n="howto">Instructions</summary>
-            <ol class="dsteps">
+            <ol class="steps">
               <li><span data-i18n="tk_1">Step 1</span><a href="donate-img/transak-1.png" target="_blank" rel="noopener"><img src="donate-img/transak-1.png" alt="Transak, step 1" loading="lazy"></a></li>
               <li><span data-i18n="tk_2">Step 2</span><a href="donate-img/transak-2.png" target="_blank" rel="noopener"><img src="donate-img/transak-2.png" alt="Transak, step 2" loading="lazy"></a></li>
               <li><span data-i18n="tk_3">Step 3</span><a href="donate-img/transak-3.png" target="_blank" rel="noopener"><img src="donate-img/transak-3.png" alt="Transak, step 3" loading="lazy"></a></li>
@@ -454,10 +355,10 @@ footer p { margin: 0 0 8px; }
             <div class="pmeth">Visa / Mastercard · Apple Pay · Google Pay · PayPal</div>
             <div class="pnote ok" data-i18n="n_ready">USDT · TRON is already selected</div>
             </div>
-            <a class="btn primary" data-hub-b="b4" href="https://buy.moonpay.com?currencyCode=usdt_trx&baseCurrencyCode=usd&baseCurrencyAmount=30" target="_blank" rel="noopener"><span data-i18n="open">Open</span>MoonPay</a>
+            <a class="btn p" data-hub-b="b4" href="https://buy.moonpay.com?currencyCode=usdt_trx&baseCurrencyCode=usd&baseCurrencyAmount=30" target="_blank" rel="noopener"><span data-i18n="open">Open</span>MoonPay</a>
           </div>
           <details class="howto"><summary data-i18n="howto">Instructions</summary>
-            <ol class="dsteps">
+            <ol class="steps">
               <li><span data-i18n="mp_1">Step 1</span><a href="donate-img/moonpay-1.png" target="_blank" rel="noopener"><img src="donate-img/moonpay-1.png" alt="MoonPay, step 1" loading="lazy"></a></li>
               <li><span data-i18n="mp_2">Step 2</span></li>
               <li><span data-i18n="mp_3">Step 3</span></li>
@@ -471,10 +372,10 @@ footer p { margin: 0 0 8px; }
             <div class="pmeth">Visa / Mastercard · Revolut Pay · Neteller · Apple Pay · Google Pay · SEPA</div>
             <div class="pnote"><span data-i18n="n_choose">Choose USDT · TRON yourself</span> · <span data-i18n="n_guardarian">Only an email is needed</span></div>
             </div>
-            <a class="btn primary" data-hub-b="b5" href="https://guardarian.com/buy-usdt" target="_blank" rel="noopener"><span data-i18n="open">Open</span>Guardarian</a>
+            <a class="btn p" data-hub-b="b5" href="https://guardarian.com/buy-usdt" target="_blank" rel="noopener"><span data-i18n="open">Open</span>Guardarian</a>
           </div>
           <details class="howto"><summary data-i18n="howto">Instructions</summary>
-            <ol class="dsteps">
+            <ol class="steps">
               <li><span data-i18n="gd_1">Step 1</span><a href="donate-img/guardarian-1.png" target="_blank" rel="noopener"><img src="donate-img/guardarian-1.png" alt="Guardarian, step 1" loading="lazy"></a></li>
               <li><span data-i18n="gd_2">Step 2</span><a href="donate-img/guardarian-2.png" target="_blank" rel="noopener"><img src="donate-img/guardarian-2.png" alt="Guardarian, step 2" loading="lazy"></a></li>
               <li><span data-i18n="gd_3">Step 3</span><a href="donate-img/guardarian-3.png" target="_blank" rel="noopener"><img src="donate-img/guardarian-3.png" alt="Guardarian, step 3" loading="lazy"></a></li>
@@ -488,10 +389,10 @@ footer p { margin: 0 0 8px; }
             <div class="pmeth">Visa / Mastercard · Apple Pay · Google Pay · PayPal</div>
             <div class="pnote ok" data-i18n="n_ready">USDT · TRON is already selected</div>
             </div>
-            <a class="btn primary" data-hub-b="b6" href="https://changelly.com/buy/usdtrx" target="_blank" rel="noopener"><span data-i18n="open">Open</span>Changelly</a>
+            <a class="btn p" data-hub-b="b6" href="https://changelly.com/buy/usdtrx" target="_blank" rel="noopener"><span data-i18n="open">Open</span>Changelly</a>
           </div>
           <details class="howto"><summary data-i18n="howto">Instructions</summary>
-            <ol class="dsteps">
+            <ol class="steps">
               <li><span data-i18n="cl_1">Step 1</span><a href="donate-img/changelly-1.png" target="_blank" rel="noopener"><img src="donate-img/changelly-1.png" alt="Changelly, step 1" loading="lazy"></a></li>
               <li><span data-i18n="cl_2">Step 2</span><a href="donate-img/changelly-2.png" target="_blank" rel="noopener"><img src="donate-img/changelly-2.png" alt="Changelly, step 2" loading="lazy"></a></li>
               <li><span data-i18n="cl_3">Step 3</span></li>
@@ -505,10 +406,10 @@ footer p { margin: 0 0 8px; }
             <div class="pmeth">Visa / Mastercard · Apple Pay · Google Pay · Revolut · PayPal</div>
             <div class="pnote ok"><span data-i18n="n_ready">USDT · TRON is already selected</span> · <span data-i18n="n_paybis">Up to $1000 without ID verification</span></div>
             </div>
-            <a class="btn primary" data-hub-b="b7" href="https://paybis.com/buy-tether-trc20/" target="_blank" rel="noopener"><span data-i18n="open">Open</span>Paybis</a>
+            <a class="btn p" data-hub-b="b7" href="https://paybis.com/buy-tether-trc20/" target="_blank" rel="noopener"><span data-i18n="open">Open</span>Paybis</a>
           </div>
           <details class="howto"><summary data-i18n="howto">Instructions</summary>
-            <ol class="dsteps">
+            <ol class="steps">
               <li><span data-i18n="pb_1">Step 1</span><a href="donate-img/paybis-1.png" target="_blank" rel="noopener"><img src="donate-img/paybis-1.png" alt="Paybis, step 1" loading="lazy"></a></li>
               <li><span data-i18n="pb_2">Step 2</span><a href="donate-img/paybis-2.png" target="_blank" rel="noopener"><img src="donate-img/paybis-2.png" alt="Paybis, step 2" loading="lazy"></a></li>
               <li><span data-i18n="pb_3">Step 3</span></li>
@@ -522,10 +423,10 @@ footer p { margin: 0 0 8px; }
             <div class="pmeth">Visa / Mastercard · Apple Pay · Google Pay · Skrill · Neteller</div>
             <div class="pnote"><span data-i18n="n_swapped">USDT is under maintenance there, so it sends Bitcoin.</span><button class="copy" data-hub-b="b16" data-wallet-copy="btc" data-i18n="copy_btc">Copy BTC address</button></div>
             </div>
-            <a class="btn primary" data-hub-b="b8" href="https://widget.swapped.com/?currencyCode=BTC&baseCurrencyCode=usd&baseCurrencyAmount=30" target="_blank" rel="noopener"><span data-i18n="open">Open</span>Swapped</a>
+            <a class="btn p" data-hub-b="b8" href="https://widget.swapped.com/?currencyCode=BTC&baseCurrencyCode=usd&baseCurrencyAmount=30" target="_blank" rel="noopener"><span data-i18n="open">Open</span>Swapped</a>
           </div>
           <details class="howto"><summary data-i18n="howto">Instructions</summary>
-            <ol class="dsteps">
+            <ol class="steps">
               <li><span data-i18n="sw_1">Step 1</span><a href="donate-img/swapped-1.png" target="_blank" rel="noopener"><img src="donate-img/swapped-1.png" alt="Swapped, step 1" loading="lazy"></a></li>
               <li><span data-i18n="sw_2">Step 2</span></li>
               <li><span data-i18n="sw_3">Step 3</span></li>
@@ -539,7 +440,7 @@ footer p { margin: 0 0 8px; }
 
       <div class="give" id="crypto">
         <div class="ghead"><h3 data-i18n="crypto_h">Crypto, if you already have some</h3></div>
-        <p data-i18n="send_p">Send it from any exchange or wallet.</p>
+        <p class="lead" data-i18n="send_p">Send it from any exchange or wallet.</p>
         <ol class="flow">
           <li data-i18n="send_1">Open Withdraw or Send and choose USDT.</li>
           <li data-i18n="send_2">Choose the TRON (TRC20) network.</li>
@@ -560,21 +461,25 @@ footer p { margin: 0 0 8px; }
           <div class="wfield"><code data-wallet="eth"></code><button class="copy" data-hub-b="b12" data-wallet-copy="eth">Copy</button></div>
         </div>
       </div>
+    </div>
   </section>
 
   <div class="divider"></div>
 
   <section>
+    <div class="wrap">
       <h2 data-i18n="about_h">Who's behind this</h2>
       <img class="author" src="donate-img/author.webp?v=4" width="500" height="442" alt="Nerual Dreming">
-      <p data-i18n="about_p1">About</p>
-      <p data-i18n="about_p2">About</p>
-      <p data-i18n="about_p3">About</p>
+      <p class="lead" data-i18n="about_p1">About</p>
+      <p class="lead" data-i18n="about_p2">About</p>
+      <p class="lead" data-i18n="about_p3">About</p>
+    </div>
   </section>
 
   <div class="divider"></div>
 
   <section>
+    <div class="wrap">
       <h2 data-i18n="help_h">Other ways to help</h2>
       <ul class="points">
         <li data-i18n="help_1">Star the repository, it's how other people find it</li>
@@ -585,13 +490,15 @@ footer p { margin: 0 0 8px; }
         <li data-i18n="help_6">Make a video review</li>
         <li data-i18n="help_4">Catch the streams on <a href="https://www.twitch.tv/nerual_dreming">Twitch</a>, <a href="https://www.youtube.com/@nerual_dreming">YouTube</a> or <a href="https://live.vkvideo.ru/nerual_dreming">VK&nbsp;Video</a>, and say hi on <a href="https://t.me/nerual_dreming">Telegram</a> or <a href="https://vk.com/nerual_dreming">VK</a></li>
       </ul>
+    </div>
   </section>
 
   <div class="divider"></div>
 
   <section>
+    <div class="wrap">
       <h2 data-i18n="does_h">Where the money goes</h2>
-      <p data-i18n="cost_intro">What keeping the apps free costs me.</p>
+      <p class="lead" data-i18n="cost_intro">What keeping the apps free costs me.</p>
       <div class="costs">
         <div class="cost"><div class="chead"><span class="cname" data-i18n="cost_claude_h">Claude Code, Max 20× plan</span><span class="camt">$200 <span data-i18n="per_month">a month</span></span></div><p data-i18n="cost_claude">Claude Code</p></div>
         <div class="cost"><div class="chead"><span class="cname">OpenRouter</span><span class="camt">~$50 <span data-i18n="per_month">a month</span></span></div><p data-i18n="cost_or">OpenRouter</p></div>
@@ -602,28 +509,33 @@ footer p { margin: 0 0 8px; }
         <div class="cost"><div class="chead"><span class="cname" data-i18n="cost_dom_h">Domains</span></div><p data-i18n="cost_dom">Domains</p></div>
         <div class="cost"><div class="chead"><span class="cname">GitHub Actions</span><span class="camt">$20 <span data-i18n="per_month">a month</span></span></div><p data-i18n="cost_gh">GitHub Actions</p></div>
       </div>
+    </div>
   </section>
 
   <div class="divider"></div>
 
   <section>
+    <div class="wrap">
       <h2 data-i18n="faq_h">Questions</h2>
-      <div class="faq" id="faq">
-        <details><summary data-i18n="q1">Q1</summary><div class="answer" data-i18n="a1">A1</div></details>
-        <details><summary data-i18n="q2">Q2</summary><div class="answer" data-i18n="a2">A2</div></details>
-        <details><summary data-i18n="q3">Q3</summary><div class="answer" data-i18n="a3">A3</div></details>
-        <details><summary data-i18n="q4">Q4</summary><div class="answer" data-i18n="a4">A4</div></details>
-        <details><summary data-i18n="q5">Q5</summary><div class="answer" data-i18n="a5">A5</div></details>
-        <details><summary data-i18n="q6">Q6</summary><div class="answer" data-i18n="a6">A6</div></details>
+      <div class="faq">
+        <details><summary data-i18n="q1">Q1</summary><p data-i18n="a1">A1</p></details>
+        <details><summary data-i18n="q2">Q2</summary><p data-i18n="a2">A2</p></details>
+        <details><summary data-i18n="q3">Q3</summary><p data-i18n="a3">A3</p></details>
+        <details><summary data-i18n="q4">Q4</summary><p data-i18n="a4">A4</p></details>
+        <details><summary data-i18n="q5">Q5</summary><p data-i18n="a5">A5</p></details>
+        <details><summary data-i18n="q6">Q6</summary><p data-i18n="a6">A6</p></details>
       </div>
+    </div>
   </section>
 
 
-  <div class="dfoot">
+  <footer>
+    <div class="wrap">
     <div class="ty" data-i18n="ty">Thank you.</div>
     <p data-i18n="foot_p">Every star, every share and every dollar keeps this free and in everyone's hands.</p>
     <div class="links"><a href="https://www.twitch.tv/nerual_dreming">Twitch</a><a href="https://www.youtube.com/@nerual_dreming">YouTube</a><a href="https://t.me/nerual_dreming">Telegram</a><a href="https://vk.com/nerual_dreming">VK</a><a href="https://github.com/timoncool">GitHub</a></div>
-  </div>
+    </div>
+  </footer>
 <div class="qrmodal" id="qrmodal" hidden>
   <div class="qrbox" role="dialog" aria-modal="true" aria-labelledby="qrnet">
     <button class="qrclose" aria-label="Close">×</button>
@@ -1680,6 +1592,7 @@ footer p { margin: 0 0 8px; }
         b.querySelector('.lname').textContent=o.textContent;
       }
     });
+    renderCommunity();
   }
 
   function fitAuthor(){
@@ -1755,6 +1668,46 @@ footer p { margin: 0 0 8px; }
     })
     .catch(function(e){ console.warn('GitHub stars were not refreshed, showing the numbers baked into the page:', e); });
 
+  // The "you'd be in good company" block: live numbers from the open telemetry (the same stats.json the stats page reads).
+  // Self-contained i18n so the main I18N table is untouched; the block stays hidden until the numbers load.
+  var COMM={
+    en:{h:"You'd be in good company",p:"Right now these apps are used by {people} people, in {langs} languages, from {countries} countries — and your support helps every one of them.",issues:"issues closed",commits:"commits a month",releases:"releases shipped",see:"See the open telemetry →"},
+    ru:{h:"Вы будете в хорошей компании",p:"Прямо сейчас этими приложениями пользуются {people} человек на {langs} языках из {countries} стран — и ваша поддержка помогает каждому из них.",issues:"ишью закрыто",commits:"коммитов в месяц",releases:"версий выпущено",see:"Посмотреть открытую телеметрию →"},
+    zh:{h:"你将与许多人同行",p:"现在这些应用有 {people} 人在用，覆盖 {langs} 种语言、{countries} 个国家——你的支持惠及其中的每一个人。",issues:"个 issue 已解决",commits:"次提交/月",releases:"个版本已发布",see:"查看公开遥测 →"},
+    ja:{h:"あなたも仲間に",p:"いま、これらのアプリは {countries} か国・{langs} 言語で {people} 人が使っています。あなたの支援は、その一人ひとりに届きます。",issues:"件の課題を解決",commits:"コミット/月",releases:"リリース済み",see:"オープンテレメトリを見る →"},
+    ko:{h:"함께하는 사람들",p:"지금 이 앱들은 {countries}개국 {langs}개 언어로 {people}명이 사용하고 있습니다. 당신의 후원은 그들 모두에게 도움이 됩니다.",issues:"개 이슈 해결",commits:"커밋/월",releases:"개 릴리스",see:"공개 텔레메트리 보기 →"},
+    pt:{h:"Você estaria em boa companhia",p:"Agora mesmo estes aplicativos são usados por {people} pessoas, em {langs} idiomas, de {countries} países — e o seu apoio ajuda cada uma delas.",issues:"issues resolvidas",commits:"commits por mês",releases:"versões lançadas",see:"Ver a telemetria aberta →"},
+    es:{h:"Estarías en buena compañía",p:"Ahora mismo estas aplicaciones las usan {people} personas, en {langs} idiomas, desde {countries} países — y tu apoyo ayuda a cada una de ellas.",issues:"issues cerradas",commits:"commits al mes",releases:"versiones publicadas",see:"Ver la telemetría abierta →"},
+    fr:{h:"Vous seriez en bonne compagnie",p:"En ce moment, ces applications sont utilisées par {people} personnes, en {langs} langues, depuis {countries} pays — et votre soutien aide chacune d'elles.",issues:"tickets résolus",commits:"commits par mois",releases:"versions publiées",see:"Voir la télémétrie ouverte →"}
+  };
+  function fmtN(n){try{return new Intl.NumberFormat(document.documentElement.lang).format(n);}catch(e){return String(n);}}
+  function renderCommunity(){
+    var s=window.__pubstats; if(!s) return;
+    var c=COMM[document.documentElement.lang]||COMM.en;
+    var people=(s.totals&&s.totals.people)||0;
+    var langs=(s.languages||[]).filter(function(x){return x.k!=='other';}).length;
+    var countries=(s.countries||[]).filter(function(x){return x.k!=='other';}).length;
+    document.getElementById('comm-h').textContent=c.h;
+    document.getElementById('comm-p').innerHTML=c.p
+      .replace('{people}','<strong>'+fmtN(people)+'</strong>')
+      .replace('{langs}','<strong>'+fmtN(langs)+'</strong>')
+      .replace('{countries}','<strong>'+fmtN(countries)+'</strong>');
+    document.getElementById('comm-issues-l').textContent=c.issues;
+    document.getElementById('comm-commits-l').textContent=c.commits;
+    document.getElementById('comm-releases-l').textContent=c.releases;
+    document.getElementById('comm-see').textContent=c.see;
+    var dev=s.dev||{};
+    function sv(id,v){document.getElementById(id).textContent=(v==null?'—':fmtN(v));}
+    sv('c-issues',dev.issues_closed);sv('c-commits',dev.commits_month);sv('c-releases',dev.releases);
+    document.getElementById('community').hidden=false;
+  }
+  var PUBSRC=document.body.getAttribute('data-stats-src')||'https://raw.githubusercontent.com/timoncool/timoncool/main/stats.json';
+  (function loadPub(url,fb){
+    fetch(url,{credentials:'omit'}).then(function(r){ if(!r.ok) throw new Error('stats '+r.status); return r.json(); })
+      .then(function(s){ window.__pubstats=s; renderCommunity(); })
+      .catch(function(e){ if(!fb&&url!=='stats.json'){ loadPub('stats.json',true); return; } console.warn('[donate] open telemetry not loaded, the community block stays hidden:', e); });
+  })(PUBSRC,false);
+
   var qrm=document.getElementById('qrmodal');
   function openQr(key, net){
     var addr=wallet(key);
@@ -1793,6 +1746,5 @@ footer p { margin: 0 0 8px; }
   });
 })();
 </script>
-</main>
 </body>
 </html>

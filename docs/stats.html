@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open telemetry</title>
+<style>
+  :root{
+    --bg:#0b0b0d; --bg2:#101013; --surface:#151519; --surface2:#1b1b20;
+    --line:rgba(255,255,255,.07); --line2:rgba(255,255,255,.12);
+    --ink:#f4f4f6; --body:#bdbdc6; --mut:#86868f; --faint:#62626b;
+    --accent:#e25a86; --accent-ink:#f07ba3; --accent-soft:rgba(226,90,134,.10); --accent-line:rgba(226,90,134,.30);
+    --r:16px; --r2:12px; --r3:8px;
+    --fs-s:13px; --fs-m:15px;
+    --btn:44px; --btn-s:36px;
+    --maxw:900px; --ease:cubic-bezier(.33,1,.68,1);
+    --on-accent:#fff; --font:"Plus Jakarta Sans",ui-sans-serif,-apple-system,"Segoe UI",sans-serif;
+  }
+  :root{
+    --bg:#0b0b0e; --bg2:#0f0f13; --surface:#141419; --surface2:#1b1b22;
+    --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.14);
+    --ink:#ececef; --body:#c4c4cc; --mut:#a3a3ad; --faint:#6b6b75;
+    --accent:#ec4899; --accent-ink:#f472b6; --on-accent:#ffffff;
+    --accent-soft:color-mix(in srgb,var(--accent) 12%,transparent); --accent-line:color-mix(in srgb,var(--accent) 34%,transparent);
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--body);font:16.5px/1.65 var(--font);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  h1,h2,h3,h4{color:var(--ink);margin:0;letter-spacing:-.02em;line-height:1.2;font-weight:800}
+  p{margin:0 0 16px;text-wrap:pretty}
+  a{color:var(--accent-ink);text-decoration:none}
+  a:hover{text-decoration:underline}
+  strong{color:var(--ink);font-weight:700}
+  :focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+  .label{display:block;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
+  .mut{color:var(--mut)}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:64px}
+  .brand{font-weight:800;font-size:16px;letter-spacing:-.01em;color:var(--ink)}
+  .brand:hover{color:var(--accent-ink);text-decoration:none}
+  .langbar{position:relative;z-index:10}
+  @media (max-width:520px){.topbar{margin-bottom:40px}}
+  .langbtn{display:inline-flex;align-items:center;gap:8px;height:var(--btn-s);background:var(--surface);color:var(--body);border:1px solid var(--line2);border-radius:999px;font:600 var(--fs-s) var(--font);padding:0 14px 0 11px;cursor:pointer;transition:border-color .3s,color .3s}
+  .langbtn:hover,.langbtn[aria-expanded="true"]{border-color:var(--accent-line);color:var(--ink)}
+  .langbtn::after{content:"";width:6px;height:6px;margin-left:3px;border-right:2px solid var(--mut);border-bottom:2px solid var(--mut);transform:translateY(-2px) rotate(45deg)}
+  .flag{width:20px;height:15px;flex:none;border-radius:3px;object-fit:cover;box-shadow:0 0 0 1px var(--line2)}
+  .langlist{position:absolute;right:0;top:calc(100% + 6px);min-width:180px;margin:0;padding:6px;list-style:none;background:var(--surface);border:1px solid var(--line2);border-radius:var(--r2);box-shadow:0 14px 36px rgba(0,0,0,.28)}
+  .langlist li{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r3);font:600 14px var(--font);color:var(--body);cursor:pointer;white-space:nowrap}
+  .langlist li:hover,.langlist li:focus{background:var(--surface2);color:var(--ink);outline:none}
+  .langlist li[aria-selected="true"]{color:var(--accent-ink)}
+
+  header{padding:20px 0 8px}
+  header .label{margin-bottom:16px}
+  header h1{font-size:clamp(34px,6vw,52px);letter-spacing:-.035em}
+  header .lede{max-width:680px;margin:16px 0 0;color:var(--mut);font-size:18px;line-height:1.6}
+  .upd{margin:18px 0 0;font-size:var(--fs-s);color:var(--faint)}
+  .upd b{color:var(--mut);font-weight:700}
+
+  section{padding:48px 0}
+  .wrap > h2{font-size:24px;margin-bottom:6px}
+  .wrap > h2 + .sub{color:var(--mut);margin:0 0 20px;max-width:64ch}
+  .divider{height:1px;background:var(--line);max-width:calc(var(--maxw) - 48px);margin:0 auto}
+
+  .tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  @media (max-width:760px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  .tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:22px 20px}
+  .tile.big{background:linear-gradient(160deg,var(--accent-soft),transparent 70%);border-color:var(--accent-line)}
+  .tnum{font-size:clamp(30px,4.5vw,42px);font-weight:800;color:var(--ink);letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+  .tlabel{margin-top:10px;font-size:var(--fs-m);color:var(--mut)}
+
+  .cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px 32px}
+  @media (max-width:760px){.cols{grid-template-columns:1fr;gap:28px}}
+  .col h3{font-size:var(--fs-m);font-weight:700;color:var(--ink);margin-bottom:14px}
+
+  .bars{display:flex;flex-direction:column;gap:11px}
+  .bar{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px}
+  .bar .bl{display:flex;align-items:center;gap:9px;min-width:0;color:var(--body);font-size:var(--fs-m);white-space:nowrap}
+  .bar .bl .flag{width:19px;height:14px}
+  .bar .bl .dot{width:9px;height:9px;border-radius:3px;flex:none;background:var(--accent)}
+  .bar .track{height:9px;border-radius:999px;background:var(--surface2);overflow:hidden;border:1px solid var(--line)}
+  .bar .fill{height:100%;border-radius:999px;background:var(--accent);transition:width .9s var(--ease)}
+  .bar .bv{font-size:var(--fs-s);color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap;min-width:42px;text-align:right}
+  .bar .bv b{color:var(--ink);font-weight:700}
+
+  .spread{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  @media (max-width:760px){.spread{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  .scard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);padding:16px;text-align:center}
+  .scard .sn{font-size:26px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
+  .scard .sk{font-size:var(--fs-s);color:var(--mut);margin-top:6px}
+
+  .note{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:22px 24px;margin-top:4px}
+  .note h3{font-size:18px;font-weight:700;margin-bottom:10px}
+  ul.points{list-style:none;padding:0;margin:0}
+  ul.points li{position:relative;padding:5px 0 5px 22px;color:var(--body)}
+  ul.points li::before{content:"";position:absolute;left:2px;top:calc(5px + .5lh - 3px);width:6px;height:6px;border-radius:50%;background:var(--accent)}
+
+  .cta{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:var(--btn);padding:0 22px;border-radius:999px;background:var(--accent);color:var(--on-accent);font:700 14px/1 var(--font);margin-top:20px;transition:transform .4s var(--ease),filter .3s}
+  .cta:hover{filter:brightness(1.06);transform:translateY(-2px);text-decoration:none;color:var(--on-accent)}
+  .cta:active{transform:translateY(0) scale(.98)}
+
+  footer{padding:48px 0 64px}
+  footer .links{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:4px;font-size:var(--fs-m)}
+  .err{display:none;color:var(--mut);background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);padding:16px 18px}
+  [data-empty] section .bars,[data-empty] .tiles{opacity:.5}
+</style>
+</head>
+<body data-hub-app="ace">
+
+  <header>
+    <div class="wrap">
+    <div class="topbar">
+      <a class="brand" href="./">ACE-Step Studio</a>
+      <div class="langbar">
+        <button id="lang" class="langbtn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="langlist" aria-label="Language"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/us.svg" alt=""><span class="lname">English</span></button>
+        <ul id="langlist" class="langlist" role="listbox" aria-label="Language" hidden>
+          <li role="option" tabindex="-1" data-lang="en"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/us.svg" alt="">English</li>
+          <li role="option" tabindex="-1" data-lang="ru"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/ru.svg" alt="">Русский</li>
+          <li role="option" tabindex="-1" data-lang="zh"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/cn.svg" alt="">中文</li>
+          <li role="option" tabindex="-1" data-lang="ja"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/jp.svg" alt="">日本語</li>
+          <li role="option" tabindex="-1" data-lang="ko"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/kr.svg" alt="">한국어</li>
+          <li role="option" tabindex="-1" data-lang="pt"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/br.svg" alt="">Português</li>
+          <li role="option" tabindex="-1" data-lang="es"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/es.svg" alt="">Español</li>
+          <li role="option" tabindex="-1" data-lang="fr"><img class="flag" src="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/fr.svg" alt="">Français</li>
+        </ul>
+      </div>
+    </div>
+    <span class="label" data-i18n="eyebrow">Open telemetry</span>
+    <h1 data-i18n="title">Who uses the apps</h1>
+    <p class="lede" data-i18n="lede">Anonymous, aggregate numbers the apps report — the same ones I see. No names, no accounts, nothing that points at a single person.</p>
+    <p class="upd"><span data-i18n="updated">Updated</span> <b id="updated">—</b> · <span data-i18n="window">last 30 days</span></p>
+    </div>
+  </header>
+
+  <section>
+    <div class="wrap">
+      <div class="tiles">
+        <div class="tile big"><div class="tnum" id="t-people">—</div><div class="tlabel" data-i18n="people">people</div></div>
+        <div class="tile"><div class="tnum" id="t-installs">—</div><div class="tlabel" data-i18n="installs">installs</div></div>
+        <div class="tile"><div class="tnum" id="t-countries">—</div><div class="tlabel" data-i18n="countries_n">countries</div></div>
+        <div class="tile"><div class="tnum" id="t-langs">—</div><div class="tlabel" data-i18n="langs_n">languages</div></div>
+      </div>
+      <div class="err" id="err" data-i18n="err">The numbers could not be loaded right now. Please try again later.</div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+  <section>
+    <div class="wrap">
+      <h2 data-i18n="programs_h">By program</h2>
+      <p class="sub" data-i18n="programs_p">How the people split across the apps.</p>
+      <div class="bars" id="programs"></div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+  <section>
+    <div class="wrap">
+      <h2 data-i18n="spread_h">How many apps people use</h2>
+      <p class="sub" data-i18n="spread_p">Many people use more than one.</p>
+      <div class="spread" id="spread"></div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+  <section>
+    <div class="wrap">
+      <h2 data-i18n="hw_h">Hardware</h2>
+      <p class="sub" data-i18n="hw_p">Most people run this on modest hardware — which is exactly who the apps are built for.</p>
+      <div class="cols">
+        <div class="col"><h3 data-i18n="hw_vendor">Graphics card</h3><div class="bars" id="hw-vendor"></div></div>
+        <div class="col"><h3 data-i18n="hw_vram">Video memory</h3><div class="bars" id="hw-vram"></div></div>
+        <div class="col"><h3 data-i18n="hw_backend">Compute</h3><div class="bars" id="hw-backend"></div></div>
+      </div>
+      <div class="cols" style="margin-top:28px">
+        <div class="col"><h3 data-i18n="os_h">Operating system</h3><div class="bars" id="os"></div></div>
+        <div class="col" style="grid-column:span 2"><h3 data-i18n="langs_h">Interface language</h3><div class="bars" id="langs"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+  <section>
+    <div class="wrap">
+      <h2 data-i18n="countries_h">Where people are</h2>
+      <p class="sub" data-i18n="countries_p">The apps are used all over the world.</p>
+      <div class="bars" id="countries"></div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+  <section>
+    <div class="wrap">
+      <h2 data-i18n="dev_h">The work behind it</h2>
+      <p class="sub" data-i18n="dev_p">Open source, kept alive by one person — updates almost every week.</p>
+      <div class="tiles">
+        <div class="tile"><div class="tnum" id="d-issues">—</div><div class="tlabel" data-i18n="d_issues">issues closed</div></div>
+        <div class="tile"><div class="tnum" id="d-commits">—</div><div class="tlabel" data-i18n="d_commits">commits a month</div></div>
+        <div class="tile"><div class="tnum" id="d-releases">—</div><div class="tlabel" data-i18n="d_releases">releases</div></div>
+        <div class="tile"><div class="tnum" id="d-stars">—</div><div class="tlabel" data-i18n="d_stars">stars</div></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+  <section>
+    <div class="wrap">
+      <div class="note">
+        <h3 data-i18n="priv_h">What is never collected</h3>
+        <ul class="points">
+          <li data-i18n="priv_1">No names, emails, accounts or any personal data.</li>
+          <li data-i18n="priv_2">No IP addresses or precise location are stored to identify anyone.</li>
+          <li data-i18n="priv_3">No files, lyrics, prompts or anything you make.</li>
+          <li data-i18n="priv_4">You can turn the statistics off in any app at any moment — and nothing is sent.</li>
+        </ul>
+        <p class="mut" style="margin:14px 0 0" data-i18n="priv_note">Every app has a “What is sent” button that shows the whole report before it leaves your computer.</p>
+        <a class="cta" id="donate" href="donate.html" data-i18n="support">Support the work</a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+    <p class="mut" style="margin:0" data-i18n="foot_p">Numbers refresh once a day. Everything here is public on purpose — so you can see what the apps know.</p>
+    <div class="links"><a href="https://github.com/timoncool">GitHub</a><a href="https://t.me/nerual_dreming">Telegram</a><a href="donate.html" data-i18n="support">Support the work</a></div>
+    </div>
+  </footer>
+
+<script>
+(function(){
+  var I18N = {
+    en:{eyebrow:"Open telemetry",title:"Who uses the apps",lede:"Anonymous, aggregate numbers the apps report — the same ones I see. No names, no accounts, nothing that points at a single person.",updated:"Updated",window:"last 30 days",people:"people",installs:"installs",countries_n:"countries",langs_n:"languages",err:"The numbers could not be loaded right now. Please try again later.",programs_h:"By program",programs_p:"How the people split across the apps.",spread_h:"How many apps people use",spread_p:"Many people use more than one.",apps_one:"app",apps_many:"apps",hw_h:"Hardware",hw_p:"Most people run this on modest hardware — which is exactly who the apps are built for.",hw_vendor:"Graphics card",hw_vram:"Video memory",hw_backend:"Compute",os_h:"Operating system",langs_h:"Interface language",countries_h:"Where people are",countries_p:"The apps are used all over the world.",dev_h:"The work behind it",dev_p:"Open source, kept alive by one person — updates almost every week.",d_issues:"issues closed",d_commits:"commits a month",d_releases:"releases",d_stars:"stars",priv_h:"What is never collected",priv_1:"No names, emails, accounts or any personal data.",priv_2:"No IP addresses or precise location are stored to identify anyone.",priv_3:"No files, lyrics, prompts or anything you make.",priv_4:"You can turn the statistics off in any app at any moment — and nothing is sent.",priv_note:"Every app has a “What is sent” button that shows the whole report before it leaves your computer.",support:"Support the work",foot_p:"Numbers refresh once a day. Everything here is public on purpose — so you can see what the apps know.",none_gpu:"No GPU",vram_unknown:"unknown",more:"other"},
+    ru:{eyebrow:"Открытая телеметрия",title:"Кто пользуется приложениями",lede:"Анонимные сводные числа, которые шлют приложения, — ровно те, что вижу я. Ни имён, ни аккаунтов, ничего, что указывало бы на конкретного человека.",updated:"Обновлено",window:"за 30 дней",people:"человек",installs:"установок",countries_n:"стран",langs_n:"языков",err:"Числа сейчас не загрузились. Попробуйте позже.",programs_h:"По программам",programs_p:"Как люди распределяются по приложениям.",spread_h:"Сколькими приложениями пользуются",spread_p:"Многие пользуются не одним.",apps_one:"приложение",apps_many:"приложений",hw_h:"Железо",hw_p:"Большинство работает на скромном железе — ровно для них приложения и сделаны.",hw_vendor:"Видеокарта",hw_vram:"Видеопамять",hw_backend:"Вычисления",os_h:"Операционная система",langs_h:"Язык интерфейса",countries_h:"Откуда люди",countries_p:"Приложениями пользуются по всему миру.",dev_h:"Работа за кадром",dev_p:"Открытый код, который держит один человек, — обновления почти каждую неделю.",d_issues:"ишью закрыто",d_commits:"коммитов в месяц",d_releases:"релизов",d_stars:"звёзд",priv_h:"Что никогда не собирается",priv_1:"Ни имён, ни почты, ни аккаунтов, ни каких-либо личных данных.",priv_2:"IP-адрес и точное местоположение не хранятся для опознания человека.",priv_3:"Ни файлов, ни текстов, ни промптов, ни того, что вы создаёте.",priv_4:"Статистику можно выключить в любом приложении в любой момент — и ничего не уйдёт.",priv_note:"В каждом приложении есть кнопка «Что отправляется» — она показывает весь отчёт до отправки с компьютера.",support:"Поддержать разработку",foot_p:"Числа обновляются раз в сутки. Всё здесь открыто намеренно — чтобы вы видели, что знают приложения.",none_gpu:"Без видеокарты",vram_unknown:"неизвестно",more:"другие"},
+    zh:{eyebrow:"公开遥测",title:"谁在使用这些应用",lede:"应用上报的匿名汇总数据——和我看到的完全一样。没有姓名、没有账号，没有任何能指向某个人的信息。",updated:"更新于",window:"最近 30 天",people:"人",installs:"次安装",countries_n:"个国家",langs_n:"种语言",err:"数据暂时无法加载，请稍后再试。",programs_h:"按应用",programs_p:"用户如何分布在各个应用上。",spread_h:"用户使用了多少个应用",spread_p:"很多人不止用一个。",apps_one:"个应用",apps_many:"个应用",hw_h:"硬件",hw_p:"大多数人用的都是普通硬件——这些应用正是为他们而做。",hw_vendor:"显卡",hw_vram:"显存",hw_backend:"计算方式",os_h:"操作系统",langs_h:"界面语言",countries_h:"用户在哪里",countries_p:"全球各地都有人在用。",dev_h:"背后的工作",dev_p:"开源项目，由一个人维护——几乎每周都有更新。",d_issues:"个 issue 已解决",d_commits:"次提交/月",d_releases:"个版本",d_stars:"个 star",priv_h:"永远不会收集的内容",priv_1:"没有姓名、邮箱、账号或任何个人数据。",priv_2:"不会存储 IP 地址或精确位置来识别任何人。",priv_3:"不会收集文件、歌词、提示词或你创作的任何东西。",priv_4:"你可以随时在任何应用里关闭统计——什么都不会发送。",priv_note:"每个应用都有“发送了什么”按钮，在数据离开你电脑之前展示完整报告。",support:"支持开发",foot_p:"数据每天更新一次。这里的一切都是刻意公开的——让你看到应用都知道些什么。",none_gpu:"无显卡",vram_unknown:"未知",more:"其他"},
+    ja:{eyebrow:"オープンテレメトリ",title:"誰が使っているか",lede:"アプリが送る匿名の集計値で、私が見ているものと同じです。名前もアカウントもなく、個人を特定できるものは一切ありません。",updated:"更新",window:"直近30日",people:"人",installs:"インストール",countries_n:"か国",langs_n:"言語",err:"現在、数値を読み込めませんでした。しばらくして再度お試しください。",programs_h:"アプリ別",programs_p:"利用者がアプリごとにどう分かれているか。",spread_h:"いくつのアプリを使っているか",spread_p:"複数を使っている人も多くいます。",apps_one:"アプリ",apps_many:"アプリ",hw_h:"ハードウェア",hw_p:"ほとんどの人は普通のハードで動かしています。アプリはまさにそのために作られています。",hw_vendor:"グラフィックボード",hw_vram:"ビデオメモリ",hw_backend:"演算",os_h:"OS",langs_h:"表示言語",countries_h:"どこで使われているか",countries_p:"世界中で使われています。",dev_h:"その裏側の作業",dev_p:"オープンソースを一人で維持しています。ほぼ毎週アップデート。",d_issues:"件の課題を解決",d_commits:"コミット/月",d_releases:"リリース",d_stars:"スター",priv_h:"決して集めないもの",priv_1:"名前・メール・アカウントなどの個人情報は一切ありません。",priv_2:"個人を特定するために IP アドレスや正確な位置を保存することはありません。",priv_3:"ファイル・歌詞・プロンプト・あなたが作ったものは集めません。",priv_4:"どのアプリでもいつでも統計をオフにできます。オフにすれば何も送られません。",priv_note:"どのアプリにも「送信される内容」ボタンがあり、パソコンから出る前にレポート全体を表示します。",support:"開発を応援する",foot_p:"数値は1日1回更新されます。ここにあるものはすべて意図的に公開しています。アプリが何を把握しているかを見てもらうためです。",none_gpu:"GPUなし",vram_unknown:"不明",more:"その他"},
+    ko:{eyebrow:"공개 텔레메트리",title:"누가 사용하고 있나",lede:"앱이 보내는 익명 집계 수치로, 제가 보는 것과 똑같습니다. 이름도 계정도 없고, 특정 개인을 가리키는 것은 전혀 없습니다.",updated:"업데이트",window:"최근 30일",people:"명",installs:"설치",countries_n:"개국",langs_n:"개 언어",err:"지금은 수치를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",programs_h:"앱별",programs_p:"사용자가 앱별로 어떻게 나뉘는지.",spread_h:"몇 개의 앱을 쓰는지",spread_p:"둘 이상 쓰는 분도 많습니다.",apps_one:"개 앱",apps_many:"개 앱",hw_h:"하드웨어",hw_p:"대부분 평범한 하드웨어로 돌립니다. 앱은 바로 그들을 위해 만들어졌습니다.",hw_vendor:"그래픽카드",hw_vram:"비디오 메모리",hw_backend:"연산",os_h:"운영체제",langs_h:"인터페이스 언어",countries_h:"어디서 쓰나",countries_p:"전 세계에서 사용됩니다.",dev_h:"그 뒤의 작업",dev_p:"한 사람이 유지하는 오픈소스 — 거의 매주 업데이트.",d_issues:"개 이슈 해결",d_commits:"커밋/월",d_releases:"개 릴리스",d_stars:"개 스타",priv_h:"절대 수집하지 않는 것",priv_1:"이름·이메일·계정 등 어떤 개인정보도 없습니다.",priv_2:"누군가를 식별하기 위해 IP 주소나 정확한 위치를 저장하지 않습니다.",priv_3:"파일·가사·프롬프트 등 당신이 만든 것은 수집하지 않습니다.",priv_4:"어떤 앱에서든 언제든 통계를 끌 수 있고, 끄면 아무것도 전송되지 않습니다.",priv_note:"모든 앱에 “무엇이 전송되나” 버튼이 있어, 데이터가 컴퓨터를 떠나기 전에 전체 보고서를 보여 줍니다.",support:"개발 후원하기",foot_p:"수치는 하루에 한 번 갱신됩니다. 여기 있는 모든 것은 의도적으로 공개됩니다 — 앱이 무엇을 아는지 볼 수 있도록.",none_gpu:"GPU 없음",vram_unknown:"알 수 없음",more:"기타"},
+    pt:{eyebrow:"Telemetria aberta",title:"Quem usa os aplicativos",lede:"Números anônimos e agregados que os aplicativos enviam — os mesmos que eu vejo. Sem nomes, sem contas, nada que aponte para uma pessoa específica.",updated:"Atualizado",window:"últimos 30 dias",people:"pessoas",installs:"instalações",countries_n:"países",langs_n:"idiomas",err:"Não foi possível carregar os números agora. Tente novamente mais tarde.",programs_h:"Por aplicativo",programs_p:"Como as pessoas se dividem entre os aplicativos.",spread_h:"Quantos aplicativos as pessoas usam",spread_p:"Muita gente usa mais de um.",apps_one:"aplicativo",apps_many:"aplicativos",hw_h:"Hardware",hw_p:"A maioria roda isto em hardware modesto — e é justamente para essas pessoas que os aplicativos são feitos.",hw_vendor:"Placa de vídeo",hw_vram:"Memória de vídeo",hw_backend:"Processamento",os_h:"Sistema operacional",langs_h:"Idioma da interface",countries_h:"De onde são as pessoas",countries_p:"Os aplicativos são usados no mundo todo.",dev_h:"O trabalho por trás",dev_p:"Código aberto, mantido por uma pessoa — com atualizações quase toda semana.",d_issues:"issues resolvidas",d_commits:"commits por mês",d_releases:"versões",d_stars:"estrelas",priv_h:"O que nunca é coletado",priv_1:"Nenhum nome, e-mail, conta ou qualquer dado pessoal.",priv_2:"Nenhum endereço IP ou localização precisa é guardado para identificar alguém.",priv_3:"Nenhum arquivo, letra, prompt ou qualquer coisa que você crie.",priv_4:"Você pode desligar as estatísticas em qualquer aplicativo a qualquer momento — e nada é enviado.",priv_note:"Todo aplicativo tem um botão “O que é enviado” que mostra o relatório inteiro antes de ele sair do seu computador.",support:"Apoie o trabalho",foot_p:"Os números são atualizados uma vez por dia. Tudo aqui é público de propósito — para você ver o que os aplicativos sabem.",none_gpu:"Sem placa de vídeo",vram_unknown:"desconhecido",more:"outros"},
+    es:{eyebrow:"Telemetría abierta",title:"Quién usa las aplicaciones",lede:"Números anónimos y agregados que envían las aplicaciones — los mismos que veo yo. Sin nombres, sin cuentas, nada que apunte a una persona concreta.",updated:"Actualizado",window:"últimos 30 días",people:"personas",installs:"instalaciones",countries_n:"países",langs_n:"idiomas",err:"Ahora mismo no se pudieron cargar los números. Inténtalo más tarde.",programs_h:"Por aplicación",programs_p:"Cómo se reparten las personas entre las aplicaciones.",spread_h:"Cuántas aplicaciones usa la gente",spread_p:"Mucha gente usa más de una.",apps_one:"aplicación",apps_many:"aplicaciones",hw_h:"Hardware",hw_p:"La mayoría lo ejecuta en hardware modesto — y es justo para quienes están hechas las aplicaciones.",hw_vendor:"Tarjeta gráfica",hw_vram:"Memoria de vídeo",hw_backend:"Cómputo",os_h:"Sistema operativo",langs_h:"Idioma de la interfaz",countries_h:"De dónde es la gente",countries_p:"Las aplicaciones se usan en todo el mundo.",dev_h:"El trabajo detrás",dev_p:"Código abierto, mantenido por una persona — con actualizaciones casi cada semana.",d_issues:"issues cerradas",d_commits:"commits al mes",d_releases:"versiones",d_stars:"estrellas",priv_h:"Lo que nunca se recopila",priv_1:"Ningún nombre, correo, cuenta ni dato personal.",priv_2:"No se guardan direcciones IP ni la ubicación precisa para identificar a nadie.",priv_3:"Ningún archivo, letra, prompt ni nada de lo que crees.",priv_4:"Puedes desactivar las estadísticas en cualquier aplicación en cualquier momento — y no se envía nada.",priv_note:"Cada aplicación tiene un botón «Qué se envía» que muestra el informe completo antes de salir de tu ordenador.",support:"Apoya el trabajo",foot_p:"Los números se actualizan una vez al día. Todo aquí es público a propósito — para que veas lo que saben las aplicaciones.",none_gpu:"Sin tarjeta gráfica",vram_unknown:"desconocido",more:"otros"},
+    fr:{eyebrow:"Télémétrie ouverte",title:"Qui utilise les applications",lede:"Des chiffres anonymes et agrégés que les applications remontent — les mêmes que je vois. Aucun nom, aucun compte, rien qui désigne une personne en particulier.",updated:"Mis à jour",window:"30 derniers jours",people:"personnes",installs:"installations",countries_n:"pays",langs_n:"langues",err:"Les chiffres n'ont pas pu être chargés pour le moment. Réessayez plus tard.",programs_h:"Par application",programs_p:"Comment les personnes se répartissent entre les applications.",spread_h:"Combien d'applications les gens utilisent",spread_p:"Beaucoup en utilisent plus d'une.",apps_one:"application",apps_many:"applications",hw_h:"Matériel",hw_p:"La plupart l'utilisent sur du matériel modeste — et c'est justement pour ces personnes que les applications sont faites.",hw_vendor:"Carte graphique",hw_vram:"Mémoire vidéo",hw_backend:"Calcul",os_h:"Système d'exploitation",langs_h:"Langue de l'interface",countries_h:"D'où viennent les gens",countries_p:"Les applications sont utilisées partout dans le monde.",dev_h:"Le travail derrière",dev_p:"Open source, maintenu par une seule personne — des mises à jour presque chaque semaine.",d_issues:"tickets résolus",d_commits:"commits par mois",d_releases:"versions",d_stars:"étoiles",priv_h:"Ce qui n'est jamais collecté",priv_1:"Aucun nom, e-mail, compte ni aucune donnée personnelle.",priv_2:"Aucune adresse IP ni localisation précise n'est conservée pour identifier qui que ce soit.",priv_3:"Aucun fichier, parole, prompt ni rien de ce que vous créez.",priv_4:"Vous pouvez désactiver les statistiques dans n'importe quelle application à tout moment — et rien n'est envoyé.",priv_note:"Chaque application a un bouton « Ce qui est envoyé » qui montre tout le rapport avant qu'il ne quitte votre ordinateur.",support:"Soutenir le travail",foot_p:"Les chiffres sont actualisés une fois par jour. Tout ici est public volontairement — pour que vous voyiez ce que les applications savent.",none_gpu:"Pas de carte graphique",vram_unknown:"inconnu",more:"autres"}
+  };
+  var PROG={yue2:"YuE2 Studio",minimax:"MiniMax Music3",ace:"ACE-Step Studio",dub:"Dub Studio",speech:"Speech Studio",dungeon:"Dungeon Ultimate",bulka:"Bulka",videosos:"VideoSOS"};
+  var LANGNAME={en:"English",ru:"Русский",zh:"中文",ja:"日本語",ko:"한국어",pt:"Português",es:"Español",fr:"Français",de:"Deutsch",it:"Italiano",pl:"Polski",uk:"Українська",tr:"Türkçe",other:""};
+  var COUNTRY={us:"United States",ru:"Russia",de:"Germany",br:"Brazil",cn:"China",gb:"United Kingdom",fr:"France",in:"India",ua:"Ukraine",es:"Spain",pl:"Poland",jp:"Japan",kr:"South Korea",it:"Italy",ca:"Canada",nl:"Netherlands",tr:"Turkey",id:"Indonesia",vn:"Vietnam",au:"Australia",se:"Sweden",fi:"Finland",hk:"Hong Kong",tw:"Taiwan",sg:"Singapore"};
+  // some reporting country codes are not an iso flag file; map or skip the flag
+  var CC2FLAG={uk:"gb"};
+  var FLAGBASE="https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/";
+  var VRAM={"<=8":"≤ 8 GB","12":"12 GB","16":"16 GB","24+":"24+ GB"};
+  var BACKEND={cuda:"CUDA",vulkan:"Vulkan",cpu:"CPU",directml:"DirectML",metal:"Metal",rocm:"ROCm"};
+  var VENDOR={nvidia:"NVIDIA",amd:"AMD",intel:"Intel",apple:"Apple"};
+
+  var D=I18N.en;
+  function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function pickLang(){
+    try{var q=new URLSearchParams(location.search).get('lang');if(q&&I18N[q])return q;}catch(e){}
+    try{var s=localStorage.getItem('donate_lang');if(s&&I18N[s])return s;}catch(e){}
+    var l=(navigator.languages&&navigator.languages[0])||navigator.language||'en';
+    l=String(l).toLowerCase().split('-')[0];return I18N[l]?l:'en';
+  }
+  function applyLang(lang){
+    D=I18N[lang]||I18N.en;document.documentElement.lang=lang;if(D.title)document.title=D.title;
+    document.querySelectorAll('[data-i18n]').forEach(function(el){var k=el.getAttribute('data-i18n');if(D[k]!=null)el.innerHTML=D[k];});
+    document.querySelectorAll('#langlist [role="option"]').forEach(function(o){
+      var on=o.getAttribute('data-lang')===lang;o.setAttribute('aria-selected',on?'true':'false');
+      if(on){var b=document.getElementById('lang');b.querySelector('.flag').src=o.querySelector('.flag').src;b.querySelector('.lname').textContent=o.textContent;}
+    });
+    if(window.__stats)render(window.__stats);
+  }
+  function num(n){try{return new Intl.NumberFormat(document.documentElement.lang).format(n);}catch(e){return String(n);}}
+
+  function bars(el,rows){
+    var max=rows.reduce(function(m,r){return Math.max(m,r.value);},0)||1;
+    el.innerHTML=rows.map(function(r){
+      var pct=Math.max(2,Math.round(r.value/max*100));
+      return '<div class="bar"><span class="bl">'+(r.icon||'<span class="dot"></span>')+esc(r.label)+'</span>'+
+        '<span class="track"><span class="fill" style="width:'+pct+'%"></span></span>'+
+        '<span class="bv"><b>'+num(r.value)+'</b>'+(r.suffix||'')+'</span></div>';
+    }).join('');
+  }
+  function flag(cc){var f=CC2FLAG[cc]||cc;return /^[a-z]{2}$/.test(f)?'<img class="flag" src="'+FLAGBASE+f+'.svg" alt="">':'<span class="dot"></span>';}
+
+  function render(s){
+    document.body.removeAttribute('data-empty');
+    document.getElementById('err').style.display='none';
+    // tiles
+    document.getElementById('t-people').textContent=num(s.totals.people);
+    document.getElementById('t-installs').textContent=num(s.totals.installs);
+    var realCountries=(s.countries||[]).filter(function(c){return c.k!=='other';});
+    document.getElementById('t-countries').textContent=num(realCountries.length)+(hasOther(s.countries)?'+':'');
+    var realLangs=(s.languages||[]).filter(function(l){return l.k!=='other';});
+    document.getElementById('t-langs').textContent=num(realLangs.length)+(hasOther(s.languages)?'+':'');
+    if(s.updated){try{document.getElementById('updated').textContent=new Date(s.updated).toLocaleDateString(document.documentElement.lang,{year:'numeric',month:'long',day:'numeric'});}catch(e){document.getElementById('updated').textContent=String(s.updated).slice(0,10);}}
+    // programs
+    bars(document.getElementById('programs'),(s.programs||[]).map(function(p){return{label:PROG[p.id]||p.id,value:p.people};}));
+    // spread
+    document.getElementById('spread').innerHTML=(s.spread||[]).map(function(x){
+      var unit=x.programs===1?D.apps_one:D.apps_many;
+      return '<div class="scard"><div class="sn">'+num(x.people)+'</div><div class="sk">'+x.programs+' '+esc(unit)+'</div></div>';
+    }).join('');
+    // hardware
+    bars(document.getElementById('hw-vendor'),(s.hardware&&s.hardware.vendor||[]).map(function(r){return{label:VENDOR[r.k]||(r.k==='none'?D.none_gpu:r.k==='other'?D.more:r.k),value:r.installs};}));
+    bars(document.getElementById('hw-vram'),(s.hardware&&s.hardware.vram||[]).map(function(r){return{label:VRAM[r.k]||(r.k==='?'||r.k==='none'?D.vram_unknown:r.k),value:r.installs};}));
+    bars(document.getElementById('hw-backend'),(s.hardware&&s.hardware.backend||[]).map(function(r){return{label:BACKEND[r.k]||(r.k==='other'?D.more:r.k),value:r.installs};}));
+    bars(document.getElementById('os'),(s.os||[]).map(function(r){return{label:r.k==='windows'?'Windows':r.k==='linux'?'Linux':r.k==='macos'?'macOS':(r.k==='other'?D.more:r.k),value:r.installs};}));
+    // languages
+    bars(document.getElementById('langs'),(s.languages||[]).map(function(r){return{label:(r.k==='other'?D.more:(LANGNAME[r.k]||r.k.toUpperCase())),value:r.installs};}));
+    // countries
+    bars(document.getElementById('countries'),(s.countries||[]).map(function(r){return{icon:(r.k==='other'?'<span class="dot"></span>':flag(r.k)),label:(r.k==='other'?D.more:(COUNTRY[r.k]||r.k.toUpperCase())),value:r.installs};}));
+    // dev
+    var dev=s.dev||{};
+    setNum('d-issues',dev.issues_closed);setNum('d-commits',dev.commits_month);setNum('d-releases',dev.releases);setNum('d-stars',dev.stars);
+  }
+  function hasOther(a){return (a||[]).some(function(x){return x.k==='other';});}
+  function setNum(id,v){document.getElementById(id).textContent=(v==null?'—':num(v));}
+
+  // lang switcher
+  var langBtn=document.getElementById('lang'),langList=document.getElementById('langlist');
+  function langOpts(){return [].slice.call(langList.querySelectorAll('[role="option"]'));}
+  function setLangs(open){langList.hidden=!open;langBtn.setAttribute('aria-expanded',open?'true':'false');if(open)(langList.querySelector('[aria-selected="true"]')||langOpts()[0]).focus();}
+  function chooseLang(o){var v=o.getAttribute('data-lang');try{localStorage.setItem('donate_lang',v);}catch(e){}applyLang(v);setLangs(false);langBtn.focus();}
+  langBtn.addEventListener('click',function(){setLangs(langList.hidden);});
+  langList.addEventListener('click',function(e){var o=e.target.closest('[role="option"]');if(o)chooseLang(o);});
+  langList.addEventListener('keydown',function(e){var opts=langOpts(),i=opts.indexOf(document.activeElement);
+    if(e.key==='ArrowDown'){e.preventDefault();opts[(i+1)%opts.length].focus();}
+    else if(e.key==='ArrowUp'){e.preventDefault();opts[(i-1+opts.length)%opts.length].focus();}
+    else if(e.key==='Enter'||e.key===' '){e.preventDefault();if(i>=0)chooseLang(opts[i]);}
+    else if(e.key==='Escape'){setLangs(false);langBtn.focus();}else if(e.key==='Tab'){setLangs(false);}});
+  document.addEventListener('click',function(e){if(!langList.hidden&&!e.target.closest('.langbar'))setLangs(false);});
+
+  // hub events (same mechanism as the donate page): this page's views and clicks, under the studio's id
+  var HUB_APP=document.body.getAttribute('data-hub-app');
+  var HUBS=['https://studio-hub.timoncool.workers.dev','https://hub.neuro-cartel.com'];
+  function hubCount(item,kind,button){
+    if(!HUB_APP)return;var ev={item:item,kind:kind};if(button)ev.button=button;
+    var body=JSON.stringify({app:HUB_APP,events:[ev]});
+    (function send(i){fetch(HUBS[i]+'/v1/events',{method:'POST',body:body,keepalive:true,credentials:'omit',headers:{'content-type':'application/json'}})
+      .then(function(r){if(!r.ok)throw new Error(r.status);}).catch(function(e){if(i+1<HUBS.length)send(i+1);else console.warn('[stats] hub event failed',e);});})(0);
+  }
+  document.addEventListener('click',function(e){var el=e.target.closest('[data-hub-b]');if(el)hubCount('stats-page','clicked',el.getAttribute('data-hub-b'));});
+  document.getElementById('donate').setAttribute('data-hub-b','to-donate');
+  document.querySelectorAll('.links a[href="donate.html"]').forEach(function(a){a.setAttribute('data-hub-b','to-donate');});
+
+  applyLang(pickLang());
+  hubCount('stats-page','shown');
+
+  // the single source: the profile's stats.json (raw, CORS *), with a same-origin copy as fallback
+  var SRC=document.body.getAttribute('data-stats-src')||'https://raw.githubusercontent.com/timoncool/timoncool/main/stats.json';
+  function load(url,isFallback){
+    fetch(url,{credentials:'omit'}).then(function(r){if(!r.ok)throw new Error(r.status);return r.json();})
+      .then(function(s){window.__stats=s;render(s);})
+      .catch(function(e){
+        if(!isFallback&&url!=='stats.json'){load('stats.json',true);return;}
+        console.warn('[stats] could not load stats.json',e);
+        document.body.setAttribute('data-empty','');document.getElementById('err').style.display='block';
+      });
+  }
+  load(SRC,false);
+})();
+</script>
+</body>
+</html>
