@@ -495,9 +495,7 @@ statistics off entirely: no id exists and nothing is counted.
 |---------|-------------|
 | [YuE2 Studio](https://github.com/timoncool/YuE2-Studio) | The same studio on YuE2 — songs with an editable score |
 | [MiniMax Music3 Studio](https://github.com/timoncool/MiniMax-Music3-Studio) | The same studio on MiniMax Music 3 |
-| [Foundation Music Lab](https://github.com/timoncool/Foundation-Music-Lab) | Music generation + timeline editor |
-| [VibeVoice ASR](https://github.com/timoncool/VibeVoice_ASR_portable_ru) | Portable speech recognition |
-| [Qwen3-TTS](https://github.com/timoncool/Qwen3-TTS_portable_rus) | Portable text-to-speech with voice cloning |
+| [Speech Studio](https://github.com/timoncool/speech-studio) | Offline voice studio — text-to-speech, voice cloning, speech recognition |
 | [telegram-api-mcp](https://github.com/timoncool/telegram-api-mcp) | Full Telegram Bot API as an MCP server |
 
 ## Authors
