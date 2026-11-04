@@ -255,10 +255,10 @@
       <p class="world" id="comm-p" style="font-size:16.5px;line-height:1.6;margin:16px 0 0">Right now these apps are used by <strong>—</strong> people. Your support helps every one of them.</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px">
         <div class="cost"><span class="camt" id="c-issues" style="font-size:24px">—</span><div class="cname" id="comm-issues-l" style="margin-top:4px">issues closed</div></div>
-        <div class="cost"><span class="camt" id="c-commits" style="font-size:24px">—</span><div class="cname" id="comm-commits-l" style="margin-top:4px">commits a month</div></div>
+        <div class="cost"><span class="camt" id="c-commits" style="font-size:24px">—</span><div class="cname" id="comm-commits-l" style="margin-top:4px">commits a year</div></div>
         <div class="cost"><span class="camt" id="c-releases" style="font-size:24px">—</span><div class="cname" id="comm-releases-l" style="margin-top:4px">releases shipped</div></div>
       </div>
-      <p style="margin:16px 0 0"><a href="stats.html" id="comm-see" data-hub-b="to-stats">See the open telemetry →</a></p>
+      <p style="margin:16px 0 0"><a href="stats.html" id="comm-see" data-hub-b="to-stats">See the open stats →</a></p>
     </div>
   </section>
 
@@ -1668,17 +1668,17 @@
     })
     .catch(function(e){ console.warn('GitHub stars were not refreshed, showing the numbers baked into the page:', e); });
 
-  // The "you'd be in good company" block: live numbers from the open telemetry (the same stats.json the stats page reads).
+  // The "you'd be in good company" block: live numbers from the open stats (the same stats.json the stats page reads).
   // Self-contained i18n so the main I18N table is untouched; the block stays hidden until the numbers load.
   var COMM={
-    en:{h:"You'd be in good company",p:"Right now these apps are used by {people} people, in {langs} languages, from {countries} countries — and your support helps every one of them.",issues:"issues closed",commits:"commits a month",releases:"releases shipped",see:"See the open telemetry →"},
-    ru:{h:"Вы будете в хорошей компании",p:"Прямо сейчас этими приложениями пользуются {people} человек на {langs} языках из {countries} стран — и ваша поддержка помогает каждому из них.",issues:"ишью закрыто",commits:"коммитов в месяц",releases:"версий выпущено",see:"Посмотреть открытую телеметрию →"},
-    zh:{h:"你将与许多人同行",p:"现在这些应用有 {people} 人在用，覆盖 {langs} 种语言、{countries} 个国家——你的支持惠及其中的每一个人。",issues:"个 issue 已解决",commits:"次提交/月",releases:"个版本已发布",see:"查看公开遥测 →"},
-    ja:{h:"あなたも仲間に",p:"いま、これらのアプリは {countries} か国・{langs} 言語で {people} 人が使っています。あなたの支援は、その一人ひとりに届きます。",issues:"件の課題を解決",commits:"コミット/月",releases:"リリース済み",see:"オープンテレメトリを見る →"},
-    ko:{h:"함께하는 사람들",p:"지금 이 앱들은 {countries}개국 {langs}개 언어로 {people}명이 사용하고 있습니다. 당신의 후원은 그들 모두에게 도움이 됩니다.",issues:"개 이슈 해결",commits:"커밋/월",releases:"개 릴리스",see:"공개 텔레메트리 보기 →"},
-    pt:{h:"Você estaria em boa companhia",p:"Agora mesmo estes aplicativos são usados por {people} pessoas, em {langs} idiomas, de {countries} países — e o seu apoio ajuda cada uma delas.",issues:"issues resolvidas",commits:"commits por mês",releases:"versões lançadas",see:"Ver a telemetria aberta →"},
-    es:{h:"Estarías en buena compañía",p:"Ahora mismo estas aplicaciones las usan {people} personas, en {langs} idiomas, desde {countries} países — y tu apoyo ayuda a cada una de ellas.",issues:"issues cerradas",commits:"commits al mes",releases:"versiones publicadas",see:"Ver la telemetría abierta →"},
-    fr:{h:"Vous seriez en bonne compagnie",p:"En ce moment, ces applications sont utilisées par {people} personnes, en {langs} langues, depuis {countries} pays — et votre soutien aide chacune d'elles.",issues:"tickets résolus",commits:"commits par mois",releases:"versions publiées",see:"Voir la télémétrie ouverte →"}
+    en:{h:"You'd be in good company",p:"Right now these apps are used by {people} people, in {langs} languages, from {countries} countries — and your support helps every one of them.",issues:"issues closed",commits:"commits a year",releases:"releases shipped",see:"See the open stats →"},
+    ru:{h:"Вы будете в хорошей компании",p:"Прямо сейчас этими приложениями пользуются {people} человек на {langs} языках из {countries} стран — и ваша поддержка помогает каждому из них.",issues:"ишью закрыто",commits:"коммитов за год",releases:"версий выпущено",see:"Посмотреть открытую статистику →"},
+    zh:{h:"你将与许多人同行",p:"现在这些应用有 {people} 人在用，覆盖 {langs} 种语言、{countries} 个国家——你的支持惠及其中的每一个人。",issues:"个 issue 已解决",commits:"次提交/年",releases:"个版本已发布",see:"查看公开统计 →"},
+    ja:{h:"あなたも仲間に",p:"いま、これらのアプリは {countries} か国・{langs} 言語で {people} 人が使っています。あなたの支援は、その一人ひとりに届きます。",issues:"件の課題を解決",commits:"コミット/年",releases:"リリース済み",see:"オープンな統計を見る →"},
+    ko:{h:"함께하는 사람들",p:"지금 이 앱들은 {countries}개국 {langs}개 언어로 {people}명이 사용하고 있습니다. 당신의 후원은 그들 모두에게 도움이 됩니다.",issues:"개 이슈 해결",commits:"커밋/년",releases:"개 릴리스",see:"공개 통계 보기 →"},
+    pt:{h:"Você estaria em boa companhia",p:"Agora mesmo estes aplicativos são usados por {people} pessoas, em {langs} idiomas, de {countries} países — e o seu apoio ajuda cada uma delas.",issues:"issues resolvidas",commits:"commits por ano",releases:"versões lançadas",see:"Ver as estatísticas abertas →"},
+    es:{h:"Estarías en buena compañía",p:"Ahora mismo estas aplicaciones las usan {people} personas, en {langs} idiomas, desde {countries} países — y tu apoyo ayuda a cada una de ellas.",issues:"issues cerradas",commits:"commits al año",releases:"versiones publicadas",see:"Ver las estadísticas abiertas →"},
+    fr:{h:"Vous seriez en bonne compagnie",p:"En ce moment, ces applications sont utilisées par {people} personnes, en {langs} langues, depuis {countries} pays — et votre soutien aide chacune d'elles.",issues:"tickets résolus",commits:"commits par an",releases:"versions publiées",see:"Voir les statistiques ouvertes →"}
   };
   function fmtN(n){try{return new Intl.NumberFormat(document.documentElement.lang).format(n);}catch(e){return String(n);}}
   function renderCommunity(){
@@ -1698,14 +1698,14 @@
     document.getElementById('comm-see').textContent=c.see;
     var dev=s.dev||{};
     function sv(id,v){document.getElementById(id).textContent=(v==null?'—':fmtN(v));}
-    sv('c-issues',dev.issues_closed);sv('c-commits',dev.commits_month);sv('c-releases',dev.releases);
+    sv('c-issues',dev.issues_closed);sv('c-commits',dev.commits!=null?dev.commits:dev.commits_month);sv('c-releases',dev.releases);
     document.getElementById('community').hidden=false;
   }
   var PUBSRC=document.body.getAttribute('data-stats-src')||'https://raw.githubusercontent.com/timoncool/timoncool/main/stats.json';
   (function loadPub(url,fb){
     fetch(url,{credentials:'omit'}).then(function(r){ if(!r.ok) throw new Error('stats '+r.status); return r.json(); })
       .then(function(s){ window.__pubstats=s; renderCommunity(); })
-      .catch(function(e){ if(!fb&&url!=='stats.json'){ loadPub('stats.json',true); return; } console.warn('[donate] open telemetry not loaded, the community block stays hidden:', e); });
+      .catch(function(e){ if(!fb&&url!=='stats.json'){ loadPub('stats.json',true); return; } console.warn('[donate] open stats not loaded, the community block stays hidden:', e); });
   })(PUBSRC,false);
 
   var qrm=document.getElementById('qrmodal');
