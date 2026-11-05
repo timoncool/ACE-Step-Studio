@@ -3484,29 +3484,7 @@ async fn time_lyrics_for(state: AppState, song_id: String) {
     let audio = audio.display().to_string();
 
     note_activity(&state, &song_id, &song.title, "karaoke", "running", None).await;
-    let words = match config.provider {
-        lyrics_sync::AsrProvider::None => return,
-        lyrics_sync::AsrProvider::Parakeet => {
-            let sync = state.lyrics_sync.clone();
-            let path = std::path::PathBuf::from(&audio);
-            match tokio::task::spawn_blocking(move || sync.parakeet_words(config.runtime, config.whisper_model.as_deref(), &path, None)).await {
-                Ok(result) => result,
-                Err(error) => Err(anyhow::anyhow!("the recogniser stopped: {error}")),
-            }
-        }
-        lyrics_sync::AsrProvider::Whisper => {
-            let sync = state.lyrics_sync.clone();
-            let config = config.clone();
-            let path = std::path::PathBuf::from(&audio);
-            match tokio::task::spawn_blocking(move || sync.crisper_words(config.runtime, &path, None)).await {
-                Ok(result) => result,
-                Err(error) => Err(anyhow::anyhow!("the recogniser stopped: {error}")),
-            }
-        }
-        lyrics_sync::AsrProvider::OpenRouter => {
-            karaoke_words_from_openrouter(&state, &config, &audio, None).await
-        }
-    };
+    let words = karaoke_words(&state, &config, std::path::PathBuf::from(&audio), None).await;
     let words = match words {
         Ok(words) => words,
         Err(error) => {
@@ -6214,6 +6192,104 @@ async fn karaoke_install(
     Ok(Json(state.lyrics_sync.status(&config).await))
 }
 
+/// The words one recogniser hears in one recording, each with its moment. The
+/// provider is dispatched in one place so the button and the automatic pass
+/// after a song is made hear a track the same way.
+async fn recognise_track(
+    state: &AppState,
+    config: &lyrics_sync::LyricsSyncConfig,
+    path: std::path::PathBuf,
+    language: Option<String>,
+) -> anyhow::Result<Vec<(f64, String)>> {
+    match config.provider {
+        lyrics_sync::AsrProvider::None => anyhow::bail!("karaoke.no-recogniser"),
+        lyrics_sync::AsrProvider::Parakeet => {
+            let sync = state.lyrics_sync.clone();
+            let (runtime, variant) = (config.runtime, config.whisper_model.clone());
+            tokio::task::spawn_blocking(move || sync.parakeet_words(runtime, variant.as_deref(), &path, language.as_deref()))
+                .await
+                .map_err(|error| anyhow::anyhow!("the recogniser stopped: {error}"))?
+        }
+        lyrics_sync::AsrProvider::Whisper => {
+            let sync = state.lyrics_sync.clone();
+            let runtime = config.runtime;
+            tokio::task::spawn_blocking(move || sync.crisper_words(runtime, &path, language.as_deref()))
+                .await
+                .map_err(|error| anyhow::anyhow!("the recogniser stopped: {error}"))?
+        }
+        lyrics_sync::AsrProvider::OpenRouter => karaoke_words_from_openrouter(state, config, &path.to_string_lossy(), language.as_deref()).await,
+    }
+}
+
+/// Lifts the vocal out of a mix for recognition, when Mel-Band RoFormer is
+/// installed; the returned file is the caller's to delete. None means there is
+/// no separator to do it with, so the mix is all there is to hear.
+async fn separate_vocal_for_recognition(state: &AppState, mix: &std::path::Path) -> anyhow::Result<Option<std::path::PathBuf>> {
+    let runtime = state.separation_config.read().await.runtime;
+    let gpu = roformer_on_card(state, runtime);
+    if !state.separator.roformer_installed(gpu) {
+        return Ok(None);
+    }
+    let separator = state.separator.clone();
+    let mix = mix.to_path_buf();
+    let out = std::env::temp_dir().join(format!("ace-karaoke-vocal-{}.wav", uuid::Uuid::now_v7()));
+    let target = out.clone();
+    tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
+        let audio = audio_pcm::decode_stereo_44k(&mix)?;
+        let (vocals, _instrumental) = separator.separate_roformer(&audio, gpu)?;
+        separation::write_wav_stereo(&target, &vocals)
+    })
+    .await
+    .map_err(|error| anyhow::anyhow!("the vocal separator stopped: {error}"))??;
+    Ok(Some(out))
+}
+
+/// The words to time a track by. The mix is heard first - a cover sung forward
+/// off a score is timed straight away. When nothing sung is heard and Mel-Band
+/// RoFormer is installed, the vocal is lifted out and heard on its own, so a
+/// vocal buried under the accompaniment (as freely generated originals often
+/// are) is timed where the mix alone would report nothing.
+async fn karaoke_words(
+    state: &AppState,
+    config: &lyrics_sync::LyricsSyncConfig,
+    mix: std::path::PathBuf,
+    language: Option<String>,
+) -> anyhow::Result<Vec<(f64, String)>> {
+    let heard = recognise_track(state, config, mix.clone(), language.clone()).await;
+    let nothing_heard = heard.as_ref().err().is_some_and(|error| format!("{error:#}").contains(lyrics_sync::NO_WORDS));
+    if !nothing_heard {
+        return heard;
+    }
+    let Some(vocal) = separate_vocal_for_recognition(state, &mix).await? else {
+        return heard;
+    };
+    let retry = recognise_track(state, config, vocal.clone(), language).await;
+    std::fs::remove_file(&vocal).ok();
+    // The buried-vocal pass only ever adds a result; if the isolated vocal is
+    // silent too, the track really has nothing sung and that answer stands.
+    match retry {
+        Ok(words) => Ok(words),
+        Err(_) => heard,
+    }
+}
+
+/// The words the chosen recogniser hears in a recording, each with its moment: the clock karaoke
+/// and the cover's section matching put the lyrics on. A buried vocal is lifted out and heard on
+/// its own before the track is called wordless.
+async fn recognised_words(
+    state: &AppState,
+    config: &lyrics_sync::LyricsSyncConfig,
+    path: std::path::PathBuf,
+    language: Option<String>,
+) -> Result<Vec<(f64, String)>, (StatusCode, Json<ApiError>)> {
+    if config.provider == lyrics_sync::AsrProvider::None {
+        return Err(api_error(StatusCode::CONFLICT, "karaoke.no-recogniser".into()));
+    }
+    karaoke_words(state, config, path, language)
+        .await
+        .map_err(|error| api_error(StatusCode::BAD_GATEWAY, error.to_string()))
+}
+
 /// Times one track's own lyrics and stores the result with it.
 ///
 /// Recognition is CPU or GPU bound and takes tens of seconds, so it runs on a
@@ -6250,32 +6326,7 @@ async fn create_song_karaoke(
         return Err(api_error(StatusCode::CONFLICT, "karaoke.model-missing".into()));
     }
 
-    let words = match config.provider {
-        lyrics_sync::AsrProvider::None => {
-            return Err(api_error(StatusCode::CONFLICT, "karaoke.no-recogniser".into()))
-        }
-        lyrics_sync::AsrProvider::Parakeet => {
-            let sync = state.lyrics_sync.clone();
-            let path = std::path::PathBuf::from(&audio);
-            let language = request.language.clone();
-            tokio::task::spawn_blocking(move || sync.parakeet_words(config.runtime, config.whisper_model.as_deref(), &path, language.as_deref()))
-                .await
-                .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
-        }
-        lyrics_sync::AsrProvider::Whisper => {
-            let sync = state.lyrics_sync.clone();
-            let config = config.clone();
-            let path = std::path::PathBuf::from(&audio);
-            let language = request.language.clone();
-            tokio::task::spawn_blocking(move || sync.crisper_words(config.runtime, &path, language.as_deref()))
-                .await
-                .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
-        }
-        lyrics_sync::AsrProvider::OpenRouter => {
-            karaoke_words_from_openrouter(&state, &config, &audio, request.language.as_deref()).await
-        }
-    }
-    .map_err(|error| api_error(StatusCode::BAD_GATEWAY, error.to_string()))?;
+    let words = recognised_words(&state, &config, std::path::PathBuf::from(&audio), request.language.clone()).await?;
 
     // Word by word, because that is what karaoke means: a line time alone
     // leaves a player sweeping the highlight linearly through the line, which
@@ -6334,7 +6385,10 @@ async fn karaoke_words_from_openrouter(
     let response = execute_openrouter_json(request).await?;
     let segments = lyrics_sync::segments_from_verbose_json(&response.body);
     if segments.is_empty() {
-        anyhow::bail!("{model} answered without timings; pick a model that returns them");
+        // The model is chosen from the timings-capable family, so no segments means nothing was
+        // heard, not a bad model. Report it like the other recognisers (NO_WORDS) so the caller's
+        // buried-vocal pass fires for OpenRouter too.
+        anyhow::bail!("{}", lyrics_sync::NO_WORDS);
     }
     Ok(segments)
 }
