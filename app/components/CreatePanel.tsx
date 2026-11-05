@@ -4,6 +4,7 @@ import { scriptLanguage } from '../services/lyricsLanguage';
 import { libraryChanged, SELF_READ, setupStatusChanged, updateLibrarySongs, useActivity, useAssistantStatus, useLibrarySongs, useSetupStatus, type ActivityEntry } from '../services/studioQueries';
 import { mapNativeLibrarySong } from '../services/nativeLibrary';
 import { karaokeReason } from '../services/karaoke';
+import { clampDurationToKept } from '../services/createDuration';
 import { AlertTriangle, ChevronDown, CircleAlert, Dices, Ear, FolderOpen, Loader2, Pause, Play, RotateCcw, Save, Sparkles, Square, Tags, Undo2, Upload, Wand2, Lightbulb, ListChecks } from 'lucide-react';
 import type { AceCreateRequest, Playlist, Song } from '../types';
 import { useI18n } from '../context/I18nContext';
@@ -474,7 +475,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     }
     const numberText = (key: string) => (typeof settings[key] === 'number' && (settings[key] as number) > 0 ? String(settings[key]) : '');
     if ('bpm' in settings) setBpm(numberText('bpm'));
-    if ('duration' in settings) setDuration(numberText('duration'));
+    if ('duration' in settings) setDuration(clampDurationToKept(typeof settings['duration'] === 'number' && (settings['duration'] as number) > 0 ? (settings['duration'] as number) : undefined, keptDuration()));
     if ('keyscale' in settings) setKeyscale(text('keyscale'));
     if ('timesignature' in settings) setTimesignature(text('timesignature'));
     if ('vocal_language' in settings) {
@@ -722,6 +723,8 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
           duration_seconds: numberOrUndefined(duration) ?? 120,
           instrumental,
           vocal_language: language,
+          // the chosen text language, or the UI locale as the fallback (#198)
+          locale: language || uiLanguage,
         }),
         signal: run.signal,
       });
@@ -764,7 +767,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       if (typeof body.caption === 'string') setCaption(body.caption);
       if (typeof body.title === 'string' && body.title.trim()) setName(body.title.trim());
       if (typeof body.cover_prompt === 'string' && body.cover_prompt.trim()) setCoverPrompt(body.cover_prompt.trim());
-      if (typeof body.duration_seconds === 'number' && body.duration_seconds >= 10) setDuration(String(Math.min(MAX_DURATION_SECONDS, Math.round(body.duration_seconds))));
+      if (typeof body.duration_seconds === 'number' && body.duration_seconds >= 10) setDuration(clampDurationToKept(Math.min(MAX_DURATION_SECONDS, body.duration_seconds), keptDuration()));
       if (typeof body.bpm === 'number') setBpm(String(body.bpm));
       if (typeof body.keyscale === 'string' && KEYS.includes(body.keyscale)) setKeyscale(body.keyscale);
       if (typeof body.timesignature === 'string' && TIME_SIGNATURES.includes(body.timesignature)) setTimesignature(body.timesignature);

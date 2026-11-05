@@ -36,6 +36,13 @@ struct Change {
 /// in `REASONS` already and add their rows when they come.
 const CHANGES: &[Change] = &[
     Change { what: "crisperwhisper-turbo*", reason: "crisperwhisper" },
+    // More specific rows come first: `reason_of` takes the first that matches. The audio.cpp engine
+    // (the server builds) carries the karaoke reason; its CUDA libraries are not karaoke, so they
+    // get their own reason instead of sharing it (#180).
+    Change { what: "audiocpp-cuda13-cufft*", reason: "audiocpp-cuda" },
+    Change { what: "audiocpp-cuda12-cufft*", reason: "audiocpp-cuda" },
+    Change { what: "audiocpp-cuda12-cudart*", reason: "audiocpp-cuda" },
+    Change { what: "audiocpp-cuda12-cublas*", reason: "audiocpp-cuda" },
     Change { what: "audiocpp-*", reason: "crisperwhisper" },
     Change { what: "transcribe-engine*", reason: "transcribe-avx2" },
     Change { what: "llama-*", reason: "llama" },
@@ -51,6 +58,7 @@ const CHANGES: &[Change] = &[
 /// Every reason, by its code, in English; the window says it in its own language by the code.
 pub const REASONS: &[(&str, &str)] = &[
     ("crisperwhisper", "Karaoke and the dataset lyrics are heard by CrisperWhisper 2.0 turbo in the audio.cpp server instead of Faster-Whisper, with a time for every word"),
+    ("audiocpp-cuda", "A CUDA library the audio.cpp engine needs on an NVIDIA card"),
     ("transcribe-avx2", "Built for every processor with AVX2: Parakeet no longer closes the studio on processors without AVX-512"),
     ("llama", "A newer llama.cpp for the assistant"),
     ("hotstep", "A newer build of HOT-Step's tools for training, captions and audio to MIDI"),
@@ -347,6 +355,18 @@ mod tests {
         assert_eq!((model.name.as_str(), model.reason_code), ("CrisperWhisper 2.0 turbo", "crisperwhisper"));
         assert_eq!(p.download, 60 + 120);
         assert!(p.show);
+    }
+
+    #[test]
+    fn the_audiocpp_engine_and_its_cuda_libraries_read_apart() {
+        // The server builds carry the karaoke reason; the CUDA libraries are not karaoke (#180).
+        for server in ["audiocpp-cuda13", "audiocpp-cuda12", "audiocpp-vulkan", "audiocpp-cpu", "audiocpp-metal"] {
+            assert_eq!(reason_of(server, "unused"), "crisperwhisper", "{server}");
+        }
+        for lib in ["audiocpp-cuda13-cufft", "audiocpp-cuda12-cufft", "audiocpp-cuda12-cudart", "audiocpp-cuda12-cublas"] {
+            assert_eq!(reason_of(lib, "unused"), "audiocpp-cuda", "{lib}");
+        }
+        assert!(REASONS.iter().any(|(code, _)| *code == "audiocpp-cuda"), "the reason has its text");
     }
 
     #[test]

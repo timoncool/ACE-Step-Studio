@@ -109,10 +109,6 @@ pub fn mp3(audio: &Stereo, kbps: u32) -> Result<Vec<u8>> {
     Ok(out)
 }
 
-/// Lossless FLAC at 24 bits, written by libFLAC, the reference encoder: the
-/// model's float output with nothing taken away but the rounding below the
-/// 24th bit, about -144 dB. Verify mode decodes every frame as it is written
-/// and compares it with the input, and the file gets its sample count and MD5.
 /// The gain that fits a float signal into an integer format: 1 when its peak
 /// is within full scale, else exactly enough to bring the peak to it. An
 /// integer sample cannot hold more, and cutting the overs would distort.
@@ -121,17 +117,24 @@ pub fn fitting_gain(audio: &Stereo) -> f32 {
     if peak > 1.0 { 1.0 / peak } else { 1.0 }
 }
 
+/// Lossless FLAC at 24 bits, written by libFLAC, the reference encoder: the
+/// model's float output with nothing taken away but the rounding below the
+/// 24th bit, about -144 dB. Verify mode decodes every frame as it is written
+/// and compares it with the input. The stream is built in memory - libFLAC
+/// never opens a temp file, which is where imports failed on machines whose
+/// `%TEMP%` is full, read-only, redirected, swept mid-encode by a cleaner, or
+/// named in a code page libFLAC's own `fopen` cannot take. libFLAC cannot seek
+/// a write sink, so it leaves STREAMINFO's sample count zero; the real count is
+/// written in afterwards, because players and the library read the length there.
 pub fn flac(audio: &Stereo) -> Result<Vec<u8>> {
-    use flac_bound::FlacEncoder;
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static NEXT: AtomicU64 = AtomicU64::new(0);
+    use flac_bound::{FlacEncoder, WriteWrapper};
     const FULL: f32 = 8_388_607.0;
     let frames = audio.frames();
     let gain = fitting_gain(audio);
     let samples: Vec<i32> = audio.left.iter().zip(&audio.right).flat_map(|(left, right)| [*left, *right]).map(|sample| ((sample * gain).clamp(-1.0, 1.0) * FULL).round() as i32).collect();
-    // libFLAC writes the header last, so it needs a file it can seek in
-    let path = std::env::temp_dir().join(format!("audio-post-{}-{}.flac", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
-    let written = (|| -> Result<Vec<u8>> {
+    let mut buffer: Vec<u8> = Vec::new();
+    {
+        let mut sink = WriteWrapper(&mut buffer);
         let mut encoder = FlacEncoder::new()
             .ok_or_else(|| anyhow!("libFLAC could not make an encoder"))?
             .channels(2)
@@ -140,16 +143,30 @@ pub fn flac(audio: &Stereo) -> Result<Vec<u8>> {
             .compression_level(8)
             .verify(true)
             .total_samples_estimate(frames as u64)
-            .init_file(&path)
+            .init_write(&mut sink)
             .map_err(|error| anyhow!("start the FLAC encoder: {error:?}"))?;
         if encoder.process_interleaved(&samples, frames as u32).is_err() {
             bail!("encode FLAC: {:?}", encoder.state());
         }
         encoder.finish().map_err(|encoder| anyhow!("finish the FLAC file: {:?}", encoder.state()))?;
-        Ok(std::fs::read(&path)?)
-    })();
-    let _ = std::fs::remove_file(&path);
-    written
+    }
+    set_flac_total_samples(&mut buffer, frames as u64);
+    Ok(buffer)
+}
+
+/// Writes the frame count into STREAMINFO's 36-bit total-samples field, which a
+/// non-seekable write leaves zero. The field is in the 8 bytes at offset 18 -
+/// after `fLaC`, the metadata-block header, and the block and frame sizes - and
+/// shares them with the sample rate, channels and bit depth in the top 28 bits.
+fn set_flac_total_samples(flac: &mut [u8], frames: u64) {
+    const OFFSET: usize = 18;
+    const MASK: u64 = (1u64 << 36) - 1;
+    if flac.len() < OFFSET + 8 || &flac[0..4] != b"fLaC" {
+        return;
+    }
+    let field = u64::from_be_bytes(flac[OFFSET..OFFSET + 8].try_into().unwrap());
+    let field = (field & !MASK) | (frames & MASK);
+    flac[OFFSET..OFFSET + 8].copy_from_slice(&field.to_be_bytes());
 }
 
 #[cfg(test)]

@@ -110,6 +110,11 @@ pub struct AssistRequest {
     /// A finished recording is being described, not a song written.
     #[serde(default)]
     pub recording: bool,
+    /// The language the lyrics fall back to when the request does not settle
+    /// one: the text language the user chose, or the studio's UI locale under
+    /// "Automatic". Without it a small model defaults to Russian (#198).
+    #[serde(default)]
+    pub locale: String,
 }
 
 fn default_duration() -> f64 {
@@ -147,12 +152,13 @@ const METADATA_KEYS: &str = "bpm, keyscale, timesignature, duration_seconds";
 pub fn instructions(request: &AssistRequest) -> (String, &'static [&'static str]) {
     let references = references_for(request);
     let diction = if request.instrumental { "" } else { DICTION_RULE };
+    let language_note = if request.instrumental { String::new() } else { language_fallback_note(&request.locale) };
     match request.target {
         AssistTarget::Lyrics => (
             format!(
                 "You write lyrics for ACE-Step 1.5, a caption+lyrics music generation model.\n\
                  Given a lyrics instruction, the current caption and a target duration, write lyrics coherent with the caption.\n\n\
-                 {}{diction}\n\n\
+                 {}{diction}{language_note}\n\n\
                  Answer with ONLY a JSON object with key: lyrics.",
                 parts(LYRICS_PARTS)
             ),
@@ -181,7 +187,34 @@ pub fn instructions(request: &AssistRequest) -> (String, &'static [&'static str]
         ),
         // a sheet asks for boundaries only; see `sheet_in_sections`
         AssistTarget::Sheet => (SHEET_SECTIONS_PROMPT.to_string(), &["sections"]),
-        AssistTarget::All => (format!("{GUIDE}{diction}{references}"), &["lyrics", "caption"]),
+        AssistTarget::All => (format!("{GUIDE}{diction}{language_note}{references}"), &["lyrics", "caption"]),
+    }
+}
+
+/// The lyrics language a locale names, for the fallback note. The frontend
+/// sends the studio's UI locale ("en", "ru", "zh", "ja", "ko") or the text
+/// language the user chose; a region suffix ("zh-CN") is ignored.
+fn locale_language(locale: &str) -> Option<&'static str> {
+    let code = locale.split(['-', '_']).next().unwrap_or("").trim().to_lowercase();
+    Some(match code.as_str() {
+        "en" => "English",
+        "ru" => "Russian",
+        "zh" => "Mandarin Chinese",
+        "ja" => "Japanese",
+        "ko" => "Korean",
+        _ => return None,
+    })
+}
+
+/// The note that tells the model which language to sing in when the request
+/// leaves it open, so a Chinese studio's autogen is not written in Russian by a
+/// small model's default (#198). Empty when the locale names no known language.
+fn language_fallback_note(locale: &str) -> String {
+    match locale_language(locale) {
+        Some(language) => format!(
+            "\nDefault language: when the request does not make clear which language the lyrics should be sung in, write them in {language}."
+        ),
+        None => String::new(),
     }
 }
 
@@ -883,7 +916,41 @@ mod tests {
             instrumental: false,
             vocal_language: String::new(),
             recording: false,
+            locale: String::new(),
         }
+    }
+
+    #[test]
+    fn a_locale_sets_the_fallback_language_of_the_lyrics() {
+        assert_eq!(locale_language("zh"), Some("Mandarin Chinese"));
+        assert_eq!(locale_language("zh-CN"), Some("Mandarin Chinese"));
+        assert_eq!(locale_language("en"), Some("English"));
+        assert_eq!(locale_language(""), None);
+        assert_eq!(locale_language("xx"), None);
+
+        // a Chinese studio's autogen falls back to Chinese, not Russian (#198)
+        let mut chinese = request(AssistTarget::All);
+        chinese.locale = "zh".into();
+        let (system, _) = instructions(&chinese);
+        assert!(system.contains("Mandarin Chinese"));
+        assert!(system.contains("does not make clear which language"));
+
+        // the lyrics-only wand gets the same fallback
+        let lyrics_only = AssistRequest { target: AssistTarget::Lyrics, ..chinese.clone() };
+        assert!(instructions(&lyrics_only).0.contains("Mandarin Chinese"));
+
+        // no locale, no fallback note
+        assert!(!instructions(&request(AssistTarget::All)).0.contains("does not make clear which language"));
+
+        // an instrumental writes no words, so no fallback either
+        let instrumental = AssistRequest { instrumental: true, ..chinese.clone() };
+        assert!(!instructions(&instrumental).0.contains("does not make clear which language"));
+
+        // the prompt and sheet targets write no fresh lyrics, so no fallback
+        let prompt = AssistRequest { target: AssistTarget::Prompt, ..chinese.clone() };
+        assert!(!instructions(&prompt).0.contains("does not make clear which language"));
+        let sheet = AssistRequest { target: AssistTarget::Sheet, ..chinese };
+        assert!(!instructions(&sheet).0.contains("does not make clear which language"));
     }
 
     #[test]

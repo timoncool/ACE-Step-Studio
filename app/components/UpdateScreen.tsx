@@ -13,6 +13,7 @@ type UpdateAnswer = { plan: UpdatePlan; job: UpdateJob | null };
 /** The window's words for the reasons of the release's table of changes, by their codes. */
 const WHY: Record<string, TranslationKey> = {
   'crisperwhisper': 'updateWhyCrisperwhisper',
+  'audiocpp-cuda': 'updateWhyAudiocppCuda',
   'transcribe-avx2': 'updateWhyTranscribeAvx2',
   'llama': 'updateWhyLlama',
   'hotstep': 'updateWhyHotstep',

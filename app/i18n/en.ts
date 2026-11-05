@@ -1855,6 +1855,7 @@ export const en = {
     updateDone: "Update done: the new engines and models are in place, the old ones are removed",
     updateFailed: "The update stopped: {error}. What it downloaded stays; press Update to carry on.",
     updateWhyCrisperwhisper: "Karaoke and the dataset lyrics are heard by CrisperWhisper 2.0 turbo in the audio.cpp server instead of Faster-Whisper, with a time for every word",
+    updateWhyAudiocppCuda: "A CUDA library the audio.cpp engine needs on an NVIDIA card",
     updateWhyTranscribeAvx2: "Built for every processor with AVX2: Parakeet no longer closes the studio on processors without AVX-512",
     updateWhyLlama: "A newer llama.cpp for the assistant",
     updateWhyHotstep: "A newer build of HOT-Step's tools for training, captions and audio to MIDI",
