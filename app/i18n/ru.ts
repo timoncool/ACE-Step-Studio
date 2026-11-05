@@ -335,6 +335,8 @@ export const ru = {
     fxDesc_letterbox: 'Чёрные полосы как в кино',
     textContent: 'Текстовое содержимое',
     downloadLrc: 'Скачать LRC (текст песни)',
+    downloadSrt: 'Скачать SRT (субтитры)',
+    downloadSrtHint: 'Те же тайминги субтитрами — для видеоредакторов, которые берут SRT, а не LRC (CapCut, Jianying, Premiere): каждая строка показывается, пока её поют, с паузами там, где музыка звучит без слов.',
 
     // Video Studio
     videoStudio: 'Видео Студия',

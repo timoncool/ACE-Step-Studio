@@ -56,6 +56,50 @@ export function parseLrc(lrcContent: string): LrcLine[] {
   return lines.sort((a, b) => a.time - b.time);
 }
 
+/** How long the last line stays on screen: an SRT cue needs an end, and nothing follows it. */
+const LAST_SRT_LINE_SECONDS = 3;
+/** How long a sung line stays when its own end is unknown (plain LRC, no per-word times). */
+const PLAIN_LINE_SECONDS = 4;
+/** The tail a single-word line keeps after its word begins, so a subtitle is not cut on the syllable. */
+const WORD_TAIL_SECONDS = 0.8;
+
+function srtTime(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds * 1000));
+  const pad = (value: number, width = 2) => String(value).padStart(width, '0');
+  return `${pad(Math.floor(total / 3_600_000))}:${pad(Math.floor(total / 60_000) % 60)}:${pad(Math.floor(total / 1000) % 60)},${pad(total % 1000, 3)}`;
+}
+
+/** When a sung line's subtitle ends: after its last word (enhanced LRC), or a
+ *  few seconds in (plain LRC). This is what leaves gaps between the lines where
+ *  the song plays without words, instead of one line lingering until the next. */
+function lineEndSeconds(line: LrcLine): number {
+  if (line.words && line.words.length > 0) {
+    const last = line.words[line.words.length - 1].time;
+    const span = last - line.words[0].time;
+    const tail = line.words.length > 1 ? span / (line.words.length - 1) : WORD_TAIL_SECONDS;
+    return last + Math.min(Math.max(tail, 0.3), 1.5);
+  }
+  return line.time + PLAIN_LINE_SECONDS;
+}
+
+/**
+ * The karaoke timings as SubRip subtitles, which video editors import where
+ * they do not take LRC: each sung line runs until its singing ends (never past
+ * the next line), so an instrumental stretch between lines stays empty on the
+ * timeline instead of holding the last line. Section tags are not subtitles.
+ */
+export function lrcToSrt(lrcContent: string): string {
+  const sung = parseLrc(lrcContent).filter((line) => !line.isSection);
+  return sung
+    .map((line, index) => {
+      const next = sung.slice(index + 1).find((later) => later.time > line.time);
+      const ceiling = next ? next.time : line.time + LAST_SRT_LINE_SECONDS;
+      const end = Math.min(ceiling, Math.max(line.time + 0.3, Math.min(lineEndSeconds(line), ceiling)));
+      return `${index + 1}\n${srtTime(line.time)} --> ${srtTime(end)}\n${line.text}\n`;
+    })
+    .join('\n');
+}
+
 /**
  * Find the current lyric line based on playback time.
  * Returns index of current line, or -1 if before first line.
