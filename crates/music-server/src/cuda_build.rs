@@ -108,6 +108,12 @@ fn device() -> Option<((u32, u32), u32)> {
     })
 }
 
+/// The chosen NVIDIA card's compute capability (sm_XY as (X, Y)), or None off
+/// an NVIDIA card or behind a driver too old to report it.
+pub fn compute_capability() -> Option<(u32, u32)> {
+    device().map(|(compute, _driver)| compute)
+}
+
 /// `7.5, 581.29` into the compute capability and the driver's major version.
 fn parse_query(line: &str) -> Option<((u32, u32), u32)> {
     let (compute, driver) = line.split_once(',')?;
