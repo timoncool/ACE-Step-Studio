@@ -1853,6 +1853,7 @@ export const ko = {
     updateDone: "업데이트 완료: 새 엔진과 모델이 준비되었고 이전 것은 지워졌습니다",
     updateFailed: "업데이트가 멈췄습니다: {error}. 내려받은 것은 남아 있습니다. «업데이트»를 누르면 이어서 진행합니다.",
     updateWhyCrisperwhisper: "노래방과 데이터셋 가사를 Faster-Whisper 대신 audio.cpp 서버의 CrisperWhisper 2.0 turbo가 듣고, 단어마다 시간이 붙습니다",
+    updateWhyAudiocppCuda: "NVIDIA 카드에서 audio.cpp 엔진에 필요한 CUDA 라이브러리",
     updateWhyTranscribeAvx2: "AVX2를 지원하는 모든 프로세서용 빌드: AVX-512가 없는 프로세서에서 Parakeet이 더 이상 스튜디오를 닫지 않습니다",
     updateWhyLlama: "어시스턴트용 새 llama.cpp",
     updateWhyHotstep: "학습, 설명, 오디오→MIDI 변환에 쓰는 HOT-Step 도구의 새 빌드",

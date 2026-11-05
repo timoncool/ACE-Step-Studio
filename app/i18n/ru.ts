@@ -1856,6 +1856,7 @@ export const ru = {
     updateDone: "Обновление готово: новые движки и модели на месте, старые убраны",
     updateFailed: "Обновление остановилось: {error}. Скачанное остаётся — нажмите «Обновить», чтобы продолжить.",
     updateWhyCrisperwhisper: "Караоке и тексты датасета слушает CrisperWhisper 2.0 turbo в сервере audio.cpp вместо Faster-Whisper, со временем каждого слова",
+    updateWhyAudiocppCuda: "Библиотека CUDA, нужная движку audio.cpp на видеокартах NVIDIA",
     updateWhyTranscribeAvx2: "Собран под любой процессор с AVX2: Parakeet больше не закрывает студию на процессорах без AVX-512",
     updateWhyLlama: "Новая сборка llama.cpp для ассистента",
     updateWhyHotstep: "Новая сборка инструментов HOT-Step для обучения, описаний и перевода звука в MIDI",

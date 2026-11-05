@@ -1853,6 +1853,7 @@ export const ja = {
   updateDone: "更新完了：新しいエンジンとモデルが揃い、古いものは削除されました",
   updateFailed: "更新が止まりました：{error}。ダウンロード済みのものは残ります。「更新」を押すと続きから再開します。",
   updateWhyCrisperwhisper: "カラオケとデータセットの歌詞は Faster-Whisper に代わり audio.cpp サーバーの CrisperWhisper 2.0 turbo が聞き取り、単語ごとに時刻が付きます",
+  updateWhyAudiocppCuda: "NVIDIA カードで audio.cpp エンジンが必要とする CUDA ライブラリ",
   updateWhyTranscribeAvx2: "AVX2 対応のすべてのプロセッサ向けにビルド：AVX-512 のないプロセッサで Parakeet がスタジオを終了させなくなりました",
   updateWhyLlama: "アシスタント用の新しい llama.cpp",
   updateWhyHotstep: "学習・キャプション・オーディオから MIDI への変換に使う HOT-Step ツールの新しいビルド",
