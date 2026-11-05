@@ -418,7 +418,7 @@ impl ModelManager {
             }
         }
 
-        let plan = crate::chunked::probe(&self.http, &url).await?;
+        let (plan, url) = crate::chunked::probe(&self.http, &url).await?;
         let written = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
 
         // The job's bar counts bytes as they arrive; the pieces count their own.

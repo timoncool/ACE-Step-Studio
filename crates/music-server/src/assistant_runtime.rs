@@ -955,7 +955,7 @@ async fn download_asset(
     }
 
     let url = crate::net::model_url(asset.url);
-    let plan = crate::chunked::probe(http, &url).await?;
+    let (plan, url) = crate::chunked::probe(http, &url).await?;
     if plan.total > 0 {
         crate::sizes::learn(asset.url, plan.total);
     }

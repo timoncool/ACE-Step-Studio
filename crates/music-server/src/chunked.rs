@@ -127,14 +127,14 @@ pub struct Plan {
     pub ranged: bool,
 }
 
-pub async fn probe(http: &reqwest::Client, url: &str) -> Result<Plan> {
+pub async fn probe(http: &reqwest::Client, url: &str) -> Result<(Plan, String)> {
     let mut last = String::new();
     let mut unreachable = 0;
     let mut attempts = 0;
     for attempt in 0..RETRIES {
         attempts = attempt + 1;
         match probe_once(http, url).await {
-            Ok(plan) => return Ok(plan),
+            Ok(plan) => return Ok((plan, url.to_owned())),
             Err(error) if error.is::<Refused>() => return Err(error),
             Err(error) => {
                 last = format!("{error:#}");
@@ -150,6 +150,18 @@ pub async fn probe(http: &reqwest::Client, url: &str) -> Result<Plan> {
         // a busy hour is not a broken download. Without this the whole install
         // died on the first refusal, with nothing to retry it.
         tokio::time::sleep(std::time::Duration::from_millis(500 << attempt.min(7))).await;
+    }
+    // Hugging Face could not be reached from this network at all - the top setup
+    // failure in telemetry, a network behind the Great Firewall among them. The
+    // HF-Mirror usually answers where it does not, so fall back to it once before
+    // giving up; a non-HF url mirrors to itself and drops straight through.
+    if unreachable == CONNECT_RETRIES {
+        let mirror = crate::net::mirror_url(url);
+        if mirror != url {
+            if let Ok(found) = Box::pin(probe(http, &mirror)).await {
+                return Ok(found);
+            }
+        }
     }
     Err(anyhow!("{}", start_failure(url, attempts, unreachable == CONNECT_RETRIES, &last)))
 }

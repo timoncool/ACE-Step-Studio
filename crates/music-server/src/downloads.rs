@@ -756,7 +756,7 @@ async fn fetch_absent(
     // How big it is and whether it can be fetched in pieces, asked of the
     // server rather than assumed - both answers come from one ranged byte.
     let url = crate::net::model_url(asset.url);
-    let plan = crate::chunked::probe(http, &url).await?;
+    let (plan, url) = crate::chunked::probe(http, &url).await?;
     if plan.total > 0 {
         crate::sizes::learn(asset.url, plan.total);
         // another program of timoncool's has it: taken from there, by copy too when it is on another drive
@@ -867,7 +867,7 @@ async fn download_and_extract_named(
     fs::create_dir_all(destination).with_context(|| format!("create {}", destination.display()))?;
     let archive = destination.join(format!("{}.part-archive", asset.id));
     let url = crate::net::model_url(asset.url);
-    let plan = crate::chunked::probe(http, &url).await?;
+    let (plan, url) = crate::chunked::probe(http, &url).await?;
     let written = Arc::new(std::sync::atomic::AtomicU64::new(0));
     let reporter = {
         let (written, progress) = (written.clone(), progress.clone());
