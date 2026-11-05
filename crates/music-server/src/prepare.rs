@@ -937,6 +937,7 @@ pub(crate) async fn lay_out_lyrics(state: &AppState, transcript: &str, target: a
         instrumental: false,
         vocal_language: String::new(),
         recording: false,
+        locale: String::new(),
     };
     // a published sheet's words are exact: the assistant marks where its
     // sections start, and the sheet's own lines go under the tags

@@ -723,6 +723,8 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
           duration_seconds: numberOrUndefined(duration) ?? 120,
           instrumental,
           vocal_language: language,
+          // the chosen text language, or the UI locale as the fallback (#198)
+          locale: language || uiLanguage,
         }),
         signal: run.signal,
       });

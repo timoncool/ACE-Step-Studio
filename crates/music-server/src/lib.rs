@@ -3148,6 +3148,7 @@ async fn describe_training_item(
         instrumental: song.instrumental,
         vocal_language: String::new(),
         recording: true,
+        locale: String::new(),
     };
     // A small local model now and then answers without the caption; it is
     // asked once more, then the failure is the user's to see.
