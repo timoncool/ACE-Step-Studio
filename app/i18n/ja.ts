@@ -333,8 +333,6 @@ export const ja = {
   fxDesc_letterbox: '映画のような帯',
   textContent: 'テキスト内容',
   downloadLrc: 'LRC（歌詞）をダウンロード',
-  downloadSrt: 'SRT（字幕）をダウンロード',
-  downloadSrtHint: '同じタイミングを字幕として書き出します。LRC ではなく SRT を読み込む動画編集ソフト（CapCut、Jianying、Premiere）向けで、各行は歌われている間だけ表示され、歌のない演奏部分は空きになります。',
   videoStudio: 'ビデオスタジオ',
   createProfessionalVisualizers: 'プロ品質のビジュアライザーを作成。',
   tabPresets: 'プリセット',

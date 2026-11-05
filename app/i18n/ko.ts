@@ -333,8 +333,6 @@ export const ko = {
     fxDesc_letterbox: '영화 같은 검은 띠',
     textContent: '텍스트 내용',
     downloadLrc: 'LRC(가사) 다운로드',
-    downloadSrt: 'SRT(자막) 다운로드',
-    downloadSrtHint: '같은 타이밍을 자막으로 내보냅니다. LRC 대신 SRT만 가져오는 영상 편집기(CapCut, Jianying, Premiere)용이며, 각 줄은 노래하는 동안 표시되고 가사 없는 연주 구간은 비워 둡니다.',
     videoStudio: '비디오 스튜디오',
     createProfessionalVisualizers: '전문 비주얼라이저를 만드세요.',
     tabPresets: '프리셋',
