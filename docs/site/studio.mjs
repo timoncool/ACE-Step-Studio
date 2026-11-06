@@ -17,4 +17,9 @@ export const STUDIO = {
   ],
   faq: { lora: 8, mcp: 13 },
   arch: "React UI ─┐\n          ├─ ACE-Step-Studio.exe   (Tauri window + Rust/Axum service)\nRust axum ┘        │\n                   └─ acestep.cpp `ace-server`   (C++/GGML, GGUF)",
+  // Community video reviews whose description links this repository. View counts are not stored (they go stale).
+  reviewsFeatured: 6,
+  reviews: [
+    { id: 'mFs0y3utkYg', by: 'ЮЛАВИ Studio', lang: 'RU' },
+  ],
 };

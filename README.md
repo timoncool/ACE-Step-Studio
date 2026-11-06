@@ -227,6 +227,14 @@ or download the MP3s from [docs/samples](docs/samples).
 | [Neon harbor, call my name](docs/samples/neon-harbor-cover.mp3) | Cover of the first song as an acoustic ballad | acoustic ballad, breathy female vocal, fingerpicked guitar, gentle piano |
 | [Night Rider](docs/samples/night-rider-lora.mp3) | With the Synthwave XL LoRA from the catalogue | roti-s1nthwv, driving synthwave, powerful male vocal, pulsing analog bass, 118 BPM |
 
+## Community reviews
+
+A video review of this studio from the community (the description links this repo):
+
+- [ЮЛАВИ Studio — Ace-Step Studio: Suno дома локально и бесплатно (установка + стемы)](https://www.youtube.com/watch?v=mFs0y3utkYg) · RU
+
+**Made a review or tutorial?** Put a link to the project in the description — we feature the best ones on the [site](https://timoncool.github.io/ACE-Step-Studio/) and here. Send yours through [Issues](https://github.com/timoncool/ACE-Step-Studio/issues).
+
 ## What it needs
 
 - Windows 10/11 x64.

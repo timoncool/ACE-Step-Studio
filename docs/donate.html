@@ -155,6 +155,30 @@ pre { background: var(--panel); border: 1px solid var(--line); border-radius: 12
 footer { margin: 72px 0 40px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
 footer p { margin: 0 0 8px; }
 
+.players { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.player { margin: 0; }
+.player .lite, .player .frame { position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; padding: 0; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #000; }
+.player .lite { cursor: pointer; }
+.player .lite img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .45s cubic-bezier(.33,1,.68,1), filter .45s; }
+.player .lite:hover img, .player .lite:focus-visible img { transform: scale(1.05); filter: brightness(1.07); }
+.player .lite .tag { position: absolute; bottom: 8px; right: 8px; font-size: 11px; font-weight: 700; letter-spacing: .06em; color: #fff; background: rgba(0,0,0,.6); border-radius: 6px; padding: 2px 7px; }
+.player .lite .play { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 58px; height: 40px; border-radius: 11px; background: rgba(15,15,20,.6); display: grid; place-items: center; transition: background .22s ease, transform .22s ease; }
+.player .lite .play::after { content: ''; border-style: solid; border-width: 8px 0 8px 13px; border-color: transparent transparent transparent #fff; margin-left: 3px; }
+.player .lite:hover .play, .player .lite:focus-visible .play { background: var(--pink); transform: translate(-50%, -50%) scale(1.08); }
+.player iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.player figcaption { margin-top: 11px; font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
+.reviews-more { margin-top: 24px; text-align: center; }
+.reviews-more > summary { list-style: none; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px 22px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--text); font-size: 14px; font-weight: 600; transition: border-color .2s, background .2s; }
+.reviews-more > summary::-webkit-details-marker { display: none; }
+.reviews-more > summary::after { content: '↓'; color: var(--muted); font-weight: 700; }
+.reviews-more[open] > summary::after { content: '↑'; }
+.reviews-more > summary:hover { border-color: var(--pink); background: var(--panel-2); }
+.reviews-more > .players { margin-top: 22px; text-align: left; }
+.reviews-cta { margin: 28px 0 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; padding: 18px 22px; border: 1px solid rgba(236,72,153,.3); border-radius: 16px; background: rgba(236,72,153,.07); color: var(--text); font-size: 15px; line-height: 1.55; }
+.reviews-cta span { flex: 1 1 340px; }
+.reviews-cta a { flex: none; color: #fff; background: linear-gradient(90deg, var(--orange), var(--pink)); text-decoration: none; padding: 10px 20px; border-radius: 999px; font-weight: 600; white-space: nowrap; transition: transform .2s ease, filter .2s ease; }
+.reviews-cta a:hover { transform: translateY(-1px); filter: brightness(1.05); }
+
 .viewer { position: fixed; inset: 0; background: rgba(0,0,0,.9); display: none; align-items: center; justify-content: center; z-index: 50; padding: 24px; }
 .viewer.open { display: flex; }
 .viewer img { max-width: 100%; max-height: 100%; border-radius: 10px; }
@@ -163,9 +187,11 @@ footer p { margin: 0 0 8px; }
 @media (max-width: 860px) {
   .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .players { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 560px) {
   .hero { padding-top: 36px; }
+  .players { grid-template-columns: 1fr; }
   .name { display: none; }
   .utility-bar { flex-direction: column; align-items: stretch; gap: 0; }
   .langs { order: -1; justify-content: flex-end; padding: 8px 0 0; }

@@ -26,11 +26,11 @@ const FAMILY = [
 
 // The questions every studio answers the same way; the answers come from the studio's own strings.
 const WORDS = {
-  en: { starCta: 'Star on GitHub', download: 'Download', moreSamples: 'More examples', faqTitle: 'Questions', qGpu: 'What graphics card do I need?', qFree: 'Is it free?', aFree: 'Yes. The studio is free and open source, and the models download for free from inside it.', qOffline: 'Does it work offline? Is my music sent anywhere?', qLicense: 'Can I use the songs I make?', qLora: 'Can I train it on my own style?', qAgent: 'Can an AI agent use it?', qInside: 'What is inside the download?', qBuilt: 'How is it built?', updated: 'Updated', stars: 'GitHub stars' },
-  ru: { starCta: 'Поставить звезду', download: 'Скачать', moreSamples: 'Ещё примеры', faqTitle: 'Вопросы', qGpu: 'Какая нужна видеокарта?', qFree: 'Это бесплатно?', aFree: 'Да. Студия бесплатная и с открытым кодом, модели скачиваются бесплатно прямо из неё.', qOffline: 'Работает ли без интернета? Уходит ли куда-то моя музыка?', qLicense: 'Можно ли использовать сделанные песни?', qLora: 'Можно ли обучить её своему стилю?', qAgent: 'Может ли ею управлять ИИ-агент?', qInside: 'Что внутри установщика?', qBuilt: 'Как она устроена?', updated: 'Обновлено', stars: 'Звёзды на GitHub' },
-  zh: { starCta: '在 GitHub 上加星', download: '下载', moreSamples: '更多示例', faqTitle: '常见问题', qGpu: '需要什么显卡？', qFree: '免费吗？', aFree: '是的。工作室免费且开源，模型也可以在其中免费下载。', qOffline: '没有网络能用吗？我的音乐会被上传吗？', qLicense: '生成的歌曲可以使用吗？', qLora: '能用我自己的风格训练吗？', qAgent: 'AI 智能体能操作它吗？', qInside: '安装包里有什么？', qBuilt: '它是如何构建的？', updated: '更新于', stars: 'GitHub 星标' },
-  ja: { starCta: 'GitHub でスター', download: 'ダウンロード', moreSamples: 'その他のサンプル', faqTitle: 'よくある質問', qGpu: 'どんなグラフィックカードが必要ですか？', qFree: '無料ですか？', aFree: 'はい。スタジオは無料のオープンソースで、モデルもスタジオ内から無料でダウンロードできます。', qOffline: 'オフラインで使えますか？ 音楽はどこかに送られますか？', qLicense: '作った曲は使えますか？', qLora: '自分のスタイルで学習させられますか？', qAgent: 'AI エージェントから操作できますか？', qInside: 'ダウンロードの中身は？', qBuilt: 'どのように作られていますか？', updated: '更新日', stars: 'GitHub スター' },
-  ko: { starCta: 'GitHub에서 스타 주기', download: '다운로드', moreSamples: '더 많은 예시', faqTitle: '자주 묻는 질문', qGpu: '어떤 그래픽 카드가 필요한가요?', qFree: '무료인가요?', aFree: '네. 스튜디오는 무료 오픈 소스이며, 모델도 스튜디오 안에서 무료로 내려받습니다.', qOffline: '인터넷 없이 되나요? 내 음악이 어딘가로 전송되나요?', qLicense: '만든 곡을 사용할 수 있나요?', qLora: '내 스타일로 학습시킬 수 있나요?', qAgent: 'AI 에이전트가 사용할 수 있나요?', qInside: '다운로드에는 무엇이 들어 있나요?', qBuilt: '어떻게 만들어졌나요?', updated: '업데이트', stars: 'GitHub 스타' },
+  en: { starCta: 'Star on GitHub', download: 'Download', moreSamples: 'More examples', faqTitle: 'Questions', qGpu: 'What graphics card do I need?', qFree: 'Is it free?', aFree: 'Yes. The studio is free and open source, and the models download for free from inside it.', qOffline: 'Does it work offline? Is my music sent anywhere?', qLicense: 'Can I use the songs I make?', qLora: 'Can I train it on my own style?', qAgent: 'Can an AI agent use it?', qInside: 'What is inside the download?', qBuilt: 'How is it built?', updated: 'Updated', stars: 'GitHub stars', reviewsTitle: 'Community reviews', reviewsSub: 'Video reviews and tutorials made by the community.', reviewsCta: 'Made a review or tutorial? Put a link to the project in the description — we feature the best here. Send yours through', reviewsMore: 'More' },
+  ru: { starCta: 'Поставить звезду', download: 'Скачать', moreSamples: 'Ещё примеры', faqTitle: 'Вопросы', qGpu: 'Какая нужна видеокарта?', qFree: 'Это бесплатно?', aFree: 'Да. Студия бесплатная и с открытым кодом, модели скачиваются бесплатно прямо из неё.', qOffline: 'Работает ли без интернета? Уходит ли куда-то моя музыка?', qLicense: 'Можно ли использовать сделанные песни?', qLora: 'Можно ли обучить её своему стилю?', qAgent: 'Может ли ею управлять ИИ-агент?', qInside: 'Что внутри установщика?', qBuilt: 'Как она устроена?', updated: 'Обновлено', stars: 'Звёзды на GitHub', reviewsTitle: 'Обзоры от сообщества', reviewsSub: 'Видеообзоры и туториалы, снятые сообществом.', reviewsCta: 'Сняли обзор или туториал? Добавьте ссылку на проект в описание — лучшие попадут сюда. Пришлите свой через', reviewsMore: 'Ещё' },
+  zh: { starCta: '在 GitHub 上加星', download: '下载', moreSamples: '更多示例', faqTitle: '常见问题', qGpu: '需要什么显卡？', qFree: '免费吗？', aFree: '是的。工作室免费且开源，模型也可以在其中免费下载。', qOffline: '没有网络能用吗？我的音乐会被上传吗？', qLicense: '生成的歌曲可以使用吗？', qLora: '能用我自己的风格训练吗？', qAgent: 'AI 智能体能操作它吗？', qInside: '安装包里有什么？', qBuilt: '它是如何构建的？', updated: '更新于', stars: 'GitHub 星标', reviewsTitle: '社区评测', reviewsSub: '来自社区的视频评测和教程。', reviewsCta: '做了评测或教程？在简介中加上项目链接——优秀的作品会出现在这里。欢迎投稿：', reviewsMore: '更多' },
+  ja: { starCta: 'GitHub でスター', download: 'ダウンロード', moreSamples: 'その他のサンプル', faqTitle: 'よくある質問', qGpu: 'どんなグラフィックカードが必要ですか？', qFree: '無料ですか？', aFree: 'はい。スタジオは無料のオープンソースで、モデルもスタジオ内から無料でダウンロードできます。', qOffline: 'オフラインで使えますか？ 音楽はどこかに送られますか？', qLicense: '作った曲は使えますか？', qLora: '自分のスタイルで学習させられますか？', qAgent: 'AI エージェントから操作できますか？', qInside: 'ダウンロードの中身は？', qBuilt: 'どのように作られていますか？', updated: '更新日', stars: 'GitHub スター', reviewsTitle: 'コミュニティのレビュー', reviewsSub: 'コミュニティによる動画レビューとチュートリアル。', reviewsCta: 'レビューやチュートリアルを作りましたか？説明欄にプロジェクトのリンクを追加してください。良い作品はここで紹介します。投稿は次から：', reviewsMore: 'もっと見る' },
+  ko: { starCta: 'GitHub에서 스타 주기', download: '다운로드', moreSamples: '더 많은 예시', faqTitle: '자주 묻는 질문', qGpu: '어떤 그래픽 카드가 필요한가요?', qFree: '무료인가요?', aFree: '네. 스튜디오는 무료 오픈 소스이며, 모델도 스튜디오 안에서 무료로 내려받습니다.', qOffline: '인터넷 없이 되나요? 내 음악이 어딘가로 전송되나요?', qLicense: '만든 곡을 사용할 수 있나요?', qLora: '내 스타일로 학습시킬 수 있나요?', qAgent: 'AI 에이전트가 사용할 수 있나요?', qInside: '다운로드에는 무엇이 들어 있나요?', qBuilt: '어떻게 만들어졌나요?', updated: '업데이트', stars: 'GitHub 스타', reviewsTitle: '커뮤니티 리뷰', reviewsSub: '커뮤니티가 만든 영상 리뷰와 튜토리얼.', reviewsCta: '리뷰나 튜토리얼을 만드셨나요? 설명란에 프로젝트 링크를 넣어 주세요. 좋은 작품은 여기에 소개됩니다. 제보는 다음에서:', reviewsMore: '더 보기' },
 };
 
 const escape = (text) => String(text)
@@ -155,6 +155,33 @@ ${s.inside.map((row) => `            <tr>${row.map((cell) => `<td>${escape(cell)
     ],
   };
 
+  const reviews = STUDIO.reviews ? (() => {
+    const featured = STUDIO.reviews.slice(0, STUDIO.reviewsFeatured || 0);
+    const more = STUDIO.reviews.slice(STUDIO.reviewsFeatured || 0);
+    const player = (r) => `      <figure class="player">
+        <button type="button" class="lite" data-id="${r.id}" aria-label="${escape(r.by)}">
+          <img src="https://i.ytimg.com/vi/${r.id}/hqdefault.jpg" alt="" loading="lazy" width="480" height="360" />
+          <span class="tag">${escape(r.lang)}</span>
+          <span class="play" aria-hidden="true"></span>
+        </button>
+        <figcaption>${escape(r.by)}</figcaption>
+      </figure>`;
+    return `  <section id="reviews">
+    <h2>${escape(w.reviewsTitle)}</h2>
+    <p class="sub">${escape(w.reviewsSub)}</p>
+${featured.length ? `    <div class="players">
+${featured.map(player).join('\n')}
+    </div>
+` : ''}${more.length ? `    <details class="more reviews-more"><summary>${escape(w.reviewsMore)} (${more.length})</summary>
+      <div class="players">
+${more.map(player).join('\n')}
+      </div>
+    </details>
+` : ''}    <p class="reviews-cta"><span>${escape(w.reviewsCta)}</span> <a href="${REPO}/issues">Issues →</a></p>
+  </section>
+`;
+  })() : '';
+
   return `<!doctype html>
 <html lang="${lang}">
 <head>
@@ -220,7 +247,7 @@ ${tiles}
     </div>
   </section>
 
-  <section id="screenshots">
+${reviews}  <section id="screenshots">
     <h2>${escape(s.shotsTitle)}</h2>
     <p class="sub">${escape(s.shotsSub)}</p>
     <div class="gallery">
@@ -279,6 +306,15 @@ document.addEventListener('click', (event) => {
   if (event.target.closest('#viewer')) closeViewer();
 });
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeViewer(); });
+// a review thumbnail swaps to the real player only when clicked: a fast page and clean cards until then
+document.addEventListener('click', (event) => {
+  const lite = event.target.closest('#reviews .lite');
+  if (!lite) return;
+  const frame = document.createElement('div');
+  frame.className = 'frame';
+  frame.innerHTML = '<iframe width="560" height="315" src="https://www.youtube.com/embed/' + lite.dataset.id + '?autoplay=1" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>';
+  lite.replaceWith(frame);
+});
 // the download buttons name the latest release as GitHub has it, so a new release needs no new page
 fetch('https://api.github.com/repos/${REPO.replace('https://github.com/', '')}/releases/latest')
   .then((response) => (response.ok ? response.json() : Promise.reject(new Error('GitHub answered ' + response.status))))
