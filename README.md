@@ -508,7 +508,7 @@ statistics off entirely: no id exists and nothing is counted.
 
 ## Authors
 
-- **Nerual Dreming** — [Telegram](https://t.me/nerual_dreming) | [neuro-cartel.com](https://neuro-cartel.com) | [ArtGeneration.me](https://artgeneration.me)
+- **Nerual Dreming** — [Telegram](https://t.me/nerual_dreming) | [X](https://x.com/nerualdreming) | [neuro-cartel.com](https://neuro-cartel.com) | [ArtGeneration.me](https://artgeneration.me)
 - **Нейро-Софт** — [Telegram](https://t.me/neuroport) | portable neural networks
 
 ## Acknowledgements

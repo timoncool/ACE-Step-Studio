@@ -137,7 +137,7 @@ ${s.inside.map((row) => `            <tr>${row.map((cell) => `<td>${escape(cell)
   ];
 
   const author = { '@type': 'Person', '@id': 'https://github.com/timoncool#person', name: 'Nerual Dreming', url: 'https://github.com/timoncool',
-    sameAs: ['https://github.com/timoncool', 'https://t.me/nerual_dreming', 'https://artgeneration.me'] };
+    sameAs: ['https://github.com/timoncool', 'https://t.me/nerual_dreming', 'https://x.com/nerualdreming', 'https://artgeneration.me'] };
   const ld = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -274,6 +274,7 @@ ${faq.map(({ q, html }) => `    <details><summary>${escape(q)}</summary><div cla
     <div class="pills">
       <a class="pill" href="https://github.com/timoncool">GitHub · @timoncool</a>
       <a class="pill" href="https://t.me/nerual_dreming">Telegram · @nerual_dreming</a>
+      <a class="pill" href="https://x.com/nerualdreming">X · @nerualdreming</a>
       <a class="pill" href="https://t.me/neuroport">Telegram · @neuroport</a>
       <a class="pill" href="https://artgeneration.me">ArtGeneration.me</a>
       <a class="pill" href="donate.html?lang=${lang}">${escape(s.ctaDonate)}</a>

@@ -46,6 +46,7 @@
 
 [![GitHub](https://img.shields.io/badge/@timoncool-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/timoncool)
 [![Telegram](https://img.shields.io/badge/Telegram-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/nerual_dreming)
+[![X](https://img.shields.io/badge/X-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/nerualdreming)
 [![ArtGeneration.me](https://img.shields.io/badge/ArtGeneration.me-000?style=for-the-badge)](https://artgeneration.me)
 
 </div>

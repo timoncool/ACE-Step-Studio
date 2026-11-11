@@ -231,6 +231,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
                   <p className="text-xs leading-5">{t('authorLine')}</p>
                   <div className="flex flex-wrap gap-2">
                     <a href="https://t.me/nerual_dreming" target="_blank" rel="noopener noreferrer" className="rounded-lg bg-[#2AABEE] px-3 py-1.5 text-xs font-medium text-white">Telegram · @nerual_dreming</a>
+                    <a href="https://x.com/nerualdreming" target="_blank" rel="noopener noreferrer" className="rounded-lg bg-black px-3 py-1.5 text-xs font-medium text-white">X · @nerualdreming</a>
                     <a href="https://t.me/neuroport" target="_blank" rel="noopener noreferrer" className="rounded-lg bg-[#2AABEE]/80 px-3 py-1.5 text-xs font-medium text-white">Telegram · @neuroport</a>
                     <a href="https://github.com/timoncool" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-medium text-white dark:bg-zinc-700">
                       <SiGithub size={14} />timoncool
