@@ -31,7 +31,7 @@ rm -rf "$build"
 # a processor build: a CUDA toolkit in the container (the engine's) would make HOT-Step define GGML_USE_CUDA
 # for its sources without CUDA's headers, so the toolkit is kept out of this configure
 cmake -S "$worktree/engine" -B "$build" -G Ninja -DCMAKE_BUILD_TYPE=Release \
-    -DGGML_NATIVE=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON -DHOT_STEP_ORT_PATHS=OFF \
+    -DGGML_NATIVE=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON -DGGML_LLAMAFILE=ON -DHOT_STEP_ORT_PATHS=OFF \
     -DCMAKE_DISABLE_FIND_PACKAGE_CUDAToolkit=ON
 # the backends are modules nothing links against, so each is a target of its own
 variants="$(sed -n 's/^build \(ggml-cpu-[a-z0-9_]*\): phony.*/\1/p' "$build/build.ninja" | sort -u | tr '\n' ' ')"
