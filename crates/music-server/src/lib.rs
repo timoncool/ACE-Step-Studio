@@ -29,6 +29,7 @@ mod engine_runtime;
 mod lyrics_db;
 mod mcp;
 mod lyrics_sync;
+mod subimport;
 mod comfy_export;
 mod remote;
 pub use remote::{set_asset_source, AssetSource};
@@ -1103,7 +1104,7 @@ pub async fn serve() -> anyhow::Result<()> {
         .route("/v1/karaoke/install", post(karaoke_install))
         .route("/v1/karaoke/cancel", post(cancel_karaoke_download))
         .route("/v1/karaoke/remove", post(karaoke_remove))
-        .route("/v1/library/songs/{id}/karaoke", post(create_song_karaoke).delete(delete_song_karaoke))
+        .route("/v1/library/songs/{id}/karaoke", post(create_song_karaoke).put(set_song_karaoke).delete(delete_song_karaoke))
         .route("/v1/openrouter/catalog", get(openrouter_catalog))
         .route("/v1/openrouter/catalog/refresh", post(refresh_openrouter_catalog))
         .route("/v1/openrouter/transcriptions", post(create_openrouter_transcription))
@@ -6798,6 +6799,54 @@ async fn delete_song_karaoke(
     Ok(Json(serde_json::json!({ "lrc": Value::Null })))
 }
 
+#[derive(Debug, Deserialize)]
+struct KaraokeSetRequest {
+    /// The karaoke as LRC, edited line by line in the window.
+    #[serde(default)]
+    lrc: Option<String>,
+    /// A subtitle file's text (SRT, ASS or LRC) and its name, which says its format.
+    #[serde(default)]
+    content: Option<String>,
+    #[serde(default)]
+    file_name: Option<String>,
+}
+
+/// Sets a song's karaoke from the person's own subtitles or from its lines
+/// edited in the window, in place of the recognised timings.
+async fn set_song_karaoke(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Json(request): Json<KaraokeSetRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    let cues = match (&request.content, &request.lrc) {
+        (Some(content), _) => {
+            let extension = request
+                .file_name
+                .as_deref()
+                .and_then(|name| std::path::Path::new(name).extension())
+                .and_then(|extension| extension.to_str())
+                .unwrap_or("srt");
+            subimport::parse(content, extension)
+        }
+        (None, Some(lrc)) => subimport::parse(lrc, "lrc"),
+        (None, None) => return Err(api_error(StatusCode::BAD_REQUEST, "send lrc, or content with file_name".into())),
+    };
+    if cues.is_empty() {
+        return Err(api_error(StatusCode::BAD_REQUEST, "karaoke.no-lines".into()));
+    }
+    // edited lines are kept as written, so a line left alone keeps the times of its words
+    let lrc = match (&request.content, &request.lrc) {
+        (None, Some(lrc)) => format!("{}\n", lrc.trim_end()),
+        _ => subimport::to_lrc(&cues),
+    };
+    state
+        .library
+        .set_song_lrc(&id, &lrc)
+        .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
+        .ok_or_else(|| api_error(StatusCode::NOT_FOUND, "no such song".into()))?;
+    Ok(Json(serde_json::json!({ "lrc": lrc, "lines": cues.len() })))
+}
+
 /// The cloud path: base64 the audio, ask for verbose output, read the times.
 async fn karaoke_words_from_openrouter(
     state: &AppState,
@@ -7767,11 +7816,12 @@ async fn transcribe_to_midi(state: &AppState, size: &'static midi::Size, audio: 
         let mut live = midi::Events::default();
         let mut on_event = |artifacts: &[acpp_server::TaskArtifact]| {
             let mut chunks = None;
-            for artifact in artifacts {
+            // the notes and the progress come as MuScriptor's event JSON; the stream's other artifacts are the result's
+            for artifact in artifacts.iter().filter(|artifact| artifact.meta.get("format").and_then(Value::as_str) == Some("muscriptor-event-json")) {
                 match live.take_streamed(&artifact.payload) {
                     Ok(Some(progress)) => chunks = Some(progress),
                     Ok(None) => {}
-                    Err(error) => studio_log!("[ERROR] MuScriptor: {error}"),
+                    Err(error) => studio_log!("[ERROR] MuScriptor's streamed {} ({}, {} bytes): {error}", artifact.id, artifact.kind, artifact.payload.len()),
                 }
             }
             if let Some(run) = background.midi_run.blocking_write().as_mut() {

@@ -22,6 +22,7 @@ const REASONS: Record<string, string> = {
     'karaoke.no-words': 'karaokeNoWords',
     'karaoke.downloading': 'karaokeDownloading',
     'karaoke.model-missing': 'karaokeModelMissing',
+    'karaoke.no-lines': 'karaokeNoLines',
 };
 
 /** The lyrics a library song or an audio file sings, heard by the recogniser chosen for karaoke. */

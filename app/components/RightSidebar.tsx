@@ -12,6 +12,7 @@ import { openExternal } from '../services/externalLinks';
 import { apiUrl } from '../services/apiBase';
 import { SongDropdownMenu } from './SongDropdownMenu';
 import { KaraokeAction } from './KaraokeAction';
+import { KaraokeFile } from './KaraokeFile';
 import { SongCover } from './AlbumCover';
 import { downloadSongAudio } from '../services/songDownload';
 import { saveFile } from '../services/saveFile';
@@ -717,6 +718,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                     <SongVersions song={song} onChanged={(next) => onSongUpdate?.(next)} />
 
                     <KaraokeAction song={song} onDone={(lrc) => onSongUpdate?.({ ...song, lrcContent: lrc })} />
+                    <KaraokeFile song={song} onDone={(lrc) => onSongUpdate?.({ ...song, lrcContent: lrc })} />
 
                     {/* Download LRC */}
                     {song.lrcContent && song.lrcContent.trim().length > 0 && (
