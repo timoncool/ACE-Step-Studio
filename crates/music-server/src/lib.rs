@@ -1771,13 +1771,19 @@ async fn install_acpp(state: &AppState, build: acpp_server::asset::Build, scope:
 /// The bytes audio.cpp's server of `build` still needs, the engine's cuBLAS 13 among them for the CUDA 13 build.
 fn acpp_missing_bytes(state: &AppState, build: acpp_server::asset::Build) -> u64 {
     let server: u64 = state.lyrics_sync.acpp().missing(build).iter().map(|asset| asset.bytes).sum();
-    let cublas: u64 = if build == acpp_server::asset::Build::Cuda13 { state.engine_runtime.missing(cuda_build::CudaBuild::Cuda13).iter().map(|asset| asset.bytes).sum() } else { 0 };
+    let cublas: u64 = if takes_engine_cublas(build) { state.engine_runtime.missing(cuda_build::CudaBuild::Cuda13).iter().map(|asset| asset.bytes).sum() } else { 0 };
     server + cublas
 }
 
-/// HT-Demucs can run on this device choice: its model and audio.cpp's server of that build.
+/// The audio.cpp server build that loads the music engine's cuBLAS 13 rather than its own: CUDA 13 on Windows.
+fn takes_engine_cublas(build: acpp_server::asset::Build) -> bool {
+    cfg!(windows) && build == acpp_server::asset::Build::Cuda13
+}
+
+/// HT-Demucs can run on this device choice: its model, audio.cpp's server of that build and the engine's cuBLAS 13
+/// that build loads on Windows.
 fn htdemucs_installed(state: &AppState, runtime: lyrics_sync::OnnxFlavour) -> bool {
-    state.separator.is_installed() && separation_build(runtime).is_ok_and(|build| state.lyrics_sync.acpp().installed(build))
+    state.separator.is_installed() && separation_build(runtime).is_ok_and(|build| acpp_missing_bytes(state, build) == 0)
 }
 
 /// Stops a download. What arrived stays on disk: pressing this again later
@@ -10634,6 +10640,17 @@ mod tests {
         assert!(missing.contains("number 1") && missing.contains("0: NVIDIA GeForce RTX 4090"), "{missing}");
         assert!(missing_chosen_card(Some(0), Some(&[])).expect("no card at all").contains("lists no NVIDIA card"));
         assert_eq!(missing_chosen_card(Some(7), None), None, "nvidia-smi did not answer: the card is not called gone");
+    }
+
+    /// Stems are ready on the card only with every file the server loads: on Windows the CUDA 13 build takes the music
+    /// engine's cuBLAS 13; on Linux it brings its own.
+    #[test]
+    fn the_cuda13_server_counts_the_engine_cublas_only_where_it_loads_it() {
+        use acpp_server::asset::Build;
+        assert_eq!(takes_engine_cublas(Build::Cuda13), cfg!(windows));
+        for build in [Build::Cuda12, Build::Vulkan, Build::Cpu, Build::Metal] {
+            assert!(!takes_engine_cublas(build), "{build:?}");
+        }
     }
 
 
