@@ -1025,6 +1025,23 @@ pub fn align_lyrics_words(words: &[(f64, String)], lyrics: &str) -> Vec<TimedLin
 /// that was not heard clearly is left out and filled in between its
 /// neighbours instead. A repeated chorus consumes its occurrences in order.
 pub fn align_lyrics(words: &[(f64, String)], lyrics: &str) -> Vec<(f64, String)> {
+    align_lyrics_with(words, lyrics, GAPS)
+}
+
+/// What the alignment pays for heard words it leaves without a line, as the
+/// gap penalty of a sequence alignment: a line placed past a sung stretch the
+/// text does not cover costs `per_word` for each word skipped, so leaping over
+/// a verse for a line matched only in part costs more than that match brings.
+/// `leading` counts the words before the first placed line as well.
+#[derive(Debug, Clone, Copy)]
+pub struct Gaps {
+    pub per_word: f64,
+    pub leading: bool,
+}
+
+pub const GAPS: Gaps = Gaps { per_word: 0.02, leading: true };
+
+pub fn align_lyrics_with(words: &[(f64, String)], lyrics: &str, gaps: Gaps) -> Vec<(f64, String)> {
     let lines: Vec<&str> = lyrics
         .lines()
         .map(str::trim)
@@ -1079,14 +1096,16 @@ pub fn align_lyrics(words: &[(f64, String)], lyrics: &str) -> Vec<(f64, String)>
     // a chorus the model sang twice in a row shows its lines as they are first
     // sung, not where the recogniser heard them best.
     let credit = |score: f64| if score >= 0.7 { 1.0 } else { score };
-    let better = |left: (f64, usize, usize), right: (f64, usize, usize)| {
+    // (total, sum of placed line numbers, sum of starts, whether a line is placed yet)
+    type Kept = (f64, usize, usize, bool);
+    let better = |left: Kept, right: Kept| {
         left.0 > right.0 + 1e-9 || ((left.0 - right.0).abs() <= 1e-9 && (left.1, left.2) < (right.1, right.2))
     };
-    let mut best: Vec<Option<(f64, usize, usize)>> = vec![None; count + 1];
-    best[0] = Some((0.0, 0, 0));
+    let mut best: Vec<Option<Kept>> = vec![None; count + 1];
+    best[0] = Some((0.0, 0, 0, false));
     let mut back: Vec<Vec<(usize, Option<usize>)>> = Vec::with_capacity(lines.len());
     for (index, &span) in spans.iter().enumerate() {
-        let mut next: Vec<Option<(f64, usize, usize)>> = vec![None; count + 1];
+        let mut next: Vec<Option<Kept>> = vec![None; count + 1];
         let mut choice = vec![(0usize, None); count + 1];
         for from in 0..=count {
             let Some(so_far) = best[from] else { continue };
@@ -1103,7 +1122,8 @@ pub fn align_lyrics(words: &[(f64, String)], lyrics: &str) -> Vec<(f64, String)>
                     continue;
                 }
                 let after = (start + span).min(count);
-                let total = (so_far.0 + credit(score), so_far.1 + index, so_far.2 + start);
+                let skipped = if so_far.3 || gaps.leading { start - from } else { 0 };
+                let total = (so_far.0 + credit(score) - gaps.per_word * skipped as f64, so_far.1 + index, so_far.2 + start, true);
                 if next[after].is_none_or(|kept| better(total, kept)) {
                     next[after] = Some(total);
                     choice[after] = (from, Some(start));
@@ -1761,6 +1781,32 @@ mod parakeet_live {
         let lyrics = std::fs::read_to_string(env_path("STUDIO_TEST_LYRICS")).expect("the lyrics");
         for line in align_lyrics_words(&words, &lyrics) {
             studio_log!("L {:7.2} {}", line.start, line.words.iter().map(|(_, word)| word.as_str()).collect::<Vec<_>>().join(" "));
+        }
+    }
+
+    /// The line starts of `STUDIO_TEST_LYRICS` over the words a run of the test above logged (`W <time> <word>` lines of
+    /// `STUDIO_TEST_WORDS`), with the gap penalty `STUDIO_TEST_GAP` per skipped word, counting the words before the first
+    /// line when `STUDIO_TEST_GAP_LEADING` is 1: the penalty is tried without the engine.
+    #[test]
+    #[ignore = "needs STUDIO_TEST_WORDS, STUDIO_TEST_LYRICS and STUDIO_TEST_GAP"]
+    fn line_starts_with_a_gap_penalty_over_logged_words() {
+        let logged = std::fs::read_to_string(env_path("STUDIO_TEST_WORDS")).expect("the logged words");
+        let words: Vec<(f64, String)> = logged
+            .lines()
+            .filter_map(|line| line.trim_start().strip_prefix("W "))
+            .filter_map(|rest| {
+                let mut parts = rest.trim().splitn(2, ' ');
+                let at = parts.next()?.parse::<f64>().ok()?;
+                Some((at, parts.next()?.trim().to_string()))
+            })
+            .collect();
+        assert!(!words.is_empty(), "no W lines in the log");
+        let lyrics = std::fs::read_to_string(env_path("STUDIO_TEST_LYRICS")).expect("the lyrics");
+        let per_word: f64 = std::env::var("STUDIO_TEST_GAP").expect("STUDIO_TEST_GAP").parse().expect("a number");
+        let leading = std::env::var("STUDIO_TEST_GAP_LEADING").is_ok_and(|value| value == "1");
+        studio_log!("gap {per_word} leading {leading}: {} words", words.len());
+        for (at, line) in align_lyrics_with(&words, &lyrics, Gaps { per_word, leading }) {
+            studio_log!("L {at:7.2} {line}");
         }
     }
 
