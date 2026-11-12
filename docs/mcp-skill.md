@@ -11,9 +11,12 @@ studio, and the user sees what you do in the studio's window.
 
 ## If the studio is not running yet
 
-1. It is a Windows desktop application. If it is not installed, download the installer or
-   the portable archive from https://github.com/timoncool/ACE-Step-Studio/releases/latest (it needs an
-   NVIDIA card; the first start offers to download the models).
+1. If it is not installed, take the package for this computer from
+   https://github.com/timoncool/ACE-Step-Studio/releases/latest: the installer or the portable
+   archive for Windows, the .dmg for a Mac with Apple silicon, the .deb or the AppImage for Linux
+   (experimental). An NVIDIA card is not required: without one the engine runs on the processor,
+   many times slower, and AMD and Intel cards go through Vulkan, untested - see the README. The
+   first start offers to download the models.
 2. Start it. The MCP server is up as soon as its window is: `http://127.0.0.1:8792/mcp`.
    Nothing else to install - no npx, no bridge.
 3. Connect (below), then call `studio_status`. If the models are missing, `models_catalog`
