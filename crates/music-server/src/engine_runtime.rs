@@ -17,7 +17,7 @@
 
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 
 use crate::cuda_build::CudaBuild;
 use crate::downloads::{Asset, AssetKind, Downloader};
@@ -197,119 +197,6 @@ fn is_on_the_search_path(library: &str) -> bool {
     std::env::split_paths(&path).any(|directory| directory.join(library).is_file())
 }
 
-/// The DLLs a Windows binary names in its import table and its delay-load table.
-///
-/// NVIDIA's deployment guide says to read this with `dumpbin /IMPORTS` and
-/// redistribute exactly what it lists, because the binary compatibility
-/// version is part of the file name - `cublas64_13.dll`, not `cublas.dll`.
-/// Reading it here means the release can check itself instead of trusting
-/// that whoever built it remembered.
-pub fn imported_libraries(binary: &Path) -> Result<Vec<String>> {
-    let data = std::fs::read(binary)?;
-    let at = |offset: usize| -> Result<u32> {
-        let bytes = data.get(offset..offset + 4).context("truncated PE header")?;
-        Ok(u32::from_le_bytes(bytes.try_into().expect("four bytes")))
-    };
-    let short = |offset: usize| -> Result<u16> {
-        let bytes = data.get(offset..offset + 2).context("truncated PE header")?;
-        Ok(u16::from_le_bytes(bytes.try_into().expect("two bytes")))
-    };
-
-    let pe = at(0x3c)? as usize;
-    if data.get(pe..pe + 4) != Some(b"PE\0\0") {
-        bail!("{} is not a PE binary", binary.display());
-    }
-    let sections = short(pe + 6)? as usize;
-    let optional_size = short(pe + 20)? as usize;
-    let optional = pe + 24;
-    // 0x20b is PE32+, whose data directories start 16 bytes further in.
-    let directories = optional + if short(optional)? == 0x20b { 112 } else { 96 };
-
-    let headers: Vec<(u32, u32, u32)> = (0..sections)
-        .map(|index| {
-            let base = optional + optional_size + index * 40;
-            Ok((at(base + 12)?, at(base + 16)?, at(base + 20)?))
-        })
-        .collect::<Result<_>>()?;
-    let offset_of = |rva: u32| -> Option<usize> {
-        headers
-            .iter()
-            .find(|(virtual_address, size, _)| rva >= *virtual_address && rva < virtual_address + size)
-            .map(|(virtual_address, _, raw)| (raw + (rva - virtual_address)) as usize)
-    };
-
-    let mut names = Vec::new();
-    // (data directory, descriptor size, offset of the name's RVA in it): the import table (1) and the delay-load
-    // table (13), where a library loaded on first use is named.
-    for (directory, descriptor_size, name_field) in [(1usize, 20usize, 12usize), (13, 32, 4)] {
-        let table_rva = at(directories + directory * 8)?;
-        if table_rva == 0 {
-            continue;
-        }
-        let mut entry = offset_of(table_rva).context("import table points outside the file")?;
-        loop {
-            let descriptor = data.get(entry..entry + descriptor_size).context("truncated import table")?;
-            if descriptor.iter().all(|byte| *byte == 0) {
-                break;
-            }
-            let name_rva = u32::from_le_bytes(descriptor[name_field..name_field + 4].try_into().expect("four bytes"));
-            let start = offset_of(name_rva).context("an import name points outside the file")?;
-            let end = data[start..].iter().position(|byte| *byte == 0).context("unterminated import name")? + start;
-            names.push(String::from_utf8_lossy(&data[start..end]).into_owned());
-            entry += descriptor_size;
-        }
-    }
-    Ok(names)
-}
-
-/// Libraries every Windows machine has, or that arrive with the display
-/// driver. Everything else has to be shipped or downloaded.
-fn is_provided_by_the_system(name: &str) -> bool {
-    let name = name.to_ascii_lowercase();
-    name.starts_with("api-ms-win-")
-        || name.starts_with("ext-ms-win-")
-        // The display driver's own library: NVIDIA's guide is explicit that
-        // this one is never redistributed - the user installs a driver.
-        || name == "nvcuda.dll"
-        // The Vulkan loader arrives with every display driver, AMD's and Intel's as NVIDIA's.
-        || name == "vulkan-1.dll"
-        || [
-            "kernel32.dll",
-            "kernelbase.dll",
-            "user32.dll",
-            "advapi32.dll",
-            "shell32.dll",
-            "ole32.dll",
-            "oleaut32.dll",
-            "ws2_32.dll",
-            "crypt32.dll",
-            "bcrypt.dll",
-            "bcryptprimitives.dll",
-            "ntdll.dll",
-            "rpcrt4.dll",
-            "setupapi.dll",
-            "cfgmgr32.dll",
-            "gdi32.dll",
-            "version.dll",
-            "dbghelp.dll",
-            "powrprof.dll",
-            "psapi.dll",
-            "userenv.dll",
-            "winmm.dll",
-            "msvcrt.dll",
-            "d3d12.dll",
-            "dxgi.dll",
-            "dxcore.dll",
-            "shlwapi.dll",
-            "imm32.dll",
-            "pdh.dll",
-            "iphlpapi.dll",
-            "secur32.dll",
-            "ncrypt.dll",
-        ]
-        .contains(&name.as_str())
-}
-
 /// What a binary needs that is neither beside it nor supplied by Windows.
 ///
 /// Follows the chain: `ace-server.exe` imports `ggml.dll`, which imports
@@ -324,23 +211,7 @@ pub fn unresolved_dependencies(directory: &Path, entry_point: &str) -> Result<Ve
 /// not supply: a downloaded tool resolves beside itself first, then in the
 /// engine's folder, which the studio puts on its PATH.
 pub fn unresolved_in(directories: &[PathBuf], entry_point: &Path) -> Result<Vec<String>> {
-    let mut seen: Vec<String> = Vec::new();
-    let mut queue = vec![entry_point.to_path_buf()];
-    let mut missing = Vec::new();
-    while let Some(path) = queue.pop() {
-        for import in imported_libraries(&path)? {
-            let lowered = import.to_ascii_lowercase();
-            if is_provided_by_the_system(&import) || seen.contains(&lowered) {
-                continue;
-            }
-            seen.push(lowered);
-            match directories.iter().map(|directory| directory.join(&import)).find(|candidate| candidate.is_file()) {
-                Some(found) => queue.push(found),
-                None => missing.push(import),
-            }
-        }
-    }
-    Ok(missing)
+    dub_core::compat::unresolved_in(directories, &[], entry_point).map_err(anyhow::Error::msg)
 }
 
 
@@ -443,8 +314,8 @@ mod tests {
         }
     }
 
-    /// The import table is the whole basis of the check above; if it cannot be
-    /// read, the check silently passes on anything.
+    /// Every downloaded tool finds what it imports beside itself, in the engine's
+    /// folder or in Windows.
     #[test]
     #[cfg(windows)]
     #[ignore = "reads runtimes downloaded into a data folder: scripts/check-dll-imports.ps1"]
@@ -481,21 +352,6 @@ mod tests {
         }
         assert!(checked > 0, "no downloaded runtime under {}", data.display());
         assert!(problems.is_empty(), "downloaded runtimes import libraries nothing supplies:\n{}", problems.join("\n"));
-    }
-
-    #[test]
-    #[cfg(windows)]
-    fn imports_are_read_out_of_a_real_binary() {
-        let system = Path::new("C:/Windows/System32/notepad.exe");
-        if !system.is_file() {
-            return;
-        }
-        let imports = imported_libraries(system).expect("notepad has an import table");
-        assert!(!imports.is_empty(), "no imports were read at all");
-        assert!(
-            imports.iter().all(|name| [".dll", ".drv"].iter().any(|extension| name.to_ascii_lowercase().ends_with(extension))),
-            "{imports:?}"
-        );
     }
 
     /// The libraries count as installed only once they are beside the engine.

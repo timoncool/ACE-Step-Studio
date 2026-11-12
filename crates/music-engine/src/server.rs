@@ -795,6 +795,25 @@ mod tests {
         assert_eq!(strip_verbatim(Path::new(r"\\?\UNC\server\share\mm.exe")), PathBuf::from(r"\\?\UNC\server\share\mm.exe"));
     }
 
+    #[test]
+    fn a_log_that_is_not_utf8_is_still_trimmed_to_whole_lines() {
+        let mut log = b"old line one\nold \xff\xfe line two\n".to_vec();
+        log.extend_from_slice(b"new line three\nnew line four\n");
+        let kept = newer_half(&log);
+        assert!(kept.len() < log.len());
+        assert!(log.ends_with(kept));
+        assert_eq!(kept, b"new line four\n");
+    }
+
+    #[test]
+    fn a_middle_inside_a_character_keeps_whole_lines() {
+        let log = "строка один\nстрока два\nстрока три\n".as_bytes();
+        let kept = newer_half(log);
+        assert!(std::str::from_utf8(kept).is_ok());
+        assert!(log.ends_with(kept));
+        assert!(kept.is_empty() || log[log.len() - kept.len() - 1] == b'\n');
+    }
+
     fn fresh_directory(label: &str) -> PathBuf {
         let path = std::env::temp_dir().join(format!("music-engine-{label}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&path);
@@ -972,10 +991,26 @@ fn trim_log_if_huge() {
     if meta.len() < LIMIT {
         return;
     }
-    let Ok(text) = std::fs::read_to_string(&path) else { return };
-    let keep = text.split_at(text.len() / 2).1;
-    let start = keep.find(char::is_control).map(|index| index + 1).unwrap_or(0);
-    let _ = std::fs::write(&path, &keep[start..]);
+    let bytes = match std::fs::read(&path) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            eprintln!("[ERROR] the engine log {} could not be read to trim it: {error}", path.display());
+            return;
+        }
+    };
+    if let Err(error) = std::fs::write(&path, newer_half(&bytes)) {
+        eprintln!("[ERROR] the engine log {} could not be trimmed: {error}", path.display());
+    }
+}
+
+/// The newer half of a log, from the first whole line after its middle. Bytes,
+/// not text: an engine writes whatever its libraries print, not always UTF-8.
+fn newer_half(log: &[u8]) -> &[u8] {
+    let keep = &log[log.len() / 2..];
+    match keep.iter().position(|&byte| byte == b'\n') {
+        Some(index) => &keep[index + 1..],
+        None => keep,
+    }
 }
 
 pub fn startup_log_path() -> PathBuf {

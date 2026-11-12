@@ -13,6 +13,7 @@ $env:ACE_DLL_DATA = (Resolve-Path $DataRoot).Path
 $env:ACE_DLL_ENGINE = (Resolve-Path $EngineRoot).Path
 Push-Location (Join-Path $PSScriptRoot '..')
 try {
+    $ErrorActionPreference = 'Continue'
     cargo test -p music-server --lib engine_runtime::tests::downloaded_runtimes_can_be_loaded -- --ignored --nocapture
     if ($LASTEXITCODE -ne 0) { throw "DLL import check failed (exit $LASTEXITCODE)" }
 } finally {
