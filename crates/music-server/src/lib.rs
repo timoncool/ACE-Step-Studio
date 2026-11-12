@@ -5436,7 +5436,7 @@ fn start_hub() -> Option<studio_hub_client::Hub> {
     };
     let os_label = format!(
         "{} {}",
-        sysinfo::System::name().unwrap_or_else(|| std::env::consts::OS.to_string()),
+        sysinfo::System::name().unwrap_or_else(|_| std::env::consts::OS.to_string()),
         sysinfo::System::os_version().unwrap_or_default()
     )
     .to_ascii_lowercase();

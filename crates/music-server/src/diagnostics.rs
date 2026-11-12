@@ -97,7 +97,7 @@ async fn report(state: &AppState) -> Value {
     });
     json!({
         "version": crate::studio_version(),
-        "os": format!("{} ({})", sysinfo::System::long_os_version().or_else(sysinfo::System::name).unwrap_or_else(|| std::env::consts::OS.to_string()), std::env::consts::ARCH),
+        "os": format!("{} ({})", sysinfo::System::long_os_version().or_else(|_| sysinfo::System::name()).unwrap_or_else(|_| std::env::consts::OS.to_string()), std::env::consts::ARCH),
         "gpu": gpu,
         "cards": cards.into_iter().map(|(index, name, vram_gb)| json!({ "index": index, "name": name, "vram_gb": vram_gb })).collect::<Vec<_>>(),
         "memory": { "ram_used_mb": resources.ram_used_mb, "ram_total_mb": resources.ram_total_mb, "vram": resources.gpus.iter().map(|gpu| json!({ "name": gpu.name, "used_mb": gpu.vram_used_mb, "total_mb": gpu.vram_total_mb })).collect::<Vec<_>>() },

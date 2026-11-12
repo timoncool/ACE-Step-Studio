@@ -75,7 +75,7 @@ pub fn list() -> Vec<PresetView> {
 fn probe() -> &'static Hardware {
     static HARDWARE: OnceLock<Hardware> = OnceLock::new();
     HARDWARE.get_or_init(|| {
-        let mut system = System::new();
+        let mut system = System::new().expect("sysinfo has Windows, Linux and macOS");
         system.refresh_memory();
         let total_ram_gb = system.total_memory() as f64 / GIB;
         let (gpu_name, total_vram_gb) = nvidia_smi().or_else(other_card).unwrap_or_else(|| ("No NVIDIA GPU detected".into(), 0.0));

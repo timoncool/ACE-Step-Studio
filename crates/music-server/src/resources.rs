@@ -53,7 +53,7 @@ pub fn snapshot() -> ResourceSnapshot {
     if guard.is_none() {
         // The very first CPU reading has no previous sample to diff against and
         // would report a meaningless 100%. Prime it before the caller sees it.
-        let mut primed = System::new();
+        let mut primed = System::new().expect("sysinfo has Windows, Linux and macOS");
         primed.refresh_cpu_usage();
         std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
         *guard = Some(primed);
