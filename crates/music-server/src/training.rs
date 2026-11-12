@@ -514,7 +514,7 @@ pub(crate) fn listen_pack() -> &'static [Asset] {
             model(
                 "s-key",
                 "S-KEY (key)",
-                "https://huggingface.co/aaatmy/skey-onnx/resolve/main/skey.onnx",
+                "https://huggingface.co/aaatmy/skey-onnx/resolve/c04b6a2bc1d82e50b46d8669560d056f3a2344ab/skey.onnx",
                 "models/audio-facts/skey.onnx",
                 324_536,
             ),

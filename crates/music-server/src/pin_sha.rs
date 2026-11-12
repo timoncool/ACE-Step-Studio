@@ -61,7 +61,7 @@ const PINNED: &[(&str, &str)] = &[
     ("https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-win-x64-gpu_cuda12-1.30.0.zip", "d4667ea48eb0a10bc9b96b838f7b8975a6bf18de3bc5edd403a22e15c1458b23"),
     ("https://github.com/timoncool/YuE2-Studio/releases/download/hotstep-tools-2ef93a1c/ace-caption-windows-x64.zip", "a2d7495bee6f01c3b6c55c79aba23d91169d9a3ce70a4d0ed9a24bf23c1865b4"),
     ("https://github.com/timoncool/YuE2-Studio/releases/download/hotstep-tools-2ef93a1c/hotstep-tools-cuda-windows-x64.zip", "07e157864bec7bba62f491a24c54881810d6943cca4af986f14cc41a8e972390"),
-    ("https://huggingface.co/StemSplitio/htdemucs-6s-onnx/resolve/49df9b6989cf2150840ea65b0bef77a2e471b678/htdemucs_6s_fp16weights.onnx", "7ce55792e2231c93fbf92de95f5fd5b3a5e6c89f7db690dfd693e8f1dce56869"),
+    ("https://huggingface.co/aaatmy/skey-onnx/resolve/c04b6a2bc1d82e50b46d8669560d056f3a2344ab/skey.onnx", "50bac66d5b02868afad07a0b159f08495cc3f5d8492654587e828ed4686412b1"),
     ("https://huggingface.co/audio-cpp/audio.cpp-gguf/resolve/462b4cec041e06ffb3d8fcf0d8c655051b1cd9f5/HTDemucs-6stems-GGUF/htdemucs-6stems-f16.gguf", "1db9bd58af6995d8caab209c99f5a284212e5bd0654fbfd7e50ce1d5ac140ba9"),
     ("https://huggingface.co/chenmozhijin/BSRoformer-GGUF/resolve/df802a6773d25ba6ef785ff619daa3e510503168/GaboxR67/MelBandRoformers/melbandroformers/vocals/voc_fv6-Q8_0.gguf", "2cd84c9f24513749b0cb1a6ab3e3be5c5e2f7d0e8533e50512c1f394d2828a73"),
     ("https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf/resolve/29d097773436b69ff9feafd636ab4cf873786537/gemma-4-12b-it-qat-q4_0.gguf", "93567e57a8fe10b23569b9d9ec38cd005deedf71e29477c421a4b83f418a538b"),
@@ -164,6 +164,23 @@ mod tests {
         for (url, sha256) in PINNED {
             assert!(sha256.len() == 64 && sha256.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase()), "{url}: {sha256}");
         }
+    }
+
+
+    #[test]
+    fn no_download_follows_a_branch() {
+        let mut urls: Vec<&str> = Vec::new();
+        urls.extend(crate::lyrics_sync::assets().iter().map(|asset| asset.url));
+        urls.extend(crate::engine_runtime::ASSETS.iter().map(|asset| asset.url));
+        urls.extend(crate::assistant_runtime::ASSETS.iter().map(|asset| asset.url));
+        urls.extend([crate::separation::MODEL.url, crate::separation::ROFORMER_MODEL.url]);
+        urls.extend(crate::training::pack().iter().map(|asset| asset.url));
+        urls.extend(crate::training::listen_pack().iter().map(|asset| asset.url));
+        urls.extend(crate::midi::SIZES.iter().flat_map(crate::midi::weight_assets).map(|asset| asset.url));
+        let branches: Vec<&str> = urls.into_iter().filter(|url| url.contains("/resolve/main/") || url.contains("/raw/main/")).collect();
+        assert!(branches.is_empty(), "downloads that follow a branch instead of a pinned revision: {branches:#?}");
+        let skey = crate::training::listen_pack().iter().find(|asset| asset.id == "s-key").expect("the listening set downloads S-KEY");
+        assert!(sha256(skey.url).is_some(), "S-KEY names the SHA-256 of its pin");
     }
 
     #[test]
