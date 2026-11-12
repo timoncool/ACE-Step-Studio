@@ -8,6 +8,7 @@ import { ManualDownloads } from './ManualDownloads';
 import { MirrorOffer } from './MirrorOffer';
 import { DevicePicker, type Device } from './DevicePicker';
 import { AssistantExtras } from './AssistantSettings';
+import { AssistantRules } from './AssistantRules';
 import { KaraokeExtras } from './KaraokeSettings';
 import { HubTelemetryPreview } from './HubTelemetryPreview';
 import { setTelemetry } from '../services/studioHub';
@@ -1197,7 +1198,12 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
               cancelUrl="/v1/assistant/runtime/cancel"
               serverField
             >
-              {(engine) => <AssistantExtras engine={engine} />}
+              {(engine) => (
+                <>
+                  <AssistantExtras engine={engine} />
+                  {engine !== 'none' && <AssistantRules />}
+                </>
+              )}
             </OptionalGroup>
             <OptionalGroup
               title={t('stemsTitle')}

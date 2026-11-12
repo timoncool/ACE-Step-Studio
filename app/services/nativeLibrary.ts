@@ -223,12 +223,12 @@ export async function restoreTrashedSong(id: string): Promise<void> {
   await trashRequest(`/v1/library/trash/${encodeURIComponent(id)}/restore`, 'POST');
 }
 
-export async function deleteTrashedSong(id: string): Promise<{ files_left: string[] }> {
-  return trashRequest(`/v1/library/trash/${encodeURIComponent(id)}`, 'DELETE');
+export async function deleteTrashedSong(id: string): Promise<void> {
+  await trashRequest(`/v1/library/trash/${encodeURIComponent(id)}`, 'DELETE');
 }
 
-export async function emptyTrash(): Promise<{ files_left: string[] }> {
-  return trashRequest('/v1/library/trash', 'DELETE');
+export async function emptyTrash(): Promise<void> {
+  await trashRequest('/v1/library/trash', 'DELETE');
 }
 
 /** The thumbs-up, set or taken back in the library; answers with the song as stored. */

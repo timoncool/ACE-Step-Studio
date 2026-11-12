@@ -26,12 +26,11 @@ export const LibraryTrash: React.FC<{ onToast: (message: string, type?: 'success
 
   useEffect(() => { void load(); }, [load]);
 
-  const act = async (key: string, work: () => Promise<{ files_left?: string[] } | void>, done: string) => {
+  const act = async (key: string, work: () => Promise<void>, done: string) => {
     setBusy(key);
     try {
-      const answer = await work();
-      const left = answer && 'files_left' in answer ? answer.files_left ?? [] : [];
-      onToast(left.length > 0 ? `${t('trashFilesLeft')} ${left.join('; ')}` : done, left.length > 0 ? 'error' : 'success');
+      await work();
+      onToast(done, 'success');
       libraryChanged();
     } catch (error) {
       onToast(error instanceof Error ? error.message : String(error), 'error');

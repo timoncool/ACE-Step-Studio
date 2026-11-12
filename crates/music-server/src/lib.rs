@@ -816,6 +816,10 @@ struct AssistantConfig {
     cli_model: Option<String>,
     /// Explicit executable for that CLI; empty means PATH.
     cli_path: Option<String>,
+    /// The person's own rules for each task, put after the studio's guide.
+    own_rules: assistant::OwnRules,
+    /// Words and phrases the assistant must not write, one a line or comma-separated.
+    avoid_words: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -4506,23 +4510,37 @@ async fn delete_trashed_song(State(state): State<AppState>, Path(id): Path<Strin
     if !library::is_trashed(&song) {
         return Err(api_error(StatusCode::CONFLICT, "only a song in the bin is deleted for good".into()));
     }
-    let left = delete_for_good(&state, &id).map_err(|e| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("{e:#}")))?;
-    Ok(Json(serde_json::json!({ "deleted": true, "files_left": left })))
+    delete_for_good(&state, &id).map_err(|e| api_error(StatusCode::CONFLICT, format!("{e:#}")))?;
+    Ok(Json(serde_json::json!({ "deleted": true })))
 }
 
-/// Empties the bin.
+/// Empties the bin; a song whose files the system's recycle bin does not take stays, and is named.
 async fn empty_library_trash(State(state): State<AppState>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
-    let internal = |e: anyhow::Error| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("{e:#}"));
-    let ids: Vec<String> = state.library.trashed_songs().map_err(internal)?.into_iter().filter(|song| library::trashed_with(song).is_none()).map(|song| song.id).collect();
-    let mut left = Vec::new();
+    let ids: Vec<String> = state
+        .library
+        .trashed_songs()
+        .map_err(|e| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("{e:#}")))?
+        .into_iter()
+        .filter(|song| library::trashed_with(song).is_none())
+        .map(|song| song.id)
+        .collect();
+    let mut deleted = 0;
+    let mut stayed = Vec::new();
     for id in &ids {
-        left.extend(delete_for_good(&state, id).map_err(internal)?);
+        match delete_for_good(&state, id) {
+            Ok(()) => deleted += 1,
+            Err(error) => stayed.push(format!("{error:#}")),
+        }
     }
-    Ok(Json(serde_json::json!({ "deleted": ids.len(), "files_left": left })))
+    if !stayed.is_empty() {
+        return Err(api_error(StatusCode::CONFLICT, stayed.join("\n")));
+    }
+    Ok(Json(serde_json::json!({ "deleted": deleted })))
 }
 
-/// Deletes the songs of the bin older than `TRASH_DAYS` for good.
 fn purge_old_trash(state: &AppState) {
+    // a song the recycle bin keeps refusing is reported once, not every six hours
+    static REPORTED: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |since| since.as_secs());
     let songs = match state.library.trashed_songs() {
         Ok(songs) => songs,
@@ -4533,32 +4551,52 @@ fn purge_old_trash(state: &AppState) {
     };
     for song in songs.iter().filter(|song| library::trashed_with(song).is_none() && library::trashed_at(song) + TRASH_DAYS * 86_400 <= now) {
         match delete_for_good(state, &song.id) {
-            Ok(left) if !left.is_empty() => studio_log!("[ERROR] {} left the bin, these files stayed: {}", song.id, left.join("; ")),
-            Ok(_) => studio_log!("{} left the bin after {TRASH_DAYS} days", song.id),
-            Err(error) => studio_log!("[ERROR] {} could not leave the bin: {error:#}", song.id),
+            Ok(()) => studio_log!("{} left the bin after {TRASH_DAYS} days", song.id),
+            Err(error) => {
+                let mut reported = REPORTED.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                if !reported.contains(&song.id) {
+                    reported.push(song.id.clone());
+                    studio_log!("[ERROR] {} could not leave the bin: {error:#}", song.id);
+                }
+            }
         }
     }
 }
 
 /// Removes a song of the bin and the songs that went there with it from the
-/// library; their files go to the system's recycle bin. The files that could
-/// not go are named.
-fn delete_for_good(state: &AppState, id: &str) -> anyhow::Result<Vec<String>> {
-    let mut songs: Vec<library::Song> = state.library.trashed_songs()?.into_iter().filter(|song| library::trashed_with(song) == Some(id)).collect();
-    if let Some(song) = state.library.get_song(id)? {
+/// library, their files sent to the system's recycle bin first.
+fn delete_for_good(state: &AppState, id: &str) -> anyhow::Result<()> {
+    delete_songs_for_good(&state.library, id, |song| song_files(state, song), |path| trash::delete(path).map_err(|error| error.to_string()))
+}
+
+/// A file the recycle bin does not take (a Linux desktop without one, a
+/// network drive) keeps the songs in the studio's bin and is named; nothing is
+/// deleted past it.
+fn delete_songs_for_good(
+    library: &library::Library,
+    id: &str,
+    files: impl Fn(&library::Song) -> Vec<std::path::PathBuf>,
+    recycle: impl Fn(&std::path::Path) -> Result<(), String>,
+) -> anyhow::Result<()> {
+    let mut songs: Vec<library::Song> = library.trashed_songs()?.into_iter().filter(|song| library::trashed_with(song) == Some(id)).collect();
+    if let Some(song) = library.get_song(id)? {
         songs.push(song);
     }
-    let mut left = Vec::new();
+    let mut refused = Vec::new();
     for song in &songs {
-        state.library.delete_song(&song.id)?;
-        for path in song_files(state, song).into_iter().filter(|path| path.exists()) {
-            if let Err(error) = trash::delete(&path) {
-                studio_log!("[ERROR] delete song {}: could not move {} to the recycle bin: {error}", song.id, path.display());
-                left.push(format!("{}: {error}", plain_path(&path)));
+        for path in files(song).into_iter().filter(|path| path.exists()) {
+            if let Err(error) = recycle(&path) {
+                refused.push(format!("{}: {error}", plain_path(&path)));
             }
         }
     }
-    Ok(left)
+    if !refused.is_empty() {
+        anyhow::bail!("the system's recycle bin did not take these files, so the song stays in the studio's bin: {}", refused.join("; "));
+    }
+    for song in &songs {
+        library.delete_song(&song.id)?;
+    }
+    Ok(())
 }
 
 /// The files in the media folder that belong to one song: its audio, its
@@ -6032,6 +6070,8 @@ async fn assistant_status(State(state): State<AppState>) -> Json<Value> {
         "cli_agent": config.cli_agent,
         "cli_model": config.cli_model,
         "cli_path": config.cli_path,
+        "own_rules": config.own_rules,
+        "avoid_words": config.avoid_words,
     }))
 }
 
@@ -6092,6 +6132,8 @@ struct AssistantSettingsRequest {
     cli_agent: Option<Option<String>>,
     cli_model: Option<Option<String>>,
     cli_path: Option<Option<String>>,
+    own_rules: Option<assistant::OwnRules>,
+    avoid_words: Option<Option<String>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -6201,6 +6243,8 @@ async fn update_assistant_settings(
             cli_agent: incoming.cli_agent.unwrap_or(current.cli_agent).map(|id| id.trim().to_string()).filter(|id| !id.is_empty()),
             cli_model: incoming.cli_model.unwrap_or(current.cli_model),
             cli_path: incoming.cli_path.unwrap_or(current.cli_path),
+            own_rules: incoming.own_rules.unwrap_or(current.own_rules),
+            avoid_words: incoming.avoid_words.unwrap_or(current.avoid_words).filter(|words| !words.trim().is_empty()),
         }
     };
     if let Some(id) = request.cli_agent.as_deref() {
@@ -6941,6 +6985,7 @@ async fn assistant_write_stream(
         ));
     }
     let (system, required) = assistant::instructions(&request);
+    let system = assistant::with_own_rules(system, request.target, &config.own_rules, config.avoid_words.as_deref());
     let user = assistant::user_message(&request);
     let task = request.target;
     let target = assist_target_name(task);
@@ -7317,6 +7362,8 @@ async fn assistant_sections(
 /// asks it many times and releases it once at the end.
 async fn assistant_draft(state: &AppState, request: &assistant::AssistRequest) -> Result<Value, (StatusCode, Json<ApiError>)> {
     let (system, required) = assistant::instructions(request);
+    let config = state.assistant.read().await.clone();
+    let system = assistant::with_own_rules(system, request.target, &config.own_rules, config.avoid_words.as_deref());
     let user = assistant::user_message(request);
     let content = assistant_ask(state, &system, &user, Some(assistant::draft_schema(&required)), request.target).await?;
     let draft = assistant::parse_draft(&content, required).map_err(|error| {
@@ -8836,14 +8883,14 @@ struct AceRun {
     fades: (f32, f32),
 }
 
-/// A source or reference the request names that the library no longer has:
-/// refused when the request comes in, not when the song reaches the engine.
 fn tracks_in_library(library: &library::Library, source: Option<&str>, reference: Option<&str>) -> Result<(), SongError> {
     for (is_reference, id) in [(false, source), (true, reference)] {
         let Some(id) = id else { continue };
         let kept = library.get_song(id).map_err(|error| format!("the library could not be read: {error:#}"))?;
-        if kept.is_none() {
-            return Err(SongError::TrackMissing { reference: is_reference, id: id.to_owned() });
+        match kept {
+            None => return Err(SongError::TrackMissing { reference: is_reference, id: id.to_owned() }),
+            Some(song) if library::is_trashed(&song) => return Err(SongError::TrackInBin { reference: is_reference, title: song.title }),
+            Some(_) => {}
         }
     }
     Ok(())
@@ -10128,6 +10175,51 @@ mod tests {
     }
 
     #[test]
+    fn a_source_in_the_bin_is_refused_with_its_title_and_the_way_back() {
+        let root = std::env::temp_dir().join(format!("ace-bin-tracks-{}", uuid::Uuid::now_v7().simple()));
+        let library = library::Library::open_at(root.join("library.sqlite"), root.join("media")).unwrap();
+        let song = library
+            .create_song(library::SongInput { title: "Harbour".into(), audio_path: None, caption: String::new(), lyrics: String::new(), metadata: Value::Null, generation_settings: Value::Null, engine_id: "manual".into(), profile_id: None, replay_request: None, audio_codes: None, source: "manual".into() })
+            .unwrap()
+            .id;
+        library.set_song_trashed(&song, true, None).unwrap();
+        let refused = tracks_in_library(&library, Some(&song), None).unwrap_err();
+        assert_eq!(refused.code(), Some("source_in_bin"));
+        assert!(refused.to_string().contains("\"Harbour\" is in the library's bin"), "{refused}");
+        assert_eq!(tracks_in_library(&library, None, Some(&song)).unwrap_err().code(), Some("reference_in_bin"));
+        library.set_song_trashed(&song, false, None).unwrap();
+        assert_eq!(tracks_in_library(&library, Some(&song), Some(&song)), Ok(()));
+        drop(library);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_song_whose_files_the_recycle_bin_refuses_stays_in_the_studios_bin() {
+        let root = std::env::temp_dir().join(format!("ace-bin-refused-{}", uuid::Uuid::now_v7().simple()));
+        let library = library::Library::open_at(root.join("library.sqlite"), root.join("media")).unwrap();
+        let new_song = |title: &str| library.create_song(library::SongInput { title: title.into(), audio_path: None, caption: String::new(), lyrics: String::new(), metadata: Value::Null, generation_settings: Value::Null, engine_id: "manual".into(), profile_id: None, replay_request: None, audio_codes: None, source: "manual".into() }).unwrap().id;
+        let (song, stem) = (new_song("Harbour"), new_song("Harbour · vocals"));
+        library.set_song_trashed(&song, true, None).unwrap();
+        library.set_song_trashed(&stem, true, Some(&song)).unwrap();
+        std::fs::create_dir_all(&root).unwrap();
+        let file = root.join("harbour.flac");
+        std::fs::write(&file, b"fLaC").unwrap();
+        let files = |_: &library::Song| vec![file.clone()];
+
+        let refused = delete_songs_for_good(&library, &song, files, |_| Err("no recycle bin on this desktop".into())).unwrap_err();
+        assert!(format!("{refused:#}").contains("no recycle bin on this desktop"), "{refused:#}");
+        assert!(file.exists(), "a file the recycle bin refused is not deleted past it");
+        assert_eq!(library.trashed_songs().unwrap().len(), 2, "the song and its stem stay in the studio's bin");
+
+        let recycled = std::cell::RefCell::new(Vec::new());
+        delete_songs_for_good(&library, &song, files, |path| { recycled.borrow_mut().push(path.to_path_buf()); Ok(()) }).unwrap();
+        assert!(library.get_song(&song).unwrap().is_none() && library.get_song(&stem).unwrap().is_none());
+        assert!(!recycled.borrow().is_empty());
+        drop(library);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
     fn a_model_on_disk_the_engine_does_not_list_asks_for_a_rescan() {
         let props = serde_json::json!({ "models": { "dit": ["acestep-v15-turbo-Q8_0.gguf"], "lm": ["acestep-5Hz-lm-0.6B-Q8_0.gguf"], "vae": ["vae-BF16.gguf"] } });
         let request = serde_json::json!({ "synth_model": "acestep-v15-xl-sft-Q4_K_M.gguf", "lm_model": "acestep-5Hz-lm-0.6B-Q8_0.gguf", "vae": "vae-BF16.gguf" });
@@ -10575,7 +10667,7 @@ mod tests {
     fn persisted_settings_round_trip_a_complete_custom_component_selection() {
         let settings = PersistedStudioSettings {
             engine_options: EngineOptions { keep_loaded: true, max_batch: Some(2), ..EngineOptions::default() },
-            assistant: AssistantConfig { provider: AssistantProvider::Local, local_base_url: Some("http://127.0.0.1:8080/v1".into()), local_model: Some("gemma".into()), openrouter_model: None, managed_model: None, managed_path: None, reasoning_effort: None, cli_agent: None, cli_model: None, cli_path: None },
+            assistant: AssistantConfig { provider: AssistantProvider::Local, local_base_url: Some("http://127.0.0.1:8080/v1".into()), local_model: Some("gemma".into()), openrouter_model: None, managed_model: None, managed_path: None, reasoning_effort: None, cli_agent: None, cli_model: None, cli_path: None, ..Default::default() },
             configuration: initial_configuration(),
             // Karaoke is off by default and has to survive a restart the same
             // way the assistant does.

@@ -53,6 +53,8 @@ pub enum SongError {
     TrackTooLong { seconds: u64 },
     /// The request names a source or reference track the library does not have.
     TrackMissing { reference: bool, id: String },
+    /// The request names a source or reference track that is in the library's bin.
+    TrackInBin { reference: bool, title: String },
     /// The request names a model file that is gone from disk.
     ModelMissing(String),
     /// A task that works on a recording was asked for without one.
@@ -130,6 +132,8 @@ impl SongError {
             SongError::TrackTooLong { .. } => "track_too_long",
             SongError::TrackMissing { reference: false, .. } => "source_missing",
             SongError::TrackMissing { reference: true, .. } => "reference_missing",
+            SongError::TrackInBin { reference: false, .. } => "source_in_bin",
+            SongError::TrackInBin { reference: true, .. } => "reference_in_bin",
             SongError::ModelMissing(_) => "model_missing",
             SongError::SourceRequired(_) => "source_required",
             SongError::NoLength => "no_length",
@@ -167,6 +171,7 @@ impl SongError {
             }
             SongError::TrackTooLong { seconds } => put("length", json!(format!("{}:{:02}", seconds / 60, seconds % 60))),
             SongError::TrackMissing { id, .. } => put("id", json!(id)),
+            SongError::TrackInBin { title, .. } => put("title", json!(title)),
             SongError::SourceRequired(task) => put("task", json!(task)),
             _ => {}
         }
@@ -226,6 +231,7 @@ impl fmt::Display for SongError {
             SongError::NotASong(problem) => write!(f, "The engine returned {problem} instead of a song, so nothing was kept. Make it again; if it repeats, the engine log has the cause."),
             SongError::TrackTooLong { seconds } => write!(f, "This track is {}:{:02} long, and the engine takes a source or reference of under 10 minutes. Use a part of it shorter than that.", seconds / 60, seconds % 60),
             SongError::TrackMissing { reference, id } => write!(f, "the {} track {id} is not in the library; choose another track", if *reference { "reference" } else { "source" }),
+            SongError::TrackInBin { reference, title } => write!(f, "the {} track \"{title}\" is in the library's bin; restore it in Library - Bin or choose another track", if *reference { "reference" } else { "source" }),
             SongError::ModelMissing(name) => write!(f, "{name} is no longer on disk; choose another in Settings - Models"),
             SongError::SourceRequired(task) => write!(f, "{task} works on a recording; choose the source track"),
             SongError::NoLength => f.write_str("the language model gave the song no length; set the duration in the form"),
@@ -278,6 +284,8 @@ mod tests {
             SongError::TrackTooLong { seconds: 754 },
             SongError::TrackMissing { reference: false, id: "x".into() },
             SongError::TrackMissing { reference: true, id: "x".into() },
+            SongError::TrackInBin { reference: false, title: "x".into() },
+            SongError::TrackInBin { reference: true, title: "x".into() },
             SongError::ModelMissing("x".into()),
             SongError::SourceRequired("cover".into()),
             SongError::NoLength,
@@ -305,6 +313,7 @@ mod tests {
                 | SongError::NotASong(_)
                 | SongError::TrackTooLong { .. }
                 | SongError::TrackMissing { .. }
+                | SongError::TrackInBin { .. }
                 | SongError::ModelMissing(_)
                 | SongError::SourceRequired(_)
                 | SongError::NoLength => {}
