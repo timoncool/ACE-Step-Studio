@@ -1636,6 +1636,8 @@ mod tests {
         fs::create_dir_all(downloader.picked_into(&runtime)).unwrap();
         let archive = linux_archive(&root);
         let files = extract_named_local(&archive, runtime.pick, &downloader.picked_into(&runtime)).unwrap();
+        // the record sits where the download would have, a folder a real download makes
+        fs::create_dir_all(downloader.record_of(&runtime).parent().unwrap()).unwrap();
         crate::install_record::write(&downloader.record_of(&runtime), runtime.url, "", &files, &root).unwrap();
         assert!(downloader.is_installed(&runtime));
         assert_eq!(downloader.remove(&runtime).unwrap(), "library".len() as u64);

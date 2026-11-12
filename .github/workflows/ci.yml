@@ -1,6 +1,6 @@
 name: CI
 
-# The service's tests on Windows, the studio's own platform, and the interface
+# The service's tests on Windows, the studio's own platform, and on Linux, and the interface
 # type-checked, tested and built, on every branch pushed.
 
 on:
@@ -19,6 +19,20 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: Service tests
+        run: cargo test -p music-server --locked
+
+  # the same tests on Linux, the platform the studio's Linux package runs on; the repository's toolchain file names
+  # the Windows one, so the runner's own stable toolchain is taken
+  service-linux:
+    runs-on: ubuntu-latest
+    env:
+      RUSTUP_TOOLCHAIN: stable
+    steps:
+      - uses: actions/checkout@v4
+      - name: System libraries (the file dialog's Wayland, FLAC's CMake)
+        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends libwayland-dev cmake
       - uses: Swatinem/rust-cache@v2
       - name: Service tests
         run: cargo test -p music-server --locked

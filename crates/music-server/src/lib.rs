@@ -9282,12 +9282,16 @@ async fn wait_engine(state: &AppState, job: &str) -> anyhow::Result<()> {
 
 /// The adapter the engine could not put on the DiT, from its "no tensors
 /// merged from <path>" line: the adapter's folder, or the file's own name.
+/// The path is the engine's, so it is split on both separators whatever the
+/// studio's platform.
 fn unmerged_adapter(why: &str) -> Option<String> {
     let path = why.strip_prefix("no tensors merged from ")?;
     let path = path.strip_suffix(" (model mismatch)").unwrap_or(path).trim();
-    let path = std::path::Path::new(path);
-    let named = if path.file_name().is_some_and(|name| name == "adapter_model.safetensors") { path.parent() } else { Some(path) };
-    named.and_then(|named| named.file_stem()).map(|name| name.to_string_lossy().into_owned())
+    let mut parts = path.rsplit(['/', '\\']).filter(|part| !part.is_empty());
+    let last = parts.next()?;
+    let named = if last == "adapter_model.safetensors" { parts.next()? } else { last };
+    let stem = named.rsplit_once('.').map(|(stem, _)| stem).filter(|stem| !stem.is_empty()).unwrap_or(named);
+    Some(stem.to_string())
 }
 
 /// What the engine said when it gave a job up: the first FATAL line after the
