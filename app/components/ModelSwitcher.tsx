@@ -162,7 +162,7 @@ export const ModelSwitcher: React.FC<{ status: SwitcherStatus | null; onChanged:
                           type="button"
                           disabled={busy !== null || (downloading !== null && !here)}
                           onClick={() => void pick(component)}
-                          title={`${bytes(component.bytes)}${here ? '' : ` · ${tt('aceDownloadAndUse')}`}`}
+                          title={`${bytes(component.bytes)}${split(component).quant === 'mxfp4' ? ` · ${tt('aceMxfp4Hint')}` : ''}${here ? '' : ` · ${tt('aceDownloadAndUse')}`}`}
                           className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums transition-colors disabled:opacity-40 ${
                             on
                               ? 'border-pink-500 bg-pink-500 text-white'

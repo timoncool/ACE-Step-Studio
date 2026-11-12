@@ -62,13 +62,13 @@ pub struct PresetView {
 pub fn list() -> Vec<PresetView> {
     PRESETS
         .iter()
-        .map(|preset| PresetView {
-            id: preset.id,
-            title: preset.title,
-            subtitle: preset.subtitle,
-            min_vram_gb: preset.min_vram_gb,
-            profile_id: preset.profile_id,
-            provider_mode: preset.provider_mode,
+        .map(|preset| {
+            let (profile_id, subtitle) = match preset.profile_id.map(on_this_card) {
+                Some((profile, Some(files))) => (Some(profile), files),
+                Some((profile, None)) => (Some(profile), preset.subtitle),
+                None => (None, preset.subtitle),
+            };
+            PresetView { id: preset.id, title: preset.title, subtitle, min_vram_gb: preset.min_vram_gb, profile_id, provider_mode: preset.provider_mode }
         })
         .collect()
 }
@@ -172,7 +172,7 @@ pub fn recommended_local_profile() -> &'static str {
 
 /// Maps a hardware preset onto the complete four-component profile it installs.
 pub fn profile_for_preset(preset_id: &str) -> &'static str {
-    match preset_id {
+    let profile = match preset_id {
         "native-full" => "native",
         "native-quality" => "quality-q8",
         "native-balanced" => "balanced",
@@ -182,6 +182,21 @@ pub fn profile_for_preset(preset_id: &str) -> &'static str {
         // for the Model Manager; the quality set is the smallest set that is
         // not advertised as a speed compromise.
         _ => "quality-q8",
+    };
+    on_this_card(profile).0
+}
+
+/// The set a preset installs on this card, with the files it names: on an RTX 50 with the CUDA 13 build the XL sets
+/// take their DiT in MXFP4, which its tensor cores compute directly, at half the DiT memory of Q8_0.
+fn on_this_card(profile: &'static str) -> (&'static str, Option<&'static str>) {
+    fp4_sibling(profile, crate::cuda_build::computes_fp4_natively())
+}
+
+fn fp4_sibling(profile: &'static str, fp4_native: bool) -> (&'static str, Option<&'static str>) {
+    match profile {
+        "quality-q8" if fp4_native => ("quality-mxfp4", Some("XL turbo MXFP4, LM 4B Q8_0, 8.2 GB; MXFP4: half the DiT memory of Q8_0, computed on the RTX 50's tensor cores directly")),
+        "balanced" | "recommended-light" if fp4_native => ("balanced-mxfp4", Some("XL turbo MXFP4, LM 1.7B Q8_0, 5.8 GB; MXFP4: half the DiT memory of Q8_0, computed on the RTX 50's tensor cores directly")),
+        _ => (profile, None),
     }
 }
 
@@ -205,7 +220,7 @@ pub fn apply(id: &str, configuration: &mut StudioConfiguration, openrouter_music
     music.mode = ExecutionMode::Local;
     music.local_engine = Some(crate::model_manager::ENGINE_ID.into());
     music.cloud_model = None;
-    Ok(PresetApplication { profile_id: preset.profile_id.map(str::to_owned), selected_profile_changed: true })
+    Ok(PresetApplication { profile_id: preset.profile_id.map(|profile| on_this_card(profile).0.to_owned()), selected_profile_changed: true })
 }
 
 fn nvidia_smi() -> Option<(String, f64)> {
@@ -484,6 +499,27 @@ mod tests {
     fn every_local_tier_installs_a_profile() {
         for vram in [5.0, 8.0, 10.0, 16.0, 24.0, 32.0] {
             assert!(crate::model_manager::profile_exists(profile_for_preset(recommend("NVIDIA test card", vram))));
+        }
+    }
+
+
+    /// An RTX 5090 on the CUDA 13 build is recommended the set with the DiT in MXFP4; an RTX 4090 keeps its set and
+    /// sees MXFP4 as a choice; the CUDA 12 build, AMD, a Mac and no card see no MXFP4 at all.
+    #[test]
+    fn mxfp4_is_the_rtx_50_default_a_cuda13_choice_and_absent_elsewhere() {
+        use crate::cuda_build::{mxfp4_offered, CudaBuild};
+        let rtx5090 = fp4_sibling("quality-q8", true);
+        assert_eq!(rtx5090.0, "quality-mxfp4");
+        assert!(rtx5090.1.is_some_and(|files| files.contains("MXFP4")));
+        assert_eq!(fp4_sibling("recommended-light", true).0, "balanced-mxfp4");
+        assert_eq!(fp4_sibling("minimal", true), ("minimal", None), "no 2B set in MXFP4");
+        assert_eq!(fp4_sibling("quality-q8", false), ("quality-q8", None), "RTX 4090: the recommendation stays");
+        for (profile, _) in [rtx5090, fp4_sibling("balanced", true)] {
+            assert!(crate::model_manager::profile_exists(profile), "{profile}");
+        }
+        assert!(mxfp4_offered(Some(CudaBuild::Cuda13)), "RTX 4090 on CUDA 13 sees MXFP4");
+        for build in [Some(CudaBuild::Cuda12), None] {
+            assert!(!mxfp4_offered(build), "{build:?}: CUDA 12, AMD, a Mac or no card");
         }
     }
 

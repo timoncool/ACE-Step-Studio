@@ -188,14 +188,15 @@ impl ModelManager {
     }
 
     pub fn catalog(&self) -> Catalog {
-        Catalog {
-            engine_id: ENGINE_ID,
-            repository: REPOSITORY,
-            revision: REVISION,
-            recommended_profile_id: recommended_profile(),
-            profiles: profiles(),
-            components: components(),
-        }
+        catalog_for(true, &[])
+    }
+
+    /// The catalog the window and agents see: no set or part in MXFP4 where the CUDA 13 build does not run, unless
+    /// it is on disk already or `chosen` names it - what worked before keeps working.
+    pub fn offered_catalog(&self, chosen: &[String]) -> Catalog {
+        let mut kept: Vec<String> = chosen.to_vec();
+        kept.extend(components().into_iter().filter(|component| is_mxfp4(component.id) && published_component(&self.root.join(component.filename), component)).map(|component| component.id.to_string()));
+        catalog_for(crate::cuda_build::offers_mxfp4(), &kept)
     }
 
     /// `target` is the set the user actually selected. Progress and readiness
@@ -496,6 +497,21 @@ impl ModelManager {
     }
 }
 
+
+/// The catalog with the sets and parts in MXFP4 left out where `mxfp4` is not offered, except those `kept` names
+/// (on disk or chosen); a set stays when it is kept or every part of it is.
+fn catalog_for(mxfp4: bool, kept: &[String]) -> Catalog {
+    let keeps = |id: &str| mxfp4 || !is_mxfp4(id) || kept.iter().any(|kept| kept == id);
+    Catalog {
+        engine_id: ENGINE_ID,
+        repository: REPOSITORY,
+        revision: REVISION,
+        recommended_profile_id: recommended_profile(),
+        profiles: profiles().into_iter().filter(|profile| keeps(profile.id) || profile.components.iter().all(|id| keeps(id))).collect(),
+        components: components().into_iter().filter(|component| keeps(component.id)).collect(),
+    }
+}
+
 fn recover_interrupted_download(state: &mut PersistentState) -> bool {
     let Some(job) = &mut state.active else { return false; };
     if !matches!(job.status, DownloadStatus::Downloading) { return false; }
@@ -729,13 +745,20 @@ pub fn profile_matching(component_ids: &[String]) -> Option<&'static str> {
     })
 }
 
-const PROFILE_SETS: [(&str, &str, [&str; 4]); 5] = [
+const PROFILE_SETS: [(&str, &str, [&str; 4]); 7] = [
     ("minimal", "Minimal - 2B turbo Q4_K_M, LM 0.6B (4 GB cards)", ["dit-turbo-q4", "lm-0.6b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"]),
     ("recommended-light", "Light - XL turbo Q4_K_M, LM 1.7B (8 GB cards)", ["dit-xl-turbo-q4", "lm-1.7b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"]),
     ("balanced", "Balanced - XL turbo Q6_K, LM 1.7B (10 GB cards)", ["dit-xl-turbo-q6", "lm-1.7b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"]),
+    ("balanced-mxfp4", "Balanced MXFP4 - XL turbo MXFP4, LM 1.7B (8 GB cards). MXFP4: half the DiT memory of Q8_0; an RTX 50 computes it on its tensor cores directly", ["dit-xl-turbo-mxfp4", "lm-1.7b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"]),
     ("quality-q8", "Quality - XL turbo Q8_0, LM 4B Q8_0 (13 GB cards)", ["dit-xl-turbo-q8", "lm-4b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"]),
+    ("quality-mxfp4", "Quality MXFP4 - XL turbo MXFP4, LM 4B Q8_0 (13 GB cards). MXFP4: half the DiT memory of Q8_0; an RTX 50 computes it on its tensor cores directly", ["dit-xl-turbo-mxfp4", "lm-4b-q8", "te-qwen3-0.6b-q8", "vae-standard-bf16"]),
     ("native", "Full native - XL turbo BF16, LM 4B BF16 (24 GB cards)", ["dit-xl-turbo-bf16", "lm-4b-bf16", "te-qwen3-0.6b-bf16", "vae-standard-bf16"]),
 ];
+
+/// The sets and parts whose DiT is in MXFP4: offered only where `cuda_build::offers_mxfp4`.
+fn is_mxfp4(id: &str) -> bool {
+    id.ends_with("-mxfp4")
+}
 
 fn profiles() -> Vec<Profile> {
     PROFILE_SETS.iter().map(|(id, label, ids)| profile(id, label, ids)).collect()
@@ -932,6 +955,26 @@ mod tests {
             validate_complete_set(&selected.components).unwrap();
         }
         assert!(profiles().iter().any(|profile| profile.id == recommended_profile()));
+    }
+
+
+    /// Without the CUDA 13 build a clean install sees no set and no part in MXFP4; one that chose or downloaded an MXFP4
+    /// DiT before keeps it and the set it makes; with the CUDA 13 build both MXFP4 sets are there.
+    #[test]
+    fn mxfp4_leaves_the_catalog_where_it_is_not_offered_and_was_never_used() {
+        let clean = catalog_for(false, &[]);
+        assert!(clean.profiles.iter().all(|profile| !profile.components.iter().any(|id| is_mxfp4(id))));
+        assert!(clean.components.iter().all(|component| !is_mxfp4(component.id)));
+        let used = catalog_for(false, &["quality-mxfp4".to_string(), "dit-xl-turbo-mxfp4".to_string()]);
+        assert!(used.profiles.iter().any(|profile| profile.id == "quality-mxfp4"), "the chosen set stays");
+        assert!(used.profiles.iter().any(|profile| profile.id == "balanced-mxfp4"), "every part of it is kept");
+        assert!(used.components.iter().any(|component| component.id == "dit-xl-turbo-mxfp4"));
+        assert!(!used.components.iter().any(|component| component.id == "dit-turbo-mxfp4"), "one never used stays out");
+        let with = catalog_for(true, &[]);
+        for id in ["quality-mxfp4", "balanced-mxfp4"] {
+            assert!(with.profiles.iter().any(|profile| profile.id == id), "{id}");
+        }
+        assert!(with.components.iter().any(|component| component.id == "dit-turbo-mxfp4"));
     }
 
     #[test]

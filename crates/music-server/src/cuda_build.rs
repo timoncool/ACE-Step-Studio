@@ -205,6 +205,32 @@ pub fn accumulates_in_fp16() -> bool {
     device().is_some_and(|(compute, _)| compute < (8, 0))
 }
 
+
+/// ggml's `blackwell_mma_available` for the CUDA 13 build's architectures (120a the newest): compute 12.x, whose
+/// tensor cores take FP4 weights directly.
+fn blackwell_mma(compute: (u32, u32)) -> bool {
+    compute >= (12, 0) && compute < (13, 0)
+}
+
+/// The DiT in MXFP4 is offered where the engine runs its CUDA 13 build: that is where it was tried.
+pub fn offers_mxfp4() -> bool {
+    mxfp4_offered(current())
+}
+
+/// No MXFP4 on the CUDA 12 build, Vulkan (AMD, Intel), a Mac or the processor: not tried there.
+pub fn mxfp4_offered(build: Option<CudaBuild>) -> bool {
+    build == Some(CudaBuild::Cuda13)
+}
+
+/// The CUDA 13 build computes FP4 on the card's tensor cores: an RTX 50.
+pub fn computes_fp4_natively() -> bool {
+    fp4_natively(current(), device().map(|(compute, _)| compute))
+}
+
+fn fp4_natively(build: Option<CudaBuild>, compute: Option<(u32, u32)>) -> bool {
+    build == Some(CudaBuild::Cuda13) && compute.is_some_and(blackwell_mma)
+}
+
 /// Why the engine cannot start on CUDA here, in words for the person at the
 /// machine.
 pub const UNSUPPORTED: &str = "CUDA was chosen, but this card or its driver runs neither CUDA build of the engine: it needs an NVIDIA card from the GTX 900 series on and driver 525 or newer. Update the NVIDIA driver, or choose Vulkan in Settings.";
@@ -237,6 +263,18 @@ mod tests {
             assert!(SHIPPED.contains(&build), "{compute:?} with driver {driver}: {build:?} is not carried");
         }
         assert!(UNSUPPORTED.contains("525"), "the refusal names the oldest driver a build runs on");
+    }
+
+
+    /// FP4 on the tensor cores: an RTX 50 (compute 12.0) on the CUDA 13 build; not Ada, not the CUDA 12 build, not
+    /// without an NVIDIA card.
+    #[test]
+    fn fp4_runs_natively_only_on_an_rtx_50_with_the_cuda13_build() {
+        assert!(fp4_natively(Some(CudaBuild::Cuda13), Some((12, 0))), "RTX 5090");
+        assert!(!fp4_natively(Some(CudaBuild::Cuda13), Some((8, 9))), "RTX 4090");
+        assert!(!fp4_natively(Some(CudaBuild::Cuda13), Some((10, 0))), "B200: no 100a in the build");
+        assert!(!fp4_natively(Some(CudaBuild::Cuda12), Some((12, 0))), "the CUDA 12 build");
+        assert!(!fp4_natively(None, None), "no NVIDIA card");
     }
 
     #[test]
