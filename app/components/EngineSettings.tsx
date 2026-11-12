@@ -69,7 +69,7 @@ export const EngineSettings: React.FC = () => {
   const { data: setup } = useSetupStatus<{ hardware?: { onProcessor?: boolean } }>();
   const [options, setOptions] = useState<EngineOptions>(DEFAULTS);
   // With two cards or more, which one the studio computes on
-  const [cards, setCards] = useState<{ cards: { index: number; name: string; memory_gb: number }[]; running: number | null } | null>(null);
+  const [cards, setCards] = useState<{ cards: { index: number; name: string; memory_gb: number }[] | null; running: number | null } | null>(null);
   useEffect(() => {
     void fetch('/v1/system/gpus').then(response => (response.ok ? response.json() : null)).then(setCards).catch(() => undefined);
   }, []);
@@ -227,7 +227,7 @@ export const EngineSettings: React.FC = () => {
         {setup?.hardware?.onProcessor && <span className="mt-2 block text-xs leading-5 text-amber-700 dark:text-amber-300">{t('songsOnProcessor')}</span>}
       </div>
 
-      {cards && (cards.cards.length > 1 || (options.gpu != null && !cards.cards.some(card => card.index === options.gpu))) && (
+      {cards?.cards && (cards.cards.length > 1 || (options.gpu != null && !cards.cards.some(card => card.index === options.gpu))) && (
         <label className="block rounded-xl border border-zinc-200 p-3 dark:border-white/10">
           <span className="block text-sm font-medium text-zinc-800 dark:text-zinc-100">{t('gpuChoice')}</span>
           <select
