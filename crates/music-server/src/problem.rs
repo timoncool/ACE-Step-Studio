@@ -63,11 +63,81 @@ async fn report_of(state: &AppState, request: ProblemRequest) -> Result<ProblemR
     Ok(ProblemReport { kind, what: request.what, steps: given(request.steps), expected: given(request.expected), models, log })
 }
 
-/// The engine log's last lines, keys masked; the hub client cleans paths, addresses and ids before it leaves.
+/// The engine log's last lines without the text of any song, keys masked; the hub client cleans paths, addresses and
+/// ids before it leaves.
 fn engine_log_tail(state: &AppState) -> String {
     let lines = state.engine_log.lines().unwrap_or_else(|| music_engine::server::startup_log_tail(LOG_LINES));
+    let lines = without_request_text(&lines);
     let tail = &lines[lines.len().saturating_sub(LOG_LINES)..];
     crate::studio_log::masked(&tail.join("\n"))
+}
+
+/// What stands where the engine printed what a person asked for.
+const LEFT_OUT: &str = "[request text left out]";
+
+/// The tags the engine starts its own lines with: a line under one of them ends the text the engine printed after
+/// a header such as `[fill Batch0] seed=N:`. A tag the engine gains later is read as text until the next known one,
+/// which leaves out more, never less.
+const ENGINE_TAGS: &[&str] = &[
+    "Ace-LM", "Ace-Synth", "Ace-Understand", "Adapter", "Audio-Resample", "Audio", "BPE", "Build-Context", "Build-Schedule",
+    "CondEnc", "CondEncoder", "Context-Silence", "Context", "Debug", "Dedup", "DiT-Generate", "DiT", "Encode-Src", "Encode-Text",
+    "Encode-Timbre", "Encode", "FSM", "FSQ-Roundtrip", "FSQ-Tok", "FSQ", "GGUF", "GraphArena", "Init-Noise", "LM-Adapter",
+    "LM-Batch", "LM-Config", "LM-Debug", "LM-Forward", "LM-Generate", "LM-KV", "LM-Load", "LM-Phase1", "LM-Phase2", "LM-Rep",
+    "LM", "Latent-Splice", "Latent", "Load", "MP3-Codec", "MP3", "Outpaint", "Pipeline-Synth", "Quantize", "Qwen3", "Region",
+    "Registry", "Request", "Resolve-Params", "Resolve-T", "STORK2", "STORK4", "Safetensors", "Server", "Store", "Synth-Load",
+    "Synth-Run", "TextEncoder", "Tok", "Understand-Debug", "Understand-Decode", "Understand-Load", "Understand-Prefill",
+    "Understand-Prompt", "Understand-Result", "Understand-Tok", "Understand-VAE", "Understand", "VAE-Decode", "VAE-Enc", "VAE",
+    "WAV-Splice", "WAV", "WeightCtx", "studio", "ERROR", "OK",
+];
+
+/// The tag of an engine line - `[DiT] Step 1/8`, `[VAE-Decode Batch0] ...` - with its batch dropped, when the line is one.
+fn engine_tag(line: &str) -> Option<&str> {
+    let rest = line.strip_prefix('[')?;
+    let (tag, after) = rest.split_once(']')?;
+    if !after.starts_with(' ') {
+        return None;
+    }
+    let tag = tag.rsplit_once(" Batch").filter(|(_, index)| !index.is_empty() && index.bytes().all(|byte| byte.is_ascii_digit())).map_or(tag, |(name, _)| name);
+    Some(tag)
+}
+
+/// The engine's log with the text of each request - the style, caption and lyrics it was asked for or wrote, and the
+/// chain of thought it printed - replaced by one line [`LEFT_OUT`]; loading, steps and errors stay. The engine prints
+/// that text after a header that ends in a colon (`[fill Batch0] seed=N:`, `[inspire Batch0] seed=N:`,
+/// `[LM-Phase2] N=1, CoT[0]:`) up to its next own line, and a caption it heard on one line (`[Understand-Result]
+/// caption: ...`). Lines before the first engine line belong to text whose header is earlier and go too.
+pub fn without_request_text(lines: &[String]) -> Vec<String> {
+    let mut kept: Vec<String> = Vec::with_capacity(lines.len());
+    let mut in_text = true;
+    let mut leave_out = |kept: &mut Vec<String>| {
+        if kept.last().map(String::as_str) != Some(LEFT_OUT) {
+            kept.push(LEFT_OUT.to_string());
+        }
+    };
+    for line in lines {
+        let trimmed = line.trim_end();
+        let header = trimmed.ends_with(':') && engine_tag(trimmed).is_some() && (trimmed.contains("] seed=") || trimmed.contains("CoT["));
+        if header {
+            kept.push(line.clone());
+            leave_out(&mut kept);
+            in_text = true;
+            continue;
+        }
+        let own = engine_tag(trimmed).is_some_and(|tag| ENGINE_TAGS.contains(&tag)) || trimmed.starts_with("load_backend:") || trimmed.starts_with("ggml_");
+        if in_text && !own {
+            if !trimmed.is_empty() {
+                leave_out(&mut kept);
+            }
+            continue;
+        }
+        in_text = false;
+        if trimmed.starts_with("[Understand-Result] caption:") {
+            leave_out(&mut kept);
+            continue;
+        }
+        kept.push(line.clone());
+    }
+    kept
 }
 
 fn hub_of(state: &AppState) -> Result<&Hub, (StatusCode, Value)> {
@@ -168,7 +238,7 @@ mod tests {
         let (hub, data) = hub_at(vec!["http://127.0.0.1:9".into()]);
         assert_eq!(file(&hub, report()).await.expect_err("no hub").1["code"], "unreachable");
         std::fs::remove_dir_all(&data).ok();
-        let (hub, data) = hub_answering(200, json!({ "number": 77, "url": "https://github.com/timoncool/ACE-Step-Studio/issues/77", "token": "6f1c2a3b-0d4e-4f5a-8b6c-7d8e9f0a1b2c" })).await;
+        let (hub, data) = hub_answering(200, json!({ "number": 77, "url": "https://github.com/timoncool/ACE-Step-Studio/issues/77" })).await;
         let filed = file(&hub, report()).await.expect("filed");
         assert_eq!((filed.number, filed.url.as_str()), (77, "https://github.com/timoncool/ACE-Step-Studio/issues/77"));
         std::fs::remove_dir_all(&data).ok();
@@ -183,6 +253,35 @@ mod tests {
         assert_eq!(body["models"], "quality-q8");
         assert!(body["log"].as_str().is_some_and(|log| log.contains("line two")));
         assert_eq!(refusal(&hub.problem_body(&ProblemReport { what: "short".into(), ..report() }).unwrap_err()).1["code"], "field");
+        std::fs::remove_dir_all(&data).ok();
+    }
+
+
+    /// A real stretch of the engine's log - a song asked for with a caption and written lyrics, then an engine that
+    /// could not bind its port - leaves without one line of the song's text, its loading, steps and errors in place,
+    /// in the log the preview shows as in the one sent.
+    #[test]
+    fn the_log_that_leaves_carries_no_text_of_a_song() {
+        let lines: Vec<String> = include_str!("testdata/engine-log-with-song-text.log").lines().map(String::from).collect();
+        let song = ["caption:", "Coffee in the morning sun", "Electric sunshine fills the air", "[Verse 1]", "[Chorus]", "(Ooooh-ooh-ooh-ooh)", "keyscale:", "bpm:88", "</think>", "# Lyric"];
+        let source = lines.join("\n");
+        assert!(song.iter().all(|text| source.contains(text)), "the stretch holds the song's text");
+        let kept = without_request_text(&lines);
+        let log = kept.join("\n");
+        for text in song {
+            assert!(!log.contains(text), "{text} left the studio");
+        }
+        assert_eq!(kept.iter().filter(|line| line.as_str() == LEFT_OUT).count(), 2, "one mark for the written song, one for the chain of thought");
+        for line in ["[fill Batch0] seed=", "[LM-Phase2] N=1, CoT[0]:", "[LM-Phase2] max_tokens:", "[DiT] Step 1/8", "[DiT] Step 8/8", "[VAE-Decode Batch0] Decode:", "[Server] FATAL: cannot bind 127.0.0.1:8089", "load_backend: loaded CUDA backend"] {
+            assert!(log.contains(line), "{line} stays");
+        }
+        assert_eq!(without_request_text(&lines[lines.iter().position(|line| line.starts_with("Coffee")).unwrap()..]).first().map(String::as_str), Some(LEFT_OUT), "a tail that starts inside the text");
+        assert_eq!(without_request_text(&["[Understand-Result] caption: a song about my dog".to_string(), "[Understand-Result] bpm: 120".to_string()]), [LEFT_OUT, "[Understand-Result] bpm: 120"]);
+
+        let (hub, data) = hub_at(Vec::new());
+        let body = hub.problem_body(&ProblemReport { log: Some(log.clone()), ..report() }).unwrap();
+        let shown = body["log"].as_str().unwrap();
+        assert!(shown.contains("[DiT] Step 8/8") && !shown.contains("Coffee in the morning sun"));
         std::fs::remove_dir_all(&data).ok();
     }
 }

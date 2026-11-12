@@ -1,0 +1,193 @@
+[Server] Job 31841540fa38bbe5 created (LM, mode=0, N=1)
+[Ace-LM] Ready: path=\\?\D:\Projects\TEMP\music-studios\_dev\ace-dev-data\models\acestep-cpp\acestep-5Hz-lm-4B-Q8_0.gguf, max_seq=8192, max_batch=1, fa=yes, fsm=yes
+load_backend: loaded CUDA backend from \\?\F:\AI\ACE-Step Studio\resources\engine\cuda13\ggml-cuda.dll
+load_backend: loaded Vulkan backend from F:\AI\ACE-Step Studio\resources\engine\ggml-vulkan.dll
+load_backend: loaded CPU backend from F:\AI\ACE-Step Studio\resources\engine\ggml-cpu-cascadelake.dll
+[Load] LM backend: CUDA0 (CPU threads: 16)
+[GGUF] \\?\D:\Projects\TEMP\music-studios\_dev\ace-dev-data\models\acestep-cpp\acestep-5Hz-lm-4B-Q8_0.gguf: 398 tensors, data at offset 5346304
+[LM-Config] 36L, H=2560, V=217204, Nh=32, Nkv=8, D=128, tied=1
+[Qwen3] Attn: Q+K+V fused
+[Qwen3] MLP: gate+up fused
+[WeightCtx] Loaded 398 tensors, 4245.7 MB into backend
+[LM-KV] Allocated 2 sets x 36 layers (4D batched), 2304.0 MB
+[Store] Load LM: 2151 ms
+[LM] Partial head: 65559 rows (151645..217204), 170.1 MB
+[BPE] Loaded from GGUF: 151643 vocab, 151387 merges
+[FSM] Prefix trees: bpm=301, dur=601, key=106, lang=53, tsig=5 nodes
+[LM-Generate] mode=fill lyrics=generate metas=fill gaps | 42 tokens, CFG: 1.00, N=1
+[LM-Phase1] Prefill 81ms, 42 tokens, N=1, CFG=1.00, prompts=shared
+[LM-Phase1] Step 100, 1 active, 104.8 tok/s
+[LM-Phase1] Step 200, 1 active, 106.9 tok/s
+[LM-Phase1] Step 300, 1 active, 110.2 tok/s
+[LM-Phase1] Step 400, 1 active, 109.9 tok/s
+[LM-Phase1] Step 500, 1 active, 107.6 tok/s
+[LM-Phase1] Decode 4695ms
+[LM-Phase1 Batch0] seed=2723436685, 505 tokens
+[fill Batch0] seed=2723436685:
+bpm:88
+caption: An upbeat and cheerful pop-rock track with a commercial, jingle-like quality.
+  The arrangement is built on a foundation of bright, strummed acoustic guitar and
+  a steady, clean drum beat. A friendly male lead vocal delivers an optimistic melody,
+  supported by layered 'ooh' vocal harmonies in the intro and choruses. A clean electric
+  guitar adds melodic fills and a brief, catchy solo. The production is polished and
+  clear, with a positive and energetic mood throughout, concluding with a gentle fade-out
+  featuring melodic vocal scatting over the acoustic guitar.
+duration: 123
+keyscale:G major
+language:en
+timesignature:4
+</think>
+
+# Lyric
+[Intro]
+(Ooooh-ooh-ooh-ooh)
+(Ooooh-ooh-ooh-ooh)
+
+[Verse 1]
+Coffee in the morning sun
+Lemonade when day is done
+Try your mug and grab a spoon
+We're dancing to a quirky tune
+
+[Verse 2]
+Sneakers on and hats in hand
+Let's explore this wonderland
+Flip the switch and hit the beat
+This day will make you tap your feet
+
+[Chorus]
+Electric sunshine fills the air
+With a rhythm we all share
+Feel the pulse and move along
+Life's a party, join the song
+
+[Post-Chorus]
+(Ooooh-ooh-ooh-ooh)
+(Ooooh-ooh-ooh-ooh)
+
+[Verse 3]
+Rainy days we'll steal away
+Laughing loud all through the day
+Under clouds we find our dreams
+Life's a mix of vivid schemes
+
+[Verse 4]
+Break it down with friends so true
+Blues and grays will brighten you
+Strum the chords and clap along
+Every day's a brand new song
+
+[Chorus]
+Electric sunshine fills the air
+With a rhythm we all share
+Feel the pulse and move along
+Life's a party, join the song
+
+[Guitar Solo]
+
+[Outro]
+(Doo doo doo doo doo doo doo doo)
+(Doo doo doo doo doo doo doo doo)
+(Doo doo doo doo doo doo doo doo)
+(Doo doo doo doo doo doo doo doo)
+[Final guitar strum]
+
+[LM-Phase2] N=1, CoT[0]:
+bpm: 88
+caption: An upbeat and cheerful pop-rock track with a commercial, jingle-like quality.
+  The arrangement is built on a foundation of bright, strummed acoustic guitar and
+  a steady, clean drum beat. A friendly male lead vocal delivers an optimistic melody,
+  supported by layered 'ooh' vocal harmonies in the intro and choruses. A clean electric
+  guitar adds melodic fills and a brief, catchy solo. The production is polished and
+  clear, with a positive and energetic mood throughout, concluding with a gentle fade-out
+  featuring melodic vocal scatting over the acoustic guitar.
+duration: 30
+keyscale: G major
+language: en
+timesignature: 4
+[LM-Phase2] max_tokens: 250, CFG: 2.00, N=1, prompts=shared
+[LM-Phase2] Prefill 64ms (shared, 1 cond + 1 uncond)
+[LM-Phase2] Step 50, 1 active, 51 total codes, 78.5 tok/s
+[LM-Phase2] Step 100, 1 active, 101 total codes, 89.7 tok/s
+[LM-Phase2] Decode 1549ms
+[LM-Phase2 Batch0] seed=2723436685, 147 codes
+[Ace-LM] Total 6400ms | N=1 seed=1877829612
+[Server] Job 31841540fa38bbe5 done (LM, 1 results)
+[Server] Job 54976e4ff6d0b22b created (1 requests)
+[Server] Loading synth: DiT=acestep-v15-turbo-Q8_0.gguf VAE=vae-BF16.gguf (0 adapter(s))
+[GGUF] \\?\D:\Projects\TEMP\music-studios\_dev\ace-dev-data\models\acestep-cpp\acestep-v15-turbo-Q8_0.gguf: 678 tensors, data at offset 56864
+[GGUF] \\?\D:\Projects\TEMP\music-studios\_dev\ace-dev-data\models\acestep-cpp\acestep-v15-turbo-Q8_0.gguf: 678 tensors, data at offset 56864
+[Synth-Load] Ready: turbo=yes, fa=yes, batch_cfg=yes
+[Resolve-Params] max audio codes across batch: 147 (29.4s @ 5Hz)
+[Resolve-T] T=736, S=368
+[Resolve-T] seed=1877829612, steps=8, guidance=1.0, shift=3.0, duration=30.0s
+[Build-Schedule] Scheduler linear_quadratic, shift=3.00
+[BPE] Loaded from GGUF: 151643 vocab, 151387 merges
+[Load] TextEncoder backend: CUDA0 (shared)
+[GGUF] \\?\D:\Projects\TEMP\music-studios\_dev\ace-dev-data\models\acestep-cpp\Qwen3-Embedding-0.6B-Q8_0.gguf: 310 tensors, data at offset 5337664
+[Load] TextEncoder: 28L, H=1024, Nh=16/8
+[Qwen3] Attn: Q+K+V fused
+[Qwen3] MLP: gate+up fused
+[WeightCtx] Loaded 310 tensors, 742.7 MB into backend
+[Store] Load TextEnc: 365 ms
+[Load] CondEncoder backend: CUDA0 (shared)
+[GGUF] \\?\D:\Projects\TEMP\music-studios\_dev\ace-dev-data\models\acestep-cpp\acestep-v15-turbo-Q8_0.gguf: 678 tensors, data at offset 56864
+[Load] LyricEncoder: 8L
+[Qwen3] Attn: Q+K+V fused
+[Qwen3] MLP: gate+up fused
+[Load] TimbreEncoder: 4L
+[Qwen3] Attn: Q+K+V fused
+[Qwen3] MLP: gate+up fused
+[WeightCtx] Loaded 140 tensors, 616.6 MB into backend
+[Load] CondEncoder: lyric(8L), timbre(4L), text_proj, null_cond
+[Store] Load CondEnc: 281 ms
+[CondEnc] Lyric sliding mask: 355x355, window=128
+[CondEnc] Timbre sliding mask: 1x1, window=128
+[Encode] Packed: lyric=355 + timbre=1 + text=167 = 523 tokens
+[Encode-Text Batch0] 167+355 tokens -> enc_S=523, 9.9 ms
+[Load] Detokenizer backend: CUDA0 (shared)
+[GGUF] \\?\D:\Projects\TEMP\music-studios\_dev\ace-dev-data\models\acestep-cpp\acestep-v15-turbo-Q8_0.gguf: 678 tensors, data at offset 56864
+[WeightCtx] Loaded 30 tensors, 106.5 MB into backend
+[Load] Detokenizer: FSQ(6->2048) + 2L encoder(S=5, 2048->64)
+[Store] Load FSQ-Detok: 50 ms
+[Context] Decoded: 147 codes -> 735 frames (29.4s @ 25Hz)
+[Build-Context Batch0] Detokenizer: 43.1 ms, 147 codes
+[Init-Noise Batch0] Philox noise seed=1877829612, [736, 64] solver=heun
+[Init-Noise] Starting: T=736, S=368, enc_S=523, steps=8, batch=1 (cover)
+[Load] DiT backend: CUDA0 (shared)
+[GGUF] \\?\D:\Projects\TEMP\music-studios\_dev\ace-dev-data\models\acestep-cpp\acestep-v15-turbo-Q8_0.gguf: 678 tensors, data at offset 56864
+[DiT] Self-attn: Q+K+V fused
+[DiT] Cross-attn: Q+K+V fused
+[DiT] MLP: gate+up fused
+[Load] null_condition_emb found (CFG available)
+[WeightCtx] Loaded 478 tensors, 1600.7 MB into backend
+[Load] DiT: 24 layers, H=2048, Nh=16/8, D=128
+[Store] Load DiT: 725 ms
+[DiT] Batch N=1, T=736, S=368, enc_S=523
+[DiT] Graph: 1937 nodes
+[DiT] Solver: Heun (2 NFE/step, order 2)
+[DiT] Step 1/8 t=1.000
+[DiT] Step 2/8 t=0.955
+[DiT] Step 3/8 t=0.900
+[DiT] Step 4/8 t=0.833
+[DiT] Step 5/8 t=0.726
+[DiT] Step 6/8 t=0.643
+[DiT] Step 7/8 t=0.457
+[DiT] Step 8/8 t=0.000
+[DiT-Generate] Total: 332.7 ms (332.7 ms/sample)
+[GGUF] \\?\D:\Projects\TEMP\music-studios\_dev\ace-dev-data\models\acestep-cpp\vae-BF16.gguf: 365 tensors, data at offset 30048
+[Load] VAE backend: CUDA0 (shared)
+[VAE] Backend: CUDA0, Weight buffer: 161.1 MB
+[VAE] Loaded: 5 blocks, upsample=1920x, F32 activations
+[Store] Load VAE-Dec: 695 ms
+[VAE] Graph: 543 nodes, T_latent=736
+[VAE] Decoded: T_latent=736 -> T_audio=1413120 (29.44s @ 48kHz)
+[VAE-Decode Batch0] Decode: 404.7 ms
+[Server] Job 54976e4ff6d0b22b done (1 tracks)
+[Server] acestep.cpp 8ba995c (2026-10-08)
+[Server] Listening on 127.0.0.1:8089
+[Server] Pipelines: /lm /synth /understand
+[Server] Models: 2 LM, 1 Text-Enc, 4 DiT, 1 VAE, 1 Adapter
+[Server] FATAL: cannot bind 127.0.0.1:8089
+[Server] Shutting down...
+[Server] Done
