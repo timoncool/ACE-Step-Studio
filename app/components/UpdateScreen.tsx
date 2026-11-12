@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowRight, Check, Download, Loader2, RotateCw, X } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
+import { poll } from '../services/poll';
 import { SELF_READ } from '../services/studioQueries';
 import type { TranslationKey } from '../i18n/translations';
 
@@ -56,13 +57,10 @@ export const UpdatePlanView: React.FC<{ onDone?: () => void; onLater?: () => voi
   onDoneRef.current = onDone;
   useEffect(() => {
     if (!running) return;
-    const timer = window.setInterval(() => {
-      void readUpdatePlan().then((next) => {
-        setState(next);
-        if (next.job?.status === 'done') onDoneRef.current?.();
-      }, (problem: unknown) => setError(problem instanceof Error ? problem.message : String(problem)));
-    }, 1000);
-    return () => window.clearInterval(timer);
+    return poll(() => readUpdatePlan().then((next) => {
+      setState(next);
+      if (next.job?.status === 'done') onDoneRef.current?.();
+    }, (problem: unknown) => setError(problem instanceof Error ? problem.message : String(problem))), 1000);
   }, [running]);
 
   const apply = async () => {
