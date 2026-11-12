@@ -415,27 +415,52 @@ impl Acpp {
     }
 
     /// `work` on the server of `build` carrying `model` (`take`): the one at work when it carries the model, else a
-    /// new one once the runs on it have ended. The run counts from the moment its server is chosen.
-    pub fn with_server<T>(&self, build: Build, model: ModelEntry, files: Vec<PathBuf>, work: impl FnOnce(&Server) -> Result<T>) -> Result<T> {
+    /// new one once the runs on it have ended. The run counts from the moment its server is chosen. `stop`, asked while
+    /// the run waits for the server, ends it with "stopped" before it counts or touches a server.
+    pub fn with_server<T>(
+        &self,
+        build: Build,
+        model: ModelEntry,
+        files: Vec<PathBuf>,
+        stop: Option<&(dyn Fn() -> bool + Sync)>,
+        work: impl FnOnce(&Server) -> Result<T>,
+    ) -> Result<T> {
         let id = model.id.clone();
         self.register(model, files);
         let backend = build.backend();
-        let server = {
-            let mut active = self.active.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-            let server = loop {
-                let running = acpp_server::SERVERS.running(backend);
-                let seen = running.as_ref().map(|server| Seen { alive: server.alive(), carries: server.config().models.iter().any(|entry| entry.id == id) });
-                match take(seen, busy(&active, backend)) {
-                    Take::Running => break running.expect("a running server was seen"),
-                    Take::Wait => active = self.ended.wait(active).unwrap_or_else(|poisoned| poisoned.into_inner()),
-                    Take::Start => break self.server(build, &id)?,
-                }
-            };
-            begin(&mut active, build);
-            server
-        };
+        let server = self.claim(build, stop, |busy| {
+            let running = acpp_server::SERVERS.running(backend);
+            let seen = running.as_ref().map(|server| Seen { alive: server.alive(), carries: server.config().models.iter().any(|entry| entry.id == id) });
+            match take(seen, busy) {
+                Take::Running => Ok(Some(running.expect("a running server was seen"))),
+                Take::Wait => Ok(None),
+                Take::Start => self.server(build, &id).map(Some),
+            }
+        })?;
         let _work = Work { acpp: self, build };
         work(&server)
+    }
+
+    /// The server `choose` gives for a run of `build`, counted as at work on it. `choose` is asked, with whether a run
+    /// is at work on the backend, under the count's lock: `None` waits for a run to end and asks again.
+    fn claim<S>(&self, build: Build, stop: Option<&(dyn Fn() -> bool + Sync)>, mut choose: impl FnMut(bool) -> Result<Option<S>>) -> Result<S> {
+        let mut active = self.active.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let server = loop {
+            if let Some(server) = choose(busy(&active, build.backend()))? {
+                break server;
+            }
+            active = match stop {
+                Some(stop) => {
+                    if stop() {
+                        bail!("stopped");
+                    }
+                    self.ended.wait_timeout(active, Duration::from_millis(100)).unwrap_or_else(|poisoned| poisoned.into_inner()).0
+                }
+                None => self.ended.wait(active).unwrap_or_else(|poisoned| poisoned.into_inner()),
+            };
+        };
+        begin(&mut active, build);
+        Ok(server)
     }
 }
 
@@ -523,7 +548,7 @@ pub fn describe(error: &AcppError) -> String {
 /// Runs `request` on `model` in the server of `build` (`Acpp::with_server`). `stop` is asked every tenth of a second.
 pub fn run(acpp: &Acpp, build: Build, model: ModelEntry, files: Vec<PathBuf>, request: Value, stop: &(dyn Fn() -> bool + Sync)) -> Result<Value> {
     let id = model.id.clone();
-    acpp.with_server(build, model, files, |server| {
+    acpp.with_server(build, model, files, Some(stop), |server| {
         let cancel = AtomicBool::new(false);
         let finished = AtomicBool::new(false);
         let answer = std::thread::scope(|scope| {
@@ -615,5 +640,24 @@ mod tests {
         assert!(!end(&mut active, Build::Cuda13), "one CUDA run still works");
         assert!(end(&mut active, Build::Cuda13), "the last CUDA run frees its backend");
         assert!(end(&mut active, Build::Cpu), "counting off below zero stays free");
+    }
+
+
+    #[test]
+    fn a_run_stopped_while_it_waits_neither_counts_nor_takes_a_server() {
+        let root = tempfile::tempdir().unwrap();
+        let acpp = Acpp::new(Downloader::new(root.path().to_path_buf()));
+        begin(&mut acpp.active.lock().unwrap(), Build::Cuda13);
+        let asked = std::sync::atomic::AtomicUsize::new(0);
+        let stop = || asked.load(Ordering::SeqCst) >= 2;
+        let outcome = acpp.claim(Build::Cuda13, Some(&stop), |busy| {
+            assert!(busy, "another run is at work");
+            asked.fetch_add(1, Ordering::SeqCst);
+            Ok(None::<()>)
+        });
+        assert_eq!(outcome.unwrap_err().to_string(), "stopped");
+        assert_eq!(asked.load(Ordering::SeqCst), 2, "it looked again after the wait, then stopped");
+        assert_eq!(*acpp.active.lock().unwrap(), vec![(Build::Cuda13, 1)], "the stopped run is not counted");
+        assert!(acpp.claim(Build::Cpu, Some(&|| true), |_| Ok(Some(()))).is_ok(), "a server at hand is taken before stop is asked");
     }
 }

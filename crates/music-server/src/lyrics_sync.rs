@@ -907,7 +907,7 @@ impl LyricsSync {
             bail!("CrisperWhisper is not completely downloaded into {}: download it in Settings - Models", self.downloader.root().join(CRISPERWHISPER_DIR).display());
         }
         let (entry, files) = self.crisper_entry();
-        self.acpp.with_server(build, entry, files, work)
+        self.acpp.with_server(build, entry, files, None, work)
     }
 
     /// CrisperWhisper as audio.cpp's server carries it, with the files it is complete with.
