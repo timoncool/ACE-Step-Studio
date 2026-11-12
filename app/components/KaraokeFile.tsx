@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { FileUp, Loader2, PencilLine } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import { karaokeReason } from '../services/karaoke';
+import { base64For } from '../services/nativeOpenRouter';
 import { Song } from '../types';
 import { ConfirmDialog } from './ConfirmDialog';
 
@@ -59,7 +60,8 @@ export const KaraokeFile: React.FC<{ song: Song; onDone: (lrc: string) => void }
     }
   };
 
-  const load = async (file: File) => send({ content: await file.text(), file_name: file.name });
+  // the file's bytes: the service reads its encoding, which file.text() would take for UTF-8
+  const load = async (file: File) => send({ content_base64: await base64For(file), file_name: file.name });
 
   const save = async () => {
     if (!rows) return;

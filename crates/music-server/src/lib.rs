@@ -6868,6 +6868,9 @@ struct KaraokeSetRequest {
     /// A subtitle file's text (SRT, ASS or LRC) and its name, which says its format.
     #[serde(default)]
     content: Option<String>,
+    /// The subtitle file's bytes in base64, read in the encoding they are in (a BOM, UTF-8 or the code page).
+    #[serde(default)]
+    content_base64: Option<String>,
     #[serde(default)]
     file_name: Option<String>,
 }
@@ -6877,8 +6880,15 @@ struct KaraokeSetRequest {
 async fn set_song_karaoke(
     State(state): State<AppState>,
     Path(id): Path<String>,
-    Json(request): Json<KaraokeSetRequest>,
+    Json(mut request): Json<KaraokeSetRequest>,
 ) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    if let Some(encoded) = request.content_base64.take() {
+        use base64::Engine as _;
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(encoded.trim())
+            .map_err(|error| api_error(StatusCode::BAD_REQUEST, format!("content_base64 is not base64: {error}")))?;
+        request.content = Some(legacy_text::decode(&bytes));
+    }
     let cues = match (&request.content, &request.lrc) {
         (Some(content), _) => {
             let extension = request

@@ -41,14 +41,17 @@ fn for_code_page(code_page: u32) -> &'static Encoding {
     }
 }
 
-/// A text file's contents: UTF-8 when it is (a BOM is dropped), else the
-/// system code page.
+/// A text file's contents: the encoding its BOM names (UTF-8, UTF-16 LE or BE),
+/// else UTF-8 when it is, else the system code page.
 pub fn decode(bytes: &[u8]) -> String {
     decode_with(bytes, system_encoding())
 }
 
 fn decode_with(bytes: &[u8], legacy: &'static Encoding) -> String {
-    match std::str::from_utf8(bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes)) {
+    if let Some((encoding, bom)) = Encoding::for_bom(bytes) {
+        return encoding.decode_without_bom_handling(&bytes[bom..]).0.into_owned();
+    }
+    match std::str::from_utf8(bytes) {
         Ok(text) => text.to_string(),
         Err(_) => legacy.decode(bytes).0.into_owned(),
     }
@@ -102,5 +105,26 @@ mod tests {
         let bytes = encoding_rs::GBK.encode("歌词").0.into_owned();
         assert_eq!(decode_with(&bytes, encoding_rs::GBK), "歌词");
         assert_eq!(decode_with("\u{FEFF}lyrics".as_bytes(), encoding_rs::GBK), "lyrics");
+    }
+
+    #[test]
+    fn a_utf16_file_with_its_bom_decodes() {
+        let text = "1\r\n00:00:01,000 --> 00:00:02,000\r\nПривет\r\n";
+        let little: Vec<u8> = [0xFF, 0xFE].into_iter().chain(text.encode_utf16().flat_map(u16::to_le_bytes)).collect();
+        let big: Vec<u8> = [0xFE, 0xFF].into_iter().chain(text.encode_utf16().flat_map(u16::to_be_bytes)).collect();
+        assert_eq!(decode_with(&little, encoding_rs::WINDOWS_1251), text);
+        assert_eq!(decode_with(&big, encoding_rs::WINDOWS_1251), text);
+    }
+
+    #[test]
+    fn subtitles_in_windows_1251_and_utf16_give_the_lines_of_utf8() {
+        let text = "1\r\n00:00:01,000 --> 00:00:02,500\r\nПривет, мир\r\n\r\n2\r\n00:00:03,000 --> 00:00:04,000\r\nВторая строка\r\n";
+        let lines = |bytes: &[u8]| crate::subimport::to_lrc(&crate::subimport::parse(&decode_with(bytes, encoding_rs::WINDOWS_1251), "srt"));
+        let utf8 = lines(text.as_bytes());
+        let cp1251 = encoding_rs::WINDOWS_1251.encode(text).0.into_owned();
+        let utf16: Vec<u8> = [0xFF, 0xFE].into_iter().chain(text.encode_utf16().flat_map(u16::to_le_bytes)).collect();
+        assert!(utf8.contains("Привет, мир") && utf8.contains("Вторая строка"), "{utf8}");
+        assert_eq!(lines(&cp1251), utf8);
+        assert_eq!(lines(&utf16), utf8);
     }
 }

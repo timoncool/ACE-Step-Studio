@@ -1959,8 +1959,10 @@ fn tools() -> &'static [Tool] {
                         return send(Method::PUT, path, json!({ "lrc": lrc }));
                     }
                     let file = PathBuf::from(text(args, "path")?);
-                    let content = std::fs::read_to_string(&file).map_err(|error| format!("read {}: {error}", file.display()))?;
-                    send(Method::PUT, path, json!({ "content": content, "file_name": file_name(&file) }))
+                    use base64::Engine;
+                    let bytes = std::fs::read(&file).map_err(|error| format!("read {}: {error}", file.display()))?;
+                    let content = base64::engine::general_purpose::STANDARD.encode(bytes);
+                    send(Method::PUT, path, json!({ "content_base64": content, "file_name": file_name(&file) }))
                 },
             },
             Tool {
