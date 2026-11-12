@@ -8257,20 +8257,6 @@ async fn free_the_card_for_the_engine(state: &AppState) {
     }
 }
 
-/// What the engine's own log says about why it is not there any more.
-///
-/// A card that ran out of memory says so in the log and then the process is
-/// gone; the studio saw only a refused connection, and told the user to
-/// download models that were already on disk.
-fn engine_failure_reason() -> Option<String> {
-    let tail = music_engine::server::startup_log_tail(80).join("\n").to_lowercase();
-    if describes_exhausted_memory(&tail) {
-        return Some("The graphics card ran out of memory while the engine was loading the models. Choose a smaller quantisation in the model manager, or close whatever else is using the card - the writing assistant holds several gigabytes of its own.".to_string());
-    }
-    describes_exhausted_ram(&tail)
-        .then(|| "The computer ran out of memory (RAM) while the engine was loading the models. Close other programs that take memory, or choose a smaller quantisation in the model manager.".to_string())
-}
-
 /// Whether a lowercased log says the card ran out of room.
 fn describes_exhausted_memory(log: &str) -> bool {
     [
@@ -8472,6 +8458,8 @@ async fn ace_request_from(state: &AppState, request: &CreateMusicJobRequest) -> 
     ace::prepare(&Value::Object(fields)).map_err(|error| error.to_string().into())
 }
 
+/// Why a DiT LoRA cannot go on the chosen DiT: its weights are the width of
+/// the other size, and the engine merges none of them and fails the song.
 fn adapter_misfit(id: &str, made_for: Option<&str>, dit: Option<&str>) -> Option<SongError> {
     let (made_for, dit) = (made_for?, dit?);
     (made_for != "lm" && made_for != dit).then(|| SongError::AdapterWrongSize { name: id.to_owned(), made_for: made_for.to_uppercase(), dit: dit.to_uppercase() })
