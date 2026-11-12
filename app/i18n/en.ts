@@ -337,6 +337,8 @@ export const en = {
     fxDesc_letterbox: 'Cinematic bars',
     textContent: 'Text content',
     downloadLrc: 'Download LRC (Lyrics)',
+    downloadSrt: 'Download SRT (subtitles)',
+    downloadSrtHint: 'The same timings as subtitles, for video editors that import SRT and not LRC (CapCut, Jianying, Premiere): each line shows while it is sung, with gaps where the song plays without words.',
 
     // Video Studio
     videoStudio: 'Video Studio',
@@ -1616,8 +1618,7 @@ export const en = {
     midiDownloading: 'Downloading',
     midiStart: 'Make MIDI',
     midiAgain: 'Make MIDI again',
-    midiStop: 'Stop',
-    midiForSelected: 'To MIDI',
+    midiStop: 'Stop',    midiForSelected: 'To MIDI',
     midiBatchStarted: 'Turning {count} tracks into MIDI one after another: Studio tools shows how far it is',
     midiBatchProgress: 'MIDI: {done} of {total}',
     midiBatchQueuedHere: 'This track is waiting in the MIDI queue',

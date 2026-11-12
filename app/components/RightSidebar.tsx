@@ -13,6 +13,7 @@ import { apiUrl } from '../services/apiBase';
 import { SongDropdownMenu } from './SongDropdownMenu';
 import { KaraokeAction } from './KaraokeAction';
 import { KaraokeFile } from './KaraokeFile';
+import { lrcToSrt } from '../services/lrc-parser';
 import { SongCover } from './AlbumCover';
 import { downloadSongAudio } from '../services/songDownload';
 import { saveFile } from '../services/saveFile';
@@ -720,15 +721,25 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                     <KaraokeAction song={song} onDone={(lrc) => onSongUpdate?.({ ...song, lrcContent: lrc })} />
                     <KaraokeFile song={song} onDone={(lrc) => onSongUpdate?.({ ...song, lrcContent: lrc })} />
 
-                    {/* Download LRC */}
+                    {/* Download the timings as LRC, or as SRT for video editors that take only that */}
                     {song.lrcContent && song.lrcContent.trim().length > 0 && (
-                        <button
-                            onClick={() => void saveFile(`${song.title || 'song'}.lrc`, { blob: new Blob([song.lrcContent!], { type: 'text/plain;charset=utf-8' }) })}
-                            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 text-zinc-600 dark:text-zinc-400 text-xs font-medium transition-colors"
-                        >
-                            <Download size={14} />
-                            {t('downloadLrc') || 'Download LRC'}
-                        </button>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => void saveFile(`${song.title || 'song'}.lrc`, { blob: new Blob([song.lrcContent!], { type: 'text/plain;charset=utf-8' }) })}
+                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 text-zinc-600 dark:text-zinc-400 text-xs font-medium transition-colors"
+                            >
+                                <Download size={14} />
+                                {t('downloadLrc')}
+                            </button>
+                            <button
+                                onClick={() => void saveFile(`${song.title || 'song'}.srt`, { blob: new Blob([lrcToSrt(song.lrcContent!)], { type: 'application/x-subrip;charset=utf-8' }) })}
+                                title={t('downloadSrtHint')}
+                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 text-zinc-600 dark:text-zinc-400 text-xs font-medium transition-colors"
+                            >
+                                <Download size={14} />
+                                {t('downloadSrt')}
+                            </button>
+                        </div>
                     )}
 
                     <PanelBlock

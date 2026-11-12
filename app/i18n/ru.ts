@@ -338,6 +338,8 @@ export const ru = {
     fxDesc_letterbox: 'Чёрные полосы как в кино',
     textContent: 'Текстовое содержимое',
     downloadLrc: 'Скачать LRC (текст песни)',
+    downloadSrt: 'Скачать SRT (субтитры)',
+    downloadSrtHint: 'Те же тайминги субтитрами — для видеоредакторов, которые берут SRT, а не LRC (CapCut, Jianying, Premiere): каждая строка показывается, пока её поют, с паузами там, где музыка звучит без слов.',
 
     // Video Studio
     videoStudio: 'Видео Студия',
@@ -1615,8 +1617,7 @@ export const ru = {
     midiDownloading: 'Скачивается',
     midiStart: 'Сделать MIDI',
     midiAgain: 'Сделать MIDI заново',
-    midiStop: 'Остановить',
-    midiForSelected: 'В MIDI',
+    midiStop: 'Остановить',    midiForSelected: 'В MIDI',
     midiBatchStarted: '{count} треков уходят в MIDI по очереди: ход виден в «Инструментах»',
     midiBatchProgress: 'MIDI: {done} из {total}',
     midiBatchQueuedHere: 'Этот трек ждёт в очереди на MIDI',
