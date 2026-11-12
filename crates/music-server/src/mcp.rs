@@ -358,14 +358,14 @@ fn annotations(name: &str) -> Value {
     // a verb that changes something outweighs a noun that reads
     const CHANGES: &[&str] = &["install", "import", "remove", "delete", "refresh", "create", "update", "start", "cancel", "select", "download", "apply", "restart"];
     // reads whose names the rules above miss: create_form names the create page
-    const READ_NAMES: &[&str] = &["assistant_cli_agents", "system_gpus", "cover_scenes", "cover_photos_search", "video_backgrounds_search", "network_proxy_test", "journal_read", "lyrics_find", "cover_prompt_render", "studio_wait", "engine_presets_get", "assistant_requests_wait", "ui_console", "song_defaults", "create_form_get", "library_liked", "models_update_plan"];
+    const READ_NAMES: &[&str] = &["assistant_cli_agents", "system_gpus", "cover_scenes", "cover_photos_search", "video_backgrounds_search", "network_proxy_test", "journal_read", "lyrics_find", "cover_prompt_render", "studio_wait", "engine_presets_get", "assistant_requests_wait", "ui_console", "song_defaults", "create_form_get", "library_liked", "models_update_plan", "problem_preview"];
     // writes over what was stored, so the earlier content is gone: a client asks first
     const OVERWRITES: &[&str] = &["library_song_update", "playlist_update", "dataset_update", "dataset_song_update", "dataset_song_describe", "dataset_prepare", "lora_update", "stems_split", "karaoke_make", "midi_transcribe", "cover_draw", "cover_set_from_file", "openrouter_set_key", "models_update_apply"];
     let changes = CHANGES.iter().any(|verb| name.split('_').any(|word| word == *verb));
     let read_only = READ_NAMES.contains(&name) || !changes && (READS.iter().any(|part| name.ends_with(part) || name.contains(&format!("{part}_"))) || name.starts_with("writing_"));
     let destructive = name.ends_with("_delete") || name.ends_with("_remove") || name == "processing_discard" || name.ends_with("_cancel") || name.contains("_cancel_") || OVERWRITES.contains(&name);
     // what reaches the internet: OpenRouter, Hugging Face, the lyric databases and every download
-    let open_world = name.starts_with("openrouter_") || name.contains("_hf") || name == "lyrics_find" || name == "models_download" || name == "models_update_apply" || name == "lora_install_catalog" || name.ends_with("_install") && name != "training_checkpoint_install";
+    let open_world = name.starts_with("openrouter_") || name == "problem_report" || name.contains("_hf") || name == "lyrics_find" || name == "models_download" || name == "models_update_apply" || name == "lora_install_catalog" || name.ends_with("_install") && name != "training_checkpoint_install";
     let title = name.replace('_', " ");
     json!({ "title": title, "readOnlyHint": read_only, "destructiveHint": destructive, "idempotentHint": read_only || name.ends_with("_set") || name.contains("_select"), "openWorldHint": open_world })
 }
@@ -1836,6 +1836,24 @@ fn tools() -> &'static [Tool] {
                 call: |_| post("/v1/diagnostics/report".into(), serde_json::json!({})),
             },
             Tool {
+                name: "problem_preview",
+                description: "Exactly what problem_report would send to Studio Hub now (the words, version, system, card, model set and the cleaned engine log), as Report a problem shows it under \"what will be sent\". kind is bug (default), idea or question; what needs 10 characters at least; attach_log is true unless set false.",
+                schema: || object(json!({ "kind": { "type": "string", "enum": ["bug", "idea", "question"] }, "what": { "type": "string" }, "steps": { "type": "string" }, "expected": { "type": "string" }, "attach_log": { "type": "boolean" } }), &["what"]),
+                call: |args| post("/v1/problem/preview".into(), args.clone()),
+            },
+            Tool {
+                name: "problem_report",
+                description: "Reports a problem without a GitHub account, as Report a problem does: Studio Hub's bot opens a public GitHub issue with the words and the facts problem_preview shows, and answers its number and url; a later answer on it shows in the studio's notices. A refusal comes back by code: field, rate (retry_after_s), not_configured, busy or unreachable - then the GitHub form is the way.",
+                schema: || object(json!({ "kind": { "type": "string", "enum": ["bug", "idea", "question"] }, "what": { "type": "string" }, "steps": { "type": "string" }, "expected": { "type": "string" }, "attach_log": { "type": "boolean" } }), &["what"]),
+                call: |args| post("/v1/problem/report".into(), args.clone()),
+            },
+            Tool {
+                name: "problem_list",
+                description: "The problems reported from this computer, newest first, each with its issue number, url and whether it is closed.",
+                schema: nothing,
+                call: |_| get("/v1/problem/list".into()),
+            },
+            Tool {
                 name: "studio_capabilities",
                 description: "What the studio can do with the installed models and providers, and which provider runs each capability.",
                 schema: nothing,
@@ -3117,6 +3135,8 @@ mod tests {
             "assistant_start",
             "assistant_stop",
             "diagnostics_report",
+            // a message to GitHub through the hub: the issue is its record
+            "problem_report",
             // the update screen put off: nothing of the person's changes
             "models_update_later",
         ];

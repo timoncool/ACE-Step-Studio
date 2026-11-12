@@ -2882,7 +2882,7 @@ dependencies = [
 [[package]]
 name = "studio-hub-client"
 version = "0.1.0"
-source = "git+https://github.com/timoncool/studio-hub-client?rev=770d61fa05aa133a09b191b488497f5e1c40309c#770d61fa05aa133a09b191b488497f5e1c40309c"
+source = "git+https://github.com/timoncool/studio-hub-client?rev=afee0128e84cecfb32ea491d675d02a691947508#afee0128e84cecfb32ea491d675d02a691947508"
 dependencies = [
  "axum",
  "chrono",

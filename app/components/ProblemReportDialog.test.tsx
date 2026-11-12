@@ -1,0 +1,90 @@
+import React, { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('../context/I18nContext', () => ({ useI18n: () => ({ t: (key: string) => key, language: 'ru' }) }));
+
+const { ProblemReportDialog, refusalText } = await import('./ProblemReportDialog');
+
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+let root: Root;
+let host: HTMLDivElement;
+const calls: { path: string; body: unknown }[] = [];
+
+afterEach(() => {
+  act(() => root?.unmount());
+  host?.remove();
+  calls.length = 0;
+  vi.unstubAllGlobals();
+});
+
+function serve(answers: Record<string, { status: number; body: unknown }>) {
+  vi.stubGlobal('fetch', vi.fn(async (path: string, init?: RequestInit) => {
+    calls.push({ path, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+    const answer = answers[path] ?? { status: 404, body: {} };
+    return new Response(JSON.stringify(answer.body), { status: answer.status, headers: { 'Content-Type': 'application/json' } });
+  }));
+}
+
+async function open() {
+  host = document.createElement('div');
+  document.body.append(host);
+  root = createRoot(host);
+  await act(async () => root.render(<ProblemReportDialog onClose={() => undefined} />));
+}
+
+async function type(value: string) {
+  const field = host.querySelector('textarea')!;
+  const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
+  await act(async () => {
+    setter.call(field, value);
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
+
+const sendButton = () => [...host.querySelectorAll('button')].find(button => button.textContent?.includes('problemSend'))!;
+
+describe('ProblemReportDialog', () => {
+  it('sends only with what happened written, and keeps the GitHub form beside', async () => {
+    serve({ '/v1/problem/list': { status: 200, body: { problems: [] } },'/v1/problem/report': { status: 200, body: { number: 77, url: 'https://github.com/x/y/issues/77' } } });
+    await open();
+    expect(sendButton().disabled).toBe(true);
+    const github = [...host.querySelectorAll('a')].find(link => link.textContent?.includes('problemOpenGithub'))!;
+    expect(github.getAttribute('href')).toContain('template=2-ru-1-bug.yml');
+    expect(host.textContent).toContain('problemAuthorNews');
+    expect(host.querySelector('a[href="https://x.com/nerualdreming"]')).not.toBeNull();
+    expect(host.querySelector('a[href="https://t.me/nerual_dreming"]')).not.toBeNull();
+    await type('short');
+    expect(sendButton().disabled, 'under ten characters').toBe(true);
+    await type('The song stops at decoding every time');
+    expect(sendButton().disabled).toBe(false);
+    await act(async () => sendButton().click());
+    expect(calls.find(call => call.path === '/v1/problem/report')?.body).toMatchObject({ kind: 'bug', what: 'The song stops at decoding every time', attach_log: true });
+    expect(host.textContent).toContain('problemSent');
+    expect(host.querySelector('a[href="https://github.com/x/y/issues/77"]')).not.toBeNull();
+  });
+
+  it('shows exactly the request the service would send when "what will be sent" is opened', async () => {
+    serve({ '/v1/problem/list': { status: 200, body: { problems: [{ number: 5, url: 'https://github.com/x/y/issues/5', closed: true, filed_at: 1 }] } }, '/v1/problem/preview': { status: 200, body: { version: '4.0.0', models: 'quality-q8', log: 'line one' } } });
+    await open();
+    await type('The song stops at decoding every time');
+    const details = host.querySelector('details')!;
+    await act(async () => {
+      details.open = true;
+      details.dispatchEvent(new Event('toggle'));
+    });
+    expect(calls.some(call => call.path === '/v1/problem/preview')).toBe(true);
+    expect(host.querySelector('pre')?.textContent).toContain('"models": "quality-q8"');
+    expect(host.querySelector('pre')?.textContent).toContain('line one');
+    expect(host.textContent).toContain('problemYours');
+    expect(host.textContent).toContain('problemClosed');
+  });
+
+  it('says why a report did not go, each kind in its own words', () => {
+    const t = (key: string) => key;
+    expect(refusalText({ code: 'rate', retry_after_s: 1200 }, (key) => (key === 'problemErrRate' ? 'in {min} min' : t(key)))).toBe('in 20 min');
+    for (const [code, key] of [['not_configured', 'problemErrNotConfigured'], ['busy', 'problemErrBusy'], ['unreachable', 'problemErrUnreachable'], ['field', 'problemErrField']] as const) {
+      expect(refusalText({ code }, t)).toBe(key);
+    }
+  });
+});
