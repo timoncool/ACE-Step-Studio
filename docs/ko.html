@@ -351,6 +351,24 @@ footer p { margin: 0 0 8px; }
     <div class="cta"><a class="btn primary" href="https://github.com/timoncool/ACE-Step-Studio/releases/latest">Windows용 다운로드<small data-release>v3.8.5 · 432 MB</small></a></div>
   </section>
 
+  <section id="speed">
+    <h2>얼마나 빠른가</h2>
+    <p class="sub">3분짜리 곡에 걸리는 시간을 그래픽 카드별로: ACE-Step Studio 설치본의 30일 평균, 버전 3.8, 모델 불러오기 포함.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>그래픽 카드</th><th>3분짜리 곡</th><th>속도</th></tr></thead>
+      <tbody>
+        <tr><td>NVIDIA, 24 GB 이상</td><td>약 45초</td><td>실시간보다 4.1배 빠름</td></tr>
+        <tr><td>NVIDIA, 16 GB</td><td>약 50초</td><td>3.6×</td></tr>
+        <tr><td>NVIDIA, 12 GB</td><td>1분 남짓</td><td>2.5×</td></tr>
+        <tr><td>NVIDIA, 8 GB 이하</td><td>약 2분</td><td>1.4×</td></tr>
+        <tr><td>Apple silicon, 24 GB 이상</td><td>약 3분</td><td>1.1×</td></tr>
+        <tr><td>Apple silicon, 16 GB</td><td>약 6분</td><td>0.5×</td></tr>
+        <tr><td>그래픽 카드 없음(프로세서)</td><td>약 12분</td><td>0.25×</td></tr>
+      </tbody>
+    </table></div>
+    <p class="sub">우리 컴퓨터(RTX 4090, 품질 세트, 모델을 불러온 채 유지)에서는 30초짜리 곡이 4초, 모델을 먼저 불러와야 할 때는 11초입니다.</p>
+  </section>
+
   <section id="faq">
     <h2>자주 묻는 질문</h2>
     <details><summary>어떤 그래픽 카드가 필요한가요?</summary><div class="answer"><p>Windows 10/11 x64와 VRAM 4 GB 이상의 NVIDIA GPU(GTX 900 이상). 모델은 원할 때 스튜디오 안에서 내려받습니다.</p><p>실행 가능한 세트는 DiT, 플래너, 텍스트 인코더, VAE이며 모두 GGUF입니다.</p><div class="scroll"><table>

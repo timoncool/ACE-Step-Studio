@@ -266,6 +266,24 @@ run them on a real Linux desktop. **If you live on Linux, it would be great if y
 the fixes back as a pull request.** The studio keeps its data in `~/.local/share/ace-step-studio`
 (`$XDG_DATA_HOME`).
 
+## How fast is it
+
+How long a 3-minute song takes, by graphics card (averages from ACE-Step Studio installations over 30 days, version
+3.8, loading the models included).
+
+| Your graphics card | A 3-minute song | Speed |
+| --- | --- | --- |
+| NVIDIA, 24 GB or more | about 45 seconds | 4.1× faster than real time |
+| NVIDIA, 16 GB | about 50 seconds | 3.6× |
+| NVIDIA, 12 GB | a little over 1 minute | 2.5× |
+| NVIDIA, 8 GB or less | about 2 minutes | 1.4× |
+| Apple silicon, 24 GB or more | about 3 minutes | 1.1× |
+| Apple silicon, 16 GB | about 6 minutes | 0.5× |
+| No graphics card (processor) | about 12 minutes | 0.25× |
+
+On our machine (RTX 4090, the quality set, models kept loaded): a 30-second song in 4 s, 11 s when the models have to
+load first.
+
 ## What runs where
 
 | Part | NVIDIA | AMD, Intel | No graphics card |
