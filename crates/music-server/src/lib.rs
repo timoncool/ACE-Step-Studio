@@ -7179,6 +7179,12 @@ async fn assistant_ask(
                     let tail = state.assistant_runtime.log_tail();
                     let detail = if tail.is_empty() { String::new() } else { format!("
 {tail}") };
+                    if error.is_timeout() {
+                        return api_error(
+                            StatusCode::GATEWAY_TIMEOUT,
+                            format!("the local assistant did not finish within 3 minutes: the model writes too slowly on this computer; choose a smaller model or one that fits the graphics card{detail}"),
+                        );
+                    }
                     api_error(StatusCode::BAD_GATEWAY, format!("the local assistant is unreachable: {error}{detail}"))
                 })?;
             let status = sent.status();

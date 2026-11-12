@@ -539,12 +539,13 @@ function AppContent() {
       change(scaleForKey(event.deltaY < 0 ? '+' : '-', scale));
     };
     const onScale = (event: Event) => { scale = (event as CustomEvent<number>).detail; };
-    window.addEventListener('keydown', onKey);
-    window.addEventListener('wheel', onWheel, { passive: false });
+    // caught on the way down, so a panel that handles the wheel or a key itself does not keep the scale from changing
+    window.addEventListener('keydown', onKey, { capture: true });
+    window.addEventListener('wheel', onWheel, { passive: false, capture: true });
     window.addEventListener(UI_SCALE_EVENT, onScale);
     return () => {
-      window.removeEventListener('keydown', onKey);
-      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('keydown', onKey, { capture: true });
+      window.removeEventListener('wheel', onWheel, { capture: true });
       window.removeEventListener(UI_SCALE_EVENT, onScale);
     };
   }, []);
