@@ -5,22 +5,30 @@ export function searchWords(query: string): string[] {
   return query.toLowerCase().split(/\s+/).filter(Boolean);
 }
 
-/** Every string and number in a value, however deep: a seed, a model's file name, a setting. */
+/** Every string and number in a value, however deep: a seed, a model's file name, a setting. Values only: the names
+ * of the settings would make a word like "seed" find every song. */
 function textOf(value: unknown): string[] {
   if (value == null) return [];
   if (typeof value === 'string') return [value];
   if (typeof value === 'number' || typeof value === 'boolean') return [String(value)];
   if (Array.isArray(value)) return value.flatMap(textOf);
-  if (typeof value === 'object') return Object.entries(value as Record<string, unknown>).flatMap(([key, inner]) => [key, ...textOf(inner)]);
+  if (typeof value === 'object') return Object.values(value as Record<string, unknown>).flatMap(textOf);
   return [];
 }
 
+/** A song's text, gathered once per song object: a keystroke in the search reads it, it does not rebuild it. */
+const gathered = new WeakMap<Song, string>();
+
 /** What a search reads in a song: title, style, tags, lyrics, the person's note, the model and the settings it was made with. */
 function searchableText(song: Song): string {
-  return [song.title, song.style, ...(song.tags ?? []), song.lyrics, song.note, song.ditModel, ...textOf(song.generationParams)]
+  const known = gathered.get(song);
+  if (known !== undefined) return known;
+  const text = [song.title, song.style, ...(song.tags ?? []), song.lyrics, song.note, song.ditModel, ...textOf(song.generationParams)]
     .filter((part): part is string => typeof part === 'string' && part.length > 0)
     .join('\n')
     .toLowerCase();
+  gathered.set(song, text);
+  return text;
 }
 
 /** Whether every word of the search is somewhere in the song, in any order. */
