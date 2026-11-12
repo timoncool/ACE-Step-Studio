@@ -295,13 +295,21 @@ pub struct Acpp {
     /// Every model the server may carry. One server per build serves them all: a config that names only the model of
     /// the run at hand would restart the server whenever another tool asks for its own.
     known: std::sync::Mutex<Vec<Known>>,
-    /// Runs at work on the servers.
-    active: std::sync::Mutex<usize>,
+    /// Runs at work, by build.
+    active: std::sync::Mutex<Vec<(Build, usize)>>,
+    /// Signalled whenever a run ends: one waiting for its backend to be free looks again.
+    ended: std::sync::Condvar,
 }
 
 impl Acpp {
     pub fn new(downloader: Downloader) -> Self {
-        Self { downloader, cuda13_libraries: OnceLock::new(), known: std::sync::Mutex::new(Vec::new()), active: std::sync::Mutex::new(0) }
+        Self {
+            downloader,
+            cuda13_libraries: OnceLock::new(),
+            known: std::sync::Mutex::new(Vec::new()),
+            active: std::sync::Mutex::new(Vec::new()),
+            ended: std::sync::Condvar::new(),
+        }
     }
 
     /// The folder of the cuBLAS 13 the music engine runs on.
@@ -353,12 +361,10 @@ impl Acpp {
         self.missing(build).is_empty()
     }
 
-    /// The running server of this build carrying `model` (registered with its files) and every other registered model
-    /// on disk: the one there is, or a new one in its place when the models on disk changed or the process ended. An
-    /// error, before the program starts, when the program, a CUDA library it imports or `model` is missing.
-    fn server(&self, build: Build, model: ModelEntry, files: Vec<PathBuf>) -> Result<Arc<Server>> {
-        let id = model.id.clone();
-        self.register(model, files);
+    /// The server of this build carrying every registered model on disk, `id` among them: the running one when its
+    /// models are these, else a new one in its place. An error, before the program starts, when the program, a CUDA
+    /// library it imports or `id`'s files are missing.
+    fn server(&self, build: Build, id: &str) -> Result<Arc<Server>> {
         let models = self.models_on_disk();
         if !models.iter().any(|entry| entry.id == id) {
             bail!("{id} is not completely downloaded; download it in Settings - Models");
@@ -408,30 +414,101 @@ impl Acpp {
         Ok(server)
     }
 
-    /// `work` on the server of `build` carrying `model`. When the last piece of work on the servers ends - done, failed
-    /// or stopped - the server is ended: an idle server still holds a gigabyte of the card, which belongs to the music
-    /// engine between runs. A piece of work counts from before its server is looked up, so one that ends meanwhile
-    /// leaves the server to it.
+    /// `work` on the server of `build` carrying `model` (`take`): the one at work when it carries the model, else a
+    /// new one once the runs on it have ended. The run counts from the moment its server is chosen.
     pub fn with_server<T>(&self, build: Build, model: ModelEntry, files: Vec<PathBuf>, work: impl FnOnce(&Server) -> Result<T>) -> Result<T> {
-        *self.active.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) += 1;
-        let outcome = self.server(build, model, files).and_then(|server| {
-            let done = work(&server);
-            Ok((server, done))
-        });
-        let last = {
+        let id = model.id.clone();
+        self.register(model, files);
+        let backend = build.backend();
+        let server = {
             let mut active = self.active.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-            *active -= 1;
-            *active == 0
-        };
-        match outcome {
-            Ok((server, done)) => {
-                if last {
-                    server.kill();
+            let server = loop {
+                let running = acpp_server::SERVERS.running(backend);
+                let seen = running.as_ref().map(|server| Seen { alive: server.alive(), carries: server.config().models.iter().any(|entry| entry.id == id) });
+                match take(seen, busy(&active, backend)) {
+                    Take::Running => break running.expect("a running server was seen"),
+                    Take::Wait => active = self.ended.wait(active).unwrap_or_else(|poisoned| poisoned.into_inner()),
+                    Take::Start => break self.server(build, &id)?,
                 }
-                done
+            };
+            begin(&mut active, build);
+            server
+        };
+        let _work = Work { acpp: self, build };
+        work(&server)
+    }
+}
+
+/// The server running on a backend, as a run about to start sees it.
+#[derive(Debug, Clone, Copy)]
+struct Seen {
+    alive: bool,
+    /// It carries the model the run needs.
+    carries: bool,
+}
+
+/// What a run does with the server of its backend.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Take {
+    /// The one running, as it is: another run is at work on it.
+    Running,
+    /// Wait for the runs on it to end: it lacks the model, and replacing it would break them.
+    Wait,
+    /// `SERVERS.get`: the running one when its models are today's, else a new one in its place.
+    Start,
+}
+
+/// A server under work is never replaced: the run takes it as it is when it carries the model, else waits.
+fn take(running: Option<Seen>, busy: bool) -> Take {
+    match running {
+        Some(seen) if seen.alive && busy => {
+            if seen.carries {
+                Take::Running
+            } else {
+                Take::Wait
             }
-            Err(error) => Err(error),
         }
+        _ => Take::Start,
+    }
+}
+
+/// Some run is at work on a server of `backend`: the CUDA builds share one.
+fn busy(active: &[(Build, usize)], backend: acpp_server::Backend) -> bool {
+    active.iter().any(|(build, runs)| build.backend() == backend && *runs > 0)
+}
+
+fn begin(active: &mut Vec<(Build, usize)>, build: Build) {
+    match active.iter_mut().find(|(at, _)| *at == build) {
+        Some((_, runs)) => *runs += 1,
+        None => active.push((build, 1)),
+    }
+}
+
+/// Counts a run of `build` off; whether its backend is free now.
+fn end(active: &mut [(Build, usize)], build: Build) -> bool {
+    if let Some((_, runs)) = active.iter_mut().find(|(at, _)| *at == build) {
+        *runs = runs.saturating_sub(1);
+    }
+    !busy(active, build.backend())
+}
+
+/// A run at work. When it ends - done, failed, stopped or panicking - it is counted off, and the last one on its
+/// backend ends the server: an idle server still holds a gigabyte of the card, which belongs to the music engine
+/// between runs.
+struct Work<'a> {
+    acpp: &'a Acpp,
+    build: Build,
+}
+
+impl Drop for Work<'_> {
+    fn drop(&mut self) {
+        let mut active = self.acpp.active.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        if end(&mut active, self.build) {
+            if let Some(server) = acpp_server::SERVERS.running(self.build.backend()) {
+                server.kill();
+            }
+        }
+        self.acpp.ended.notify_all();
     }
 }
 
@@ -512,5 +589,31 @@ mod tests {
         assert!(acpp.models_on_disk().is_empty(), "a folder with one of its files is not a model yet");
         std::fs::write(&files[1], b"x").unwrap();
         assert_eq!(acpp.models_on_disk().len(), 1);
+    }
+
+
+    #[test]
+    fn a_server_at_work_is_taken_as_it_is_or_waited_for_never_replaced() {
+        let carrying = Seen { alive: true, carries: true };
+        let lacking = Seen { alive: true, carries: false };
+        assert_eq!(take(Some(carrying), true), Take::Running, "another run's server carries the model");
+        assert_eq!(take(Some(lacking), true), Take::Wait, "it lacks the model and another run is at work on it");
+        assert_eq!(take(Some(lacking), false), Take::Start, "nobody is at work: replaced as before");
+        assert_eq!(take(None, false), Take::Start, "no server yet");
+        assert_eq!(take(Some(Seen { alive: false, carries: true }), true), Take::Start, "a server that died serves nobody");
+    }
+
+    #[test]
+    fn runs_are_counted_by_build_and_a_backend_frees_with_its_last_run() {
+        let mut active = Vec::new();
+        begin(&mut active, Build::Cuda13);
+        begin(&mut active, Build::Cpu);
+        begin(&mut active, Build::Cuda13);
+        assert!(end(&mut active, Build::Cpu), "the processor's server ends with its own run");
+        assert!(busy(&active, Build::Cuda13.backend()), "the CUDA runs keep the card's server");
+        assert!(!busy(&active, Build::Cpu.backend()));
+        assert!(!end(&mut active, Build::Cuda13), "one CUDA run still works");
+        assert!(end(&mut active, Build::Cuda13), "the last CUDA run frees its backend");
+        assert!(end(&mut active, Build::Cpu), "counting off below zero stays free");
     }
 }

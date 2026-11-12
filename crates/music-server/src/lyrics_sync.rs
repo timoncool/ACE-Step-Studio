@@ -903,12 +903,24 @@ impl LyricsSync {
     /// server is looked up, when a part of CrisperWhisper is not downloaded.
     fn with_crisper<T>(&self, runtime: OnnxFlavour, work: impl FnOnce(&acpp_server::Server) -> Result<T>) -> Result<T> {
         let build = crate::acpp::build_for(runtime)?;
-        let model = self.downloader.root().join(CRISPERWHISPER_DIR);
         if !self.crisper_ready(runtime) {
-            bail!("CrisperWhisper is not completely downloaded into {}: download it in Settings - Models", model.display());
+            bail!("CrisperWhisper is not completely downloaded into {}: download it in Settings - Models", self.downloader.root().join(CRISPERWHISPER_DIR).display());
         }
+        let (entry, files) = self.crisper_entry();
+        self.acpp.with_server(build, entry, files, work)
+    }
+
+    /// CrisperWhisper as audio.cpp's server carries it, with the files it is complete with.
+    fn crisper_entry(&self) -> (acpp_server::ModelEntry, Vec<PathBuf>) {
+        let model = self.downloader.root().join(CRISPERWHISPER_DIR);
         let files = OWN.iter().filter(|asset| asset.relative_path.starts_with(CRISPERWHISPER_DIR)).map(|asset| self.downloader.root().join(asset.relative_path)).collect();
-        self.acpp.with_server(build, acpp_server::ModelEntry::crisperwhisper(CRISPERWHISPER, &model), files, work)
+        (acpp_server::ModelEntry::crisperwhisper(CRISPERWHISPER, &model), files)
+    }
+
+    /// Registers CrisperWhisper with audio.cpp's server at start, beside the stems' and MIDI's models.
+    pub fn register_crisper(&self) {
+        let (entry, files) = self.crisper_entry();
+        self.acpp.register(entry, files);
     }
 
     pub fn installed_models(&self) -> Vec<&'static Asset> {

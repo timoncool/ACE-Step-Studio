@@ -988,6 +988,7 @@ pub async fn serve() -> anyhow::Result<()> {
     }
     state.lyrics_sync.set_cuda_libraries(state.engine_runtime.library_dir());
     // the models audio.cpp's server carries for the tools, so one tool's server serves the next as well
+    state.lyrics_sync.register_crisper();
     let htdemucs = state.separator.model_path();
     state.lyrics_sync.acpp().register(acpp_server::ModelEntry::htdemucs(acpp::HTDEMUCS, &htdemucs), vec![htdemucs.clone()]);
     for size in &midi::SIZES {
