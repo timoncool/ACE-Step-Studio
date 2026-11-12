@@ -1337,6 +1337,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
                   })}
                   <button type="button" onClick={() => setGenres(someGenres())} className={ICON} title={tt('aceMoreGenres')}><Dices size={13} /></button>
                 </div>
+                {!instrumental && <div className="mt-3">{voiceField}</div>}
               </Card>
 
               <Card
@@ -1359,7 +1360,6 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
                   {!instrumental && (
                     <>
                       {languageField}
-                      {voiceField}
                       <textarea
                         value={lyrics}
                         rows={12}
