@@ -1421,6 +1421,7 @@ export const zh = {
     setupTitle: '设置本地音乐生成',
     setupIntro: '下载一套完整且已校验的 acestep.cpp 组合：DiT、语言模型、文本编码器和 VAE。',
     recommendedForMachine: '针对本机推荐：',
+    recommendedOnVulkan: '引擎通过 Vulkan 在其上运算',
     recommendedFallback: '已预选与检测到的 GPU 匹配的配置',
     setupResumable: '下载可续传，每个组件在启用生成前都会校验哈希。',
     hardwarePreset: '硬件预设',

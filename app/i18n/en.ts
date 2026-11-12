@@ -1426,6 +1426,7 @@ export const en = {
     setupTitle: 'Set up local music generation',
     setupIntro: 'Download one complete, verified acestep.cpp set: a DiT, a language model, a text encoder and a VAE.',
     recommendedForMachine: 'Recommended for this machine:',
+    recommendedOnVulkan: 'the engine computes on it through Vulkan',
     recommendedFallback: 'the profile matching the detected GPU is preselected',
     setupResumable: 'Downloads are resumable and every component is checksum-verified before generation is enabled.',
     hardwarePreset: 'Hardware preset',

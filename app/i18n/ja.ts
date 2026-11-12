@@ -1421,6 +1421,7 @@ export const ja = {
     setupTitle: 'ローカル音楽生成のセットアップ',
     setupIntro: '検証済みの acestep.cpp セットを 1 つダウンロード：DiT、言語モデル、テキストエンコーダー、VAE。',
     recommendedForMachine: 'このマシンの推奨:',
+    recommendedOnVulkan: 'エンジンは Vulkan でこのカードを使って計算します',
     recommendedFallback: '検出された GPU に合うプロファイルを事前選択しました',
     setupResumable: 'ダウンロードは再開可能で、各コンポーネントは生成を有効にする前にチェックサム検証されます。',
     hardwarePreset: 'ハードウェアプリセット',
