@@ -21,9 +21,11 @@ Push-Location $worktree
 try {
     Invoke-Checked 'git fetch' { git fetch origin $source.branch }
     Invoke-Checked 'git checkout' { git checkout --detach $source.commit }
-    Invoke-Checked 'npm ci' { npm ci --no-audit --no-fund }
-    Invoke-Checked 'packages build' { npx turbo build --filter="./packages/*" }
-    Invoke-Checked 'editor build' { npm run build:studio -w app }
+    # signal is a pnpm workspace; corepack brings the pnpm its package.json names
+    $env:COREPACK_ENABLE_DOWNLOAD_PROMPT = '0'
+    Invoke-Checked 'pnpm install' { pnpm install --frozen-lockfile }
+    Invoke-Checked 'packages build' { pnpm exec turbo build --filter="./packages/*" }
+    Invoke-Checked 'editor build' { pnpm --dir app build:studio }
 } finally {
     Pop-Location
 }
