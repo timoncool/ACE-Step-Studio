@@ -8594,41 +8594,38 @@ fn models_the_engine_lacks(request: &Value, props: &Value, on_disk: impl Fn(&str
 
 /// Has the engine read its models folder again when a request names a model
 /// on disk that it does not know yet: once per name for each start of the
-/// engine, so a file its registry does not take as a model is named as such
-/// instead of restarting the engine on every song.
+/// engine, so a file its registry does not take as a model costs one restart,
+/// not one on every song. The song goes to the engine either way, which names
+/// a model it still has not got.
 async fn engine_finds_the_models(state: &AppState, request: &Value) -> Result<(), String> {
     let Ok(Ok(props)) = tokio::time::timeout(std::time::Duration::from_secs(3), state.music_server.props()).await else {
         return Ok(());
     };
     let root = state.model_manager.models_directory();
     let lacking = models_the_engine_lacks(request, &props, |name| root.join(name).is_file());
-    if lacking.is_empty() {
+    let fresh = not_read_again_for(&RESCANNED_FOR.lock().unwrap_or_else(|poisoned| poisoned.into_inner()), &lacking);
+    if fresh.is_empty() {
         return Ok(());
     }
-    {
-        let read_again = RESCANNED_FOR.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-        unrecognised_after_a_rescan(&read_again, &lacking)?;
+    music_engine::server::note_in_log(&format!("the engine does not list {}; reading the models folder again", fresh.join(", ")));
+    rescan_resources(state).await.map_err(|error| format!("{} came after the engine started, and it could not read the models folder again: {error}", fresh.join(", ")))?;
+    RESCANNED_FOR.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).extend(fresh.iter().cloned());
+    if let Ok(props) = state.music_server.props().await {
+        for name in models_the_engine_lacks(request, &props, |name| root.join(name).is_file()) {
+            music_engine::server::note_in_log(&format!("{name} is still not listed after the folder was read again"));
+        }
     }
-    music_engine::server::note_in_log(&format!("the engine does not list {}; reading the models folder again", lacking.join(", ")));
-    rescan_resources(state).await.map_err(|error| format!("{} came after the engine started, and it could not read the models folder again: {error}", lacking.join(", ")))?;
-    RESCANNED_FOR.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).extend(lacking.iter().cloned());
-    let props = state.music_server.props().await.map_err(|error| format!("the engine did not answer after reading the models folder again: {error}"))?;
-    let still = models_the_engine_lacks(request, &props, |name| root.join(name).is_file());
-    let read_again = RESCANNED_FOR.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-    unrecognised_after_a_rescan(&read_again, &still)
+    Ok(())
 }
 
 /// The model files this run of the engine has already been made to read its
 /// folder again for; emptied when the engine starts.
 static RESCANNED_FOR: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
 
-/// A file the engine still does not list after it read its folder again for
-/// it is one its registry does not take as a model.
-fn unrecognised_after_a_rescan(read_again: &[String], lacking: &[String]) -> Result<(), String> {
-    match lacking.iter().find(|name| read_again.contains(name)) {
-        Some(name) => Err(format!("the engine did not recognise {name} as a model after reading its models folder again; the file may be incomplete or not an ACE-Step model - download it again in Settings - Models")),
-        None => Ok(()),
-    }
+/// The names the engine has not yet been made to read its folder again for in
+/// this run.
+fn not_read_again_for(read_again: &[String], lacking: &[String]) -> Vec<String> {
+    lacking.iter().filter(|name| !read_again.contains(name)).cloned().collect()
 }
 
 async fn run_ace_job(state: AppState, run: AceRun) {
@@ -9666,12 +9663,11 @@ mod tests {
     #[test]
     fn a_model_read_again_for_once_is_not_read_again_for_on_the_next_song() {
         let lacking = vec!["broken.gguf".to_owned()];
-        assert_eq!(unrecognised_after_a_rescan(&[], &lacking), Ok(()), "the first time the folder is read again");
+        assert_eq!(not_read_again_for(&[], &lacking), lacking, "the first time the folder is read again");
         let read_again = vec!["broken.gguf".to_owned()];
-        let refused = unrecognised_after_a_rescan(&read_again, &lacking).unwrap_err();
-        assert!(refused.contains("did not recognise broken.gguf as a model"), "{refused}");
-        assert_eq!(unrecognised_after_a_rescan(&read_again, &["other.gguf".to_owned()]), Ok(()), "another name gets its own read");
-        assert_eq!(unrecognised_after_a_rescan(&read_again, &[]), Ok(()));
+        assert!(not_read_again_for(&read_again, &lacking).is_empty(), "the same name does not restart the engine again");
+        let both = vec!["broken.gguf".to_owned(), "other.gguf".to_owned()];
+        assert_eq!(not_read_again_for(&read_again, &both), vec!["other.gguf".to_owned()], "another name gets its own read");
     }
 
     #[test]
