@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, RotateCcw, Trash2 } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import { deleteTrashedSong, emptyTrash, listTrash, restoreTrashedSong, type TrashedSong } from '../services/nativeLibrary';
@@ -13,6 +13,12 @@ export const LibraryTrash: React.FC<{ onToast: (message: string, type?: 'success
   const [busy, setBusy] = useState<string | null>(null);
   const [asking, setAsking] = useState<{ kind: 'one'; song: TrashedSong } | { kind: 'all' } | null>(null);
 
+  // the latest onToast, outside the read's keys: the page passes a new function on every render, and a read keyed on
+  // it would ask for the bin again each time
+  const toast = useRef(onToast);
+  useEffect(() => {
+    toast.current = onToast;
+  }, [onToast]);
   const load = useCallback(async () => {
     try {
       const bin = await listTrash();
@@ -20,9 +26,9 @@ export const LibraryTrash: React.FC<{ onToast: (message: string, type?: 'success
       setDays(bin.days);
     } catch (error) {
       setSongs([]);
-      onToast(error instanceof Error ? error.message : String(error), 'error');
+      toast.current(error instanceof Error ? error.message : String(error), 'error');
     }
-  }, [onToast]);
+  }, []);
 
   useEffect(() => { void load(); }, [load]);
 
