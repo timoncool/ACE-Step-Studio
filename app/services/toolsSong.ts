@@ -24,6 +24,31 @@ export function toolsSongOnOpen(playable: string[], runs: (ToolRun | null | unde
   return working?.song_id ?? playable[0] ?? '';
 }
 
+
+interface Derived {
+  id: string;
+  metadata?: unknown;
+}
+
+const derivation = (song: Derived | undefined): { from?: unknown; tool?: unknown } | null => {
+  const derived = (song?.metadata as { derived?: unknown } | null | undefined)?.derived;
+  return derived && typeof derived === 'object' ? (derived as { from?: unknown; tool?: unknown }) : null;
+};
+
+/** Whether a library track was made by `tool` (the service's `metadata.derived.tool`). */
+export function derivedBy(song: Derived | undefined, tool: string): boolean {
+  return derivation(song)?.tool === tool;
+}
+
+/** The track a restoration of `songId` made, which restoring it again replaces. */
+export function restoredOf(songs: Derived[], songId: string): string | null {
+  if (!songId) return null;
+  return songs.find(song => {
+    const derived = derivation(song);
+    return derived?.tool === 'restore' && derived.from === songId;
+  })?.id ?? null;
+}
+
 /** Why the library did not answer: its status, and its body only when it said something. */
 export function libraryFailure(status: number, body: string): string {
   const said = body.trim();

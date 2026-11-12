@@ -643,6 +643,7 @@ export const WHERE_IT_RUNS: { part: TranslationKey; name: string; nvidia: Path; 
   { part: 'hubPartTempoKey', name: 'Beat This!, S-KEY', nvidia: 'cpu', other: 'cpu', none: 'cpu' },
   { part: 'hubPartStems', name: 'HT-Demucs', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
   { part: 'hubPartStems', name: 'Mel-Band RoFormer', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
+  { part: 'restoreTitle', name: 'Apollo', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
   { part: 'hubPartKaraoke', name: 'Parakeet', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
   { part: 'hubPartKaraoke', name: 'CrisperWhisper', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
   { part: 'hubPartAssistant', name: 'llama.cpp', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
@@ -707,6 +708,7 @@ const KARAOKE_ENGINES: EngineChoice[] = [
 const TRAINING_ENGINES: EngineChoice[] = [{ id: 'music-train', label: 'HOT-Step music-train', devicePicker: false }];
 const LISTEN_ENGINES: EngineChoice[] = [{ id: 'moss-music', label: 'MOSS-Music', devicePicker: false }];
 const MIDI_ENGINES: EngineChoice[] = [{ id: 'muscriptor', label: 'MuScriptor', devicePicker: false }];
+const RESTORE_ENGINES: EngineChoice[] = [{ id: 'apollo', label: 'Apollo', devicePicker: false }];
 
 export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 'settings'; focus?: string | null }> = ({ onReady, mode = 'first-run', focus = null }) => {
   const { t, language } = useI18n();
@@ -1281,6 +1283,17 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
                 removeUrl="/v1/midi/remove"
                 cancelUrl="/v1/midi/cancel"
                 engines={MIDI_ENGINES}
+              />
+            )}
+            {mode === 'settings' && (
+              <OptionalGroup
+                title={t('restoreTitle')}
+                purpose={t('restorePurpose')}
+                statusUrl="/v1/restore/runtime"
+                installUrl="/v1/restore/install"
+                removeUrl="/v1/restore/remove"
+                cancelUrl="/v1/restore/cancel"
+                engines={RESTORE_ENGINES}
               />
             )}
           </div>

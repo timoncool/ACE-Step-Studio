@@ -1,5 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { libraryFailure, shownSongs, toolsSongOnOpen } from './toolsSong';
+import { derivedBy, libraryFailure, restoredOf, shownSongs, toolsSongOnOpen } from './toolsSong';
+
+describe('restoredOf and derivedBy', () => {
+  const songs = [
+    { id: 'a', metadata: {} },
+    { id: 'a-stem', metadata: { derived: { from: 'a', tool: 'stems' } } },
+    { id: 'a-restored', metadata: { derived: { from: 'a', tool: 'restore' } } },
+    { id: 'file-restored', metadata: { derived: { from_file: 'old', tool: 'restore' } } },
+  ];
+
+  it('finds the track a restoration of the song made, and none for another song', () => {
+    expect(restoredOf(songs, 'a')).toBe('a-restored');
+    expect(restoredOf(songs, 'b')).toBeNull();
+    expect(restoredOf(songs, '')).toBeNull();
+  });
+
+  it('knows a restored track, a recording restored from a file among them', () => {
+    expect(derivedBy(songs[2], 'restore')).toBe(true);
+    expect(derivedBy(songs[3], 'restore')).toBe(true);
+    expect(derivedBy(songs[1], 'restore')).toBe(false);
+    expect(derivedBy(undefined, 'restore')).toBe(false);
+  });
+});
 
 describe('libraryFailure', () => {
   it('says the status alone when the answer has no body', () => {

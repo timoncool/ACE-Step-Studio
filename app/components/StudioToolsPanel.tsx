@@ -19,7 +19,8 @@ import { apiUrl } from '../services/apiBase';
 import { openExternal } from '../services/externalLinks';
 import { StemPlayer } from './StemPlayer';
 import { WorkProgress } from './WorkProgress';
-import { libraryFailure, shownSongs, toolsSongOnOpen, type ToolRun } from '../services/toolsSong';
+import { derivedBy, libraryFailure, restoredOf, shownSongs, toolsSongOnOpen, type ToolRun } from '../services/toolsSong';
+import { RestoreTool } from './RestoreTool';
 
 /**
  * Studio tools.
@@ -437,6 +438,16 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
             <p role="alert" className="mt-3 select-text rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-700 wrap-anywhere dark:text-rose-300">{run.error}</p>
           )}
         </section>
+
+        {/* Restore after compression, on the track chosen above or a file. */}
+        <RestoreTool
+          songId={songId}
+          songTitle={songs.find(song => song.id === songId)?.title ?? ''}
+          restoredId={restoredOf(songs, songId)}
+          chosenIsRestored={derivedBy(songs.find(song => song.id === songId), 'restore')}
+          card={CARD}
+          onDone={() => void loadSongs()}
+        />
 
         {/* Audio to MIDI, on the track chosen above. */}
         <MidiTool songId={songId} songTitle={songs.find(song => song.id === songId)?.title ?? ''} card={CARD} />
