@@ -1740,31 +1740,36 @@ fn separation_build(runtime: lyrics_sync::OnnxFlavour) -> anyhow::Result<acpp_se
     acpp::build_for(runtime)
 }
 
-/// Downloads what audio.cpp's server of `build` still lacks: the program and its libraries, and for the Windows CUDA 13
-/// build the cuBLAS 13 it shares with the music engine, through the engine runtime that downloads it.
+/// Downloads what audio.cpp's server of `build` still lacks: the program and its libraries, and the CUDA libraries it
+/// shares with the music engine through the engine runtime that downloads them (`shared_cuda`).
 async fn install_acpp(state: &AppState, build: acpp_server::asset::Build, scope: &str) -> anyhow::Result<()> {
     let acpp = state.lyrics_sync.acpp();
     acpp.downloader().install_all(scope, &acpp.missing(build)).await?;
-    if takes_engine_cublas(build) {
-        state.engine_runtime.install_missing(cuda_build::CudaBuild::Cuda13).await?;
+    if let Some(cuda) = shared_cuda(build) {
+        state.engine_runtime.install_missing(cuda).await?;
     }
     Ok(())
 }
 
-/// The bytes audio.cpp's server of `build` still needs, the engine's cuBLAS 13 among them for the CUDA 13 build.
+/// The bytes audio.cpp's server of `build` still needs, the CUDA libraries it shares with the engine among them.
 fn acpp_missing_bytes(state: &AppState, build: acpp_server::asset::Build) -> u64 {
     let server: u64 = state.lyrics_sync.acpp().missing(build).iter().map(|asset| asset.bytes).sum();
-    let cublas: u64 = if takes_engine_cublas(build) { state.engine_runtime.missing(cuda_build::CudaBuild::Cuda13).iter().map(|asset| asset.bytes).sum() } else { 0 };
-    server + cublas
+    let shared: u64 = shared_cuda(build).map(|cuda| state.engine_runtime.missing(cuda).iter().map(|asset| asset.bytes).sum()).unwrap_or(0);
+    server + shared
 }
 
-/// The audio.cpp server build that loads the music engine's cuBLAS 13 rather than its own: CUDA 13 on Windows.
-fn takes_engine_cublas(build: acpp_server::asset::Build) -> bool {
-    cfg!(windows) && build == acpp_server::asset::Build::Cuda13
+/// The engine's CUDA build whose libraries audio.cpp's server of `build` loads: cuBLAS 13 on Windows for the CUDA 13
+/// build; on Linux the CUDA runtime and cuBLAS of either CUDA build.
+fn shared_cuda(build: acpp_server::asset::Build) -> Option<cuda_build::CudaBuild> {
+    match build {
+        acpp_server::asset::Build::Cuda13 => Some(cuda_build::CudaBuild::Cuda13),
+        acpp_server::asset::Build::Cuda12 if cfg!(target_os = "linux") => Some(cuda_build::CudaBuild::Cuda12),
+        _ => None,
+    }
 }
 
-/// HT-Demucs can run on this device choice: its model, audio.cpp's server of that build and the engine's cuBLAS 13
-/// that build loads on Windows.
+/// HT-Demucs can run on this device choice: its model, audio.cpp's server of that build and the engine's CUDA libraries
+/// that build loads (`shared_cuda`).
 fn htdemucs_installed(state: &AppState, runtime: lyrics_sync::OnnxFlavour) -> bool {
     state.separator.is_installed() && separation_build(runtime).is_ok_and(|build| acpp_missing_bytes(state, build) == 0)
 }
@@ -10626,13 +10631,15 @@ mod tests {
     }
 
     /// Stems are ready on the card only with every file the server loads: on Windows the CUDA 13 build takes the music
-    /// engine's cuBLAS 13; on Linux it brings its own.
+    /// engine's cuBLAS 13; on Linux either CUDA build takes the engine's CUDA runtime and cuBLAS.
     #[test]
-    fn the_cuda13_server_counts_the_engine_cublas_only_where_it_loads_it() {
+    fn the_cuda_server_counts_the_engine_libraries_it_loads() {
         use acpp_server::asset::Build;
-        assert_eq!(takes_engine_cublas(Build::Cuda13), cfg!(windows));
-        for build in [Build::Cuda12, Build::Vulkan, Build::Cpu, Build::Metal] {
-            assert!(!takes_engine_cublas(build), "{build:?}");
+        use cuda_build::CudaBuild;
+        assert_eq!(shared_cuda(Build::Cuda13), Some(CudaBuild::Cuda13));
+        assert_eq!(shared_cuda(Build::Cuda12), cfg!(target_os = "linux").then_some(CudaBuild::Cuda12));
+        for build in [Build::Vulkan, Build::Cpu, Build::Metal] {
+            assert_eq!(shared_cuda(build), None, "{build:?}");
         }
     }
 
