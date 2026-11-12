@@ -114,8 +114,9 @@ struct AppState {
     active_device: Arc<RwLock<Option<music_engine::server::ComputeBackend>>>,
     /// Whether the running engine keeps its models loaded, and why.
     keep_decision: Arc<RwLock<Option<KeepDecision>>>,
-    /// When the engine last ended a piece of work: models kept loaded go after a while without one.
-    engine_idle_since: Arc<std::sync::Mutex<std::time::Instant>>,
+    /// When the engine last ended a song: models kept loaded go after a while without one. None before the first
+    /// song of an engine's start: nothing is loaded yet.
+    engine_idle_since: Arc<std::sync::Mutex<Option<std::time::Instant>>>,
     /// The CUDA libraries the engine binary imports. They are downloaded, not
     /// installed, so the engine cannot start until they are on disk.
     engine_runtime: Arc<engine_runtime::EngineRuntime>,
@@ -1086,7 +1087,7 @@ pub async fn serve() -> anyhow::Result<()> {
         failed_devices: Arc::new(RwLock::new(Vec::new())),
         active_device: Arc::new(RwLock::new(None)),
         keep_decision: Arc::new(RwLock::new(None)),
-        engine_idle_since: Arc::new(std::sync::Mutex::new(std::time::Instant::now())),
+        engine_idle_since: Arc::new(std::sync::Mutex::new(None)),
         engine_runtime: Arc::new(engine_runtime::EngineRuntime::new(&engine_bundle_root(), &studio_data_root().unwrap_or_else(|| std::path::PathBuf::from(".")))),
         assistant: Arc::new(RwLock::new(persisted.as_ref().map(|settings| settings.assistant.clone()).unwrap_or_default())),
         assistant_runtime: Arc::new(assistant_runtime::AssistantRuntime::new(
@@ -5193,6 +5194,8 @@ async fn start_engine_again(state: &AppState) -> Result<(), String> {
             Ok(_) => {
                 *supervisor = Some(engine);
                 *state.active_device.write().await = Some(device);
+                // a new engine holds nothing until its first song ends
+                *state.engine_idle_since.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = None;
                 RESCANNED_FOR.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).clear();
                 if options.backend == music_engine::server::ComputeBackend::Auto {
                     music_engine::server::note_in_log(&format!("computing on {}", device_name(device)));
@@ -5462,20 +5465,27 @@ fn keep_idle_limit() -> std::time::Duration {
     std::time::Duration::from_secs(seconds)
 }
 
-/// Unloads models kept loaded once the engine has done nothing for `keep_idle_limit`, once per idle spell.
+/// Unloads models kept loaded once the engine has done nothing for `keep_idle_limit` since its last song, once per
+/// idle spell; before an engine's first song nothing is loaded and nothing is unloaded.
 fn spawn_idle_eviction(state: AppState) {
     tokio::spawn(async move {
         let mut evicted_for: Option<std::time::Instant> = None;
         loop {
             tokio::time::sleep(std::time::Duration::from_secs(15)).await;
             let since = *state.engine_idle_since.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-            if evicted_for == Some(since) || since.elapsed() < keep_idle_limit() || another_job_under_way(&state, "").await {
+            if !idle_unload_due(since, evicted_for, keep_idle_limit()) || another_job_under_way(&state, "").await {
                 continue;
             }
             evict_kept_models(&state, &format!("after {} s without a song", keep_idle_limit().as_secs())).await;
-            evicted_for = Some(since);
+            evicted_for = since;
         }
     });
+}
+
+/// Whether kept models are due to go: a song has ended (`since`), `limit` has passed since, and this idle spell has
+/// not been unloaded yet.
+fn idle_unload_due(since: Option<std::time::Instant>, evicted_for: Option<std::time::Instant>, limit: std::time::Duration) -> bool {
+    since.is_some_and(|since| evicted_for != Some(since) && since.elapsed() >= limit)
 }
 
 /// `Auto` weighed for this start against the card's memory free before the engine loads anything; the engine log
@@ -9450,7 +9460,7 @@ async fn run_ace_job(state: AppState, run: AceRun) {
         }
     })
     .await;
-    *state.engine_idle_since.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = std::time::Instant::now();
+    *state.engine_idle_since.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(std::time::Instant::now());
     // however it ended, it is no longer one the studio's closing could cut off
     let ended = state.jobs.read().await.get(&job_id).map(|job| {
         let profiles: Vec<String> = job.songs.iter().filter_map(|made| made.song.profile_id.clone()).collect();
@@ -10794,6 +10804,18 @@ mod tests {
         assert!(!keep_decision(KeepLoaded::Auto, false, set, kv, MODEL_CONTEXT, 1, Some(64.0)).keep, "the processor");
         assert!(keep_decision(KeepLoaded::Yes, true, set, kv, MODEL_CONTEXT, 1, Some(1.0)).keep);
         assert!(fits.line().contains("GB needed"), "{}", fits.line());
+    }
+
+
+    /// Kept models go a while after the last song, once a spell; before the first song there is nothing to unload.
+    #[test]
+    fn kept_models_go_only_a_while_after_a_song() {
+        let limit = std::time::Duration::from_secs(60);
+        assert!(!idle_unload_due(None, None, limit), "no song yet: nothing is loaded");
+        let long_ago = std::time::Instant::now() - std::time::Duration::from_secs(120);
+        assert!(idle_unload_due(Some(long_ago), None, limit));
+        assert!(!idle_unload_due(Some(long_ago), Some(long_ago), limit), "this spell is unloaded already");
+        assert!(!idle_unload_due(Some(std::time::Instant::now()), None, limit), "a song just ended");
     }
 
 
