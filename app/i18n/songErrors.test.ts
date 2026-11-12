@@ -17,6 +17,16 @@ describe('songErrorText', () => {
     expect(songErrorText(null, 'en')).toBe('');
   });
 
+  it('a song lost with the engine names what its exit means and its last line', () => {
+    const lost = { message: 'x', code: 'lost_exited_at_line', params: { exit: '0xc0000135', meaning: 'library', line: 'load cublas64_13.dll' } };
+    const ru = songErrorText(lost, 'ru');
+    expect(ru).toContain('не загрузилась библиотека движка, код выхода 0xc0000135');
+    expect(ru).toContain('load cublas64_13.dll');
+    expect(songErrorText(lost, 'en')).toContain('a library of the engine did not load, exit code 0xc0000135');
+    const bare = songErrorText({ message: 'x', code: 'lost_exited', params: { exit: '0x1', meaning: 'none' } }, 'en');
+    expect(bare).toContain('(exit code 0x1)');
+  });
+
   it('keeps a placeholder whose field did not come', () => {
     expect(songErrorText({ message: 'x', code: 'engine_fatal', params: {} }, 'en')).toBe('The engine stopped this song: {line}');
   });

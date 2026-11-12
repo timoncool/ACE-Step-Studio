@@ -16,7 +16,8 @@ const EN: ErrorTexts = {
   lost_device_silent: 'The graphics card failed during this song (a CUDA or driver error) and the engine restarted, so the song was lost. The engine log is in Settings → Local engine.',
   lost_at_line: 'The engine stopped during this song and restarted, so the song was lost; its last line was {line}. The engine log is in Settings → Local engine.',
   lost: 'The engine stopped during this song and restarted, so the song was lost. The engine log is in Settings → Local engine.',
-  lost_exited: 'The engine crashed during this song (exit code {exit}) and restarted, so the song was lost. The engine log is in Settings → Local engine.',
+  lost_exited: 'The engine crashed during this song ({meaning}exit code {exit}) and restarted, so the song was lost. The engine log is in Settings → Local engine.',
+  lost_exited_at_line: 'The engine crashed during this song ({meaning}exit code {exit}) and restarted, so the song was lost; its last line was {line}. The engine log is in Settings → Local engine.',
   lost_port_set: 'The engine could not listen on port {port}, which STUDIO_ENGINE_PORT sets, so the song was lost: another program holds it. Close that program or set another port.',
   lost_port_taken: 'The engine could not listen on port {port}, so the song was lost: another program took the port after the studio chose it. Restart the studio: it chooses a free port at start.',
   lost_illegal_instruction: 'The engine stopped during this song on an instruction this processor does not have (exit code {exit}) and restarted, so the song was lost. Please report it with the engine log from Settings → Local engine.',
@@ -50,7 +51,8 @@ const RU: ErrorTexts = {
   lost_device_silent: 'Во время этой песни видеокарта дала сбой (ошибка CUDA или драйвера), движок перезапустился, и песня потеряна. Лог движка — в Настройках → Локальный движок.',
   lost_at_line: 'Движок остановился во время этой песни и перезапустился, песня потеряна; его последняя строка: {line}. Лог движка — в Настройках → Локальный движок.',
   lost: 'Движок остановился во время этой песни и перезапустился, песня потеряна. Лог движка — в Настройках → Локальный движок.',
-  lost_exited: 'Движок упал во время этой песни (код выхода {exit}) и перезапустился, песня потеряна. Лог движка — в Настройках → Локальный движок.',
+  lost_exited: 'Движок упал во время этой песни ({meaning}код выхода {exit}) и перезапустился, песня потеряна. Лог движка — в Настройках → Локальный движок.',
+  lost_exited_at_line: 'Движок упал во время этой песни ({meaning}код выхода {exit}) и перезапустился, песня потеряна; его последняя строка: {line}. Лог движка — в Настройках → Локальный движок.',
   lost_port_set: 'Движок не смог слушать порт {port}, заданный в STUDIO_ENGINE_PORT, песня потеряна: порт занят другой программой. Закройте её или задайте другой порт.',
   lost_port_taken: 'Движок не смог слушать порт {port}, песня потеряна: порт заняла другая программа после того, как студия его выбрала. Перезапустите студию — при старте она выберет свободный порт.',
   lost_illegal_instruction: 'Движок остановился во время этой песни на инструкции, которой нет у этого процессора (код выхода {exit}), и перезапустился, песня потеряна. Сообщите об этом и приложите лог движка из Настроек → Локальный движок.',
@@ -84,7 +86,8 @@ const ZH: ErrorTexts = {
   lost_device_silent: '生成这首歌时显卡出错（CUDA 或驱动错误），引擎已重启，这首歌丢失了。引擎日志在“设置 → 本地引擎”。',
   lost_at_line: '生成这首歌时引擎停止并已重启，这首歌丢失了；它的最后一行是 {line}。引擎日志在“设置 → 本地引擎”。',
   lost: '生成这首歌时引擎停止并已重启，这首歌丢失了。引擎日志在“设置 → 本地引擎”。',
-  lost_exited: '生成这首歌时引擎崩溃（退出码 {exit}）并已重启，这首歌丢失了。引擎日志在“设置 → 本地引擎”。',
+  lost_exited: '生成这首歌时引擎崩溃（{meaning}退出码 {exit}）并已重启，这首歌丢失了。引擎日志在“设置 → 本地引擎”。',
+  lost_exited_at_line: '生成这首歌时引擎崩溃（{meaning}退出码 {exit}）并已重启，这首歌丢失了；它的最后一行是 {line}。引擎日志在“设置 → 本地引擎”。',
   lost_port_set: '引擎无法监听 STUDIO_ENGINE_PORT 指定的端口 {port}，这首歌丢失了：该端口被其他程序占用。请关闭该程序或设置其他端口。',
   lost_port_taken: '引擎无法监听端口 {port}，这首歌丢失了：工作室选定该端口后被其他程序占用。请重启工作室，它会在启动时选择空闲端口。',
   lost_illegal_instruction: '生成这首歌时引擎遇到此处理器不支持的指令而停止（退出码 {exit}）并已重启，这首歌丢失了。请附上“设置 → 本地引擎”中的引擎日志反馈此问题。',
@@ -118,7 +121,8 @@ const JA: ErrorTexts = {
   lost_device_silent: 'この曲の途中でグラフィックカードが失敗し（CUDA またはドライバーのエラー）、エンジンが再起動したため曲は失われました。エンジンのログは「設定 → ローカルエンジン」にあります。',
   lost_at_line: 'この曲の途中でエンジンが止まって再起動し、曲は失われました。最後の行：{line}。エンジンのログは「設定 → ローカルエンジン」にあります。',
   lost: 'この曲の途中でエンジンが止まって再起動し、曲は失われました。エンジンのログは「設定 → ローカルエンジン」にあります。',
-  lost_exited: 'この曲の途中でエンジンがクラッシュし（終了コード {exit}）、再起動したため曲は失われました。エンジンのログは「設定 → ローカルエンジン」にあります。',
+  lost_exited: 'この曲の途中でエンジンがクラッシュし（{meaning}終了コード {exit}）、再起動したため曲は失われました。エンジンのログは「設定 → ローカルエンジン」にあります。',
+  lost_exited_at_line: 'この曲の途中でエンジンがクラッシュし（{meaning}終了コード {exit}）、再起動したため曲は失われました。最後の行：{line}。エンジンのログは「設定 → ローカルエンジン」にあります。',
   lost_port_set: 'エンジンが STUDIO_ENGINE_PORT で指定したポート {port} で待ち受けできず、曲は失われました。別のプログラムがそのポートを使っています。そのプログラムを閉じるか、別のポートを指定してください。',
   lost_port_taken: 'エンジンがポート {port} で待ち受けできず、曲は失われました。スタジオが選んだ後に別のプログラムがそのポートを使い始めました。スタジオを再起動してください。起動時に空いているポートを選びます。',
   lost_illegal_instruction: 'この曲の途中でエンジンがこのプロセッサーにない命令で止まり（終了コード {exit}）、再起動したため曲は失われました。「設定 → ローカルエンジン」のエンジンログを添えて報告してください。',
@@ -152,7 +156,8 @@ const KO: ErrorTexts = {
   lost_device_silent: '이 곡을 만드는 중 그래픽카드에 오류가 나서(CUDA 또는 드라이버 오류) 엔진이 다시 시작되었고 곡을 잃었습니다. 엔진 로그는 "설정 → 로컬 엔진"에 있습니다.',
   lost_at_line: '이 곡을 만드는 중 엔진이 멈췄다가 다시 시작되어 곡을 잃었습니다. 마지막 줄: {line}. 엔진 로그는 "설정 → 로컬 엔진"에 있습니다.',
   lost: '이 곡을 만드는 중 엔진이 멈췄다가 다시 시작되어 곡을 잃었습니다. 엔진 로그는 "설정 → 로컬 엔진"에 있습니다.',
-  lost_exited: '이 곡을 만드는 중 엔진이 비정상 종료되었고(종료 코드 {exit}) 다시 시작되어 곡을 잃었습니다. 엔진 로그는 "설정 → 로컬 엔진"에 있습니다.',
+  lost_exited: '이 곡을 만드는 중 엔진이 비정상 종료되었고({meaning}종료 코드 {exit}) 다시 시작되어 곡을 잃었습니다. 엔진 로그는 "설정 → 로컬 엔진"에 있습니다.',
+  lost_exited_at_line: '이 곡을 만드는 중 엔진이 비정상 종료되었고({meaning}종료 코드 {exit}) 다시 시작되어 곡을 잃었습니다. 마지막 줄: {line}. 엔진 로그는 "설정 → 로컬 엔진"에 있습니다.',
   lost_port_set: '엔진이 STUDIO_ENGINE_PORT에 지정된 포트 {port}에서 대기할 수 없어 곡을 잃었습니다. 다른 프로그램이 그 포트를 쓰고 있습니다. 그 프로그램을 닫거나 다른 포트를 지정하세요.',
   lost_port_taken: '엔진이 포트 {port}에서 대기할 수 없어 곡을 잃었습니다. 스튜디오가 포트를 고른 뒤 다른 프로그램이 그 포트를 차지했습니다. 스튜디오를 다시 시작하세요. 시작할 때 빈 포트를 고릅니다.',
   lost_illegal_instruction: '이 곡을 만드는 중 엔진이 이 프로세서에 없는 명령에서 멈췄고(종료 코드 {exit}) 다시 시작되어 곡을 잃었습니다. "설정 → 로컬 엔진"의 엔진 로그와 함께 알려 주세요.',
@@ -180,6 +185,61 @@ const KO: ErrorTexts = {
 
 const BY_LANGUAGE: Record<Language, ErrorTexts> = { en: EN, ru: RU, zh: ZH, ja: JA, ko: KO };
 
+// What an exit status of the engine means, by the service's key (song_errors.rs `EXIT_MEANINGS`), written before
+// "exit code" in the templates; `none` is a status without a meaning.
+const EXIT_MEANINGS: Record<Language, Record<string, string>> = {
+  en: {
+    access_violation: 'a crash: an access violation, ',
+    illegal_instruction: 'an instruction this processor does not have, ',
+    aborted: 'a crash: the engine aborted, ',
+    stack_overflow: 'a crash: a stack overflow, ',
+    corrupted_memory: 'a crash: corrupted memory, ',
+    library: 'a library of the engine did not load, ',
+    out_of_memory: 'the computer ran out of memory, ',
+    none: '',
+  },
+  ru: {
+    access_violation: 'сбой: нарушение доступа к памяти, ',
+    illegal_instruction: 'инструкция, которой нет у этого процессора, ',
+    aborted: 'сбой: движок прервал работу, ',
+    stack_overflow: 'сбой: переполнение стека, ',
+    corrupted_memory: 'сбой: повреждённая память, ',
+    library: 'не загрузилась библиотека движка, ',
+    out_of_memory: 'компьютеру не хватило памяти, ',
+    none: '',
+  },
+  zh: {
+    access_violation: '崩溃：内存访问冲突，',
+    illegal_instruction: '此处理器不支持的指令，',
+    aborted: '崩溃：引擎中止，',
+    stack_overflow: '崩溃：栈溢出，',
+    corrupted_memory: '崩溃：内存损坏，',
+    library: '引擎的某个库未能加载，',
+    out_of_memory: '计算机内存不足，',
+    none: '',
+  },
+  ja: {
+    access_violation: 'クラッシュ：アクセス違反、',
+    illegal_instruction: 'このプロセッサーにない命令、',
+    aborted: 'クラッシュ：エンジンが中断、',
+    stack_overflow: 'クラッシュ：スタックオーバーフロー、',
+    corrupted_memory: 'クラッシュ：メモリ破損、',
+    library: 'エンジンのライブラリが読み込まれなかった、',
+    out_of_memory: 'コンピューターのメモリ不足、',
+    none: '',
+  },
+  ko: {
+    access_violation: '충돌: 메모리 접근 위반, ',
+    illegal_instruction: '이 프로세서에 없는 명령, ',
+    aborted: '충돌: 엔진 중단, ',
+    stack_overflow: '충돌: 스택 오버플로, ',
+    corrupted_memory: '충돌: 메모리 손상, ',
+    library: '엔진 라이브러리를 불러오지 못함, ',
+    out_of_memory: '컴퓨터 메모리 부족, ',
+    none: '',
+  },
+};
+
 /** A failed song as the service sent it: its English text and, when the reason has a kind, a code with fields. */
 export interface SongFailure {
   message?: string | null;
@@ -195,6 +255,8 @@ export function songErrorText(failure: SongFailure | null | undefined, language:
   const params = failure?.params ?? {};
   return template.replace(/\{(\w+)\}/g, (match, key: string) => {
     const value = params[key];
-    return value === undefined || value === null ? match : String(value);
+    if (value === undefined || value === null) return match;
+    if (key === 'meaning') return EXIT_MEANINGS[language][String(value)] ?? '';
+    return String(value);
   });
 }
