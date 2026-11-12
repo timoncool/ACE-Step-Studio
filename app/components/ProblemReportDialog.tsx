@@ -76,18 +76,32 @@ export const ProblemReportDialog: React.FC<Props> = ({ facts, onClose }) => {
   const [refusal, setRefusal] = useState<ProblemRefusal | null>(null);
   const request = () => ({ kind, what: what.trim(), steps: stepsLabel ? steps.trim() : '', expected: expectedLabel ? expected.trim() : '', attach_log: attachLog });
 
-  // what will be sent, asked for when the person opens it, as the service builds the request
-  const showPreview = () => {
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const previewBody = JSON.stringify(request());
+
+  // what will be sent, as the service builds the request, kept in step with every edit while it is open
+  useEffect(() => {
+    if (!previewOpen) return;
+    const controller = new AbortController();
     setPreview(null);
     setPreviewError(null);
-    fetch('/v1/problem/preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request()) })
-      .then(async response => {
-        const body = await response.json().catch(() => null);
-        if (!response.ok) throw new Error(body ? refusalText(body as ProblemRefusal, tt) : `HTTP ${response.status}`);
-        setPreview(body as Record<string, unknown>);
-      })
-      .catch((error: unknown) => setPreviewError(error instanceof Error ? error.message : String(error)));
-  };
+    const timer = window.setTimeout(() => {
+      fetch('/v1/problem/preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: previewBody, signal: controller.signal })
+        .then(async response => {
+          const body = await response.json().catch(() => null);
+          if (!response.ok) throw new Error(body ? refusalText(body as ProblemRefusal, tt) : `HTTP ${response.status}`);
+          setPreview(body as Record<string, unknown>);
+        })
+        .catch((error: unknown) => {
+          if (controller.signal.aborted) return;
+          setPreviewError(error instanceof Error ? error.message : String(error));
+        });
+    }, 300);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [previewOpen, previewBody]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
@@ -161,7 +175,7 @@ export const ProblemReportDialog: React.FC<Props> = ({ facts, onClose }) => {
               <input type="checkbox" checked={attachLog} onChange={event => setAttachLog(event.target.checked)} />
               {tt('problemAttachLog')}
             </label>
-            <details className="rounded-lg border border-zinc-200 p-2 text-xs dark:border-white/10" onToggle={event => { if ((event.target as HTMLDetailsElement).open) showPreview(); }}>
+            <details className="rounded-lg border border-zinc-200 p-2 text-xs dark:border-white/10" onToggle={event => setPreviewOpen((event.target as HTMLDetailsElement).open)}>
               <summary className="cursor-pointer text-zinc-600 dark:text-zinc-300">{tt('problemWillSend')}</summary>
               {preview ? (
                 <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap text-[11px] text-zinc-600 dark:text-zinc-300">{sentText(preview)}</pre>

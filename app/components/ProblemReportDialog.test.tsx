@@ -42,7 +42,9 @@ async function type(value: string) {
   });
 }
 
-const sendButton = () => [...host.querySelectorAll('button')].find(button => button.textContent?.includes('problemSend'))!;
+const settle = () => act(async () => new Promise(resolve => setTimeout(resolve, 350)));
+
+const sendButton =() => [...host.querySelectorAll('button')].find(button => button.textContent?.includes('problemSend'))!;
 
 describe('ProblemReportDialog', () => {
   it('sends only with what happened written, and keeps the GitHub form beside', async () => {
@@ -73,10 +75,27 @@ describe('ProblemReportDialog', () => {
       details.open = true;
       details.dispatchEvent(new Event('toggle'));
     });
+    await settle();
     expect(calls.some(call => call.path === '/v1/problem/preview')).toBe(true);
     expect(host.querySelector('pre')?.textContent).toContain('"models": "quality-q8"');
     expect(host.querySelector('pre')?.textContent).toContain('line one');
     expect(calls.every(call => call.path !== '/v1/problem/list'), 'the window lists no earlier messages').toBe(true);
+  });
+
+  it('asks for the preview again when the kind or the log choice changes while it is open', async () => {
+    serve({ '/v1/problem/preview': { status: 200, body: { log: 'line one' } } });
+    await open();
+    await type('The song stops at decoding every time');
+    const details = host.querySelector('details')!;
+    await act(async () => {
+      details.open = true;
+      details.dispatchEvent(new Event('toggle'));
+    });
+    await settle();
+    await act(async () => [...host.querySelectorAll('[role="radio"]')].find(radio => radio.textContent === 'problemKind_idea')!.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await settle();
+    const previews = calls.filter(call => call.path === '/v1/problem/preview');
+    expect(previews.at(-1)?.body).toMatchObject({ kind: 'idea', attach_log: false });
   });
 
   it('takes the fields, the log choice and the GitHub form of the kind chosen', async () => {
