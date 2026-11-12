@@ -46,7 +46,7 @@ pub const ASSETS: &[Asset] = &[
         marker: "audiocpp_server",
         pick: &[],
         vram_gb: None,
-        note: "Runs CrisperWhisper on an NVIDIA card from the GTX 16 and RTX 20 series on.",
+        note: "The audio engine of karaoke (CrisperWhisper), stems (HT-Demucs) and Audio to MIDI (MuScriptor) for an NVIDIA card from the GTX 16 and RTX 20 series on.",
     },
     #[cfg(windows)]
     Asset {
@@ -74,7 +74,7 @@ pub const ASSETS: &[Asset] = &[
         marker: "audiocpp_server",
         pick: &[],
         vram_gb: None,
-        note: "Runs CrisperWhisper on the NVIDIA cards and drivers CUDA 13 does not.",
+        note: "The audio engine of karaoke (CrisperWhisper), stems (HT-Demucs) and Audio to MIDI (MuScriptor) for the NVIDIA cards and drivers CUDA 13 does not.",
     },
     #[cfg(windows)]
     Asset {
@@ -130,7 +130,7 @@ pub const ASSETS: &[Asset] = &[
         marker: "audiocpp_server",
         pick: &[],
         vram_gb: None,
-        note: "Runs CrisperWhisper on an AMD or Intel card.",
+        note: "The audio engine of karaoke (CrisperWhisper), stems (HT-Demucs) and Audio to MIDI (MuScriptor) for an AMD or Intel card.",
     },
     #[cfg(windows)]
     Asset {
@@ -144,7 +144,7 @@ pub const ASSETS: &[Asset] = &[
         marker: "audiocpp_server",
         pick: &[],
         vram_gb: None,
-        note: "Runs CrisperWhisper on the processor: slower, the same words.",
+        note: "The audio engine of karaoke (CrisperWhisper), stems (HT-Demucs) and Audio to MIDI (MuScriptor) for the processor: slower, the same results.",
     },
     // Linux: the CUDA libraries of each CUDA build from NVIDIA's manylinux wheels, as Dub Studio and Speech Studio
     // take them, unpacked beside the server, where its RUNPATH ($ORIGIN) finds them.
@@ -160,7 +160,7 @@ pub const ASSETS: &[Asset] = &[
         marker: "audiocpp_server",
         pick: &[],
         vram_gb: None,
-        note: "Runs CrisperWhisper on an NVIDIA card from the GTX 16 and RTX 20 series on.",
+        note: "The audio engine of karaoke (CrisperWhisper), stems (HT-Demucs) and Audio to MIDI (MuScriptor) for an NVIDIA card from the GTX 16 and RTX 20 series on.",
     },
     #[cfg(target_os = "linux")]
     Asset {
@@ -216,7 +216,7 @@ pub const ASSETS: &[Asset] = &[
         marker: "audiocpp_server",
         pick: &[],
         vram_gb: None,
-        note: "Runs CrisperWhisper on the NVIDIA cards and drivers CUDA 13 does not.",
+        note: "The audio engine of karaoke (CrisperWhisper), stems (HT-Demucs) and Audio to MIDI (MuScriptor) for the NVIDIA cards and drivers CUDA 13 does not.",
     },
     #[cfg(target_os = "linux")]
     Asset {
@@ -272,7 +272,7 @@ pub const ASSETS: &[Asset] = &[
         marker: "audiocpp_server",
         pick: &[],
         vram_gb: None,
-        note: "Runs CrisperWhisper on an AMD or Intel card.",
+        note: "The audio engine of karaoke (CrisperWhisper), stems (HT-Demucs) and Audio to MIDI (MuScriptor) for an AMD or Intel card.",
     },
     #[cfg(target_os = "linux")]
     Asset {
@@ -286,7 +286,7 @@ pub const ASSETS: &[Asset] = &[
         marker: "audiocpp_server",
         pick: &[],
         vram_gb: None,
-        note: "Runs CrisperWhisper on the processor: slower, the same words.",
+        note: "The audio engine of karaoke (CrisperWhisper), stems (HT-Demucs) and Audio to MIDI (MuScriptor) for the processor: slower, the same results.",
     },
     #[cfg(target_os = "macos")]
     Asset {
@@ -300,7 +300,7 @@ pub const ASSETS: &[Asset] = &[
         marker: "audiocpp_server",
         pick: &[],
         vram_gb: None,
-        note: "Runs CrisperWhisper on Apple silicon: Metal and the processor in one program.",
+        note: "The audio engine of karaoke (CrisperWhisper), stems (HT-Demucs) and Audio to MIDI (MuScriptor) for Apple silicon: Metal and the processor in one program.",
     },
 ];
 
@@ -703,6 +703,17 @@ mod tests {
                 let picked = ids.iter().filter_map(|id| asset(id)).any(|asset| asset.pick.contains(library));
                 let from_engine = build == Build::Cuda13 && crate::engine_runtime::CUDA13_LIBRARIES.contains(library);
                 assert!(picked || from_engine, "{build:?} imports {library}, which nothing downloads");
+            }
+        }
+    }
+
+    /// A build of the server is shown with all it does - karaoke, stems and Audio to MIDI - so a person after stems
+    /// sees why it is downloaded.
+    #[test]
+    fn every_server_build_names_all_it_runs() {
+        for asset in ASSETS.iter().filter(|asset| asset.marker == "audiocpp_server") {
+            for what in ["CrisperWhisper", "HT-Demucs", "MuScriptor"] {
+                assert!(asset.note.contains(what), "{} does not name {what}: {}", asset.id, asset.note);
             }
         }
     }
