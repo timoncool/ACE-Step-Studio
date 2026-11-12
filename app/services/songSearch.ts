@@ -10,7 +10,7 @@ export function searchWords(query: string): string[] {
 function textOf(value: unknown): string[] {
   if (value == null) return [];
   if (typeof value === 'string') return [value];
-  if (typeof value === 'number' || typeof value === 'boolean') return [String(value)];
+  if (typeof value === 'number') return [String(value)];
   if (Array.isArray(value)) return value.flatMap(textOf);
   if (typeof value === 'object') return Object.values(value as Record<string, unknown>).flatMap(textOf);
   return [];

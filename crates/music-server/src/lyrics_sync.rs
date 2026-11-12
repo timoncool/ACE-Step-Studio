@@ -1071,20 +1071,37 @@ pub fn align_lyrics(words: &[(f64, String)], lyrics: &str) -> Vec<(f64, String)>
         position = from;
     }
 
-    // A clearly recognised line was credited in full, so its start may sit a
-    // word early; settle it where it matches best, between its neighbours.
+    // A clearly recognised line was credited in full, so its start may sit as
+    // early as the first word it still matches from - a few sounds the
+    // recogniser heard before it count too; settle it where it matches best,
+    // between its neighbours and within its own length.
     for index in 0..lines.len() {
         let Some(start) = starts[index] else { continue };
         let floor = starts[..index].iter().rev().flatten().next().map(|previous| previous + 1).unwrap_or(0);
         let ceiling = starts[index + 1..].iter().flatten().next().copied().unwrap_or(count);
         let low = start.saturating_sub(2).max(floor);
-        let high = (start + 2).min(ceiling.saturating_sub(1)).min(count.saturating_sub(1));
+        let high = (start + spans[index].max(2)).min(ceiling.saturating_sub(1)).min(count.saturating_sub(1));
         let settled = (low..=high).fold(start, |kept, candidate| if scores[index][candidate] > scores[index][kept] { candidate } else { kept });
         starts[index] = Some(settled);
     }
     let mut placed: Vec<Option<f64>> = starts.iter().map(|start| start.map(|start| heard[start].0)).collect();
 
-    interpolate(&lines, &mut placed);
+    // the words heard before the first placed line and after the last one: an
+    // edge gap is timed only when the recogniser heard enough there to sing it
+    let first_start = starts.iter().flatten().next().copied().unwrap_or(count);
+    let after_last = starts
+        .iter()
+        .zip(&spans)
+        .filter_map(|(start, &span)| start.map(|start| (start + span).min(count)))
+        .last()
+        .unwrap_or(0);
+    let edges = Edges {
+        before: first_start,
+        after: count - after_last.min(count),
+        first: heard.first().map(|(at, _)| *at).unwrap_or(0.0),
+        last: heard.last().map(|(at, _)| *at).unwrap_or(0.0),
+    };
+    interpolate(&lines, &mut placed, &edges);
     lines
         .iter()
         .zip(placed)
@@ -1092,11 +1109,13 @@ pub fn align_lyrics(words: &[(f64, String)], lyrics: &str) -> Vec<(f64, String)>
         .collect()
 }
 
-/// Lines the recogniser could not place between two it could are spread evenly
-/// between them, so a karaoke file has no silent holes. Lines before the first
-/// placed one and after the last are not in the song as heard - a text longer
-/// than what was sung - and get no time.
-fn interpolate(lines: &[&str], placed: &mut [Option<f64>]) {
+/// Lines the recogniser could not place are spread evenly between the ones it
+/// could, so a karaoke file has no silent holes. A gap before the first placed
+/// line or after the last one is timed only when the recogniser heard at least
+/// as many unmatched words there as the gap has lines - a first line sung
+/// unclearly keeps its place - and otherwise is not in the song as heard (a
+/// text longer than what was sung) and gets no time.
+fn interpolate(lines: &[&str], placed: &mut [Option<f64>], edges: &Edges) {
     let mut index = 0;
     while index < lines.len() {
         if placed[index].is_some() {
@@ -1107,14 +1126,31 @@ fn interpolate(lines: &[&str], placed: &mut [Option<f64>]) {
         while index < lines.len() && placed[index].is_none() {
             index += 1;
         }
-        let (Some(before), Some(after)) = (gap_start.checked_sub(1).and_then(|previous| placed[previous]), placed.get(index).copied().flatten()) else {
-            continue;
+        let gap = index - gap_start;
+        let before = gap_start.checked_sub(1).and_then(|previous| placed[previous]);
+        let after = placed.get(index).copied().flatten();
+        let (from, to, leading) = match (before, after) {
+            (Some(before), Some(after)) => (before, after, false),
+            (None, Some(after)) if edges.before >= gap => (edges.first, after, true),
+            (Some(before), None) if edges.after >= gap => (before, edges.last.max(before), false),
+            (None, None) if edges.before >= gap => (edges.first, edges.last, true),
+            _ => continue,
         };
-        let steps = (index - gap_start + 1) as f64;
-        for (offset, slot) in placed[gap_start..index].iter_mut().enumerate() {
-            *slot = Some(before + (after - before) * ((offset + 1) as f64 / steps));
+        // a leading gap starts at the first word heard; any other one starts after the line before it
+        let (offset, steps) = if leading { (0.0, gap as f64) } else { (1.0, (gap + 1) as f64) };
+        for (position, slot) in placed[gap_start..index].iter_mut().enumerate() {
+            *slot = Some(from + (to - from) * ((position as f64 + offset) / steps));
         }
     }
+}
+
+/// What the recogniser heard outside the placed lines: how many words before
+/// the first one and after the last one, and the times of the first and last word.
+struct Edges {
+    before: usize,
+    after: usize,
+    first: f64,
+    last: f64,
 }
 
 /// A word without its last character, for tolerating inflected endings.
@@ -1368,6 +1404,39 @@ Third");
         assert_eq!(lines[0].0, 10.0);
         let timed = align_lyrics_words(&words, &lyrics);
         assert_eq!(timed.len(), 6);
+    }
+
+
+    /// A first line the recogniser heard but could not match keeps its place, from the first word heard.
+    #[test]
+    fn a_first_line_heard_unclearly_starts_at_the_first_word() {
+        let lyrics = "Neon fades along the lane\nFootsteps keep the time of rain\nFold the night and leave it here";
+        let mut words: Vec<(f64, String)> = vec![(5.0, "mmm".into()), (5.6, "ahh".into()), (6.2, "ooh".into())];
+        let mut at = 10.0;
+        for line in ["footsteps keep the time of rain", "fold the night and leave it here"] {
+            for word in line.split_whitespace() {
+                words.push((at, word.to_string()));
+                at += 0.5;
+            }
+            at += 1.0;
+        }
+        let lines = align_lyrics(&words, lyrics);
+        assert_eq!(lines.len(), 3, "{lines:?}");
+        assert_eq!((lines[0].0, lines[0].1.as_str()), (5.0, "Neon fades along the lane"));
+        assert_eq!(lines[1].0, 10.0, "{lines:?}");
+    }
+
+    /// Lines past the song stay without a time when nothing was heard after the last sung line, and when what was
+    /// heard there is fewer words than the lines.
+    #[test]
+    fn lines_past_the_song_get_no_time_from_a_few_stray_words() {
+        let sung = "neon fades along the lane";
+        let lyrics = std::iter::once(sung.to_string()).chain((0..68).map(|line| format!("extra line number {line} of the text"))).collect::<Vec<_>>().join("\n");
+        let mut words: Vec<(f64, String)> = sung.split_whitespace().enumerate().map(|(index, word)| (10.0 + index as f64 * 0.5, word.to_string())).collect();
+        assert_eq!(align_lyrics(&words, &lyrics).len(), 1, "no words after the sung line");
+        words.push((20.0, "yeah".into()));
+        words.push((21.0, "oh".into()));
+        assert_eq!(align_lyrics(&words, &lyrics).len(), 1, "two stray words do not time 68 lines");
     }
 
     #[test]

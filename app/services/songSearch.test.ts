@@ -27,6 +27,9 @@ describe('library search', () => {
 
   it('does not read the names of the settings, only their values', () => {
     const made = song({ generationParams: { seed: 7, steps: 8, lora: null, duration: 120, synth_model: 'acestep-v15-turbo.gguf' } });
+    const switched = song({ generationParams: { thinking: true, instrumental: false } });
+    expect(songMatches(switched, searchWords('true'))).toBe(false);
+    expect(songMatches(switched, searchWords('false'))).toBe(false);
     for (const name of ['seed', 'steps', 'lora', 'duration', 'model']) {
       expect(songMatches(made, searchWords(name))).toBe(false);
     }
