@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
-import { bugTemplate, issueReportUrl } from './issueReport';
+import { bugTemplate, issueReportUrl, issueTemplate } from './issueReport';
 
 const FORMS = path.resolve(__dirname, '../../.github/ISSUE_TEMPLATE');
 const LANGUAGES = [['en', '1'], ['ru', '2'], ['zh', '3'], ['ja', '4'], ['ko', '5']] as const;
@@ -22,6 +22,12 @@ describe('the report link', () => {
       expect(url.searchParams.get('models')).toBe('quality-q8');
     }
     expect(bugTemplate('de')).toBe('1-en-1-bug.yml');
+    for (const [language, order] of LANGUAGES) {
+      for (const [kind, file] of [['idea', '2-idea'], ['question', '3-question']] as const) {
+        expect(issueTemplate(language, kind)).toBe(`${order}-${language}-${file}.yml`);
+        expect(fs.existsSync(path.join(FORMS, issueTemplate(language, kind)))).toBe(true);
+      }
+    }
   });
 
   it('finds the same fields, choices and labels in all five languages of a form, English first in the list', () => {

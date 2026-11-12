@@ -11,12 +11,22 @@ function system(portable: boolean | undefined): string {
   return portable ? `${name} (portable)`.trim() : name;
 }
 
-/** The bug form of each window language; the file names keep English first in GitHub's list. */
-const BUG_FORMS: Record<string, string> = { en: '1-en-1-bug.yml', ru: '2-ru-1-bug.yml', zh: '3-zh-1-bug.yml', ja: '4-ja-1-bug.yml', ko: '5-ko-1-bug.yml' };
+/** The kinds of the GitHub forms, in their files' order. */
+export type IssueKind = 'bug' | 'idea' | 'question';
+const KINDS: Record<IssueKind, string> = { bug: '1-bug', idea: '2-idea', question: '3-question' };
 
-/** The bug form in the window's language, the English one for a language the forms do not have. */
+/** Each window language's place in GitHub's list of forms: English first. */
+const ORDER: Record<string, string> = { en: '1', ru: '2', zh: '3', ja: '4', ko: '5' };
+
+/** The form of `kind` in the window's language, the English one for a language the forms do not have. */
+export function issueTemplate(language: string, kind: IssueKind = 'bug'): string {
+  const lang = ORDER[language] ? language : 'en';
+  return `${ORDER[lang]}-${lang}-${KINDS[kind]}.yml`;
+}
+
+/** The bug form in the window's language. */
 export function bugTemplate(language: string): string {
-  return BUG_FORMS[language] ?? BUG_FORMS.en;
+  return issueTemplate(language, 'bug');
 }
 
 /**
@@ -25,8 +35,8 @@ export function bugTemplate(language: string): string {
  * `.github/ISSUE_TEMPLATE/*.yml`, the same in every language; the form fills a
  * field from the query parameter of the same name.
  */
-export function issueReportUrl(repositoryUrl: string, version: string, language: string, facts?: ReportFacts): string {
-  const query = new URLSearchParams({ template: bugTemplate(language), version });
+export function issueReportUrl(repositoryUrl: string, version: string, language: string, facts?: ReportFacts, kind: IssueKind = 'bug'): string {
+  const query = new URLSearchParams({ template: issueTemplate(language, kind), version });
   const os = system(facts?.portable);
   if (os) query.set('os', os);
   const hardware = facts?.hardware;

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Loader2, X } from 'lucide-react';
 import { SiGithub } from '@icons-pack/react-simple-icons';
 import { useI18n } from '../context/I18nContext';
-import { issueReportUrl, type ReportFacts } from '../services/issueReport';
+import { issueReportUrl, type IssueKind, type ReportFacts } from '../services/issueReport';
 import { STUDIO_REPO_URL } from '../studio';
 import { AuthorNewsLinks } from './AuthorNewsLinks';
 
@@ -23,6 +23,13 @@ export interface ProblemRefusal {
 }
 
 const MIN_WHAT = 10;
+
+/** The labels of the three text fields of each kind, as the GitHub form of that kind names them; a question has one. */
+export const FIELDS: Record<IssueKind, [string, string | null, string | null]> = {
+  bug: ['problemWhat', 'problemSteps', 'problemExpected'],
+  idea: ['problemIdeaWhat', 'problemIdeaHow', 'problemIdeaExamples'],
+  question: ['problemQuestion', null, null],
+};
 
 /** The text the window says for a refusal; every kind but a field leaves the GitHub form as the way on. */
 export function refusalText(refusal: ProblemRefusal, t: (key: string) => string): string {
@@ -59,17 +66,24 @@ interface Props {
 export const ProblemReportDialog: React.FC<Props> = ({ facts, onClose }) => {
   const { t, language } = useI18n();
   const tt = t as (key: string) => string;
+  const [kind, setKind] = useState<IssueKind>('bug');
   const [what, setWhat] = useState('');
   const [steps, setSteps] = useState('');
   const [expected, setExpected] = useState('');
   const [attachLog, setAttachLog] = useState(true);
+  const [whatLabel, stepsLabel, expectedLabel] = FIELDS[kind];
+  // the log goes with a bug unless unticked; an idea or a question takes it only when ticked
+  const choose = (next: IssueKind) => {
+    setKind(next);
+    setAttachLog(next === 'bug');
+  };
   const [preview, setPreview] = useState<Record<string, unknown> | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState<{ number: number; url: string } | null>(null);
   const [refusal, setRefusal] = useState<ProblemRefusal | null>(null);
   const [mine, setMine] = useState<SentProblem[]>([]);
-  const request = () => ({ kind: 'bug', what: what.trim(), steps: steps.trim(), expected: expected.trim(), attach_log: attachLog });
+  const request = () => ({ kind, what: what.trim(), steps: stepsLabel ? steps.trim() : '', expected: expectedLabel ? expected.trim() : '', attach_log: attachLog });
 
   // what will be sent, asked for when the person opens it, as the service builds the request
   const showPreview = () => {
@@ -116,7 +130,7 @@ export const ProblemReportDialog: React.FC<Props> = ({ facts, onClose }) => {
   };
 
   const field = 'w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100';
-  const githubUrl = issueReportUrl(STUDIO_REPO_URL, __APP_VERSION__, language, facts);
+  const githubUrl = issueReportUrl(STUDIO_REPO_URL, __APP_VERSION__, language, facts, kind);
   const tooShort = what.trim().length < MIN_WHAT;
 
   return (
@@ -133,19 +147,31 @@ export const ProblemReportDialog: React.FC<Props> = ({ facts, onClose }) => {
           </p>
         ) : (
           <div className="space-y-3">
+            <div role="radiogroup" aria-label={tt('problemKind')} className="flex gap-1">
+              {(['bug', 'idea', 'question'] as const).map(option => (
+                <button key={option} type="button" role="radio" aria-checked={kind === option} onClick={() => choose(option)}
+                        className={`rounded-lg border px-3 py-1 text-xs font-medium ${kind === option ? 'border-pink-500 bg-pink-500 text-white' : 'border-zinc-300 text-zinc-700 dark:border-zinc-600 dark:text-zinc-200'}`}>
+                  {tt(`problemKind_${option}`)}
+                </button>
+              ))}
+            </div>
             <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300">
-              <span className="mb-1 block">{tt('problemWhat')} *</span>
+              <span className="mb-1 block">{tt(whatLabel)} *</span>
               <textarea value={what} onChange={event => setWhat(event.target.value)} rows={4} required className={field} />
               {what.length > 0 && tooShort && <span className="mt-1 block text-amber-600">{tt('problemWhatShort')}</span>}
             </label>
-            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300">
-              <span className="mb-1 block">{tt('problemSteps')}</span>
-              <textarea value={steps} onChange={event => setSteps(event.target.value)} rows={3} className={field} />
-            </label>
-            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300">
-              <span className="mb-1 block">{tt('problemExpected')}</span>
-              <textarea value={expected} onChange={event => setExpected(event.target.value)} rows={2} className={field} />
-            </label>
+            {stepsLabel && (
+              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                <span className="mb-1 block">{tt(stepsLabel)}</span>
+                <textarea value={steps} onChange={event => setSteps(event.target.value)} rows={3} className={field} />
+              </label>
+            )}
+            {expectedLabel && (
+              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                <span className="mb-1 block">{tt(expectedLabel)}</span>
+                <textarea value={expected} onChange={event => setExpected(event.target.value)} rows={2} className={field} />
+              </label>
+            )}
             <label className="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-200">
               <input type="checkbox" checked={attachLog} onChange={event => setAttachLog(event.target.checked)} />
               {tt('problemAttachLog')}

@@ -80,6 +80,28 @@ describe('ProblemReportDialog', () => {
     expect(host.textContent).toContain('problemClosed');
   });
 
+  it('takes the fields, the log choice and the GitHub form of the kind chosen', async () => {
+    serve({ '/v1/problem/list': { status: 200, body: { problems: [] } }, '/v1/problem/report': { status: 200, body: { number: 8, url: 'https://github.com/x/y/issues/8' } } });
+    await open();
+    const pick = async (label: string) => act(async () => [...host.querySelectorAll('[role="radio"]')].find(radio => radio.textContent === label)!.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    const github = () => [...host.querySelectorAll('a')].find(link => link.textContent?.includes('problemOpenGithub'))!.getAttribute('href')!;
+    const log = () => (host.querySelector('input[type="checkbox"]') as HTMLInputElement).checked;
+    expect(host.textContent).toContain('problemSteps');
+    expect(log()).toBe(true);
+    await pick('problemKind_idea');
+    expect(host.textContent).toContain('problemIdeaWhat');
+    expect(host.textContent).toContain('problemIdeaHow');
+    expect(host.textContent).not.toContain('problemSteps');
+    expect(log(), 'an idea takes no log unless ticked').toBe(false);
+    expect(github()).toContain('template=2-ru-2-idea.yml');
+    await pick('problemKind_question');
+    expect(host.querySelectorAll('textarea').length).toBe(1);
+    expect(github()).toContain('template=2-ru-3-question.yml');
+    await type('How do I make a song longer than four minutes?');
+    await act(async () => sendButton().click());
+    expect(calls.find(call => call.path === '/v1/problem/report')?.body).toMatchObject({ kind: 'question', steps: '', expected: '', attach_log: false });
+  });
+
   it('says why a report did not go, each kind in its own words', () => {
     const t = (key: string) => key;
     expect(refusalText({ code: 'rate', retry_after_s: 1200 }, (key) => (key === 'problemErrRate' ? 'in {min} min' : t(key)))).toBe('in 20 min');
