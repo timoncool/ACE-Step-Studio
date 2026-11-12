@@ -301,6 +301,7 @@ pub async fn describe_song_style(State(state): State<AppState>, Path(song_id): P
     if !state.training.listen_ready() {
         return Err(api_error(StatusCode::CONFLICT, "auto-describe (MOSS-Music) is not installed; install it on the training page".into()));
     }
+    crate::evict_kept_models(&state, "to describe a song by ear").await;
     // tempo and key are measured on the processor, on the studio's ONNX Runtime
     state.lyrics_sync.bind_ort().map_err(|error| api_error(StatusCode::CONFLICT, format!("{error:#}")))?;
     if state.training.active_run().await.is_some() || state.prepare.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).as_ref().is_some_and(|job| !job.finished) {

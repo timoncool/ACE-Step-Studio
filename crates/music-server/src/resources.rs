@@ -92,7 +92,7 @@ pub fn snapshot() -> ResourceSnapshot {
     }
 }
 
-fn nvidia_gpus() -> Option<Vec<GpuSnapshot>> {
+pub fn nvidia_gpus() -> Option<Vec<GpuSnapshot>> {
     // the card the studio runs on, when one was chosen: that is the one to watch
     let output = dub_core::proc::host_command("nvidia-smi")
         .args(crate::cuda_build::chosen_card())

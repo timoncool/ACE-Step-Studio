@@ -16,17 +16,34 @@ import { DiagnosticsPanel } from './DiagnosticsPanel';
 
 type ComputeBackend = 'auto' | 'cuda' | 'vulkan' | 'cpu';
 type FlashAttention = 'auto' | 'on' | 'off';
+type KeepLoaded = 'auto' | 'yes' | 'no';
 
 /** What the running engine was started with, as the service read it from the launch. */
 interface InEffect {
   max_seq: number;
   max_seq_reason: 'full' | 'set';
   flash_attention: boolean;
+  keep_loaded?: boolean;
+  /** set, fits, does_not_fit, not_on_card, free_unknown, set_not_on_disk, no_set */
+  keep_loaded_reason?: string | null;
+  keep_loaded_need_gb?: number | null;
+  keep_loaded_free_gb?: number | null;
+}
+
+/** The line under the choice: whether the running engine keeps its models, and why. */
+export function keepLoadedNow(inEffect: InEffect, t: (key: string) => string): string {
+  const reason = inEffect.keep_loaded_reason ?? 'set';
+  const why = reason === 'fits' || reason === 'does_not_fit'
+    ? t(reason === 'fits' ? 'keepLoadedReasonFits' : 'keepLoadedReasonNoRoom')
+      .replace('{need}', (inEffect.keep_loaded_need_gb ?? 0).toFixed(1))
+      .replace('{free}', (inEffect.keep_loaded_free_gb ?? 0).toFixed(1))
+    : t(reason === 'not_on_card' ? 'keepLoadedReasonNotOnCard' : reason === 'set' ? 'keepLoadedReasonSet' : 'keepLoadedReasonUnknown');
+  return t(inEffect.keep_loaded ? 'keepLoadedNowKept' : 'keepLoadedNowNotKept').replace('{reason}', why);
 }
 
 interface EngineOptions {
   backend: ComputeBackend;
-  keep_loaded: boolean;
+  keep_loaded: KeepLoaded;
   max_seq: number | null;
   flash_attention: FlashAttention;
   split_cfg_forwards: boolean;
@@ -41,7 +58,7 @@ interface EngineOptions {
 
 const DEFAULTS: EngineOptions = {
   backend: 'auto',
-  keep_loaded: false,
+  keep_loaded: 'auto',
   max_seq: null,
   flash_attention: 'auto',
   split_cfg_forwards: false,
@@ -287,12 +304,22 @@ export const EngineSettings: React.FC = () => {
         )}
       </div>
 
-      <Toggle
-        label={t('keepLoadedLabel')}
-        hint={t('keepLoadedHint')}
-        checked={options.keep_loaded}
-        onChange={value => setOptions(current => ({ ...current, keep_loaded: value }))}
-      />
+      <label className="block rounded-xl border border-zinc-200 p-3 dark:border-white/10">
+        <span className="block text-sm font-medium text-zinc-800 dark:text-zinc-100">{t('keepLoadedLabel')}</span>
+        <select
+          value={options.keep_loaded}
+          onChange={event => setOptions(current => ({ ...current, keep_loaded: event.target.value as KeepLoaded }))}
+          className={`${CONTROL} mt-2`}
+        >
+          <option value="auto">{t('keepLoadedAuto')}</option>
+          <option value="yes">{t('keepLoadedYes')}</option>
+          <option value="no">{t('keepLoadedNo')}</option>
+        </select>
+        <span className="mt-2 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('keepLoadedHint')}</span>
+        {inEffect?.keep_loaded !== undefined && (
+          <span className="mt-1 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">{keepLoadedNow(inEffect, t as (key: string) => string)}</span>
+        )}
+      </label>
 
       {/* The batch ceiling is not here and is not sent: it reserves KV cache
           for the whole batch when the weights load - memory paid for on every
