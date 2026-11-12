@@ -168,6 +168,9 @@ const DIT_DEFAULTS: Record<DitKind, { steps: number; guidance: number; shift: nu
 const CONTROL =
   'w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 outline-hidden transition-colors focus:border-pink-500 disabled:opacity-50 dark:border-white/10 dark:bg-black/25 dark:text-white';
 const LABEL = 'mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400';
+const SECTION_TAGS = ['[Intro]', '[Verse 1]', '[Pre-Chorus]', '[Chorus]', '[Verse 2]', '[Bridge]', '[Instrumental Break]', '[Outro]'];
+const CHIP =
+  'rounded-md border border-zinc-200 px-2 py-0.5 font-mono text-[10px] text-zinc-500 transition-colors hover:border-pink-400 hover:text-pink-600 dark:border-white/10 dark:text-zinc-400';
 const ICON =
   'rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-200 hover:text-black dark:hover:bg-white/10 dark:hover:text-white disabled:opacity-40';
 
@@ -444,6 +447,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     return () => window.cancelAnimationFrame(frame);
   }, [error]);
   const promptFile = useRef<HTMLInputElement | null>(null);
+  const lyricsBox = useRef<HTMLTextAreaElement | null>(null);
 
   // A cover or a lyric timing finished: the library is read again for it.
   // What was finished before the page opened is in the library already.
@@ -1147,6 +1151,20 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
       </select>
     </Field>
   );
+  const insertTag = (tag: string) => {
+    const box = lyricsBox.current;
+    const at = box?.selectionStart ?? lyrics.length;
+    const before = lyrics.slice(0, at);
+    const after = lyrics.slice(at);
+    const prefix = before && !before.endsWith('\n\n') ? (before.endsWith('\n') ? '\n' : '\n\n') : '';
+    setLyrics(`${before}${prefix}${tag}\n${after}`);
+    // the caret follows the tag, so tags pressed in turn stay in that order
+    const caret = before.length + prefix.length + tag.length + 1;
+    window.requestAnimationFrame(() => {
+      box?.focus();
+      box?.setSelectionRange(caret, caret);
+    });
+  };
   const voiceField = (
     <div>
       <span className={LABEL}>{tt('aceGender')}</span>
@@ -1360,7 +1378,13 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
                   {!instrumental && (
                     <>
                       {languageField}
+                      <div className="flex flex-wrap gap-1">
+                        {SECTION_TAGS.map(tag => (
+                          <button key={tag} type="button" onClick={() => insertTag(tag)} className={CHIP}>{tag}</button>
+                        ))}
+                      </div>
                       <textarea
+                        ref={lyricsBox}
                         value={lyrics}
                         rows={12}
                         onChange={event => setLyrics(event.target.value)}
