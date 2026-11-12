@@ -36,7 +36,8 @@ export const AssistantRules: React.FC = () => {
       void fetch('/v1/assistant/status', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ own_rules: { song: text(rules.song), style: text(rules.style), lyrics: text(rules.lyrics) }, avoid_words: text(avoid) }),
+        // an empty list is sent as "", which the service stores as none: a null there reads as "keep what is stored"
+        body: JSON.stringify({ own_rules: { song: text(rules.song), style: text(rules.style), lyrics: text(rules.lyrics) }, avoid_words: avoid.trim() }),
       })
         .then(async response => {
           if (!response.ok) throw new Error((await response.json().catch(() => null))?.error || String(response.status));
