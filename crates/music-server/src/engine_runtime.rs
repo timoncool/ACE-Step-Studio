@@ -304,6 +304,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(not(target_os = "linux"))]
     fn libraries_go_to_the_data_folder_when_the_engine_folder_cannot_be_written() {
         let data = std::env::temp_dir().join(format!("engine-runtime-{}", uuid::Uuid::now_v7()));
         std::fs::create_dir_all(&data).unwrap();
@@ -468,6 +469,29 @@ mod tests {
     /// which is the point of the PATH check, and would make the test lie about
     /// what it proved.
     #[test]
+    #[cfg(target_os = "linux")]
+    fn on_linux_the_libraries_go_to_one_folder_of_the_data_on_the_library_path() {
+        let data = std::env::temp_dir().join(format!("engine-runtime-{}", uuid::Uuid::now_v7()));
+        let runtime = EngineRuntime::new(&data.join("engine"), &data);
+        let folder = data.join("engine-runtime").join("cuda");
+        assert_eq!(runtime.library_dir(), folder);
+        let path = std::env::var_os("LD_LIBRARY_PATH").expect("LD_LIBRARY_PATH is set");
+        assert!(std::env::split_paths(&path).any(|dir| dir == folder), "{} is on LD_LIBRARY_PATH", folder.display());
+        let asset = &LINUX_CUDA13[1];
+        assert!(!runtime.downloader().is_installed(asset));
+        std::fs::create_dir_all(&folder).unwrap();
+        let unpacked: Vec<_> = asset.pick.iter().map(|library| folder.join(library)).collect();
+        for library in &unpacked {
+            std::fs::write(library, b"x").unwrap();
+        }
+        crate::install_record::write(&runtime.downloader().record_of(asset), asset.url, "", &unpacked, runtime.downloader().root()).unwrap();
+        assert!(runtime.downloader().is_installed(asset));
+        assert!(!runtime.missing(CudaBuild::Cuda13).iter().any(|missing| missing.id == asset.id));
+        std::fs::remove_dir_all(&data).ok();
+    }
+
+    #[test]
+    #[cfg(not(target_os = "linux"))]
     fn the_libraries_count_as_installed_only_beside_the_engine() {
         let root = std::env::temp_dir().join(format!("engine-runtime-{}", uuid::Uuid::now_v7()));
         let runtime = EngineRuntime::new(&root, &root);
