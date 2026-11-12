@@ -1390,7 +1390,7 @@ export const ru = {
     flashAttentionAuto: 'Авто',
     flashAttentionOn: 'Включено',
     flashAttentionOff: 'Выключено',
-    flashAttentionHint: 'Авто: выключено только на видеокартах RTX 50, где с ним пение выходит неразборчивым. Без flash attention языковая модель работает примерно на четверть медленнее, DiT — примерно на десятую часть.',
+    flashAttentionHint: 'Авто: включено на всех видеокартах. Выключите, если поздние части песни превращаются в бессмысленные слоги. Без flash attention языковая модель работает примерно на четверть медленнее, DiT — примерно на десятую часть.',
     splitCfgLabel: 'Разделить CFG на два прохода',
     splitCfgHint: '--no-batch-cfg. Ниже пик VRAM при guidance, но медленнее на шаг.',
     computeBackendLabel: 'Устройство вычислений',

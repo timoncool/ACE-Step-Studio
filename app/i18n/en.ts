@@ -1391,7 +1391,7 @@ export const en = {
     flashAttentionAuto: 'Auto',
     flashAttentionOn: 'On',
     flashAttentionOff: 'Off',
-    flashAttentionHint: 'Auto: off only on RTX 50 cards, where singing comes out garbled with it. Without flash attention the language model is about a quarter slower and the DiT about a tenth.',
+    flashAttentionHint: 'Auto: on, on every card. Turn it off if a song\'s later sections turn to meaningless syllables. Without flash attention the language model is about a quarter slower and the DiT about a tenth.',
     splitCfgLabel: 'Split CFG into two forwards',
     splitCfgHint: '--no-batch-cfg. Lower peak VRAM during guidance, slower per step.',
     computeBackendLabel: 'Compute device',

@@ -689,22 +689,6 @@ impl EngineOptions {
         }
     }
 
-    /// Blackwell and newer (sm_100 = cc 10.0, sm_120 = cc 12.0): the compute
-    /// capabilities ggml 0.27's flash-attention kernels sing gibberish on, later
-    /// sections turning to meaningless syllables (#194, reported on an RTX 5060
-    /// Ti). Ada (8.9) and Hopper (9.0) are unaffected. A threshold, not a card
-    /// list, so a newer card stays on the safe path until its kernels are known
-    /// good.
-    fn fa_regressed_cc(cc: Option<(u32, u32)>) -> bool {
-        cc.is_some_and(|cc| cc >= (10, 0))
-    }
-
-    /// The engine would run flash attention on a card ggml 0.27's kernels get
-    /// wrong (#194): a CUDA build on a Blackwell-or-newer compute capability.
-    fn new_cuda_fa_regression(&self) -> bool {
-        self.cuda_build().is_some() && Self::fa_regressed_cc(cuda_build::compute_capability())
-    }
-
     fn to_engine(self) -> music_engine::server::ServerOptions {
         let cuda = self.cuda_build();
         let fa_off = self.flash_attention_off_reason().is_some();
@@ -744,7 +728,6 @@ impl EngineOptions {
         match self.flash_attention {
             FlashAttention::On => None,
             FlashAttention::Off => Some("chosen in Settings"),
-            FlashAttention::Auto if self.new_cuda_fa_regression() => Some("new CUDA compute capability, the flash-attention kernels sing gibberish there (#194)"),
             FlashAttention::Auto => None,
         }
     }
@@ -10551,16 +10534,6 @@ mod tests {
     }
 
     #[test]
-    fn flash_attention_off_from_blackwell_on() {
-        // ggml 0.27's flash attention sings gibberish on Blackwell-or-newer cards (#194)
-        assert!(!EngineOptions::fa_regressed_cc(None));
-        assert!(!EngineOptions::fa_regressed_cc(Some((8, 9))), "Ada (RTX 4090) is unaffected");
-        assert!(!EngineOptions::fa_regressed_cc(Some((9, 0))), "Hopper is unaffected");
-        assert!(EngineOptions::fa_regressed_cc(Some((10, 0))), "Blackwell sm_100");
-        assert!(EngineOptions::fa_regressed_cc(Some((12, 0))), "Blackwell sm_120 (RTX 5060 Ti, #194)");
-    }
-
-    #[test]
     fn the_editor_page_loads_only_embedded_files() {
         let page = EDITOR
             .get_file("index.html")
@@ -10604,8 +10577,11 @@ mod tests {
         assert!(off.to_engine().disable_flash_attention, "Off reaches the engine as --no-fa");
         let on = EngineOptions { flash_attention: FlashAttention::On, ..EngineOptions::default() };
         assert!(!on.to_engine().disable_flash_attention, "On is passed even where Auto would turn it off");
-        let auto = EngineOptions { backend: music_engine::server::ComputeBackend::Cpu, ..EngineOptions::default() };
-        assert_eq!(auto.flash_attention_off_reason(), None, "Auto keeps it on away from the cards it fails on");
+        for backend in [music_engine::server::ComputeBackend::Cuda, music_engine::server::ComputeBackend::Auto, music_engine::server::ComputeBackend::Cpu] {
+            let auto = EngineOptions { backend, ..EngineOptions::default() };
+            assert_eq!(auto.flash_attention_off_reason(), None, "Auto keeps it on on every card, RTX 50 included");
+            assert!(!auto.to_engine().disable_flash_attention);
+        }
     }
 
 

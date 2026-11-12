@@ -1386,7 +1386,7 @@ export const ja = {
     flashAttentionAuto: '自動',
     flashAttentionOn: 'オン',
     flashAttentionOff: 'オフ',
-    flashAttentionHint: '自動：RTX 50 シリーズのカードでだけオフになります。そこではオンだと歌が聞き取れなくなるためです。flash attention なしでは言語モデルが約 4 分の 1、DiT が約 10 分の 1 遅くなります。',
+    flashAttentionHint: '自動：すべてのカードでオンです。曲の後半が意味のない音節になる場合はオフにしてください。flash attention なしでは言語モデルが約 4 分の 1、DiT が約 10 分の 1 遅くなります。',
     splitCfgLabel: 'CFG を 2 回のフォワードに分割',
     splitCfgHint: '--no-batch-cfg。ガイダンス時の VRAM ピークは下がりますが 1 ステップは遅くなります。',
     computeBackendLabel: '計算デバイス',

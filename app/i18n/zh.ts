@@ -1386,7 +1386,7 @@ export const zh = {
     flashAttentionAuto: '自动',
     flashAttentionOn: '开启',
     flashAttentionOff: '关闭',
-    flashAttentionHint: '自动：仅在 RTX 50 系列显卡上关闭，因为开启后演唱会含糊不清。关闭 flash attention 后，语言模型约慢四分之一，DiT 约慢十分之一。',
+    flashAttentionHint: '自动：在所有显卡上开启。如果歌曲后段变成无意义的音节，请将其关闭。关闭 flash attention 后，语言模型约慢四分之一，DiT 约慢十分之一。',
     splitCfgLabel: '将 CFG 拆分为两次前向',
     splitCfgHint: '--no-batch-cfg。引导期间显存峰值更低，但每步更慢。',
     computeBackendLabel: '计算设备',

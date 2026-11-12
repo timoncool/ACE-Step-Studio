@@ -1386,7 +1386,7 @@ export const ko = {
     flashAttentionAuto: '자동',
     flashAttentionOn: '켜짐',
     flashAttentionOff: '꺼짐',
-    flashAttentionHint: '자동: RTX 50 시리즈 카드에서만 꺼집니다. 그 카드에서는 켜면 노래가 알아들을 수 없게 나옵니다. flash attention 없이는 언어 모델이 약 4분의 1, DiT가 약 10분의 1 느려집니다.',
+    flashAttentionHint: '자동: 모든 카드에서 켜집니다. 노래 후반부가 의미 없는 음절로 바뀌면 꺼 주세요. flash attention 없이는 언어 모델이 약 4분의 1, DiT가 약 10분의 1 느려집니다.',
     splitCfgLabel: 'CFG 를 두 번의 순전파로 분리',
     splitCfgHint: '--no-batch-cfg. 가이던스 중 VRAM 최대치는 낮아지지만 스텝당 속도는 느려집니다.',
     computeBackendLabel: '연산 장치',
