@@ -133,11 +133,22 @@ fn weight_assets(size: &'static Size) -> &'static [Asset] {
 /// The transcriber and the model sizes on disk.
 pub struct Transcriber {
     downloader: Downloader,
+    acpp: std::sync::Arc<crate::acpp::Acpp>,
 }
 
 impl Transcriber {
-    pub fn new(data_root: &Path) -> Self {
-        Self { downloader: Downloader::with_runtimes(data_root.join("midi"), crate::training::tools_root(data_root)) }
+    pub fn new(data_root: &Path, acpp: std::sync::Arc<crate::acpp::Acpp>) -> Self {
+        Self { downloader: Downloader::with_runtimes(data_root.join("midi"), crate::training::tools_root(data_root)), acpp }
+    }
+
+    /// audio.cpp's server of this build is installed.
+    pub fn server_installed(&self, build: acpp_server::asset::Build) -> bool {
+        self.acpp.installed(build)
+    }
+
+    /// The two files a size is complete with, as audio.cpp's server reads the folder.
+    pub fn model_files(&self, size: &'static Size) -> Vec<PathBuf> {
+        weight_assets(size).iter().map(|asset| self.downloader.path_of(asset)).collect()
     }
 
     pub fn downloader(&self) -> &Downloader {
@@ -312,6 +323,39 @@ impl Events {
         }
     }
 
+    /// Takes the event JSON audio.cpp's MuScriptor answers with (`text`): `start` events with a pitch, a time, an
+    /// index and an instrument, and `end` events naming the start they close. An event of another type is passed over.
+    pub fn take_all(&mut self, text: &str) -> Result<(), String> {
+        let events: Vec<serde_json::Value> = serde_json::from_str(text).map_err(|error| format!("the transcriber's events are not JSON: {error}"))?;
+        for event in events {
+            match event["type"].as_str() {
+                Some("start") => {
+                    let start = event["start_time"].as_f64().unwrap_or(0.0);
+                    self.notes.push(Note {
+                        pitch: event["pitch"].as_u64().unwrap_or(0).min(127) as u8,
+                        start,
+                        end: start,
+                        instrument: event["instrument"].as_str().unwrap_or("unknown").to_string(),
+                        velocity: None,
+                    });
+                    if let Some(index) = event["index"].as_i64() {
+                        self.open.insert(index, self.notes.len() - 1);
+                    }
+                }
+                Some("end") => {
+                    if let (Some(index), Some(time)) = (event["start_event_index"].as_i64(), event["end_time"].as_f64()) {
+                        if let Some(at) = self.open.remove(&index) {
+                            self.notes[at].end = time.max(self.notes[at].start);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        self.finished = true;
+        Ok(())
+    }
+
     pub fn instruments(&self) -> Vec<String> {
         let mut names: Vec<String> = self.notes.iter().map(|note| note.instrument.clone()).collect();
         names.sort();
@@ -345,6 +389,25 @@ mod tests {
         assert_eq!((events.chunks_done, events.chunks_total), (1, 4));
         assert!(events.finished);
         assert_eq!(events.instruments(), ["acoustic_piano", "drums"]);
+    }
+
+    #[test]
+    fn the_transcribers_events_become_notes() {
+        let mut events = Events::default();
+        events
+            .take_all(
+                r#"[{"type":"start","pitch":60,"start_time":0.5,"index":0,"instrument":"acoustic_piano"},
+                    {"type":"start","pitch":36,"start_time":0.5,"index":1,"instrument":"drums"},
+                    {"type":"end","end_time":0.52,"start_event_index":1},
+                    {"type":"end","end_time":1.25,"start_event_index":0}]"#,
+            )
+            .unwrap();
+        assert_eq!(events.notes.len(), 2);
+        assert_eq!((events.notes[0].pitch, events.notes[0].start, events.notes[0].end), (60, 0.5, 1.25));
+        assert_eq!(events.notes[1].instrument, "drums");
+        assert!(events.finished);
+        assert_eq!(events.instruments(), ["acoustic_piano", "drums"]);
+        assert!(Events::default().take_all("[ace-midi] a log line").is_err());
     }
 
     #[test]
