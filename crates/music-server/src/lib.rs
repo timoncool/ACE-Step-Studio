@@ -5872,6 +5872,7 @@ async fn compose_setup_status(state: &AppState, manager_status: model_manager::M
             Value::Bool(state.music_server.health().await),
         );
         fields.insert("engine_id".into(), Value::String(PRIMARY_MUSIC_ENGINE_ID.into()));
+        fields.insert("trash_days".into(), Value::from(TRASH_DAYS));
         // the chosen card is not in the computer: the start screen says why the engine does not start
         let chosen_card = state.engine_options.read().await.gpu;
         let problem = match chosen_card {

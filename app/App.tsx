@@ -122,7 +122,8 @@ import { UpdateScreen, readUpdatePlan } from './components/UpdateScreen';
 import { EngineStarting } from './components/EngineStarting';
 import { StudioOffline } from './components/StudioOffline';
 import { StudioToolsPanel } from './components/StudioToolsPanel';
-import { createNativePlaylist, deleteNativeSong, listTrash, moveStoredLikes, restoreTrashedSong, setNativeSongLiked, updateNativePlaylist } from './services/nativeLibrary';
+import { deleteQuestion } from './services/deleteQuestion';
+import { createNativePlaylist, deleteNativeSong, moveStoredLikes, restoreTrashedSong, setNativeSongLiked, updateNativePlaylist } from './services/nativeLibrary';
 import { foldStems } from './services/songStems';
 import { noteStudioMessage } from './services/journal';
 import { JournalPanel } from './components/JournalPanel';
@@ -198,7 +199,7 @@ function AppContent() {
   // page for a second on every launch is how a ready studio was made to look
   // like a bill.
   const [nativeModels, setNativeModels] = useState<'unknown' | 'missing' | 'installed' | 'offline'>('unknown');
-  const setupQuery = useSetupStatus<{ ready?: boolean; engine_ready?: boolean }>();
+  const setupQuery = useSetupStatus<{ ready?: boolean; engine_ready?: boolean; trash_days?: number }>();
   useEffect(() => {
     // A service that does not answer is not an engine that is still coming
     // up: the application has been closed, and saying "starting" at a dead
@@ -1076,26 +1077,20 @@ function AppContent() {
   };
 
   const handleDeleteSong = (song: Song) => {
-    void handleDeleteSongs([song]);
+    handleDeleteSongs([song]);
   };
 
-  const handleDeleteSongs = async (songsToDelete: Song[]) => {
+  const handleDeleteSongs = (songsToDelete: Song[]) => {
     if (songsToDelete.length === 0) return;
 
-    // how long the bin keeps a song is the service's to say
-    let days: number;
-    try {
-      days = (await listTrash()).days;
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : String(error), 'error');
+    const days = setupQuery.data?.trash_days;
+    if (days === undefined) {
+      showToast(t('serviceUnavailable'), 'error');
       return;
     }
     const isSingle = songsToDelete.length === 1;
     const title = isSingle ? t('confirmDeleteTitle') : t('confirmDeleteManyTitle');
-    const message = (isSingle
-      ? t('deleteSongConfirm').replace('{title}', () => songsToDelete[0].title)
-      : t('deleteSongsConfirm').replace('{count}', String(songsToDelete.length))
-    ).replace('{days}', String(days));
+    const message = deleteQuestion(t, songsToDelete, days);
 
     setConfirmDialog({
       title,
