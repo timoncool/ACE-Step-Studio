@@ -44,7 +44,7 @@ cp "$build/ace-caption" "$output/music-caption"
 find "$build" -maxdepth 2 -name 'lib*.so*' -exec cp -a {} "$output/" \;
 echo "$commit" > "$output/runtime.commit"
 for binary in music-caption; do
-    if readelf -d "$output/$binary" | grep -iE 'runpath|rpath' | grep -qv 'ORIGIN'; then
+    if readelf -d "$output/$binary" | sed -n 's/.*R\(UN\)\{0,1\}PATH.*\[\(.*\)\]/\2/p' | tr ':' '\n' | grep -v '^\$ORIGIN' | grep -q .; then
         echo "[ERROR] $binary keeps a build-machine library path:" >&2
         readelf -d "$output/$binary" | grep -iE 'runpath|rpath' >&2
         exit 1
