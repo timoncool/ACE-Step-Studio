@@ -155,8 +155,12 @@ pub async fn probe(http: &reqwest::Client, url: &str) -> Result<(Plan, String)> 
     // failure in telemetry, a network behind the Great Firewall among them. The
     // HF-Mirror usually answers where it does not, so fall back to it once before
     // giving up; a non-HF url mirrors to itself and drops straight through.
-    // Through a proxy that does not connect the mirror is behind the same proxy: the proxy is named instead.
-    let proxy = crate::net::route_for(url);
+    // Through a proxy whose address takes no connection the mirror is behind the same dead proxy: the proxy is named
+    // instead. A proxy that takes the connection and cannot reach the host is alive, and the mirror is tried through it.
+    let proxy = match crate::net::route_for(url).filter(|_| unreachable == CONNECT_RETRIES) {
+        Some(route) if !route.takes_connections().await => Some(route),
+        _ => None,
+    };
     if unreachable == CONNECT_RETRIES && proxy.is_none() {
         let mirror = crate::net::mirror_url(url);
         if mirror != url {

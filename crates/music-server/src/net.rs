@@ -292,6 +292,17 @@ impl ProxyRoute {
             self.address
         )
     }
+
+    /// Whether the proxy's own address accepts a TCP connection. Only a proxy that does not is to blame: one that
+    /// takes the connection and answers 502 to CONNECT is alive and could not reach the host, so the mirror behind it
+    /// may still answer.
+    pub async fn takes_connections(&self) -> bool {
+        let Some(address) = reqwest::Url::parse(&self.address).ok().and_then(|url| Some(format!("{}:{}", url.host_str()?, url.port_or_known_default()?)))
+        else {
+            return false;
+        };
+        matches!(tokio::time::timeout(std::time::Duration::from_secs(3), tokio::net::TcpStream::connect(address)).await, Ok(Ok(_)))
+    }
 }
 
 fn route_with(settings: &ProxySettings, system: &Matcher, url: &reqwest::Url) -> Option<ProxyRoute> {
@@ -405,8 +416,11 @@ pub async fn test(settings: ProxySettings) -> Result<serde_json::Value> {
         if mirror_chosen { None } else { Some(reach(mirror_url("https://huggingface.co/api/models?limit=1"), false).await) }
     };
     let (hub, openrouter, mirror) = tokio::join!(reach(hub_url, !mirror_chosen), reach("https://openrouter.ai/api/v1/models".into(), true), mirror);
-    // a proxy that does not connect is named, and the mirror behind the same proxy is no way out
-    let proxy_down = hub_route.filter(|_| hub.as_ref().is_err_and(|(_, connect)| *connect));
+    // a proxy whose address takes no connection is named, and the mirror behind it is no way out
+    let proxy_down = match hub_route.filter(|_| hub.as_ref().is_err_and(|(_, connect)| *connect)) {
+        Some(route) if !route.takes_connections().await => Some(route),
+        _ => None,
+    };
     Ok(serde_json::json!({
         "huggingface": hub.is_ok(),
         "huggingface_error": hub.err().map(|(reason, _)| reason),
@@ -513,6 +527,18 @@ mod tests {
         assert_eq!(proxy_for(&off, &system, &url("https://huggingface.co/x")), None);
     }
 
+    /// Under the system's settings a host its NO_PROXY names goes straight out,
+    /// and the rest through the system's proxy.
+    #[test]
+    fn a_host_the_system_excludes_goes_straight_out() {
+        let system = Matcher::builder().https("http://127.0.0.1:9").http("http://127.0.0.1:9").no("hf-mirror.com, .example.org").build();
+        let settings = ProxySettings::default();
+        assert_eq!(settings.mode, ProxyMode::System);
+        assert_eq!(proxy_for(&settings, &system, &url("https://hf-mirror.com/api/models?limit=1")), None);
+        assert_eq!(proxy_for(&settings, &system, &url("https://cdn.example.org/x")), None);
+        assert!(proxy_for(&settings, &system, &url("https://huggingface.co/api/models?limit=1")).is_some());
+    }
+
 
     /// A proxy that refuses the connection is named in the check, by its address without the login, and as the
     /// user's own or the system's.
@@ -531,6 +557,31 @@ mod tests {
         assert_eq!(route, ProxyRoute { address: "http://127.0.0.1:9".into(), system: true });
         let off = ProxySettings { mode: ProxyMode::Off, ..ProxySettings::default() };
         assert_eq!(route_with(&off, &system, &url("https://huggingface.co/x")), None);
+    }
+
+    /// A proxy that takes the connection but cannot reach the host (502 to CONNECT) is alive: it is not blamed, and
+    /// the mirror behind it may still answer.
+    #[tokio::test]
+    async fn a_proxy_that_answers_502_is_not_called_down() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            use tokio::io::{AsyncReadExt, AsyncWriteExt};
+            while let Ok((mut socket, _)) = listener.accept().await {
+                let mut request = [0u8; 2048];
+                let _ = socket.read(&mut request).await;
+                let _ = socket.write_all(b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n").await;
+            }
+        });
+        let answer = test(custom(&format!("127.0.0.1:{port}"), ProxyKind::Http)).await.unwrap();
+        assert_eq!(answer["huggingface"], false);
+        assert!(answer["huggingface_proxy"].is_null(), "{answer}");
+        let route = ProxyRoute { address: format!("http://127.0.0.1:{port}"), system: false };
+        assert!(route.takes_connections().await, "the proxy's address accepts a connection");
+        let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let gone = ProxyRoute { address: format!("http://{}", closed.local_addr().unwrap()), system: true };
+        drop(closed);
+        assert!(!gone.takes_connections().await);
     }
 
     /// A cloud server that answers 429 is asked again after the wait it names; one that cannot be reached is named.
