@@ -1910,6 +1910,7 @@ export const zh = {
     updateSettingsEntry: "本次发布的变化",
     updateSettingsHint: "本次发布更新、新增和不再需要的引擎与模型",
     updateDone: "更新完成：新的引擎和模型已就位，旧的已移除",
+    updateRestartToApply: "卡拉OK 引擎将在重启工作室后更新：在此之前仍使用旧版本",
     updateFailed: "更新已停止：{error}。已下载的内容会保留；按“更新”继续。",
     updateWhyCrisperwhisper: "卡拉 OK 和数据集歌词改由 audio.cpp 服务器中的 CrisperWhisper 2.0 turbo 识别，取代 Faster-Whisper，每个词都有时间",
     updateWhyAudiocppCuda: "audio.cpp 引擎在 NVIDIA 显卡上所需的 CUDA 库",

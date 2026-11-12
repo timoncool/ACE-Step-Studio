@@ -1913,6 +1913,7 @@ export const ru = {
     updateSettingsEntry: "Что изменилось в этом релизе",
     updateSettingsHint: "Движки и модели, которые этот релиз обновляет, добавляет и убирает",
     updateDone: "Обновление готово: новые движки и модели на месте, старые убраны",
+    updateRestartToApply: "Движок караоке обновится после перезапуска студии: до тех пор работает прежний",
     updateFailed: "Обновление остановилось: {error}. Скачанное остаётся — нажмите «Обновить», чтобы продолжить.",
     updateWhyCrisperwhisper: "Караоке и тексты датасета слушает CrisperWhisper 2.0 turbo в сервере audio.cpp вместо Faster-Whisper, со временем каждого слова",
     updateWhyAudiocppCuda: "Библиотека CUDA, нужная движку audio.cpp на видеокартах NVIDIA",

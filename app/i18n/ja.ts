@@ -1910,6 +1910,7 @@ export const ja = {
   updateSettingsEntry: "このリリースで変わったこと",
   updateSettingsHint: "このリリースで更新・追加・不要になるエンジンとモデル",
   updateDone: "更新完了：新しいエンジンとモデルが揃い、古いものは削除されました",
+  updateRestartToApply: "カラオケのエンジンはスタジオの再起動後に更新されます：それまでは以前のものが使われます",
   updateFailed: "更新が止まりました：{error}。ダウンロード済みのものは残ります。「更新」を押すと続きから再開します。",
   updateWhyCrisperwhisper: "カラオケとデータセットの歌詞は Faster-Whisper に代わり audio.cpp サーバーの CrisperWhisper 2.0 turbo が聞き取り、単語ごとに時刻が付きます",
   updateWhyAudiocppCuda: "NVIDIA カードで audio.cpp エンジンが必要とする CUDA ライブラリ",
