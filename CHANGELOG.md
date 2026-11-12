@@ -28,6 +28,7 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- **The engine's log keeps to its size**: past eight megabytes its older half goes, as before, now also when the engine has written text that is not UTF-8; such a log used to grow without end.
 - **An error stays on screen until you close it** ([YuE2 Studio #230](https://github.com/timoncool/YuE2-Studio/issues/230)): an error message vanished after three seconds, often before it could be read; it now stays until closed, a long one scrolls and its text can be selected and copied. Ctrl with the wheel scales the interface over every panel, and an assistant that writes too slowly to finish in three minutes says so instead of reporting that it cannot be reached.
 - **Karaoke on lyrics longer than the song times only what is sung**, as in YuE2 Studio: when the text repeats verses the song never reaches, every lyric line was put on one moment of the song together with the sung ones. The sung lines now get their own times from the first copies of the text, and lines the song does not reach get none; a first line sung unclearly keeps its place from the first word heard.
 - **Lyrics edited after Reuse prompt stay when you come back to Create**, as in YuE2 Studio ([YuE2 Studio #216](https://github.com/timoncool/YuE2-Studio/issues/216)): leaving Create and coming back loaded the reused song's lyrics and settings over your edits; a Reuse now loads the song once.
