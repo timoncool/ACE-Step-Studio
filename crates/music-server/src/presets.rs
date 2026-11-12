@@ -82,12 +82,12 @@ fn probe() -> &'static Hardware {
         let mut system = System::new().expect("sysinfo has Windows, Linux and macOS");
         system.refresh_memory();
         let total_ram_gb = system.total_memory() as f64 / GIB;
-        let (card, vulkan) = match nvidia_smi() {
-            Some(card) => (Some(card), false),
+        let (card, vulkan, nvidia) = match nvidia_smi() {
+            Some(card) => (Some(card), false, true),
             None => {
                 let other = other_card();
                 let vulkan = other.is_some() && !cfg!(target_os = "macos");
-                (other, vulkan)
+                (other, vulkan, false)
             }
         };
         let (gpu_name, total_vram_gb) = card.unwrap_or_else(|| ("No NVIDIA GPU detected".into(), 0.0));
@@ -96,20 +96,20 @@ fn probe() -> &'static Hardware {
         if vulkan {
             reason.push_str("; the engine computes on it through Vulkan");
         }
-        let on_processor = computes_on_processor(total_vram_gb);
+        let on_processor = computes_on_processor(nvidia, total_vram_gb);
         Hardware { gpu_name, total_vram_gb, total_ram_gb, has_gpu, vulkan, on_processor, recommended, reason }
     })
 }
 
-/// Whether songs are computed on the processor: no card, or a card below the smallest local set (built-in graphics);
-/// a Mac computes on Metal.
-fn computes_on_processor(total_vram_gb: f64) -> bool {
+/// Whether songs are computed on the processor: no card, or built-in graphics below the smallest local set. An
+/// NVIDIA card nvidia-smi lists is where the engine computes on CUDA at any size; a Mac computes on Metal.
+fn computes_on_processor(nvidia: bool, total_vram_gb: f64) -> bool {
     let smallest = PRESETS
         .iter()
         .filter(|preset| !preset.provider_mode && preset.profile_id.is_some())
         .map(|preset| preset.min_vram_gb)
         .fold(f64::INFINITY, f64::min);
-    !cfg!(target_os = "macos") && total_vram_gb < smallest
+    !cfg!(target_os = "macos") && !nvidia && total_vram_gb < smallest
 }
 
 pub fn hardware() -> Hardware {
@@ -469,15 +469,15 @@ mod tests {
         assert_eq!(recommend("No NVIDIA GPU detected", 0.0), "native-minimal");
     }
 
-    /// Songs are computed on the processor without a card and on built-in graphics below the smallest set; the window
-    /// says so then.
+    /// Songs are computed on the processor without a card and on built-in graphics below the smallest set; an NVIDIA
+    /// card of any size computes on CUDA. The window says so then.
     #[cfg(not(target_os = "macos"))]
     #[test]
     fn songs_go_to_the_processor_without_a_card_or_on_built_in_graphics() {
-        assert!(computes_on_processor(0.0));
-        assert!(computes_on_processor(2.0), "built-in graphics with 2 GB");
-        assert!(!computes_on_processor(4.0), "a 4 GB card holds the smallest set");
-        assert!(!computes_on_processor(24.0));
+        assert!(computes_on_processor(false, 0.0), "no card");
+        assert!(computes_on_processor(false, 0.125), "Intel UHD with 128 MB");
+        assert!(!computes_on_processor(true, 3.0), "an NVIDIA card of 3 GB computes on CUDA");
+        assert!(!computes_on_processor(false, 16.0), "an AMD card of 16 GB");
     }
 
     #[test]
