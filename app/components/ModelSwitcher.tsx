@@ -135,7 +135,7 @@ export const ModelSwitcher: React.FC<{ status: SwitcherStatus | null; onChanged:
     const components = (catalog?.components ?? []).filter(component => component.kind === 'dit');
     const active = chosen?.id;
     return (
-      <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-[60vh] overflow-y-auto rounded-xl border border-zinc-200 bg-white p-2 shadow-2xl dark:border-white/10 dark:bg-zinc-900">
+      <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-[calc(var(--vh)*60)] overflow-y-auto rounded-xl border border-zinc-200 bg-white p-2 shadow-2xl dark:border-white/10 dark:bg-zinc-900">
         <p className="px-2 pb-1 text-[11px] text-zinc-500">
           <Check size={10} className="inline" /> {tt('aceInstalledLegend')} · <Download size={10} className="inline" /> {tt('aceDownloadLegend')}
         </p>

@@ -2282,7 +2282,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
   return (
     <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/90 backdrop-blur-md p-0 md:p-4 animate-in fade-in duration-200">
 
-      <div className={`bg-suno-card w-full h-full md:max-w-7xl md:h-[90vh] md:rounded-2xl border-0 md:border border-white/10 overflow-hidden shadow-2xl relative ${isMobile ? 'flex flex-col' : 'flex'}`}>
+      <div className={`bg-suno-card w-full h-full md:max-w-7xl md:h-[calc(var(--vh)*90)] md:rounded-2xl border-0 md:border border-white/10 overflow-hidden shadow-2xl relative ${isMobile ? 'flex flex-col' : 'flex'}`}>
 
         {/* Close Button */}
         <button onClick={onClose} className="absolute top-3 right-3 md:top-4 md:right-4 z-50 p-2 bg-black/50 hover:bg-white/20 rounded-full text-white transition-colors">
@@ -2307,7 +2307,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
             </div>
 
             {/* Canvas Preview */}
-            <div className={`relative w-full ${config.aspectRatio === '1:1' ? 'aspect-square' : config.aspectRatio === '9:16' ? 'aspect-9/16 max-h-[60vh]' : 'aspect-video'}`}>
+            <div className={`relative w-full ${config.aspectRatio === '1:1' ? 'aspect-square' : config.aspectRatio === '9:16' ? 'aspect-9/16 max-h-[calc(var(--vh)*60)]' : 'aspect-video'}`}>
               <canvas
                 ref={canvasRef}
                 width={RESOLUTIONS[config.aspectRatio].width}

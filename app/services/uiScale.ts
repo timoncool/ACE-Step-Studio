@@ -37,7 +37,11 @@ export async function applyUiScale(percent: number): Promise<void> {
   if (isDesktop()) {
     await getCurrentWebview().setZoom(factor);
   } else {
-    document.documentElement.style.zoom = String(factor);
+    const root = document.documentElement;
+    root.style.zoom = String(factor);
+    // a vh or vw inside the zoomed page is scaled with it: --vh and --vw stay one per cent of what is visible
+    root.style.setProperty('--vh', `calc(1vh / ${factor})`);
+    root.style.setProperty('--vw', `calc(1vw / ${factor})`);
   }
 }
 

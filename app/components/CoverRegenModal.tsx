@@ -92,7 +92,7 @@ export const CoverRegenModal: React.FC<CoverRegenModalProps> = ({ song, onClose,
 
   return (
     <div className="fixed inset-0 z-70 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-zinc-900" onClick={event => event.stopPropagation()}>
+      <div className="flex max-h-[calc(var(--vh)*92)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-zinc-900" onClick={event => event.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 dark:border-white/10">
           <h3 className="flex items-center gap-2 text-base font-bold text-zinc-900 dark:text-white">
             <ImageIcon size={18} className="text-pink-500" /> {t(TITLES[purpose])}
