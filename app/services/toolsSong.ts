@@ -23,3 +23,9 @@ export function toolsSongOnOpen(playable: string[], runs: (ToolRun | null | unde
   const working = runs.find(run => run && !run.done && run.song_id && playable.includes(run.song_id));
   return working?.song_id ?? playable[0] ?? '';
 }
+
+/** Why the library did not answer: its status, and its body only when it said something. */
+export function libraryFailure(status: number, body: string): string {
+  const said = body.trim();
+  return said ? `${status} ${said}` : String(status);
+}

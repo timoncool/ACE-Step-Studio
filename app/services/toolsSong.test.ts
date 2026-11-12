@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { shownSongs, toolsSongOnOpen } from './toolsSong';
+import { libraryFailure, shownSongs, toolsSongOnOpen } from './toolsSong';
+
+describe('libraryFailure', () => {
+  it('says the status alone when the answer has no body', () => {
+    expect(libraryFailure(502, '')).toBe('502');
+    expect(libraryFailure(502, '  \n')).toBe('502');
+  });
+
+  it('adds what the library said', () => {
+    expect(libraryFailure(500, 'database is locked')).toBe('500 database is locked');
+  });
+});
 
 describe('shownSongs', () => {
   const list = ['a', 'b', 'c', 'd'].map(id => ({ id }));
