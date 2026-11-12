@@ -459,16 +459,27 @@ pub fn parakeet_build(runtime: OnnxFlavour) -> Option<dub_tcpp::Build> {
     })
 }
 
-/// Whether Linux's loader finds `name` without help: the CUDA build of transcribe.cpp looks for cuBLAS beside itself
-/// and then where the system keeps libraries, as the music engine does, and the studio downloads none for Linux.
+/// Whether Linux's loader finds `name` without help: the CUDA build of transcribe.cpp looks for cuBLAS beside itself,
+/// in LD_LIBRARY_PATH - where the studio downloads the music engine's CUDA libraries - and where the system keeps
+/// libraries. Only a library found is remembered: one downloaded while the studio runs counts at once.
 fn system_library(name: &str) -> bool {
-    static FOUND: std::sync::OnceLock<std::collections::HashMap<String, bool>> = std::sync::OnceLock::new();
-    let probe = |name: &str| {
-        let listed = std::env::var_os("LD_LIBRARY_PATH").is_some_and(|path| std::env::split_paths(&path).any(|dir| dir.join(name).is_file()));
-        let cached = fs::read("/etc/ld.so.cache").is_ok_and(|cache| cache.windows(name.len()).any(|bytes| bytes == name.as_bytes()));
-        listed || cached || ["/lib", "/usr/lib", "/lib64", "/usr/lib64", "/usr/lib/x86_64-linux-gnu"].iter().any(|dir| Path::new(dir).join(name).is_file())
-    };
-    FOUND.get_or_init(|| ["libcublas.so.13"].into_iter().map(|library| (library.to_string(), probe(library))).collect()).get(name).copied().unwrap_or_else(|| probe(name))
+    static FOUND: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+    let mut found = FOUND.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    if found.iter().any(|library| library == name) {
+        return true;
+    }
+    let present = loader_finds(name, std::env::var_os("LD_LIBRARY_PATH").as_deref(), Path::new("/etc/ld.so.cache"));
+    if present {
+        found.push(name.to_string());
+    }
+    present
+}
+
+/// Whether `name` is in a folder of `library_path`, in the loader's cache file or in a system library folder.
+fn loader_finds(name: &str, library_path: Option<&std::ffi::OsStr>, cache: &Path) -> bool {
+    let listed = library_path.is_some_and(|path| std::env::split_paths(path).any(|dir| dir.join(name).is_file()));
+    let cached = fs::read(cache).is_ok_and(|cache| cache.windows(name.len()).any(|bytes| bytes == name.as_bytes()));
+    listed || cached || ["/lib", "/usr/lib", "/lib64", "/usr/lib64", "/usr/lib/x86_64-linux-gnu"].iter().any(|dir| Path::new(dir).join(name).is_file())
 }
 
 /// The files Parakeet runs from on this machine: its engine build and the model the dropdown names.
@@ -1660,6 +1671,23 @@ Third");
         assert!(!config.available());
         config.provider = AsrProvider::Whisper;
         assert!(config.available());
+    }
+
+
+    /// A cuBLAS that arrives in the folder on LD_LIBRARY_PATH while the studio runs is found on the next ask: a
+    /// library not found is asked about again, never remembered missing.
+    #[test]
+    fn a_library_downloaded_after_a_miss_is_found_without_a_restart() {
+        let folder = std::env::temp_dir().join(format!("loader-finds-{}", uuid::Uuid::now_v7()));
+        fs::create_dir_all(&folder).unwrap();
+        let name = format!("libstudio-test-{}.so.13", uuid::Uuid::now_v7());
+        let path = std::env::join_paths([folder.as_path()]).unwrap();
+        let no_cache = folder.join("no-ld.so.cache");
+        assert!(!loader_finds(&name, Some(&path), &no_cache));
+        fs::write(folder.join(&name), b"x").unwrap();
+        assert!(loader_finds(&name, Some(&path), &no_cache));
+        assert!(!loader_finds(&name, None, &no_cache), "outside the library path it is not taken for found");
+        fs::remove_dir_all(&folder).ok();
     }
 
     #[test]
