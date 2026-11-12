@@ -1,7 +1,7 @@
 #!/bin/bash
 # Linux counterpart of build-engine-runtime.ps1: builds the pinned engine
 # server engines/engine-source.json names (acestep.cpp `ace-server`) with the
-# Vulkan backend, the CUDA 13 backend when nvcc is present, and a build of
+# Vulkan backend, the CUDA 13 and CUDA 12 backends where their toolkits are, and a build of
 # ggml-cpu for every processor generation, each loaded as a library, and
 # copies it with its libraries into OUTPUT_DIRECTORY.
 # The libraries are found beside the binary ($ORIGIN), wherever the package
@@ -41,44 +41,38 @@ cp "$binary" "$output/"
 # -a keeps the version symlinks; the binary finds them through $ORIGIN.
 find "$worktree/build-linux" -maxdepth 2 -name 'lib*.so*' -exec cp -a {} "$output/" \;
 
-# The CUDA backend, when this machine has the CUDA 13 toolkit: ggml-cuda alone, loaded by the engine from cuda13/ when
-# the studio names it (STUDIO_CUDA_BACKEND), device code for every architecture CUDA 13 targets, no PTX. cuBLAS goes
-# beside the engine, where the backend's RUNPATH ($ORIGIN/..) finds it.
-backend="vulkan"
-if command -v nvcc >/dev/null 2>&1; then
-    cuda_root="$(dirname "$(dirname "$(command -v nvcc)")")"
-    rm -rf "$worktree/build-linux-cuda13"
-    cmake -S "$worktree" -B "$worktree/build-linux-cuda13" -G Ninja -DCMAKE_BUILD_TYPE=Release \
+# The CUDA backends, each when this machine has its toolkit (CUDA13_ROOT, CUDA12_ROOT): ggml-cuda alone, loaded by the
+# engine from cuda13/ or cuda12/ when the studio names it (STUDIO_CUDA_BACKEND), device code for every architecture of
+# that CUDA, no PTX. Their CUDA runtime and cuBLAS are not shipped: the studio downloads NVIDIA's wheels into one folder
+# the engine and the audio.cpp server share, and names it in LD_LIBRARY_PATH.
+build_cuda() {
+    local name="$1" root="$2" architectures="$3"
+    rm -rf "$worktree/build-linux-$name"
+    cmake -S "$worktree" -B "$worktree/build-linux-$name" -G Ninja -DCMAKE_BUILD_TYPE=Release \
         -DGGML_NATIVE=OFF -DGGML_BACKEND_DL=ON -DGGML_CUDA=ON -DGGML_CUDA_NCCL=OFF -DGGML_CUDA_FA_ALL_QUANTS=ON \
-        "-DCMAKE_CUDA_ARCHITECTURES=75-real;80-real;86-real;89-real;90-real;120a-real" \
+        "-DCMAKE_CUDA_ARCHITECTURES=$architectures" "-DCMAKE_CUDA_COMPILER=$root/bin/nvcc" "-DCUDAToolkit_ROOT=$root" \
+        -DCMAKE_CUDA_FLAGS=-Wno-deprecated-gpu-targets \
         -DCMAKE_BUILD_RPATH='$ORIGIN:$ORIGIN/..' -DCMAKE_INSTALL_RPATH='$ORIGIN:$ORIGIN/..' -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
-    cmake --build "$worktree/build-linux-cuda13" --config Release --target ggml-cuda -j "$(getconf _NPROCESSORS_ONLN)"
-    cuda="$(find "$worktree/build-linux-cuda13" -name 'libggml-cuda.so' -type f | head -n 1)"
-    [ -n "$cuda" ] || { echo "[ERROR] the CUDA build completed without libggml-cuda.so" >&2; exit 1; }
-    mkdir -p "$output/cuda13"
-    cp "$cuda" "$output/cuda13/"
+    cmake --build "$worktree/build-linux-$name" --config Release --target ggml-cuda -j "$(getconf _NPROCESSORS_ONLN)"
+    local cuda
+    cuda="$(find "$worktree/build-linux-$name" -name 'libggml-cuda.so' -type f | head -n 1)"
+    [ -n "$cuda" ] || { echo "[ERROR] the $name build completed without libggml-cuda.so" >&2; exit 1; }
+    mkdir -p "$output/$name"
+    cp "$cuda" "$output/$name/"
     # CMake appends the toolkit's library folder of this machine to the RUNPATH
-    patchelf --set-rpath '$ORIGIN:$ORIGIN/..' "$output/cuda13/libggml-cuda.so"
-    # the CUDA libraries it names, by the loader's names (.so.13), with the ones those name in turn (cuBLAS -> cuBLASLt)
-    cuda_lib="$cuda_root/targets/x86_64-linux/lib"
-    [ -d "$cuda_lib" ] || cuda_lib="$cuda_root/lib64"
-    wanted="$(readelf -d "$cuda" | sed -n 's/.*NEEDED.*\[\(libcu[A-Za-z]*\.so\.[0-9]*\)\].*/\1/p')"
-    while [ -n "$wanted" ]; do
-        next=""
-        for library in $wanted; do
-            # libcuda.so.1 is the display driver's, never shipped
-            case "$library" in libcuda.so.*) continue ;; esac
-            [ -e "$output/$library" ] && continue
-            [ -e "$cuda_lib/$library" ] || { echo "[ERROR] $library is not in $cuda_lib" >&2; exit 1; }
-            cp -L "$cuda_lib/$library" "$output/$library"
-            next="$next $(readelf -d "$output/$library" | sed -n 's/.*NEEDED.*\[\(libcu[A-Za-z]*\.so\.[0-9]*\)\].*/\1/p')"
-        done
-        wanted="$next"
-    done
-    backend="cuda13,vulkan"
+    patchelf --set-rpath '$ORIGIN:$ORIGIN/..' "$output/$name/libggml-cuda.so"
+}
+backend="vulkan"
+if [ -x "${CUDA12_ROOT:-}/bin/nvcc" ]; then
+    build_cuda cuda12 "$CUDA12_ROOT" "52-real;60-real;61-real;70-real;75-real;80-real;86-real;89-real;90-real;120a-real"
+    backend="cuda12,$backend"
+fi
+if [ -x "${CUDA13_ROOT:-}/bin/nvcc" ]; then
+    build_cuda cuda13 "$CUDA13_ROOT" "75-real;80-real;86-real;89-real;90-real;120a-real"
+    backend="cuda13,$backend"
 fi
 printf '{"commit":"%s","backend":"%s","platform":"linux"}\n' "$commit" "$backend" > "$output/runtime.json"
-for binary in "$output/$server" "$output"/*.so* "$output"/cuda13/*.so*; do
+for binary in "$output/$server" "$output"/*.so* "$output"/cuda13/*.so* "$output"/cuda12/*.so*; do
     [ -f "$binary" ] || continue
     if readelf -d "$binary" | grep -iE 'runpath|rpath' | grep -qE '(\[|:)/'; then
         echo "[ERROR] $binary keeps an absolute RUNPATH:" >&2

@@ -14,6 +14,10 @@
 //! same way the models are. The build machine has them on PATH through the CUDA
 //! Toolkit, which is exactly why this was invisible until someone without the
 //! Toolkit ran the release.
+//!
+//! On Linux `cuda13/libggml-cuda.so` and `cuda12/libggml-cuda.so` need the CUDA
+//! runtime as well as cuBLAS; both come from NVIDIA's wheels into
+//! `<data>/engine-runtime/cuda`, which the studio puts on LD_LIBRARY_PATH.
 
 use std::path::{Path, PathBuf};
 
@@ -35,7 +39,10 @@ pub const VC_RUNTIME_LIBRARIES: [&str; 5] =
     ["vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll", "msvcp140_1.dll", "vcomp140.dll"];
 
 
+#[cfg(not(target_os = "linux"))]
 pub const ASSETS: &[Asset] = &[CUBLAS13, CUBLAS12];
+#[cfg(target_os = "linux")]
+pub const ASSETS: &[Asset] = &[LINUX_CUDA13[0], LINUX_CUDA13[1], LINUX_CUDA12[0], LINUX_CUDA12[1]];
 
 const CUBLAS13: Asset = Asset {
     id: "engine-cuda-cublas",
@@ -82,6 +89,81 @@ pub fn cublas_asset(build: CudaBuild) -> &'static Asset {
     }
 }
 
+
+/// Linux: the CUDA runtime and cuBLAS of the engine's CUDA 13 backend, from NVIDIA's manylinux wheels, which the
+/// audio.cpp server's CUDA 13 build loads too: one copy in `<data>/engine-runtime/cuda`, named in LD_LIBRARY_PATH.
+pub const LINUX_CUDA13: [Asset; 2] = [
+    Asset {
+        id: "engine-cuda-cudart-linux",
+        label: "NVIDIA CUDA runtime 13.4",
+        kind: AssetKind::Runtime,
+        url: "https://files.pythonhosted.org/packages/98/8a/3431271f6344874b8f1ac03f16b3d679c91493f8da63f716160403e6d0a0/nvidia_cuda_runtime-13.4.92-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+        relative_path: "cuda13-cudart.whl",
+        bytes: 2_494_438,
+        unzip_into: None,
+        marker: "libcudart.so.13",
+        pick: &["libcudart.so.13"],
+        vram_gb: None,
+        note: "The CUDA runtime of the engine's CUDA 13 backend and of the audio.cpp server.",
+    },
+    Asset {
+        id: "engine-cuda-cublas-linux",
+        label: "NVIDIA cuBLAS 13.8",
+        kind: AssetKind::Runtime,
+        url: "https://files.pythonhosted.org/packages/7a/38/bdd540bf511d2c9b6f9efc71a81c60cb88e295be0b9312b61d19bbed2212/nvidia_cublas-13.8.0.4-py3-none-manylinux_2_27_x86_64.whl",
+        relative_path: "cuda13-cublas.whl",
+        bytes: 439_317_144,
+        unzip_into: None,
+        marker: "libcublasLt.so.13",
+        pick: &["libcublas.so.13", "libcublasLt.so.13"],
+        vram_gb: None,
+        note: "The linear algebra of the engine's CUDA 13 backend and of the audio.cpp server.",
+    },
+];
+
+/// Linux: the CUDA runtime and cuBLAS of the engine's CUDA 12 backend, the CUDA 12.9 wheels the audio.cpp server's
+/// CUDA 12 build loads too; their names carry the major, so they share the folder with the CUDA 13 ones.
+pub const LINUX_CUDA12: [Asset; 2] = [
+    Asset {
+        id: "engine-cuda12-cudart-linux",
+        label: "NVIDIA CUDA runtime 12.9",
+        kind: AssetKind::Runtime,
+        url: "https://files.pythonhosted.org/packages/bc/46/a92db19b8309581092a3add7e6fceb4c301a3fd233969856a8cbf042cd3c/nvidia_cuda_runtime_cu12-12.9.79-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+        relative_path: "cuda12-cudart.whl",
+        bytes: 3_493_179,
+        unzip_into: None,
+        marker: "libcudart.so.12",
+        pick: &["libcudart.so.12"],
+        vram_gb: None,
+        note: "The CUDA runtime of the engine's CUDA 12 backend and of the audio.cpp server.",
+    },
+    Asset {
+        id: "engine-cuda12-cublas-linux",
+        label: "NVIDIA cuBLAS 12.9",
+        kind: AssetKind::Runtime,
+        url: "https://files.pythonhosted.org/packages/cb/c0/0a517bfe63ccd3b92eb254d264e28fca3c7cab75d07daea315250fb1bf73/nvidia_cublas_cu12-12.9.2.10-py3-none-manylinux_2_27_x86_64.whl",
+        relative_path: "cuda12-cublas.whl",
+        bytes: 581_240_110,
+        unzip_into: None,
+        marker: "libcublasLt.so.12",
+        pick: &["libcublas.so.12", "libcublasLt.so.12"],
+        vram_gb: None,
+        note: "The linear algebra of the engine's CUDA 12 backend and of the audio.cpp server.",
+    },
+];
+
+/// The downloads a CUDA build of the engine needs on this platform: cuBLAS beside the engine on Windows; on Linux the
+/// CUDA runtime and cuBLAS of either build, in one folder the audio.cpp server shares.
+pub fn cuda_assets(build: CudaBuild) -> Vec<&'static Asset> {
+    if cfg!(target_os = "linux") {
+        return match build {
+            CudaBuild::Cuda13 => LINUX_CUDA13.iter().collect(),
+            CudaBuild::Cuda12 => LINUX_CUDA12.iter().collect(),
+        };
+    }
+    vec![cublas_asset(build)]
+}
+
 /// The engine's downloadable runtime.
 pub struct EngineRuntime {
     downloader: Downloader,
@@ -95,7 +177,17 @@ impl EngineRuntime {
     /// Where that directory cannot be written - an installation under Program
     /// Files - they go to the studio's data folder instead, which joins PATH:
     /// the engine inherits it, and Windows looks there for what its backend imports.
+    /// On Linux they always go to `<data>/engine-runtime/cuda`, which joins LD_LIBRARY_PATH for the engine and the
+    /// audio.cpp server alike: the package's own folder is read-only there.
     pub fn new(bundle_root: &Path, data_root: &Path) -> Self {
+        if cfg!(target_os = "linux") {
+            let folder = data_root.join("engine-runtime").join("cuda");
+            let existing = std::env::var_os("LD_LIBRARY_PATH").unwrap_or_default();
+            if let Ok(joined) = std::env::join_paths(std::iter::once(folder.clone()).chain(std::env::split_paths(&existing))) {
+                unsafe { std::env::set_var("LD_LIBRARY_PATH", joined) };
+            }
+            return Self { downloader: Downloader::new(folder), bundle_root: bundle_root.to_path_buf() };
+        }
         let root = if writable(bundle_root) {
             bundle_root.to_path_buf()
         } else {
@@ -154,15 +246,10 @@ impl EngineRuntime {
     /// Toolkit installation - downloads nothing: the engine inherits that path
     /// and finds them there.
     pub fn missing(&self, build: CudaBuild) -> Vec<&'static Asset> {
-        // off Windows the CUDA libraries ship beside the engine
-        if !cfg!(windows) {
-            return Vec::new();
-        }
-        let asset = cublas_asset(build);
-        if self.downloader.is_installed(asset) || asset.pick.iter().all(|library| is_on_the_search_path(library)) {
-            return Vec::new();
-        }
-        vec![asset]
+        cuda_assets(build)
+            .into_iter()
+            .filter(|asset| !self.downloader.is_installed(asset) && !asset.pick.iter().all(|library| is_on_the_search_path(library)))
+            .collect()
     }
 
     /// Fetches whatever is missing and waits for it.
@@ -186,14 +273,11 @@ fn writable(directory: &Path) -> bool {
     written
 }
 
-/// Whether the loader would already find this library without help.
-///
-/// The engine inherits this process's PATH, so the directories searched there
-/// are the directories searched here. A machine with the CUDA Toolkit
-/// installed has cuBLAS on PATH already, and asking it to download half a
-/// gigabyte of the same thing would be rude.
+/// Whether the loader would already find this library without help: the engine inherits this process's PATH (on
+/// Linux its LD_LIBRARY_PATH), so a machine with the CUDA Toolkit there downloads nothing.
 fn is_on_the_search_path(library: &str) -> bool {
-    let Some(path) = std::env::var_os("PATH") else { return false };
+    let variable = if cfg!(windows) { "PATH" } else { "LD_LIBRARY_PATH" };
+    let Some(path) = std::env::var_os(variable) else { return false };
     std::env::split_paths(&path).any(|directory| directory.join(library).is_file())
 }
 
@@ -259,6 +343,29 @@ mod tests {
             assert_eq!(asset.unzip_into, None);
             assert_eq!(asset.kind, AssetKind::Runtime);
             assert!(asset.bytes > 0, "{} has no size, so nothing can report progress", asset.id);
+        }
+    }
+
+
+    /// On Linux each CUDA build of the engine gets the CUDA runtime and cuBLAS of its own major from NVIDIA's wheels;
+    /// on Windows its cuBLAS archive.
+    #[test]
+    fn each_cuda_build_downloads_the_libraries_of_its_own_major() {
+        for (build, linux, major) in [(CudaBuild::Cuda13, &LINUX_CUDA13, "13"), (CudaBuild::Cuda12, &LINUX_CUDA12, "12")] {
+            for asset in linux {
+                assert!(asset.url.ends_with(".whl"), "{} is not a wheel", asset.id);
+                assert!(asset.pick.iter().all(|library| library.ends_with(&format!(".so.{major}"))), "{} picks another major", asset.id);
+            }
+            let picked: Vec<&str> = linux.iter().flat_map(|asset| asset.pick.iter().copied()).collect();
+            for library in ["libcudart.so", "libcublas.so", "libcublasLt.so"] {
+                assert!(picked.contains(&format!("{library}.{major}").as_str()), "the CUDA {major} build gets no {library}");
+            }
+            let ids: Vec<&str> = cuda_assets(build).iter().map(|asset| asset.id).collect();
+            if cfg!(target_os = "linux") {
+                assert_eq!(ids, linux.iter().map(|asset| asset.id).collect::<Vec<_>>());
+            } else {
+                assert_eq!(ids, vec![cublas_asset(build).id]);
+            }
         }
     }
 

@@ -1740,12 +1740,12 @@ fn separation_build(runtime: lyrics_sync::OnnxFlavour) -> anyhow::Result<acpp_se
     acpp::build_for(runtime)
 }
 
-/// Downloads what audio.cpp's server of `build` still lacks: the program and its libraries, and for the CUDA 13 build
-/// the cuBLAS 13 it shares with the music engine, through the engine runtime that downloads it.
+/// Downloads what audio.cpp's server of `build` still lacks: the program and its libraries, and for the Windows CUDA 13
+/// build the cuBLAS 13 it shares with the music engine, through the engine runtime that downloads it.
 async fn install_acpp(state: &AppState, build: acpp_server::asset::Build, scope: &str) -> anyhow::Result<()> {
     let acpp = state.lyrics_sync.acpp();
     acpp.downloader().install_all(scope, &acpp.missing(build)).await?;
-    if build == acpp_server::asset::Build::Cuda13 {
+    if takes_engine_cublas(build) {
         state.engine_runtime.install_missing(cuda_build::CudaBuild::Cuda13).await?;
     }
     Ok(())
@@ -5904,7 +5904,7 @@ async fn compose_setup_status(state: &AppState, manager_status: model_manager::M
         // minutes. A spinner that says nothing for ten minutes is the same
         // screen as a spinner that is stuck.
         let runtime_build = state.engine_options.read().await.cuda_build();
-        let runtime_total = runtime_build.map(|build| engine_runtime::cublas_asset(build).bytes).unwrap_or(0);
+        let runtime_total = runtime_build.map(|build| engine_runtime::cuda_assets(build).iter().map(|asset| asset.bytes).sum::<u64>()).unwrap_or(0);
         let runtime_active = state.engine_runtime.downloader().active().await;
         fields.insert(
             "engine_runtime".into(),

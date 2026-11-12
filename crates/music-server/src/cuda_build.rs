@@ -195,11 +195,8 @@ pub fn describe() -> Option<String> {
     .clone()
 }
 
-/// The CUDA builds this platform's engine carries: both on Windows, CUDA 13 in the Linux package.
-#[cfg(windows)]
+/// The CUDA builds the engine carries, the same two on Windows and Linux.
 const SHIPPED: &[CudaBuild] = &[CudaBuild::Cuda13, CudaBuild::Cuda12];
-#[cfg(not(windows))]
-const SHIPPED: &[CudaBuild] = &[CudaBuild::Cuda13];
 
 /// Tensor cores before Ampere accumulate in FP16, where the V projection can
 /// overflow to infinity and poison every later attention; the engine's clamp
@@ -210,10 +207,7 @@ pub fn accumulates_in_fp16() -> bool {
 
 /// Why the engine cannot start on CUDA here, in words for the person at the
 /// machine.
-#[cfg(windows)]
 pub const UNSUPPORTED: &str = "CUDA was chosen, but this card or its driver runs neither CUDA build of the engine: it needs an NVIDIA card from the GTX 900 series on and driver 525 or newer. Update the NVIDIA driver, or choose Vulkan in Settings.";
-#[cfg(not(windows))]
-pub const UNSUPPORTED: &str = "CUDA was chosen, but this card or its driver does not run the engine's CUDA build: it needs an NVIDIA card from the GTX 16 and RTX 20 series on and driver 580 or newer. Update the NVIDIA driver, or choose Vulkan in Settings.";
 
 #[cfg(test)]
 mod tests {
@@ -230,6 +224,19 @@ mod tests {
         assert_eq!(cuda_build((3, 5), 581), None);
         assert_eq!(cuda_build((5, 0), 581), None);
         assert_eq!(cuda_build((8, 6), 511), None);
+    }
+
+
+    /// Linux runs the same table as Windows: a card the table gives CUDA 12 computes on the CUDA 12 build, not on
+    /// Vulkan.
+    #[test]
+    fn the_engine_carries_both_cuda_builds_on_windows_and_linux() {
+        assert_eq!(SHIPPED, &[CudaBuild::Cuda13, CudaBuild::Cuda12]);
+        for (compute, driver) in [((7, 5), 581), ((6, 1), 560), ((8, 9), 566)] {
+            let build = cuda_build(compute, driver).expect("a build for the card");
+            assert!(SHIPPED.contains(&build), "{compute:?} with driver {driver}: {build:?} is not carried");
+        }
+        assert!(UNSUPPORTED.contains("525"), "the refusal names the oldest driver a build runs on");
     }
 
     #[test]

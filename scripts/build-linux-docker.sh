@@ -30,15 +30,18 @@ if [ "${1:-}" = "--inside" ]; then
     curl -sSfL "https://sdk.lunarg.com/sdk/download/$vulkan/linux/vulkansdk-linux-x86_64-$vulkan.tar.xz" | tar -xJ -C /cache/vulkansdk-$vulkan --strip-components=1
   fi
   export VULKAN_SDK=/cache/vulkansdk-$vulkan/x86_64 PATH=/cache/vulkansdk-$vulkan/x86_64/bin:$PATH
-  # the engine's CUDA 13 backend: nvcc, the runtime and cuBLAS from NVIDIA's Ubuntu 22.04 repository, the packages kept in the cache
-  cuda=13-3
-  echo "[..] CUDA $cuda"
+  # the engine's CUDA 13 and CUDA 12 backends: nvcc, the runtime and cuBLAS of CUDA 13.3 and of CUDA 12.9 (the toolkit
+  # of nvidia/cuda:12.9.1-devel-ubuntu22.04, which builds audio.cpp's CUDA 12 server) from NVIDIA's Ubuntu 22.04
+  # repository, the packages kept in the cache
+  echo "[..] CUDA 13.3 and 12.9"
   curl -sSfL -o /tmp/cuda-keyring.deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
   dpkg -i /tmp/cuda-keyring.deb >/dev/null
   mkdir -p /cache/apt
   apt-get update -q >/dev/null
-  apt-get install -y -q --no-install-recommends -o Dir::Cache::Archives=/cache/apt cuda-nvcc-$cuda cuda-cudart-dev-$cuda libcublas-dev-$cuda >/dev/null
-  export PATH=/usr/local/cuda/bin:$PATH
+  for cuda in 13-3 12-9; do
+    apt-get install -y -q --no-install-recommends -o Dir::Cache::Archives=/cache/apt cuda-nvcc-$cuda cuda-cudart-dev-$cuda libcublas-dev-$cuda >/dev/null
+  done
+  export CUDA13_ROOT=/usr/local/cuda-13.3 CUDA12_ROOT=/usr/local/cuda-12.9
   echo "[..] source $(git -c safe.directory=/src -C /src rev-parse --short HEAD)"
   rm -rf /cache/src && mkdir -p /cache/src
   git -c safe.directory=/src -C /src archive HEAD | tar -x -C /cache/src
@@ -50,9 +53,15 @@ if [ "${1:-}" = "--inside" ]; then
   engine=desktop/src-tauri/resources/engine/ace-server
   if ldd "$engine" | grep -i 'not found'; then echo "[ERROR] the engine misses libraries"; exit 1; fi
   # libcuda.so.1 comes with the display driver, which a build container has not got
-  backend=desktop/src-tauri/resources/engine/cuda13/libggml-cuda.so
-  [ -f "$backend" ] || { echo "[ERROR] the engine was built without its CUDA backend"; exit 1; }
-  if ldd "$backend" | grep -i 'not found' | grep -v 'libcuda.so'; then echo "[ERROR] the CUDA backend misses libraries"; exit 1; fi
+  # the CUDA runtime and cuBLAS come from the toolkits here, from NVIDIA's wheels on the user's machine
+  for build in cuda13:$CUDA13_ROOT cuda12:$CUDA12_ROOT; do
+    backend=desktop/src-tauri/resources/engine/${build%%:*}/libggml-cuda.so
+    [ -f "$backend" ] || { echo "[ERROR] the engine was built without its ${build%%:*} backend"; exit 1; }
+    if LD_LIBRARY_PATH="${build#*:}/targets/x86_64-linux/lib" ldd "$backend" | grep -i 'not found' | grep -v 'libcuda.so'; then
+      echo "[ERROR] the ${build%%:*} backend misses libraries"; exit 1
+    fi
+  done
+  if ls desktop/src-tauri/resources/engine/libcu* >/dev/null 2>&1; then echo "[ERROR] CUDA libraries are packed beside the engine"; exit 1; fi
   # the engine answers --help with its usage and a non-zero code
   "$engine" --help > /tmp/engine-help.txt 2>&1 || true
   grep -q 'Usage' /tmp/engine-help.txt || { echo "[ERROR] the engine does not start"; head -5 /tmp/engine-help.txt; exit 1; }
