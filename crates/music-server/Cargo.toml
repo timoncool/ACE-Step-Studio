@@ -21,7 +21,7 @@ dub-core = { git = "https://github.com/timoncool/dub-studio", rev = "d7d3f7600ff
 # "today" and dates the agent names, in this computer's time zone.
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 # The folder picker for "use models I already have", the same crate Dub Studio uses.
-rfd = "0.17"
+rfd = "0.18"
 base64.workspace = true
 hound = "3.5"
 axum.workspace = true
