@@ -8879,10 +8879,11 @@ fn reference_timbre(state: &AppState, song_id: &str) -> anyhow::Result<(Option<V
 /// over its 256 MB body limit without a word.
 const ENGINE_MAX_SECONDS: f64 = 600.0;
 
-/// A recording as the engine can read it. The engine's own readers take MP3
-/// and only some WAVs (16- and 24-bit PCM, float), while the library takes any
-/// file the studio decodes, so every recording is decoded here and goes as a
-/// 24-bit WAV: the library keeps nothing finer.
+/// The rate the engine reads every recording at. A recording sent at a higher
+/// rate is resampled by the engine anyway, and only adds to the request body,
+/// which ace-server caps at 256 MB.
+const ENGINE_RATE: u32 = 48_000;
+
 fn engine_audio(path: &std::path::Path) -> anyhow::Result<Vec<u8>> {
     let audio = audio_pcm::decode_stereo(path).with_context(|| format!("decode {}", path.display()))?;
     let seconds = audio.left.len() as f64 / f64::from(audio.rate);
@@ -8894,7 +8895,12 @@ fn engine_audio(path: &std::path::Path) -> anyhow::Result<Vec<u8>> {
             whole % 60
         );
     }
-    audio_pcm::wav24_bytes(&audio)
+    if audio.rate == ENGINE_RATE {
+        return audio_pcm::wav24_bytes(&audio);
+    }
+    let (left, right) = audio_post::resample::stereo(&audio.left, &audio.right, audio.rate, ENGINE_RATE)
+        .with_context(|| format!("resample {} from {} Hz", path.display(), audio.rate))?;
+    audio_pcm::wav24_bytes(&audio_post::Stereo::new(left, right, ENGINE_RATE))
 }
 
 /// The engine's latent of a rendered track, beside its audio.
@@ -9537,6 +9543,24 @@ mod tests {
         assert!(karaoke_variant_bytes(lyrics_sync::PARAKEET_FP32).is_none(), "fp32 is no choice of its own any more");
         assert!(karaoke_variant_bytes("transcribe-engine").is_none());
         assert!(karaoke_variant_bytes("onnxruntime").is_none());
+    }
+
+    #[test]
+    fn a_hi_res_recording_goes_to_the_engine_at_48_khz() {
+        let path = std::env::temp_dir().join(format!("ace-engine-rate-{}.wav", uuid::Uuid::now_v7().simple()));
+        let spec = hound::WavSpec { channels: 2, sample_rate: 96_000, bits_per_sample: 24, sample_format: hound::SampleFormat::Int };
+        let mut writer = hound::WavWriter::create(&path, spec).unwrap();
+        for frame in 0..96_000 {
+            let sample = ((frame as f32 * 440.0 * std::f32::consts::TAU / 96_000.0).sin() * 4_000_000.0) as i32;
+            writer.write_sample(sample).unwrap();
+            writer.write_sample(sample).unwrap();
+        }
+        writer.finalize().unwrap();
+        let bytes = engine_audio(&path).unwrap();
+        let _ = std::fs::remove_file(&path);
+        let reader = hound::WavReader::new(std::io::Cursor::new(bytes)).unwrap();
+        assert_eq!(reader.spec().sample_rate, ENGINE_RATE);
+        assert!((reader.duration() as i64 - 48_000).abs() <= 1_024, "one second stays one second: {}", reader.duration());
     }
 
     #[test]

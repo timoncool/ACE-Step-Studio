@@ -11,6 +11,7 @@ What changed, newest first. Dates are release dates.
 ### Fixed
 
 - **A failed song names the engine's reason again after the engine log took a broken character**: the studio read the engine log as strict UTF-8, so a single malformed byte in it - a half-written character in text the language model wrote - made the whole log unreadable and every later failure said only "the engine failed this job and its log names no cause". The log is now read past such bytes, as YuE2 Studio already does.
+- **A high-resolution source or reference no longer fails with "Payload Too Large"**: a recording was sent to the engine at its own sample rate, so a long 96 or 192 kHz file passed the engine's 256 MB request limit and the song failed with an empty "413 Payload Too Large". The studio now sends every source and reference at 48 kHz, the rate the engine reads them at anyway, band-limited.
 
 ## 2026-11-06 — 3.8.5
 
