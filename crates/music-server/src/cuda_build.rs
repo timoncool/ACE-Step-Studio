@@ -157,6 +157,12 @@ pub fn nvidia_card() -> bool {
     })
 }
 
+/// The chosen NVIDIA card's compute capability (sm_XY as (X, Y)), the one the build is chosen by; None off an NVIDIA
+/// card or behind a driver too old to report it.
+pub fn compute_capability() -> Option<(u32, u32)> {
+    device().map(|(compute, _driver)| compute)
+}
+
 /// The build this machine runs, none without an NVIDIA card one of the builds
 /// supports.
 pub fn current() -> Option<CudaBuild> {

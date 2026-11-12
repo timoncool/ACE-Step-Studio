@@ -5693,6 +5693,17 @@ pub(crate) fn studio_version() -> &'static str {
     STUDIO_VERSION.get().map(String::as_str).unwrap_or(env!("CARGO_PKG_VERSION"))
 }
 
+/// The card as the hub's report names it: its make, memory class and backend, and an NVIDIA card's compute capability
+/// - the same one the CUDA build is chosen by - for the speed of each set by card generation.
+fn hub_gpu(vendor: &str, vram_gb: f64, backend: &str, compute: Option<(u32, u32)>) -> studio_hub_client::Gpu {
+    studio_hub_client::Gpu {
+        vendor: vendor.into(),
+        vram_gb: studio_hub_client::Gpu::vram_bucket((vram_gb * 1_073_741_824.0) as u64),
+        backend: backend.into(),
+        compute: compute.filter(|_| vendor == "nvidia").and_then(|(major, minor)| studio_hub_client::Gpu::compute_capability(major, minor)),
+    }
+}
+
 /// Studio Hub for this studio: statistics only after the start screen showed its checkbox, news through the
 /// studio's own proxy setting. A state file that cannot be read leaves the studio without it, said once.
 fn start_hub() -> Option<studio_hub_client::Hub> {
@@ -5732,11 +5743,7 @@ fn start_hub() -> Option<studio_hub_client::Hub> {
         data_dir: studio_data_root().unwrap_or_else(|| PathBuf::from(".")),
         http: net::client(),
         os_label,
-        gpu: studio_hub_client::Gpu {
-            vendor: vendor.into(),
-            vram_gb: studio_hub_client::Gpu::vram_bucket((machine.total_vram_gb * 1_073_741_824.0) as u64),
-            backend: backend.into(),
-        },
+        gpu: hub_gpu(vendor, machine.total_vram_gb, backend, cuda_build::compute_capability()),
         ui_lang: "en".into(),
         urls: Vec::new(),
     };
@@ -9273,18 +9280,18 @@ async fn run_ace_job(state: AppState, run: AceRun) {
             Some(("completed", _, songs, profiles, seconds)) if *songs > 0 => {
                 hub.count("songs", *songs as u64);
                 hub.count("song_done", 1);
-                if let Some(work) = work {
-                    hub.worked("song", *seconds, work);
-                }
-                for profile in profiles {
-                    hub.used_model(profile);
-                }
                 // a set put together by hand has no name: its parts say what it was
                 let set = profiles.first().cloned();
                 let parts = match &set {
                     Some(id) => model_manager::profile_components(id),
                     None => parts_at_start.clone(),
                 };
+                if let Some(work) = work {
+                    hub.worked_on("song", set.as_deref(), *seconds, work);
+                }
+                for profile in profiles {
+                    hub.used_model(profile);
+                }
                 hub.used_models(set.as_deref(), &parts, *songs as u64);
             }
             Some(("failed", message, ..)) => {
@@ -10794,5 +10801,37 @@ mod tests {
         // The music engine, two recognisers, the local assistant and
         // OpenRouter: everything listed is something the studio can actually do.
         assert_eq!(serde_json::to_value(after_refresh).unwrap()["engines"].as_array().unwrap().len(), 5);
+    }
+
+
+    /// A song's seconds reach the day's report under its set, and the card under its compute capability on NVIDIA
+    /// alone.
+    #[test]
+    fn the_report_carries_the_speed_of_each_set_and_the_card_generation() {
+        let data = std::env::temp_dir().join(format!("hub-speed-{}", uuid::Uuid::now_v7()));
+        std::fs::create_dir_all(&data).unwrap();
+        let hub_on = |gpu: studio_hub_client::Gpu| {
+            studio_hub_client::Hub::new(studio_hub_client::HubConfig {
+                app: PROGRAM_ID.into(),
+                version: "test".into(),
+                data_dir: data.join(&gpu.vendor),
+                http: reqwest::Client::new(),
+                os_label: "test".into(),
+                gpu,
+                ui_lang: "en".into(),
+                urls: Vec::new(),
+            })
+            .unwrap()
+        };
+        let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+        let rtx50 = hub_on(hub_gpu("nvidia", 31.8, "cuda", Some((12, 0))));
+        rtx50.acknowledge(true);
+        rtx50.worked_on("song", Some("quality-mxfp4"), 60.0, std::time::Duration::from_secs(20));
+        let report = serde_json::to_value(rtx50.report_for(&today).expect("a report of today")).unwrap();
+        assert_eq!(report["gpu"]["compute"], "12.0");
+        assert_eq!(report["speed"][0]["set"], "quality-mxfp4");
+        let amd = hub_gpu("amd", 16.0, "vulkan", Some((12, 0)));
+        assert!(amd.compute.is_none(), "another make has no compute capability");
+        std::fs::remove_dir_all(&data).ok();
     }
 }
