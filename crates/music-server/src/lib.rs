@@ -7747,6 +7747,8 @@ async fn finish_midi_run(state: &AppState, outcome: anyhow::Result<usize>, outpu
                 run.notes = notes;
                 run.file = Some(plain_path(output));
             }
+            // a run the person stopped did not fail: the window says it stopped, not why it broke
+            Err(_) if midi_stopped(state) => run.stage = "stopped",
             Err(error) => run.error = Some(format!("{error:#}")),
         }
     }

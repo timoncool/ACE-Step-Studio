@@ -25,7 +25,7 @@ interface MidiSize {
 interface MidiRun {
   song_id: string | null;
   size: string;
-  stage: 'preparing' | 'downloading' | 'reading' | 'transcribing' | 'done';
+  stage: 'preparing' | 'downloading' | 'reading' | 'transcribing' | 'done' | 'stopped';
   chunks_done: number;
   chunks_total: number;
   notes: number;
@@ -273,6 +273,9 @@ export const MidiTool: React.FC<{ songId: string; songTitle: string; card: strin
         </>
       )}
 
+      {!running && run?.stage === 'stopped' && !error && (
+        <p className="mt-3 text-xs text-zinc-500">{t('midiStopped')}</p>
+      )}
       {(run?.error || error) && (
         <p role="alert" className="mt-3 select-text rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-700 wrap-anywhere dark:text-rose-300">{run?.error || error}</p>
       )}
