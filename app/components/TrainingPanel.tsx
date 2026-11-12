@@ -6,6 +6,7 @@ import { ConfirmDialog } from './ConfirmDialog';
 import { StemPlayer } from './StemPlayer';
 import { TrainingGuide } from './TrainingGuide';
 import { AUDIO_ACCEPT } from '../services/audioFiles';
+import { poll } from '../services/poll';
 import { karaokeReason } from '../services/karaoke';
 import {
   Dataset,
@@ -1109,9 +1110,7 @@ export const TrainingPanel: React.FC = () => {
   const job = state?.prepare ?? null;
   const busy = Boolean(state?.active || (job && !job.finished) || adding || (state?.download && !state.download.done) || (state?.listen?.download && !state.listen.download.done));
   useEffect(() => {
-    void refresh();
-    const timer = window.setInterval(() => void refresh(), busy ? 1500 : 5000);
-    return () => window.clearInterval(timer);
+    return poll(refresh, busy ? 1500 : 5000);
   }, [refresh, busy]);
 
   // a run that starts by itself after preparation is shown where it runs
