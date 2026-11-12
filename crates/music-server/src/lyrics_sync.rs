@@ -357,15 +357,6 @@ pub enum OnnxFlavour {
 }
 
 
-impl OnnxFlavour {
-    /// Whether work runs on the card through CUDA: only an NVIDIA card with a
-    /// driver that runs CUDA does. An AMD card was sent to the CUDA provider
-    /// and failed, after being offered gigabytes of CUDA libraries.
-    pub fn uses_cuda(self) -> bool {
-        !matches!(self, OnnxFlavour::Cpu) && crate::cuda_build::current().is_some()
-    }
-}
-
 /// The words Parakeet hears in one track, each with the second it starts. `language` is a hint the model takes
 /// only when it knows it; none, or one it does not, leaves the language to it.
 fn parakeet_transcribe(asr: &std::sync::Mutex<dub_tcpp::TcppAsr>, model: &dub_tcpp::Model, audio: &Path, language: Option<&str>) -> Result<Vec<(f64, String)>> {
