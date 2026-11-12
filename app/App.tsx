@@ -122,7 +122,7 @@ import { UpdateScreen, readUpdatePlan } from './components/UpdateScreen';
 import { EngineStarting } from './components/EngineStarting';
 import { StudioOffline } from './components/StudioOffline';
 import { StudioToolsPanel } from './components/StudioToolsPanel';
-import { createNativePlaylist, deleteNativeSong, moveStoredLikes, restoreTrashedSong, setNativeSongLiked, updateNativePlaylist } from './services/nativeLibrary';
+import { createNativePlaylist, deleteNativeSong, listTrash, moveStoredLikes, restoreTrashedSong, setNativeSongLiked, updateNativePlaylist } from './services/nativeLibrary';
 import { foldStems } from './services/songStems';
 import { noteStudioMessage } from './services/journal';
 import { JournalPanel } from './components/JournalPanel';
@@ -1076,17 +1076,26 @@ function AppContent() {
   };
 
   const handleDeleteSong = (song: Song) => {
-    handleDeleteSongs([song]);
+    void handleDeleteSongs([song]);
   };
 
-  const handleDeleteSongs = (songsToDelete: Song[]) => {
+  const handleDeleteSongs = async (songsToDelete: Song[]) => {
     if (songsToDelete.length === 0) return;
 
+    // how long the bin keeps a song is the service's to say
+    let days: number;
+    try {
+      days = (await listTrash()).days;
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : String(error), 'error');
+      return;
+    }
     const isSingle = songsToDelete.length === 1;
     const title = isSingle ? t('confirmDeleteTitle') : t('confirmDeleteManyTitle');
-    const message = isSingle
+    const message = (isSingle
       ? t('deleteSongConfirm').replace('{title}', () => songsToDelete[0].title)
-      : t('deleteSongsConfirm').replace('{count}', String(songsToDelete.length));
+      : t('deleteSongsConfirm').replace('{count}', String(songsToDelete.length))
+    ).replace('{days}', String(days));
 
     setConfirmDialog({
       title,

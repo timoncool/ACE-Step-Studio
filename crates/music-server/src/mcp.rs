@@ -1582,13 +1582,13 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "library_song_delete",
-                description: "Put a song in the library's bin, with the songs made from it (its stems). The bin keeps them 30 days; library_trash_restore brings them back.",
+                description: "Put a song in the library's bin, with the songs made from it (its stems). The bin keeps them for the days library_trash_list names; library_trash_restore brings them back.",
                 schema: || id_only("song_id", "library song id"),
                 call: |args| send(Method::DELETE, format!("/v1/library/songs/{}", segment(&text(args, "song_id")?)), json!({})),
             },
             Tool {
                 name: "library_trash_list",
-                description: "The songs in the library's bin: when each went there, when it goes for good, how many songs went with it.",
+                description: "The songs in the library's bin: when each went there, when it goes for good, how many songs went with it, and how many days the bin keeps a song (days).",
                 schema: nothing,
                 call: |_| get("/v1/library/trash".into()),
             },
@@ -2924,6 +2924,16 @@ mod tests {
         drop(listening);
         let answer = tokio::time::timeout(Duration::from_secs(5), asked).await.expect("an answer before the timeout").unwrap();
         assert!(answer.unwrap_err().contains("closed"));
+    }
+
+    /// How long the bin keeps a song is the service's to say (`days` of library_trash_list): no tool writes it in.
+    #[test]
+    fn no_tool_writes_in_how_long_the_bin_keeps_a_song() {
+        for tool in tools().iter().filter(|tool| tool.name.starts_with("library_")) {
+            assert!(!tool.description.contains("30 days"), "{} writes in the bin's length", tool.name);
+        }
+        let list = tools().iter().find(|tool| tool.name == "library_trash_list").expect("the bin's list");
+        assert!(list.description.contains("(days)"), "the list names the field that says it");
     }
 
     #[test]
