@@ -17,6 +17,7 @@ What changed, newest first. Dates are release dates.
 
 ### Changed
 
+- **On the processor the DiT is about 1.2 times faster with the Q8_0 and BF16 sets**: the engine is built with the processor's fast matrix kernel; the same seed on the processor gives a different song than in 3.8.5.
 - **Flash Attention is on again on RTX 50 cards under Auto**; turn it off in Settings if a song's later sections turn to meaningless syllables.
 - **The writing assistant lets llama.cpp place its layers**, as in YuE2 Studio: the studio no longer asks for every layer on the graphics card, which on a card of 8 GB or less could stop Gemma from loading, as it did in Dub Studio.
 - **Studio Hub notices follow what you do at once**, as in YuE2 Studio: a notice closed or clicked, and a song that ends, bring the next notice without waiting for the minute's refresh; a link in a notice is counted by its address, and the hub's requests wait while a song is made.
