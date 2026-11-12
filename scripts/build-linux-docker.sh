@@ -61,10 +61,22 @@ if [ "${1:-}" = "--inside" ]; then
   caption=desktop/src-tauri/resources/music-midi/music-caption
   if ldd "$caption" | grep -i 'not found'; then echo "[ERROR] the captioner misses libraries"; exit 1; fi
   version="$(node -p "require('./desktop/src-tauri/tauri.conf.json').version")"
-  # the cache keeps the packages of earlier versions: take this version's by name
-  deb="$(find /cache/target/release/bundle/deb -name "*_${version}_amd64.deb" | head -n 1)"
-  appimage="$(find /cache/target/release/bundle/appimage -name "*_${version}_amd64.AppImage" | head -n 1)"
-  [ -f "$deb" ] && [ -f "$appimage" ] || { echo "[ERROR] no ${version} package in the bundle folder"; exit 1; }
+  product="$(node -p "require('./desktop/src-tauri/tauri.conf.json').productName")"
+  # the cache may be shared with the other studios and keeps earlier versions: take this program's and this version's by full name
+  deb="/cache/target/release/bundle/deb/${product}_${version}_amd64.deb"
+  appimage="/cache/target/release/bundle/appimage/${product}_${version}_amd64.AppImage"
+  [ -f "$deb" ] && [ -f "$appimage" ] || { echo "[ERROR] no ${product} ${version} package in the bundle folder"; ls -la /cache/target/release/bundle/deb /cache/target/release/bundle/appimage; exit 1; }
+  # tauri-bundler names the package by heck::AsKebabCase(productName) and the menu entry and resource folder by productName
+  package="$(node -p "process.argv[1].replace(/([a-z0-9])([A-Z])/g,'\$1 \$2').replace(/([A-Z]+)([A-Z][a-z])/g,'\$1 \$2').split(/[^A-Za-z0-9]+/).filter(Boolean).join('-').toLowerCase()" "$product")"
+  found="$(dpkg-deb -f "$deb" Package)"
+  [ "$found" = "$package" ] || { echo "[ERROR] $deb is the package $found, not $package"; exit 1; }
+  listing="$(dpkg-deb -c "$deb")"
+  grep -qF " usr/share/applications/${product}.desktop" <<< "$listing" || { echo "[ERROR] $deb has no ${product}.desktop"; exit 1; }
+  grep -qF " usr/lib/${product}/resources/engine/ace-server" <<< "$listing" || { echo "[ERROR] $deb carries no ACE-Step engine"; exit 1; }
+  rm -rf /tmp/appimage-check && mkdir -p /tmp/appimage-check
+  (cd /tmp/appimage-check && env -u APPIMAGE_EXTRACT_AND_RUN "$appimage" --appimage-extract '*.desktop' >/dev/null)
+  grep -qx "Name=${product}" /tmp/appimage-check/squashfs-root/*.desktop || { echo "[ERROR] $appimage is not ${product}"; exit 1; }
+  echo "[OK] packages are ${product}: deb ${found}, AppImage $(basename /tmp/appimage-check/squashfs-root/*.desktop)"
   cp "$deb" "/out/ACE-Step-Studio-${version}-linux-amd64.deb"
   cp "$appimage" "/out/ACE-Step-Studio-${version}-linux-x86_64.AppImage"
   ls -la /out/*.deb /out/*.AppImage
