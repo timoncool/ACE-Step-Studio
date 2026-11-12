@@ -545,8 +545,12 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     setError(null);
   }, []);
 
+  // Create is kept in a React Activity: showing it again reruns this effect with the same Reuse, which would put the
+  // song's request back over what was edited since; each Reuse is applied once, by its timestamp
+  const appliedReuse = useRef<number | null>(null);
   useEffect(() => {
-    if (!initialData?.song) return;
+    if (!initialData?.song || appliedReuse.current === initialData.timestamp) return;
+    appliedReuse.current = initialData.timestamp;
     const song = initialData.song;
     const settings = { ...(song.generationParams ?? {}) } as Record<string, unknown>;
     settings.title = song.title || '';
