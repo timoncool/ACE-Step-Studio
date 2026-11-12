@@ -1014,19 +1014,24 @@ pub fn align_lyrics(words: &[(f64, String)], lyrics: &str) -> Vec<(f64, String)>
         })
         .collect();
 
-    // best[p]: the best (total, sum of starts) so far with the next line free
-    // to start at word p or later. Each line is either placed at some start
-    // >= p, which moves p past it, or left out. A clearly recognised line
-    // counts the same wherever it is heard best, and between equal totals the
-    // earlier placement wins: a chorus the model sang twice in a row shows its
-    // lines as they are first sung, not where the recogniser heard them best.
+    // best[p]: the best (total, sum of placed line numbers, sum of starts) so
+    // far with the next line free to start at word p or later. Each line is
+    // either placed at some start >= p, which moves p past it, or left out. A
+    // clearly recognised line counts the same wherever it is heard best.
+    // Between equal totals the earlier lines of the text win - a verse written
+    // out more times than the song sings it is heard as its first copies, so
+    // the copies past the song stay unplaced - and then the earlier placement:
+    // a chorus the model sang twice in a row shows its lines as they are first
+    // sung, not where the recogniser heard them best.
     let credit = |score: f64| if score >= 0.7 { 1.0 } else { score };
-    let better = |left: (f64, usize), right: (f64, usize)| left.0 > right.0 + 1e-9 || ((left.0 - right.0).abs() <= 1e-9 && left.1 < right.1);
-    let mut best: Vec<Option<(f64, usize)>> = vec![None; count + 1];
-    best[0] = Some((0.0, 0));
+    let better = |left: (f64, usize, usize), right: (f64, usize, usize)| {
+        left.0 > right.0 + 1e-9 || ((left.0 - right.0).abs() <= 1e-9 && (left.1, left.2) < (right.1, right.2))
+    };
+    let mut best: Vec<Option<(f64, usize, usize)>> = vec![None; count + 1];
+    best[0] = Some((0.0, 0, 0));
     let mut back: Vec<Vec<(usize, Option<usize>)>> = Vec::with_capacity(lines.len());
     for (index, &span) in spans.iter().enumerate() {
-        let mut next: Vec<Option<(f64, usize)>> = vec![None; count + 1];
+        let mut next: Vec<Option<(f64, usize, usize)>> = vec![None; count + 1];
         let mut choice = vec![(0usize, None); count + 1];
         for from in 0..=count {
             let Some(so_far) = best[from] else { continue };
@@ -1043,7 +1048,7 @@ pub fn align_lyrics(words: &[(f64, String)], lyrics: &str) -> Vec<(f64, String)>
                     continue;
                 }
                 let after = (start + span).min(count);
-                let total = (so_far.0 + credit(score), so_far.1 + start);
+                let total = (so_far.0 + credit(score), so_far.1 + index, so_far.2 + start);
                 if next[after].is_none_or(|kept| better(total, kept)) {
                     next[after] = Some(total);
                     choice[after] = (from, Some(start));
@@ -1079,7 +1084,7 @@ pub fn align_lyrics(words: &[(f64, String)], lyrics: &str) -> Vec<(f64, String)>
     }
     let mut placed: Vec<Option<f64>> = starts.iter().map(|start| start.map(|start| heard[start].0)).collect();
 
-    interpolate(&lines, &mut placed, heard.first().map(|(at, _)| *at).unwrap_or(0.0), heard.last().map(|(at, _)| *at).unwrap_or(0.0));
+    interpolate(&lines, &mut placed);
     lines
         .iter()
         .zip(placed)
@@ -1087,9 +1092,11 @@ pub fn align_lyrics(words: &[(f64, String)], lyrics: &str) -> Vec<(f64, String)>
         .collect()
 }
 
-/// Lines the recogniser could not place are spread evenly between the ones it
-/// could, so a karaoke file has no silent holes.
-fn interpolate(lines: &[&str], placed: &mut [Option<f64>], first: f64, last: f64) {
+/// Lines the recogniser could not place between two it could are spread evenly
+/// between them, so a karaoke file has no silent holes. Lines before the first
+/// placed one and after the last are not in the song as heard - a text longer
+/// than what was sung - and get no time.
+fn interpolate(lines: &[&str], placed: &mut [Option<f64>]) {
     let mut index = 0;
     while index < lines.len() {
         if placed[index].is_some() {
@@ -1100,8 +1107,9 @@ fn interpolate(lines: &[&str], placed: &mut [Option<f64>], first: f64, last: f64
         while index < lines.len() && placed[index].is_none() {
             index += 1;
         }
-        let before = gap_start.checked_sub(1).and_then(|previous| placed[previous]).unwrap_or(first);
-        let after = placed.get(index).copied().flatten().unwrap_or(last.max(before));
+        let (Some(before), Some(after)) = (gap_start.checked_sub(1).and_then(|previous| placed[previous]), placed.get(index).copied().flatten()) else {
+            continue;
+        };
         let steps = (index - gap_start + 1) as f64;
         for (offset, slot) in placed[gap_start..index].iter_mut().enumerate() {
             *slot = Some(before + (after - before) * ((offset + 1) as f64 / steps));
@@ -1337,6 +1345,31 @@ Third");
         assert_eq!(lines[2].0, 10.0);
     }
 
+
+    /// A text that repeats its verse more times than the song sings it: the sung lines get their own times from the
+    /// first copies, and the copies past the song get no time at all instead of one shared point.
+    #[test]
+    fn a_text_longer_than_the_song_times_only_what_was_sung() {
+        let verse = ["neon fades along the lane", "footsteps keep the time of rain", "fold the night and leave it here", "morning has a sky to clear"];
+        let lyrics = (0..4).flat_map(|_| verse.iter()).copied().collect::<Vec<_>>().join("\n");
+        // the song sings the verse once and a half
+        let mut words: Vec<(f64, String)> = Vec::new();
+        let mut at = 10.0;
+        for line in verse.iter().chain(&verse[..2]) {
+            for word in line.split_whitespace() {
+                words.push((at, word.to_string()));
+                at += 0.5;
+            }
+            at += 1.0;
+        }
+        let lines = align_lyrics(&words, &lyrics);
+        assert_eq!(lines.len(), 6, "only the sung lines are timed: {lines:?}");
+        assert!(lines.windows(2).all(|pair| pair[0].0 < pair[1].0), "every sung line has its own time: {lines:?}");
+        assert_eq!(lines[0].0, 10.0);
+        let timed = align_lyrics_words(&words, &lyrics);
+        assert_eq!(timed.len(), 6);
+    }
+
     #[test]
     fn every_runtime_is_pinned_and_every_asset_is_distinct() {
         for entry in assets() {
@@ -1531,6 +1564,25 @@ mod parakeet_live {
             let share = in_order(&sung, &heard);
             studio_log!("Parakeet on {build:?}: {:.0}% of the lyrics in order, {:.1} s\n  {}", share * 100.0, started.elapsed().as_secs_f64(), heard.join(" "));
             assert!(share > 0.5, "{build:?} hears too little of the lyrics");
+        }
+    }
+
+    /// Parakeet on the processor build over `STUDIO_TEST_TRACK`, then the karaoke of `STUDIO_TEST_LYRICS`: every heard
+    /// word with its time, and every line with the time it gets.
+    #[test]
+    #[ignore = "needs STUDIO_TEST_DATA_ROOT with the processor build, STUDIO_TEST_TRACK and STUDIO_TEST_LYRICS"]
+    fn karaoke_of_a_real_track_on_the_processor() {
+        let karaoke = env_path("STUDIO_TEST_DATA_ROOT").join("karaoke");
+        let model = parakeet_model(None);
+        let engine = karaoke.join("runtime").join(dub_tcpp::Build::Cpu.dir());
+        let asr = dub_tcpp::shared(&engine, &dub_tcpp::model_path(&karaoke.join("models"), model)).expect("load Parakeet");
+        let words = parakeet_transcribe(&asr, model, &env_path("STUDIO_TEST_TRACK"), None).expect("recognition");
+        for (at, word) in &words {
+            studio_log!("W {at:7.2} {word}");
+        }
+        let lyrics = std::fs::read_to_string(env_path("STUDIO_TEST_LYRICS")).expect("the lyrics");
+        for line in align_lyrics_words(&words, &lyrics) {
+            studio_log!("L {:7.2} {}", line.start, line.words.iter().map(|(_, word)| word.as_str()).collect::<Vec<_>>().join(" "));
         }
     }
 
