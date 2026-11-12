@@ -157,6 +157,7 @@ mod tests {
     fn no_download_follows_a_branch() {
         let mut urls: Vec<&str> = Vec::new();
         urls.extend(crate::lyrics_sync::assets().iter().map(|asset| asset.url));
+        urls.extend(crate::acpp::ASSETS.iter().map(|asset| asset.url));
         urls.extend(crate::engine_runtime::ASSETS.iter().map(|asset| asset.url));
         urls.extend(crate::assistant_runtime::ASSETS.iter().map(|asset| asset.url));
         urls.extend([crate::separation::MODEL.url, crate::separation::ROFORMER_MODEL.url]);
