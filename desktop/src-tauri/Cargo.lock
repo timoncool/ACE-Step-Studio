@@ -309,15 +309,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
-name = "autotools"
-version = "0.2.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef941527c41b0fc0dd48511a8154cd5fc7e29200a0ff8b7203c5d777dbc795cf"
-dependencies = [
- "cc",
-]
-
-[[package]]
 name = "aws-lc-rs"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2987,22 +2978,20 @@ dependencies = [
 
 [[package]]
 name = "mp3lame-encoder"
-version = "0.2.5"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60cb9bdd89806317373e36ff745f264b7ed7ffc5bc5aab02dc7d1b837c16a8d4"
+checksum = "a768064bbfe7e0853bda4d0fd9c2ee65e4642f9a4d085265a2a12702a8d30f78"
 dependencies = [
  "mp3lame-sys",
 ]
 
 [[package]]
 name = "mp3lame-sys"
-version = "0.1.11"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54e3b1772db47828840702e5a2e05694527f731abadf9b931355d54035f019d8"
+checksum = "a01c8bcc75d256a40b8e3c8dfefbbebe704eef1615cab5025bf362ba2a55f0c0"
 dependencies = [
- "autotools",
  "cc",
- "libc",
 ]
 
 [[package]]
