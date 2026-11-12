@@ -1453,6 +1453,7 @@ export const en = {
     setupIntro: 'Download one complete, verified acestep.cpp set: a DiT, a language model, a text encoder and a VAE.',
     recommendedForMachine: 'Recommended for this machine:',
     recommendedOnVulkan: 'the engine computes on it through Vulkan',
+    songsOnProcessor: 'There is no graphics card to compute on, so songs are made on the processor, many times slower: tens of minutes and hours. Faster with a discrete card (NVIDIA; AMD and Intel through Vulkan) or through OpenRouter.',
     recommendedFallback: 'the profile matching the detected GPU is preselected',
     setupResumable: 'Downloads are resumable and every component is checksum-verified before generation is enabled.',
     hardwarePreset: 'Hardware preset',

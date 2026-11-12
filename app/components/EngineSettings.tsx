@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Check, Cpu, FolderOpen, Loader2, RotateCw , Terminal } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
-import { SELF_READ } from '../services/studioQueries';
+import { SELF_READ, useSetupStatus } from '../services/studioQueries';
 import { poll } from '../services/poll';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
 
@@ -66,6 +66,7 @@ const Toggle: React.FC<{ label: string; hint: string; checked: boolean; onChange
 
 export const EngineSettings: React.FC = () => {
   const { t } = useI18n();
+  const { data: setup } = useSetupStatus<{ hardware?: { onProcessor?: boolean } }>();
   const [options, setOptions] = useState<EngineOptions>(DEFAULTS);
   // With two cards or more, which one the studio computes on
   const [cards, setCards] = useState<{ cards: { index: number; name: string; memory_gb: number }[]; running: number | null } | null>(null);
@@ -223,6 +224,7 @@ export const EngineSettings: React.FC = () => {
           ))}
         </div>
         <span className="mt-2 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t(`computeBackendHint_${options.backend}`)}</span>
+        {setup?.hardware?.onProcessor && <span className="mt-2 block text-xs leading-5 text-amber-700 dark:text-amber-300">{t('songsOnProcessor')}</span>}
       </div>
 
       {cards && (cards.cards.length > 1 || (options.gpu != null && !cards.cards.some(card => card.index === options.gpu))) && (
