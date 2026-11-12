@@ -270,28 +270,26 @@ the fixes back as a pull request.** The studio keeps its data in `~/.local/share
 | Making songs · acestep.cpp | CUDA | Vulkan | processor |
 | Training a LoRA · music-train | CUDA | not available | not available |
 | Style by ear · MOSS-Music | CUDA | processor | processor |
-| Tempo and key · Beat This!, S-KEY | CUDA | DirectML | processor |
+| Tempo and key · Beat This!, S-KEY | processor | processor | processor |
 | Stems · HT-Demucs | CUDA | processor | processor |
 | Karaoke timing · Parakeet | CUDA | Vulkan | processor |
 | Karaoke timing · CrisperWhisper | CUDA | Vulkan | processor |
 | Writing assistant · llama.cpp | CUDA | Vulkan | processor |
 | Audio to MIDI · MuScriptor | CUDA | processor | processor |
 
-**The paths for AMD and Intel cards (Vulkan, DirectML) and work on the processor are
+**The paths for AMD and Intel cards (Vulkan) and work on the processor are
 experimental:** they exist for computers where the studio would not run at all otherwise.
 The main, tested path is an NVIDIA card.
 
 - Training needs an NVIDIA card with 12 GB of video memory or more. The trainer has no other
   path, and on the processor one run would take days, so on any other machine the studio
   does not offer the training files.
-- On AMD and Intel cards stems are separated on the processor: the HT-Demucs model does not
-  run through DirectML (out of memory on a 2 GB integrated card, over 20 GB and minutes for
-  30 seconds of audio on a 24 GB one).
+- On AMD and Intel cards stems are separated on the processor.
 - Karaoke's Parakeet runs on transcribe.cpp, the engine Dub Studio and Speech Studio use: its
   CUDA build on an NVIDIA card with a CUDA 13 driver (on Linux when the system has CUDA 13's
   cuBLAS), its Vulkan build on any other card, its processor build without one; on a Mac, Metal
-  on Apple silicon and the processor on Intel. The tempo and key models reach any DirectX 12 card through
-  DirectML, whose runtime comes with karaoke's card path.
+  on Apple silicon and the processor on Intel. The tempo and key models run on the processor, in 4.5 to 6
+  seconds a song.
 - "Auto" in a device choice takes the card when its runtime is installed, and the processor
   otherwise. The same table is in the studio, under Settings → Models.
 

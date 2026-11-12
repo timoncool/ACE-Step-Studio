@@ -625,18 +625,18 @@ export const OptionalGroup: React.FC<{
  * and the question is only which of them to use.
  */
 /** How a part of the studio computes on a kind of machine. */
-type Path = 'cuda' | 'vulkan' | 'directml' | 'cpu' | 'none';
+type Path = 'cuda' | 'vulkan' | 'cpu' | 'none';
 
 /**
  * What runs where in this studio, as the code decides it: the engine walks
- * CUDA, Vulkan and the processor, and so does transcribe.cpp; the ONNX parts take CUDA or DirectML;
+ * CUDA, Vulkan and the processor, and so does transcribe.cpp; the ONNX parts run on the processor;
  * the rest has a CUDA build and a processor one.
  */
 const WHERE_IT_RUNS: { part: TranslationKey; name: string; nvidia: Path; other: Path; none: Path }[] = [
   { part: 'hubPartSongs', name: 'acestep.cpp', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
   { part: 'hubPartTraining', name: 'music-train', nvidia: 'cuda', other: 'none', none: 'none' },
   { part: 'hubPartListen', name: 'MOSS-Music', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
-  { part: 'hubPartTempoKey', name: 'Beat This!, S-KEY', nvidia: 'cuda', other: 'directml', none: 'cpu' },
+  { part: 'hubPartTempoKey', name: 'Beat This!, S-KEY', nvidia: 'cpu', other: 'cpu', none: 'cpu' },
   { part: 'hubPartStems', name: 'HT-Demucs', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
   { part: 'hubPartKaraoke', name: 'Parakeet', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
   { part: 'hubPartKaraoke', name: 'CrisperWhisper', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
@@ -648,7 +648,7 @@ const WHERE_IT_RUNS: { part: TranslationKey; name: string; nvidia: Path; other: 
 const WhereItRuns: React.FC<{ trainingVram: number | null }> = ({ trainingVram }) => {
   const { t } = useI18n();
   const cell = (path: Path) =>
-    path === 'cpu' ? t('hubOnCpu') : path === 'none' ? t('hubNotHere') : path === 'cuda' ? 'CUDA' : path === 'vulkan' ? 'Vulkan' : 'DirectML';
+    path === 'cpu' ? t('hubOnCpu') : path === 'none' ? t('hubNotHere') : path === 'cuda' ? 'CUDA' : 'Vulkan';
   const tone = (path: Path) => (path === 'none' ? 'text-zinc-400 dark:text-zinc-500' : path === 'cpu' ? 'text-zinc-600 dark:text-zinc-300' : 'font-semibold text-zinc-900 dark:text-white');
   return (
     <details className="group mt-5 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-suno-card">
