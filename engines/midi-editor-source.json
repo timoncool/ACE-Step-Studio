@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/timoncool/signal.git",
-  "branch": "studio-split-join",
+  "branch": "studio",
   "commit": "d40becac58cc4845a503fe5dff40649700ac0623",
   "upstream": "https://github.com/ryohey/signal",
   "license": "MIT (code); A320U SoundFonts GPL-2.0",
