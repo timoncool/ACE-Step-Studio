@@ -3515,6 +3515,13 @@ async fn read_activity(State(state): State<AppState>) -> Json<Value> {
 /// nobody asked for. The first track that needs timings fetches the model and
 /// carries on.
 async fn ensure_local_recogniser(state: &AppState, config: &lyrics_sync::LyricsSyncConfig, song_id: &str) -> bool {
+    let title = state.library.get_song(song_id).ok().flatten().map(|song| song.title).unwrap_or_default();
+    ensure_local_recogniser_named(state, config, song_id, &title).await
+}
+
+/// The same for a recording that is not a song of the library: the activity
+/// strip names it by `title`.
+async fn ensure_local_recogniser_named(state: &AppState, config: &lyrics_sync::LyricsSyncConfig, song_id: &str, title: &str) -> bool {
     let ready = |state: &AppState| match config.provider {
         lyrics_sync::AsrProvider::Parakeet => state.lyrics_sync.parakeet_ready(config.runtime, config.whisper_model.as_deref()),
         lyrics_sync::AsrProvider::Whisper => state.lyrics_sync.crisper_ready(config.runtime),
@@ -3544,8 +3551,7 @@ async fn ensure_local_recogniser(state: &AppState, config: &lyrics_sync::LyricsS
         return ready(state);
     }
 
-    let title = state.library.get_song(song_id).ok().flatten().map(|song| song.title).unwrap_or_default();
-    note_activity(state, song_id, &title, "karaoke", "running", Some("karaoke.downloading".into())).await;
+    note_activity(state, song_id, title, "karaoke", "running", Some("karaoke.downloading".into())).await;
     for asset in missing {
         if let Err(error) = state.lyrics_sync.downloader().install(asset).await {
             studio_log!("could not fetch the karaoke model {}: {error}", asset.id);
@@ -6583,6 +6589,9 @@ struct RecogniseLyricsRequest {
     audio_base64: Option<String>,
     #[serde(default)]
     audio_format: Option<String>,
+    /// The recording's file name, which the activity strip shows while a recogniser downloads.
+    #[serde(default)]
+    audio_name: Option<String>,
     /// Overrides the language guess, as for karaoke.
     #[serde(default)]
     language: Option<String>,
@@ -6629,8 +6638,14 @@ async fn recognise_lyrics(
         }
         (None, None) => return Err(api_error(StatusCode::BAD_REQUEST, "name a song_id or send audio_base64".into())),
     };
-    let owner = request.song_id.clone().unwrap_or_default();
-    if !ensure_local_recogniser(&state, &config, &owner).await {
+    let ready = match &request.song_id {
+        Some(id) => ensure_local_recogniser(&state, &config, id).await,
+        None => {
+            let name = request.audio_name.as_deref().map(str::trim).filter(|name| !name.is_empty()).unwrap_or("recording");
+            ensure_local_recogniser_named(&state, &config, &format!("recording:{name}"), name).await
+        }
+    };
+    if !ready {
         if sent {
             std::fs::remove_file(&audio).ok();
         }

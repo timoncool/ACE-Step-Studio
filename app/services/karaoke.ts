@@ -28,7 +28,7 @@ const REASONS: Record<string, string> = {
 export async function recogniseLyrics(source: { songId: string } | { file: File }, language?: string): Promise<string> {
     const body = 'songId' in source
         ? { song_id: source.songId, language: language || undefined }
-        : { audio_base64: await base64For(source.file), audio_format: audioFormatFor(source.file), language: language || undefined };
+        : { audio_base64: await base64For(source.file), audio_format: audioFormatFor(source.file), audio_name: source.file.name, language: language || undefined };
     const response = await fetch('/v1/lyrics/recognise', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

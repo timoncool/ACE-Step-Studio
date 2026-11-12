@@ -2075,7 +2075,7 @@ fn tools() -> &'static [Tool] {
                     let path = PathBuf::from(text(args, "path")?);
                     let bytes = std::fs::read(&path).map_err(|error| format!("read {}: {error}", path.display()))?;
                     let format = path.extension().and_then(|value| value.to_str()).unwrap_or("wav").to_lowercase();
-                    post("/v1/lyrics/recognise".into(), json!({ "audio_base64": base64::engine::general_purpose::STANDARD.encode(bytes), "audio_format": format, "language": args.get("language") }))
+                    post("/v1/lyrics/recognise".into(), json!({ "audio_base64": base64::engine::general_purpose::STANDARD.encode(bytes), "audio_format": format, "audio_name": file_name(&path), "language": args.get("language") }))
                 },
             },
             Tool {
