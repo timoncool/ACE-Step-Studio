@@ -6,6 +6,7 @@ import { saveFile } from '../../services/saveFile';
 import { apiUrl } from '../../services/apiBase';
 import { MidiEditor } from './MidiEditor';
 import { MidiPlayer, type HeardNote } from './MidiPlayer';
+import { WorkProgress } from '../WorkProgress';
 
 /**
  * Audio to MIDI on the tools page, for the track chosen there: a song, a
@@ -28,6 +29,7 @@ interface MidiRun {
   chunks_done: number;
   chunks_total: number;
   notes: number;
+  started_ms: number;
   done: boolean;
   error: string | null;
   file: string | null;
@@ -153,7 +155,9 @@ export const MidiTool: React.FC<{ songId: string; songTitle: string; card: strin
   const download = status?.download && !status.download.done ? status.download : null;
   const percent = run?.stage === 'downloading' && download
     ? Math.round((download.downloaded_bytes / Math.max(1, download.total_bytes)) * 100)
-    : Math.round((run?.progress ?? 0) * 100);
+    : run && run.chunks_total > 0
+      ? Math.round(run.progress * 100)
+      : null;
   const audioUrl = songId ? apiUrl(`/v1/library/media/${encodeURIComponent(songId)}`) : undefined;
   const missing = chosenSize && (!status?.tool_installed || !chosenSize.installed) ? chosenSize.missing_bytes : 0;
 
@@ -255,17 +259,7 @@ export const MidiTool: React.FC<{ songId: string; songTitle: string; card: strin
         )}
       </div>
 
-      {running && run && (
-        <div className="mt-3">
-          <div className="flex items-center justify-between text-xs font-medium text-zinc-700 dark:text-zinc-200">
-            <span className="flex items-center gap-2"><Loader2 size={14} className="animate-spin text-pink-500" />{tt(`midiStage_${run.stage}`)}</span>
-            <span className="tabular-nums text-zinc-500">{percent}%</span>
-          </div>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-black/30">
-            <div className="h-full bg-linear-to-r from-orange-500 to-pink-500 transition-[width]" style={{ width: `${percent}%` }} />
-          </div>
-        </div>
-      )}
+      {running && run && <WorkProgress label={tt(`midiStage_${run.stage}`)} percent={percent} startedMs={run.started_ms} />}
 
       {running && run?.stage === 'transcribing' && (
         <MidiPlayer key={`live-${songId}`} notes={liveNotes} sourceAudioUrl={audioUrl} live chunks={{ done: run.chunks_done, total: run.chunks_total }} />

@@ -158,6 +158,8 @@ pub struct Run {
     pub chunks_done: u32,
     pub chunks_total: u32,
     pub notes: usize,
+    /// When this track's run began, in milliseconds since the Unix epoch.
+    pub started_ms: u64,
     pub done: bool,
     pub error: Option<String>,
     /// The MIDI file on this computer, once written.

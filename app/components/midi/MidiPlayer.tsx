@@ -269,15 +269,17 @@ export const MidiPlayer: React.FC<Props> = ({ notes, sourceAudioUrl, live, chunk
           </span>
         </div>
 
-        {live && chunks && (
+        {live && chunks && chunks.total > 0 && (
           <span className="flex items-center gap-1.5 text-[11px] text-pink-500 dark:text-pink-400">
             <Radio size={11} className="animate-pulse" />
             {say('midiLiveChunk', { done: chunks.done, total: chunks.total })}
           </span>
         )}
-        <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
-          {say('midiNoteCount', { count: noteCount })}
-        </span>
+        {(!live || noteCount > 0) && (
+          <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+            {say('midiNoteCount', { count: noteCount })}
+          </span>
+        )}
       </div>
 
       {/* legend + per-track mute/solo (affects the MIDI side only) */}

@@ -16,6 +16,7 @@ import { transcribeWithNativeOpenRouter } from '../services/nativeOpenRouter';
 import { apiUrl } from '../services/apiBase';
 import { openExternal } from '../services/externalLinks';
 import { StemPlayer } from './StemPlayer';
+import { WorkProgress } from './WorkProgress';
 
 /**
  * Studio tools.
@@ -44,7 +45,7 @@ interface SeparationStatus {
   /** The separator: HT-Demucs for six stems, Mel-Band RoFormer for the vocals and the instrumental. */
   engine?: 'htdemucs' | 'roformer';
   settings: { stems: string[]; runtime: 'auto' | 'cuda' | 'cpu'; engine?: 'htdemucs' | 'roformer' };
-  run: { song_id: string; progress: number; done: boolean; error: string | null; stems: string[] } | null;
+  run: { song_id: string; progress: number; started_ms: number; done: boolean; error: string | null; stems: string[] } | null;
 }
 
 interface CatalogModel {
@@ -193,7 +194,7 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
   const replacing = stems.filter(stem => settings.stems.includes(stem));
   const run = status?.run?.song_id === songId ? status?.run : null;
   const running = Boolean(run && !run.done);
-  const percent = Math.round((run?.progress ?? 0) * 100);
+  const percent = run && run.progress > 0 ? Math.round(run.progress * 100) : null;
   const download = status?.download;
 
   return (
@@ -358,17 +359,7 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
             </div>
           )}
 
-          {running && (
-            <div className="mt-3">
-              <div className="flex items-center justify-between text-xs font-medium text-zinc-700 dark:text-zinc-200">
-                <span className="flex items-center gap-2"><Loader2 size={14} className="animate-spin text-pink-500" />{t('stemsRunning')}</span>
-                <span className="tabular-nums text-zinc-500">{percent}%</span>
-              </div>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-black/30">
-                <div className="h-full bg-linear-to-r from-orange-500 to-pink-500 transition-[width]" style={{ width: `${percent}%` }} />
-              </div>
-            </div>
-          )}
+          {running && <WorkProgress label={t('stemsRunning')} percent={percent} startedMs={run?.started_ms} />}
 
           {stems.length > 0 && (
             <div className="mt-3 space-y-2">

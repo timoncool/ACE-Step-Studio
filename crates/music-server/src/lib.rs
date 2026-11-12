@@ -1521,6 +1521,8 @@ struct SeparationRun {
     song_id: String,
     /// Between 0 and 1.
     progress: f64,
+    /// When the run began, in milliseconds since the Unix epoch.
+    started_ms: u64,
     done: bool,
     error: Option<String>,
     stems: Vec<String>,
@@ -3344,7 +3346,7 @@ async fn start_separation(
         .ok_or_else(|| api_error(StatusCode::BAD_REQUEST, "this track has no stored audio".into()))?;
 
     *state.separation_run.write().await =
-        Some(SeparationRun { song_id: id.clone(), progress: 0.0, done: false, error: None, stems: vec![], used_gpu: None, library_songs: vec![] });
+        Some(SeparationRun { song_id: id.clone(), progress: 0.0, started_ms: unix_millis(), done: false, error: None, stems: vec![], used_gpu: None, library_songs: vec![] });
 
     let model = state.separator.model_path();
     let config = state.separation_config.read().await.clone();
@@ -7289,7 +7291,7 @@ async fn start_midi(State(state): State<AppState>, Json(input): Json<MidiRequest
     };
     state.midi_stop.0.store(false, std::sync::atomic::Ordering::Relaxed);
     state.midi_notes.write().await.clear();
-    *state.midi_run.write().await = Some(midi::Run { song_id: song_id.clone(), title, size: size.id, stage: "preparing", chunks_done: 0, chunks_total: 0, notes: 0, done: false, error: None, file: None, batch: None });
+    *state.midi_run.write().await = Some(midi::Run { song_id: song_id.clone(), title, size: size.id, stage: "preparing", chunks_done: 0, chunks_total: 0, notes: 0, started_ms: unix_millis(), done: false, error: None, file: None, batch: None });
     let background = state.clone();
     tokio::spawn(async move {
         let outcome = transcribe_to_midi(&background, size, &audio, &output).await;
@@ -7335,7 +7337,7 @@ async fn start_midi_batch(state: AppState, size: &'static midi::Size, ids: Vec<S
     }
     let total = tracks.len();
     let batch_at = |index: usize, failed: &[String]| midi::Batch { done: index, total, queued: tracks[index + 1..].iter().map(|(id, _, _)| id.clone()).collect(), failed: failed.to_vec() };
-    let run_for = |index: usize, failed: &[String]| midi::Run { song_id: Some(tracks[index].0.clone()), title: tracks[index].1.clone(), size: size.id, stage: "preparing", chunks_done: 0, chunks_total: 0, notes: 0, done: false, error: None, file: None, batch: Some(batch_at(index, failed)) };
+    let run_for = |index: usize, failed: &[String]| midi::Run { song_id: Some(tracks[index].0.clone()), title: tracks[index].1.clone(), size: size.id, stage: "preparing", chunks_done: 0, chunks_total: 0, notes: 0, started_ms: unix_millis(), done: false, error: None, file: None, batch: Some(batch_at(index, failed)) };
     state.midi_stop.0.store(false, std::sync::atomic::Ordering::Relaxed);
     state.midi_notes.write().await.clear();
     *state.midi_run.write().await = Some(run_for(0, &[]));
