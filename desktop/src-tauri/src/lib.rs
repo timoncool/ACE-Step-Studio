@@ -444,8 +444,24 @@ fn console_without_window() {
     let mut result = 0;
     let failed = unsafe { allocate(&options, &mut result) } < 0;
     if failed {
-        hide_own_console_window();
+        console_then_hidden();
     }
+}
+
+/// A start from Explorer on 24H2 has no console at all (the manifest's `detached` policy): when the windowless one
+/// could not be made, one is made and hidden, so the child programs share it instead of opening one each.
+#[cfg(windows)]
+fn console_then_hidden() {
+    unsafe extern "system" {
+        fn GetConsoleWindow() -> isize;
+        fn AllocConsole() -> i32;
+    }
+    unsafe {
+        if GetConsoleWindow() == 0 {
+            AllocConsole();
+        }
+    }
+    hide_own_console_window();
 }
 
 /// Tauri's own WebView2 switches, followed by whatever the user set in the
