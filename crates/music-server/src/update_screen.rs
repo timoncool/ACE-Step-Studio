@@ -39,10 +39,8 @@ const CHANGES: &[Change] = &[
     Change { what: "htdemucs-onnx", reason: "htdemucs-onnx-gone" },
     // More specific rows come first: `reason_of` takes the first that matches. The audio.cpp server's CUDA libraries
     // have a reason of their own beside the server's.
-    Change { what: "audiocpp-cuda13-cufft*", reason: "audiocpp-cuda" },
-    Change { what: "audiocpp-cuda12-cufft*", reason: "audiocpp-cuda" },
-    Change { what: "audiocpp-cuda12-cudart*", reason: "audiocpp-cuda" },
-    Change { what: "audiocpp-cuda12-cublas*", reason: "audiocpp-cuda" },
+    Change { what: "audiocpp-cuda12-*", reason: "audiocpp-cuda" },
+    Change { what: "audiocpp-cuda13-*", reason: "audiocpp-cuda" },
     Change { what: "audiocpp-*", reason: "audiocpp-server" },
     Change { what: "transcribe-engine*", reason: "transcribe-avx2" },
     Change { what: "llama-*", reason: "llama" },
@@ -365,7 +363,7 @@ mod tests {
         for server in ["audiocpp-cuda13", "audiocpp-cuda12", "audiocpp-vulkan", "audiocpp-cpu", "audiocpp-metal"] {
             assert_eq!(reason_of(server, "unused"), "audiocpp-server", "{server}");
         }
-        for lib in ["audiocpp-cuda13-cufft", "audiocpp-cuda12-cufft", "audiocpp-cuda12-cudart", "audiocpp-cuda12-cublas"] {
+        for lib in ["audiocpp-cuda13-cufft", "audiocpp-cuda13-cudart", "audiocpp-cuda13-cublas", "audiocpp-cuda12-cufft", "audiocpp-cuda12-cudart", "audiocpp-cuda12-cublas"] {
             assert_eq!(reason_of(lib, "unused"), "audiocpp-cuda", "{lib}");
         }
         for code in ["audiocpp-cuda", "audiocpp-server"] {
