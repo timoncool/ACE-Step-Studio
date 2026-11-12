@@ -113,6 +113,105 @@ pub fn own_libraries_first(program: impl AsRef<std::path::Path>) -> Option<std::
     std::env::join_paths(paths).ok()
 }
 
+/// Where a child that crashed without a word went down, as Windows recorded it: the module the fault happened in
+/// (a file name, never a path), the exception code and the offset into that module.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Fault {
+    pub module: String,
+    pub exception: String,
+    pub offset: String,
+}
+
+/// Whether a Windows exit code is an exception (0xC0000000 and up: an access violation, an illegal instruction, a
+/// failed library load) - the exits Windows keeps a record of. A program that returns an error code of its own has
+/// none, and waiting for one would only slow its error down.
+pub fn exited_on_exception(code: Option<i32>) -> bool {
+    code.is_some_and(|code| (code as u32) >= 0xC000_0000)
+}
+
+impl std::fmt::Display for Fault {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "faulting module {}, exception 0x{}, offset 0x{}", self.module, self.exception, self.offset)
+    }
+}
+
+/// The Windows Error Reporting record (Application log, Application Error, event 1000) of the process `pid`, which
+/// Windows writes a moment after the crash: looked for until `wait` runs out. None anywhere else, and when Windows
+/// kept no record (reporting turned off, or the process ended without a fault).
+pub fn fault_of(pid: u32, wait: std::time::Duration) -> Option<Fault> {
+    #[cfg(windows)]
+    {
+        let deadline = std::time::Instant::now() + wait;
+        loop {
+            if let Some(fault) = latest_faults().into_iter().find_map(|xml| fault_in_event(&xml, pid)) {
+                return Some(fault);
+            }
+            if std::time::Instant::now() >= deadline {
+                return None;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(250));
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (pid, wait);
+        None
+    }
+}
+
+/// The Application Error records of the last five minutes, newest first, as event XML.
+#[cfg(windows)]
+fn latest_faults() -> Vec<String> {
+    use windows_sys::Win32::System::EventLog::{EvtClose, EvtNext, EvtQuery, EvtQueryChannelPath, EvtQueryReverseDirection, EvtRender, EvtRenderEventXml};
+
+    let wide = |text: &str| text.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
+    let channel = wide("Application");
+    let query = wide("*[System[Provider[@Name='Application Error'] and (EventID=1000) and TimeCreated[timediff(@SystemTime) <= 300000]]]");
+    let mut found = Vec::new();
+    unsafe {
+        let results = EvtQuery(0, channel.as_ptr(), query.as_ptr(), EvtQueryChannelPath | EvtQueryReverseDirection);
+        if results == 0 {
+            return found;
+        }
+        let mut events = [0isize; 16];
+        let mut returned = 0u32;
+        if EvtNext(results, events.len() as u32, events.as_mut_ptr(), 1000, 0, &mut returned) != 0 {
+            for &event in &events[..returned as usize] {
+                let mut used = 0u32;
+                let mut properties = 0u32;
+                EvtRender(0, event, EvtRenderEventXml, 0, std::ptr::null_mut(), &mut used, &mut properties);
+                let mut buffer = vec![0u16; (used as usize).div_ceil(2) + 1];
+                if EvtRender(0, event, EvtRenderEventXml, (buffer.len() * 2) as u32, buffer.as_mut_ptr().cast(), &mut used, &mut properties) != 0 {
+                    let end = buffer.iter().position(|&unit| unit == 0).unwrap_or(buffer.len());
+                    found.push(String::from_utf16_lossy(&buffer[..end]));
+                }
+                EvtClose(event);
+            }
+        }
+        EvtClose(results);
+    }
+    found
+}
+
+/// The fault in one Application Error record when it is the one of `pid`.
+fn fault_in_event(xml: &str, pid: u32) -> Option<Fault> {
+    let data = |name: &str| -> Option<String> {
+        let open = format!("<Data Name='{name}'>");
+        let start = xml.find(&open)? + open.len();
+        let end = xml[start..].find("</Data>")? + start;
+        Some(xml[start..end].trim().to_string())
+    };
+    let recorded = data("ProcessId")?;
+    let recorded = u32::from_str_radix(recorded.trim_start_matches("0x").trim_start_matches("0X"), 16).ok()?;
+    if recorded != pid {
+        return None;
+    }
+    // the module's own name only: its path can carry the user's name
+    let module = data("ModuleName")?;
+    let module = module.rsplit(['\\', '/']).next().unwrap_or(&module).to_string();
+    Some(Fault { module, exception: data("ExceptionCode")?, offset: data("FaultingOffset")? })
+}
+
 /// One job for the whole process, created the first time a child needs it.
 #[cfg(windows)]
 fn job() -> isize {
@@ -154,5 +253,35 @@ mod tests {
         adopt(&child);
         child.kill().ok();
         child.wait().ok();
+    }
+
+    #[test]
+    fn a_crash_record_gives_the_module_the_code_and_the_offset_of_its_own_process() {
+        let xml = "<Event><EventData><Data Name='AppName'>crash.exe</Data><Data Name='ModuleName'>ggml-cpu-haswell.dll</Data><Data Name='ExceptionCode'>c000001d</Data><Data Name='FaultingOffset'>0000000000001000</Data><Data Name='ProcessId'>0x17918</Data><Data Name='AppPath'>C:\\Users\\someone\\crash.exe</Data><Data Name='ModulePath'>C:\\Users\\someone\\ggml-cpu-haswell.dll</Data></EventData></Event>";
+        let fault = fault_in_event(xml, 0x17918).expect("the record of this process");
+        assert_eq!(fault, Fault { module: "ggml-cpu-haswell.dll".into(), exception: "c000001d".into(), offset: "0000000000001000".into() });
+        assert_eq!(fault.to_string(), "faulting module ggml-cpu-haswell.dll, exception 0xc000001d, offset 0x0000000000001000");
+        assert!(!fault.to_string().contains("someone"), "no path, so no user name");
+        assert_eq!(fault_in_event(xml, 42), None, "another process's record is not this one's");
+        assert!(exited_on_exception(Some(0xC000_0005u32 as i32)), "an access violation");
+        assert!(exited_on_exception(Some(0xC000_001Du32 as i32)), "an illegal instruction");
+        assert!(!exited_on_exception(Some(1)), "an error code of the program's own");
+        assert!(!exited_on_exception(None), "killed by a signal, no code");
+    }
+
+    /// Run with `MUSIC_CORE_CRASHER` naming a program that crashes on start (a null write): Windows' record of it
+    /// is found by its process id.
+    #[test]
+    #[ignore]
+    #[cfg(windows)]
+    fn a_real_crash_is_found_in_the_application_log() {
+        let crasher = std::env::var("MUSIC_CORE_CRASHER").expect("MUSIC_CORE_CRASHER names a program that crashes");
+        let mut child = std::process::Command::new(&crasher).spawn().expect("start the crasher");
+        let pid = child.id();
+        let status = child.wait().expect("the crasher ends");
+        assert!(!status.success());
+        let fault = fault_of(pid, std::time::Duration::from_secs(10)).expect("Windows recorded the crash");
+        assert_eq!(fault.exception, "c0000005");
+        println!("{fault}");
     }
 }
