@@ -5,6 +5,7 @@ import { libraryChanged, SELF_READ, setupStatusChanged, updateLibrarySongs, useA
 import { mapNativeLibrarySong } from '../services/nativeLibrary';
 import { karaokeReason } from '../services/karaoke';
 import { clampDurationToKept } from '../services/createDuration';
+import { foldedAfter, keepFolded, keptFolded } from '../services/createFold';
 import { AlertTriangle, ChevronDown, CircleAlert, Dices, Ear, FolderOpen, Loader2, Pause, Play, RotateCcw, Save, Sparkles, Square, Tags, Undo2, Upload, Wand2, Lightbulb, ListChecks } from 'lucide-react';
 import type { AceCreateRequest, Playlist, Song } from '../types';
 import { useI18n } from '../context/I18nContext';
@@ -249,15 +250,38 @@ const Stage: React.FC<{ title: string; hint: string; children: React.ReactNode }
   </section>
 );
 
-const Card: React.FC<{ title: string; actions?: React.ReactNode; children: React.ReactNode }> = ({ title, actions, children }) => (
-  <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-white/5 dark:bg-suno-card">
-    <div className="flex items-center justify-between gap-2 border-b border-zinc-100 bg-zinc-50 px-3 py-2 dark:border-white/5 dark:bg-white/5">
-      <span className="text-[11px] font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{title}</span>
-      {actions && <div className="flex items-center gap-1">{actions}</div>}
+/** A block of the form; with `fold` its title folds and opens it, and the choice is kept across restarts. */
+const Card: React.FC<{ title: string; actions?: React.ReactNode; fold?: string; children: React.ReactNode }> = ({ title, actions, fold, children }) => {
+  const [folded, setFolded] = useState(() => (fold ? keptFolded().includes(fold) : false));
+  const toggle = () => {
+    if (!fold) return;
+    setFolded(current => {
+      keepFolded(foldedAfter(keptFolded(), fold, !current));
+      return !current;
+    });
+  };
+  return (
+    <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-white/5 dark:bg-suno-card">
+      <div className={`flex items-center justify-between gap-2 bg-zinc-50 px-3 py-2 dark:bg-white/5 ${folded ? '' : 'border-b border-zinc-100 dark:border-white/5'}`}>
+        {fold ? (
+          <button
+            type="button"
+            onClick={toggle}
+            aria-expanded={!folded}
+            className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-[11px] font-bold uppercase tracking-wide text-zinc-500 transition-colors hover:text-black dark:text-zinc-400 dark:hover:text-white"
+          >
+            <ChevronDown size={14} className={folded ? '-rotate-90 transition-transform' : 'transition-transform'} />
+            {title}
+          </button>
+        ) : (
+          <span className="text-[11px] font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{title}</span>
+        )}
+        {actions && <div className="flex items-center gap-1">{actions}</div>}
+      </div>
+      {!folded && <div className="p-3">{children}</div>}
     </div>
-    <div className="p-3">{children}</div>
-  </div>
-);
+  );
+};
 
 /** The adapters a stored request used, as the picker holds them. */
 /** An adapter of the DiT, the part that renders the sound. */
@@ -1265,6 +1289,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
             <>
               <Card
                 title={tt('aceSong')}
+                fold="song"
                 actions={
                   <>
                     <button type="button" onClick={() => (assistantReady ? void askAssistant('prompt') : openAssistantSetup())} disabled={assistantReady && (busy)} className={ICON} title={assistantReady ? t('writeCaption') : t('setUpAssistant')}>
@@ -1316,6 +1341,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
 
               <Card
                 title={t('lyrics')}
+                fold="lyrics"
                 actions={
                   <>
                     <button type="button" onClick={() => (assistantReady ? void layOutLyrics() : openAssistantSetup())} disabled={assistantReady && (busy || !lyrics.trim())} className={ICON} title={assistantReady ? t('formatLyrics') : t('setUpAssistant')}>
@@ -1349,6 +1375,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
 
               <Card
                 title={tt('aceSongParams')}
+                fold="params"
                 actions={
                   !assistantReady && <button type="button" onClick={() => void plan('format')} disabled={busy || !ready || (!caption.trim() && !lyrics.trim())} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold text-pink-600 transition-colors hover:bg-pink-500/10 disabled:opacity-40 dark:text-pink-300">
                     {planning === 'format' ? <Loader2 size={12} className="animate-spin" /> : <ListChecks size={12} />}
@@ -1373,7 +1400,7 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
                 <p className="mt-2 text-[11px] leading-4 text-zinc-500">{tt('aceMetadataHint')}</p>
               </Card>
 
-              <Card title={tt('aceSourceSection')}>
+              <Card title={tt('aceSourceSection')} fold="source">
                 <div className="space-y-3">
                   <Field label={tt('aceSource')}>{songOptions(sourceSong, chooseSource, tt('aceChooseTrack'), 'source')}</Field>
                   {!sourceSong ? (
@@ -1469,13 +1496,14 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
             }}
             onTrigger={applyTrigger}
             iconClass={ICON}
-            frame={(title, _icon, actions, body) => <Card title={title} actions={actions}>{body}</Card>}
+            frame={(title, _icon, actions, body) => <Card title={title} actions={actions} fold="lora">{body}</Card>}
           />
 
           {mode === 'studio' && (
             <>
               <Card
                 title={t('quality')}
+                fold="quality"
                 actions={
                   <button type="button" onClick={resetParameters} className="rounded-md px-2 py-1 text-[10px] font-semibold text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-black dark:hover:bg-white/10 dark:hover:text-white">
                     {t('resetToDefaults')}
