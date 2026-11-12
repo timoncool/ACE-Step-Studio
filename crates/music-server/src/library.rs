@@ -436,6 +436,10 @@ pub fn is_trashed(song:&Song)->bool{song.metadata.get("deleted_at").is_some()}
 pub fn trashed_at(song:&Song)->u64{song.metadata.get("deleted_at").and_then(serde_json::Value::as_str).and_then(|at|at.parse().ok()).unwrap_or(0)}
 /// The song whose deletion took this one to the bin with it.
 pub fn trashed_with(song:&Song)->Option<&str>{song.metadata.get("deleted_with").and_then(serde_json::Value::as_str)}
+
+/// Why a song in the bin cannot be taken for new work (stems, MIDI, karaoke, a replay...), by its title and with the
+/// way back; None for a song in the library.
+pub fn in_the_bin(song:&Song)->Option<String>{is_trashed(song).then(||format!("\"{}\" is in the library's bin; restore it in Library - Bin to work with it",song.title))}
 #[cfg(test)]mod tests{use super::*;#[test]fn a_structured_caption_does_not_become_a_title_of_headings(){
   let caption="Global Metadata
 Basic Attributes: bpm is 118. key is F# minor, and scale is minor. Darkwave, Synth-pop. Global Emotional Progression: haunting.";
@@ -544,10 +548,14 @@ mod edit_tests {
         let trashed = db.trashed_songs().unwrap();
         assert_eq!(trashed.len(), 2);
         assert!(trashed.iter().any(|song| trashed_with(song) == Some(binned.as_str())));
+        let refusal = in_the_bin(&db.get_song(&binned).unwrap().unwrap()).expect("a song in the bin is not taken for new work");
+        assert!(refusal.contains("\"binned\"") && refusal.contains("Library - Bin"), "{refusal}");
+        assert!(in_the_bin(&db.get_song(&kept).unwrap().unwrap()).is_none());
         db.set_song_trashed(&binned, false, None).unwrap();
         db.set_song_trashed(&stem, false, None).unwrap();
         let back = db.get_song(&binned).unwrap().unwrap();
         assert!(!is_trashed(&back) && back.metadata.get("deleted_with").is_none());
+        assert!(in_the_bin(&back).is_none(), "a restored song is taken for new work again");
         assert_eq!(back.metadata["lrc"], "[00:01.00] la", "its karaoke comes back with it");
         assert_eq!(back.metadata["liked"], true);
         assert_eq!(db.list_songs().unwrap().len(), 3);

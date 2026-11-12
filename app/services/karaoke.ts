@@ -43,8 +43,13 @@ export async function recogniseLyrics(source: { songId: string } | { file: File 
 }
 
 /** The reason in words, or whatever the server said if it is not one of ours. */
+/** The server's refusal of a song in the library's bin (`library::in_the_bin`), with the song's title. */
+const IN_THE_BIN = /^"(.*)" is in the library's bin; restore it in Library - Bin/;
+
 export const karaokeReason = (t: (key: string) => string, reason?: string | null): string | undefined => {
     if (!reason) return undefined;
+    const binned = IN_THE_BIN.exec(reason.trim());
+    if (binned) return t('songInTheBin').replace('{title}', binned[1]);
     // A reason can carry a number - "karaoke.downloading 37%" - so the strip
     // shows progress instead of a word that never moves.
     const [code, ...rest] = reason.trim().split(' ');

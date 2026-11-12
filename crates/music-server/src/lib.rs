@@ -2183,11 +2183,7 @@ async fn start_processing(
     if request.stages().is_empty() {
         return Err(api_error(StatusCode::BAD_REQUEST, "choose at least one kind of processing".into()));
     }
-    let song = state
-        .library
-        .get_song(&id)
-        .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
-        .ok_or_else(|| api_error(StatusCode::NOT_FOUND, "Song not found".into()))?;
+    let song = song_for_work(&state, &id)?.ok_or_else(|| api_error(StatusCode::NOT_FOUND, "Song not found".into()))?;
     let source = state
         .library
         .media_path_for_song(&song)
@@ -2196,10 +2192,7 @@ async fn start_processing(
     let reference = match &request.master {
         None => None,
         Some(processing::MasterSource::Song { song_id }) => {
-            let reference_song = state
-                .library
-                .get_song(song_id)
-                .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
+            let reference_song = song_for_work(&state, song_id)?
                 .ok_or_else(|| api_error(StatusCode::NOT_FOUND, "the reference track is not in the library".into()))?;
             Some(
                 state
@@ -2856,11 +2849,7 @@ struct DatasetSongs {
 async fn add_training_songs(State(state): State<AppState>, Path(id): Path<String>, Json(input): Json<DatasetSongs>) -> Result<Json<training::Dataset>, (StatusCode, Json<ApiError>)> {
     let mut sources = Vec::new();
     for song_id in &input.song_ids {
-        let song = state
-            .library
-            .get_song(song_id)
-            .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
-            .ok_or_else(|| api_error(StatusCode::NOT_FOUND, format!("song {song_id} is not in the library")))?;
+        let song = song_for_work(&state, song_id)?.ok_or_else(|| api_error(StatusCode::NOT_FOUND, format!("song {song_id} is not in the library")))?;
         let audio = state.library.media_path_for_song(&song).ok_or_else(|| api_error(StatusCode::BAD_REQUEST, format!("{} has no stored audio", song.title)))?;
         // what the song was made with is what it is: tempo, key, metre, language
         let meta = |key: &str| song.metadata.get(key).cloned().unwrap_or(Value::Null);
@@ -3345,11 +3334,7 @@ async fn start_separation(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
-    let song = state
-        .library
-        .get_song(&id)
-        .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
-        .ok_or_else(|| api_error(StatusCode::NOT_FOUND, "Song not found".into()))?;
+    let song = song_for_work(&state, &id)?.ok_or_else(|| api_error(StatusCode::NOT_FOUND, "Song not found".into()))?;
     // a stem is a part of a song already: the song it came from is what is separated
     if song.metadata["derived"]["tool"].as_str() == Some("stems") {
         return Err(api_error(StatusCode::CONFLICT, "this track is a stem, a part of a song already; separate the song it came from".into()));
@@ -3458,6 +3443,7 @@ async fn draw_cover_now(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    song_for_work(&state, &id)?;
     match draw_cover(&state, &id).await {
         Ok(()) => {
             work_ended(&state, "cover", Ok(()), false);
@@ -6737,11 +6723,7 @@ async fn create_song_karaoke(
     if !config.available() {
         return Err(api_error(StatusCode::CONFLICT, "karaoke.off".into()));
     }
-    let song = state
-        .library
-        .get_song(&id)
-        .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
-        .ok_or_else(|| api_error(StatusCode::NOT_FOUND, "no such song".into()))?;
+    let song = song_for_work(&state, &id)?.ok_or_else(|| api_error(StatusCode::NOT_FOUND, "no such song".into()))?;
     let audio = state
         .library
         .media_path_for_song(&song)
@@ -6829,11 +6811,7 @@ async fn recognise_lyrics(
     }
     let (audio, sent) = match (&request.song_id, &request.audio_base64) {
         (Some(id), _) => {
-            let song = state
-                .library
-                .get_song(id)
-                .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
-                .ok_or_else(|| api_error(StatusCode::NOT_FOUND, "no such song".into()))?;
+            let song = song_for_work(&state, id)?.ok_or_else(|| api_error(StatusCode::NOT_FOUND, "no such song".into()))?;
             let path = state
                 .library
                 .media_path_for_song(&song)
@@ -7772,13 +7750,18 @@ async fn start_midi(State(state): State<AppState>, Json(input): Json<MidiRequest
     Ok(Json(serde_json::json!({ "started": true, "song_id": song_id, "size": size.id })))
 }
 
+/// A library song taken for new work by its id: a song in the bin is refused with its title and the way back.
+fn song_for_work(state: &AppState, id: &str) -> Result<Option<library::Song>, (StatusCode, Json<ApiError>)> {
+    let song = state.library.get_song(id).map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("{error:#}")))?;
+    if let Some(refusal) = song.as_ref().and_then(library::in_the_bin) {
+        return Err(api_error(StatusCode::CONFLICT, refusal));
+    }
+    Ok(song)
+}
+
 /// A library track's title and its audio on disk.
 fn midi_source(state: &AppState, id: &str) -> Result<(String, PathBuf), (StatusCode, Json<ApiError>)> {
-    let song = state
-        .library
-        .get_song(id)
-        .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
-        .ok_or_else(|| api_error(StatusCode::NOT_FOUND, format!("Song {id} not found")))?;
+    let song = song_for_work(state, id)?.ok_or_else(|| api_error(StatusCode::NOT_FOUND, format!("Song {id} not found")))?;
     let audio = state.library.media_path_for_song(&song).ok_or_else(|| api_error(StatusCode::BAD_REQUEST, format!("{} has no stored audio", song.title)))?;
     Ok((song.title, audio))
 }
@@ -9778,8 +9761,7 @@ async fn submit_replay_job(state: AppState, request: ReplayMusicJobRequest, atte
     let replay = match (&request.song_id, &request.replay_request) {
         (Some(_), Some(_)) => return Err(api_error(StatusCode::BAD_REQUEST, "Provide either song_id or replay_request, not both.".into())),
         (Some(song_id), None) => {
-            let song = state.library.get_song(song_id).map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
-                .ok_or_else(|| api_error(StatusCode::NOT_FOUND, "Song not found.".into()))?;
+            let song = song_for_work(&state, song_id)?.ok_or_else(|| api_error(StatusCode::NOT_FOUND, "Song not found.".into()))?;
             source_title = Some(song.title.clone());
             let replay = song.replay_request.clone().ok_or_else(|| api_error(StatusCode::BAD_REQUEST, "This track has no replay record.".into()))?;
             original = Some(song);

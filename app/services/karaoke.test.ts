@@ -1,5 +1,18 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { recogniseLyrics } from './karaoke';
+import { karaokeReason, recogniseLyrics } from './karaoke';
+
+describe('karaokeReason', () => {
+  it('puts the refusal of a song in the bin in the window language, with its title', () => {
+    // the sentence the service writes (library::in_the_bin), so the two cannot drift apart
+    const source = readFileSync(resolve(__dirname, '../../crates/music-server/src/library.rs'), 'utf8');
+    const sentence = /format!\("\\"\{\}\\"( is in the library's bin; restore it in Library - Bin[^"]*)"/.exec(source)?.[1];
+    expect(sentence).toBeTruthy();
+    const t = (key: string) => (key === 'songInTheBin' ? 'IN BIN: {title}' : key);
+    expect(karaokeReason(t, `"Song, "quoted""${sentence}`)).toBe('IN BIN: Song, "quoted"');
+  });
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();

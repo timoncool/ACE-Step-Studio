@@ -306,8 +306,7 @@ pub async fn describe_song_style(State(state): State<AppState>, Path(song_id): P
     if state.training.active_run().await.is_some() || state.prepare.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).as_ref().is_some_and(|job| !job.finished) {
         return Err(api_error(StatusCode::CONFLICT, "the card is training or preparing songs; describe once it is free".into()));
     }
-    let song = state.library.get_song(&song_id).map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("{error:#}")))?
-        .ok_or_else(|| api_error(StatusCode::NOT_FOUND, format!("no library song {song_id}")))?;
+    let song = crate::song_for_work(&state, &song_id)?.ok_or_else(|| api_error(StatusCode::NOT_FOUND, format!("no library song {song_id}")))?;
     let audio = state.library.media_path_for_song(&song).ok_or_else(|| api_error(StatusCode::BAD_REQUEST, format!("{} has no audio", song.title)))?;
 
     let hooks = crate::card_hooks(&state).await;
