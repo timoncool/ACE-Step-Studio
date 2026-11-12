@@ -20,6 +20,7 @@ import { coverSeed } from '../services/songStems';
 import { CoverRegenModal } from './CoverRegenModal';
 import type { CommonsPhoto, PickedMedia } from './CoverPicker';
 import { KaraokeAction } from './KaraokeAction';
+import { clampLyricsOffset, LYRICS_OFFSET_LIMIT } from '../services/lyricsOffset';
 
 interface VideoGeneratorModalProps {
   isOpen: boolean;
@@ -2232,7 +2233,7 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
       if (typeof lyrics.background_color === 'string') setLyricsBgColor(lyrics.background_color);
       if (lyrics.background_opacity !== undefined) setLyricsBgOpacity(Number(lyrics.background_opacity));
       if (typeof lyrics.highlight_color === 'string') setLyricsHighlightColor(lyrics.highlight_color);
-      if (lyrics.offset_seconds !== undefined) setLyricsOffset(Number(lyrics.offset_seconds));
+      if (lyrics.offset_seconds !== undefined) setLyricsOffset(clampLyricsOffset(Number(lyrics.offset_seconds)));
     }
     const background = object(args.background);
     if (background) {
@@ -2794,8 +2795,8 @@ export const VideoGeneratorModal: React.FC<VideoGeneratorModalProps> = ({ isOpen
                                         {/* Timing offset */}
                                         <div className="flex items-center gap-2">
                                             <span className="text-[10px] text-zinc-500">{t('lyricsOffset') || 'Offset'}</span>
-                                            <input type="range" min={-3} max={3} step={0.1} value={lyricsOffset} onChange={e => setLyricsOffset(Number(e.target.value))} className="flex-1 accent-pink-500 h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer" />
-                                            <NumberField value={lyricsOffset} min={-3} max={3} step={0.1} label={t('lyricsOffset') || 'Offset'} format={number => `${number > 0 ? '+' : ''}${number.toFixed(1)}s`} onChange={setLyricsOffset} className="w-12" />
+                                            <input type="range" min={-LYRICS_OFFSET_LIMIT} max={LYRICS_OFFSET_LIMIT} step={0.01} value={lyricsOffset} onChange={e => setLyricsOffset(clampLyricsOffset(Number(e.target.value)))} className="flex-1 accent-pink-500 h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer" />
+                                            <NumberField value={lyricsOffset} min={-LYRICS_OFFSET_LIMIT} max={LYRICS_OFFSET_LIMIT} step={0.01} label={t('lyricsOffset') || 'Offset'} format={number => `${number > 0 ? '+' : ''}${number.toFixed(2)}s`} onChange={value => setLyricsOffset(clampLyricsOffset(value))} className="w-16" />
                                         </div>
 
                                         <label className="flex items-center gap-2 text-[10px] text-zinc-400 cursor-pointer">
