@@ -129,7 +129,9 @@ fn excluded_range(port: u16) -> Option<(u16, u16)> {
     use std::io::Read;
     use std::os::windows::process::CommandExt;
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    let mut child = Command::new("netsh")
+    // Windows' own netsh by its full path: a bare name is looked for beside the studio first
+    let system = PathBuf::from(std::env::var_os("SystemRoot")?);
+    let mut child = Command::new(system.join("System32").join("netsh.exe"))
         .args(["interface", "ipv4", "show", "excludedportrange", "protocol=tcp"])
         .creation_flags(CREATE_NO_WINDOW)
         .stdin(Stdio::null())
@@ -139,9 +141,10 @@ fn excluded_range(port: u16) -> Option<(u16, u16)> {
         .ok()?;
     // read while it runs, so a listing longer than the pipe holds does not stop it
     let mut stdout = child.stdout.take()?;
+    // the listing comes in the console's code page, not UTF-8, on a Windows in another language
     let reader = thread::spawn(move || {
-        let mut listing = String::new();
-        stdout.read_to_string(&mut listing).map(|_| listing)
+        let mut listing = Vec::new();
+        stdout.read_to_end(&mut listing).map(|_| String::from_utf8_lossy(&listing).into_owned())
     });
     let deadline = Instant::now() + Duration::from_secs(3);
     while child.try_wait().ok()?.is_none() {
@@ -913,6 +916,16 @@ mod tests {
         assert_eq!(excluded_range_in(listing, 8089), Some((8040, 8139)));
         assert_eq!(excluded_range_in(listing, 50000), Some((50000, 50059)));
         assert_eq!(excluded_range_in(listing, 9000), None);
+    }
+
+    #[test]
+    fn a_listing_in_the_russian_console_code_page_still_names_the_range() {
+        // "Диапазон исключенных портов протокола tcp" and "Начальный порт / Конечный порт" in CP866
+        let mut listing = b"\r\n\x84\xa8\xa0\xaf\xa0\xa7\xae\xad \xa8\xe1\xaa\xab\xee\xe7\xa5\xad\xad\xeb\xe5 \xaf\xae\xe0\xe2\xae\xa2 tcp\r\n\r\n".to_vec();
+        listing.extend_from_slice(b"\x8d\xa0\xe7\xa0\xab\xec\xad\xeb\xa9 \xaf\xae\xe0\xe2    \x8a\xae\xad\xa5\xe7\xad\xeb\xa9 \xaf\xae\xe0\xe2\r\n");
+        listing.extend_from_slice(b"----------    --------\r\n      5357        5357\r\n      8040        8139\r\n\r\n");
+        assert!(std::str::from_utf8(&listing).is_err(), "the listing is not UTF-8");
+        assert_eq!(excluded_range_in(&String::from_utf8_lossy(&listing), 8089), Some((8040, 8139)));
     }
 
     #[test]

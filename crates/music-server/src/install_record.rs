@@ -164,8 +164,12 @@ const ASIDE: &str = ".stale-";
 pub fn set_aside(path: &Path) -> Result<PathBuf> {
     let name = path.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
     let aside = path.with_file_name(format!("{name}{ASIDE}{}", uuid::Uuid::now_v7().simple()));
-    fs::rename(path, &aside).with_context(|| format!("move {} aside", path.display()))?;
+    // known before it exists, so a sweep running beside it never sees it unknown
     SET_ASIDE_NOW.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).insert(aside.clone());
+    if let Err(error) = fs::rename(path, &aside) {
+        SET_ASIDE_NOW.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).remove(&aside);
+        return Err(error).with_context(|| format!("move {} aside", path.display()));
+    }
     studio_log!("{} is held by a running program and was moved aside as {}; it is removed at the next start", path.display(), aside.display());
     Ok(aside)
 }
