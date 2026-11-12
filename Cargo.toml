@@ -37,7 +37,7 @@ include_dir = "0.7"
 dub-tcpp = { git = "https://github.com/timoncool/dub-studio", rev = "413ccc67650d07a73460a369d01d7eb92daf8121" }
 # audio.cpp's server (audiocpp_server), the client Dub Studio and Speech Studio share: CrisperWhisper for karaoke
 acpp-server = { git = "https://github.com/timoncool/dub-studio", rev = "413ccc67650d07a73460a369d01d7eb92daf8121", features = ["langid"] }
-ort = { version = "=2.0.0-rc.15", default-features = false, features = ["load-dynamic", "api-31", "cuda", "directml"] }
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["load-dynamic", "api-31"] }
 symphonia = { version = "0.6", default-features = false, features = ["mp1", "mp2", "mp3", "wav", "pcm", "adpcm", "isomp4", "aac", "flac", "ogg", "vorbis", "aiff", "caf", "mkv", "alac", "all-meta", "opt-simd"] }
 flate2 = "1"
 zip = { version = "9", default-features = false, features = ["deflate"] }
