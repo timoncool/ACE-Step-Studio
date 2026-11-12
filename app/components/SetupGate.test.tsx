@@ -1,7 +1,7 @@
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { OptionalGroup } from './SetupGate';
+import { OptionalGroup, WHERE_IT_RUNS } from './SetupGate';
 
 vi.mock('../context/I18nContext', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
 vi.mock('../services/studioQueries', () => ({ openRouterSettingsChanged: vi.fn(), SELF_READ: { 'x-hub-skip': '1' } }));
@@ -67,5 +67,13 @@ describe('optional capability download poll', () => {
     expect(first).toBeGreaterThanOrEqual(1);
     for (let again = 0; again < 5; again++) await act(async () => draw());
     expect(asked).toBe(first);
+  });
+});
+
+describe('where each part runs', () => {
+  it('says HT-Demucs computes on AMD and Intel cards through Vulkan and Mel-Band RoFormer on the processor there', () => {
+    const row = (name: string) => WHERE_IT_RUNS.find(entry => entry.name === name);
+    expect(row('HT-Demucs')?.other).toBe('vulkan');
+    expect(row('Mel-Band RoFormer')?.other).toBe('cpu');
   });
 });

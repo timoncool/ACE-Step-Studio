@@ -636,12 +636,13 @@ type Path = 'cuda' | 'vulkan' | 'cpu' | 'none';
  * CUDA, Vulkan and the processor, and so does transcribe.cpp; the ONNX parts run on the processor;
  * the rest has a CUDA build and a processor one.
  */
-const WHERE_IT_RUNS: { part: TranslationKey; name: string; nvidia: Path; other: Path; none: Path }[] = [
+export const WHERE_IT_RUNS: { part: TranslationKey; name: string; nvidia: Path; other: Path; none: Path }[] = [
   { part: 'hubPartSongs', name: 'acestep.cpp', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
   { part: 'hubPartTraining', name: 'music-train', nvidia: 'cuda', other: 'none', none: 'none' },
   { part: 'hubPartListen', name: 'MOSS-Music', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
   { part: 'hubPartTempoKey', name: 'Beat This!, S-KEY', nvidia: 'cpu', other: 'cpu', none: 'cpu' },
-  { part: 'hubPartStems', name: 'HT-Demucs', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
+  { part: 'hubPartStems', name: 'HT-Demucs', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
+  { part: 'hubPartStems', name: 'Mel-Band RoFormer', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
   { part: 'hubPartKaraoke', name: 'Parakeet', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
   { part: 'hubPartKaraoke', name: 'CrisperWhisper', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
   { part: 'hubPartAssistant', name: 'llama.cpp', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
