@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown, Loader2, ScrollText } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import { SELF_READ } from '../services/studioQueries';
@@ -24,6 +24,12 @@ export const EngineStarting: React.FC<{ onReady?: () => void }> = ({ onReady }) 
   // rather than shipped - half a gigabyte of them. While they arrive the
   // engine cannot start, and this screen has to say so with a number.
   const [runtime, setRuntime] = useState<{ downloading: boolean; downloaded: number; total: number; error?: string | null } | null>(null);
+  // the latest onReady, outside the poll's keys: the page passes a new function on every render, and a poll keyed on
+  // it would ask at once each time
+  const ready = useRef(onReady);
+  useEffect(() => {
+    ready.current = onReady;
+  }, [onReady]);
 
   useEffect(() => {
     const started = Date.now();
@@ -40,7 +46,7 @@ export const EngineStarting: React.FC<{ onReady?: () => void }> = ({ onReady }) 
       await fetch('/health', { headers: SELF_READ })
         .then((response) => (response.ok ? response.json() : Promise.reject(new Error())))
         .then((body: { music_engine?: { reachable?: boolean }; engine_bundle_present?: boolean; service_executable?: string }) => {
-          if (body.music_engine?.reachable) onReady?.();
+          if (body.music_engine?.reachable) ready.current?.();
           // A service with no engine bundle is not this application's service:
           // another copy of the studio holds the port, and waiting for it to
           // start an engine it does not have is waiting forever.
@@ -67,7 +73,7 @@ export const EngineStarting: React.FC<{ onReady?: () => void }> = ({ onReady }) 
         .catch(() => undefined);
     };
     return poll(read, 1000);
-  }, [onReady]);
+  }, []);
 
   // Starting takes about three seconds here. Much longer than that means
   // something is wrong, and silence would be the worst answer - unless half a
