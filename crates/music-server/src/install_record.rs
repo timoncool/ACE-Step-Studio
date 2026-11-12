@@ -51,6 +51,7 @@ const KEY_FILES: &[(&str, &str, u64)] = &[
     ("https://github.com/timoncool/BSRoformer.cpp/releases/download/studio-0.1.1/BSRoformer-windows-cuda13-x64.zip", "ggml-cuda.dll", 129_091_584),
     ("https://github.com/timoncool/BSRoformer.cpp/releases/download/studio-0.1.1/BSRoformer-windows-cpu-x64.zip", "bs_roformer-cli.exe", 183_808),
     ("https://github.com/timoncool/transcribe.cpp/releases/download/engine-0.2.1/transcribe-windows-cuda13-x64.zip", "ggml-cuda.dll", 140_795_392),
+    ("https://github.com/timoncool/transcribe.cpp/releases/download/engine-0.2.1/transcribe-windows-cuda12-x64.zip", "transcribe.dll", dub_tcpp::Build::Cuda12.library_size()),
     ("https://github.com/timoncool/transcribe.cpp/releases/download/engine-0.2.1/transcribe-windows-vulkan-x64.zip", "ggml-vulkan.dll", 45_308_928),
     ("https://github.com/timoncool/transcribe.cpp/releases/download/engine-0.2.1/transcribe-windows-cpu-x64.zip", "transcribe.dll", 2_054_656),
     // Linux and macOS: the regular file a tar's links point to, under its own versioned name

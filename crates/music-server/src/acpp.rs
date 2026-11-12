@@ -311,17 +311,28 @@ fn linux_cuda_libraries(build: Build) -> &'static [&'static str] {
 /// Windows looks for a library's imports beside it: a CUDA 13 build of a program the studio runs gets links (copies
 /// across drives) to the music engine's cuBLAS 13 in `source`, unless PATH already has them.
 pub fn link_cuda13(source: Option<&Path>, engine_dir: &Path, who: &str) -> Result<()> {
+    link_cuda(&crate::engine_runtime::CUDA13_LIBRARIES, source.into_iter().collect::<Vec<_>>().as_slice(), engine_dir, who, 13)
+}
+
+/// The CUDA 12 counterpart of [`link_cuda13`]: cuBLAS 12 from the engine's library folder and CUDA 12's runtime, which
+/// ships beside the engine, each taken from the first of `sources` that has it.
+pub fn link_cuda12(sources: &[&Path], engine_dir: &Path, who: &str) -> Result<()> {
+    let libraries = [crate::engine_runtime::CUDA12_LIBRARIES[0], crate::engine_runtime::CUDA12_LIBRARIES[1], "cudart64_12.dll"];
+    link_cuda(&libraries, sources, engine_dir, who, 12)
+}
+
+fn link_cuda(libraries: &[&str], sources: &[&Path], engine_dir: &Path, who: &str, cuda: u32) -> Result<()> {
     if !cfg!(windows) {
         return Ok(());
     }
     let on_path = |name: &str| std::env::var_os("PATH").is_some_and(|path| std::env::split_paths(&path).any(|dir| dir.join(name).is_file()));
-    for name in crate::engine_runtime::CUDA13_LIBRARIES {
+    for name in libraries {
         let target = engine_dir.join(name);
         if target.is_file() || on_path(name) {
             continue;
         }
-        let Some(source) = source.map(|folder| folder.join(name)).filter(|source| source.is_file()) else {
-            bail!("{who} on the card needs {name}, which comes with the music engine's CUDA 13 runtime: download it in Settings - Local engine, or choose the processor");
+        let Some(source) = sources.iter().map(|folder| folder.join(name)).find(|source| source.is_file()) else {
+            bail!("{who} on the card needs {name}, which comes with the music engine's CUDA {cuda} runtime: download it in Settings - Local engine, or choose the processor");
         };
         if std::fs::hard_link(&source, &target).is_err() {
             std::fs::copy(&source, &target).with_context(|| format!("copy {} beside {who}", source.display()))?;
