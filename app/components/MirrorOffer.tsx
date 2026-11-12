@@ -4,7 +4,15 @@ import { useI18n } from '../context/I18nContext';
 import { SELF_READ } from '../services/studioQueries';
 
 type ProxyForm = { mode: string; kind: string; address: string | null; huggingface_mirror: boolean };
-type Probe = { huggingface: boolean; huggingface_error?: string | null; mirror_chosen: boolean; mirror: boolean | null; mirror_error?: string | null };
+type Probe = {
+  huggingface: boolean;
+  huggingface_error?: string | null;
+  /** The proxy the check went through when it is the proxy that did not connect: its address without the login. */
+  huggingface_proxy?: { address: string; system: boolean } | null;
+  mirror_chosen: boolean;
+  mirror: boolean | null;
+  mirror_error?: string | null;
+};
 
 const failure = async (response: Response) => {
   const body = await response.json().catch(() => null);
@@ -91,6 +99,19 @@ export const MirrorOffer: React.FC<{ recheck: string; onSwitched: () => void }> 
     );
   }
   if (!probe || probe.huggingface || probe.mirror_chosen) return null;
+  // the mirror would go through the same proxy: the proxy is named instead
+  if (probe.huggingface_proxy) {
+    const proxy = probe.huggingface_proxy;
+    return (
+      <div className="mt-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-zinc-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-zinc-200">
+        <div className="flex items-center gap-2 font-semibold text-amber-800 dark:text-amber-200">
+          <Globe size={16} className="shrink-0" />{t('proxyDownTitle').replace('{address}', proxy.address)}
+        </div>
+        {probe.huggingface_error && <p className="mt-1 break-words text-xs text-zinc-500 dark:text-zinc-400">{probe.huggingface_error}</p>}
+        <p className="mt-2 leading-6">{t(proxy.system ? 'proxyDownSystem' : 'proxyDownOwn')}</p>
+      </div>
+    );
+  }
   return (
     <div className="mt-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-zinc-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-zinc-200">
       <div className="flex items-center gap-2 font-semibold text-amber-800 dark:text-amber-200">

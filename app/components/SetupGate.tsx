@@ -868,13 +868,13 @@ export const SetupGate: React.FC<{ onReady?: () => void; mode?: 'first-run' | 's
           </details>
         )}
 
-        {error && (
+        {(error || (active?.status === 'failed' && active.error)) && (
           <div className="mt-5 flex gap-2 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
-            <X size={16} className="mt-0.5 shrink-0" />{error}
+            <X size={16} className="mt-0.5 shrink-0" /><span className="min-w-0 break-words">{error || active?.error}</span>
           </div>
         )}
 
-        {mode === 'first-run' && (
+        {(mode === 'first-run' || active?.status === 'failed') && (
           <MirrorOffer
             recheck={status?.active?.status === 'failed' ? status.active.id : ''}
             onSwitched={() => void refresh().catch((reason) => setError(reason.message))}
