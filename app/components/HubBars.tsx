@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
-import { HUB_GRADIENTS, HUB_TEXT, MAX_VISIBLE_BARS, hubText, reportNotice, showsNow, stackTheme, type HubItem } from '../services/studioHub';
+import { HUB_GRADIENTS, HUB_TEXT, MAX_VISIBLE_BARS, hubText, reportLinkClick, reportNotice, showsNow, stackTheme, type HubItem } from '../services/studioHub';
+import { hubStateChanged } from '../services/studioQueries';
 import { hubInline } from './HubMarkdown';
 
 interface Props {
@@ -35,7 +36,7 @@ export const HubBars: React.FC<Props> = ({ items, elapsed, view, closed, onClose
   if (!visible.length) return null;
 
   const close = (id: string) => {
-    reportNotice(id, 'dismissed').catch((error) => console.warn('[hub] close not recorded:', error));
+    reportNotice(id, 'dismissed').catch((error) => console.warn('[hub] close not recorded:', error)).finally(hubStateChanged);
     onClosed(id);
   };
 
@@ -48,9 +49,7 @@ export const HubBars: React.FC<Props> = ({ items, elapsed, view, closed, onClose
           <div key={item.id}
                className="flex items-start justify-between gap-3 px-6 py-2.5 text-sm leading-6 max-md:px-3 max-md:py-1.5 max-md:text-xs"
                style={{ background: HUB_GRADIENTS[theme], color: HUB_TEXT[theme] }}
-               onClick={(event) => {
-                 if ((event.target as HTMLElement).closest('a')) reportNotice(item.id, 'clicked', 'link').catch((error) => console.warn('[hub] link not recorded:', error));
-               }}>
+               onClick={(event) => reportLinkClick(item.id, event.target, event.currentTarget, hubStateChanged)}>
             <div className="w-full text-center">
               {hubInline((content?.body || content?.title || '').replace(/\s*\n\s*/g, ' '), item.id)}
               {item.ad?.label && <span className="ml-2 text-xs opacity-75">{t('hubAd')}{item.ad.erid ? ` · erid ${item.ad.erid}` : ''}</span>}

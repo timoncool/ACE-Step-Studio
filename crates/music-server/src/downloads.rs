@@ -1226,6 +1226,36 @@ fn link_beside(link: &Path, target: &str) -> Result<()> {
     Ok(())
 }
 
+/// The cause of a failed download as one code for the hub's counters (CONTRACT, Counters: one cause, one row):
+/// disk_space, io, hash_mismatch, size_mismatch, rate_limited, http_status, network, proxy, extract or other. The
+/// detail stays in the window and the log; it names hosts and sizes and would split one cause into many rows.
+pub fn failure_code(error: &anyhow::Error) -> &'static str {
+    for cause in error.chain() {
+        if let Some(io) = cause.downcast_ref::<io::Error>() {
+            // 112 is Windows' ERROR_DISK_FULL, 28 is ENOSPC
+            return if io.kind() == io::ErrorKind::StorageFull || matches!(io.raw_os_error(), Some(112) | Some(28)) { "disk_space" } else { "io" };
+        }
+    }
+    let text = format!("{error:#}");
+    if text.contains("differs from the pinned") {
+        "hash_mismatch"
+    } else if text.contains("bytes, the server said") {
+        "size_mismatch"
+    } else if text.contains(" minutes") && text.contains(" answered ") {
+        "rate_limited"
+    } else if text.contains("proxy") {
+        "proxy"
+    } else if text.contains("could not connect to") || text.contains("could not start") || text.contains("failed after") {
+        "network"
+    } else if text.contains(" answered ") {
+        "http_status"
+    } else if text.contains("did not contain") || text.contains("to files it does not contain") || text.contains("extraction") {
+        "extract"
+    } else {
+        "other"
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1612,5 +1642,22 @@ mod tests {
         assert!(!downloader.runtime_dir("cuda").join("libfoo.so.1.2.3").exists());
         assert!(!downloader.is_installed(&runtime));
         fs::remove_dir_all(&root).ok();
+    }
+
+
+    /// A failed download reaches the hub as one code for its cause, never the text that names a host or a size.
+    #[test]
+    fn a_failed_download_is_one_code_for_its_cause() {
+        let code = |error: anyhow::Error| failure_code(&error);
+        assert_eq!(code(anyhow::Error::new(io::Error::from_raw_os_error(112)).context("write the part")), "disk_space");
+        assert_eq!(code(anyhow::Error::new(io::Error::new(io::ErrorKind::PermissionDenied, "denied"))), "io");
+        assert_eq!(code(anyhow::anyhow!("model.gguf: its SHA-256 ab differs from the pinned cd; the file is removed, download it again")), "hash_mismatch");
+        assert_eq!(code(anyhow::anyhow!("Model has 10 bytes, the server said 20")), "size_mismatch");
+        assert_eq!(code(anyhow::anyhow!("https://h/x answered 429 Too Many Requests for 5 minutes")), "rate_limited");
+        assert_eq!(code(anyhow::anyhow!("could not connect to huggingface.co (3 attempts) for https://huggingface.co/x: timed out")), "network");
+        assert_eq!(code(anyhow::anyhow!("range 0-9 failed after 8 attempts: reset")), "network");
+        assert_eq!(code(anyhow::anyhow!("https://h/x answered 404 Not Found")), "http_status");
+        assert_eq!(code(anyhow::anyhow!("a.zip did not contain b.dll")), "extract");
+        assert_eq!(code(anyhow::anyhow!("something new")), "other");
     }
 }

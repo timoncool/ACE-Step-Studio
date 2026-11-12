@@ -842,8 +842,8 @@ impl AssistantRuntime {
             .arg(port.to_string())
             .arg("--ctx-size")
             .arg(context_size.to_string())
-            .arg("--n-gpu-layers")
-            .arg("99")
+            // no -ngl: llama-server's --fit places the layers, and an explicit count puts them on the card even
+            // where they do not fit, and the load aborts
             // Without the model's own chat template llama-server answers with an
             // empty message for Gemma, which reads as "the assistant returned
             // nothing" downstream.

@@ -114,9 +114,27 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const fetchHubState = (lang: string) => call<HubState>(`/v1/hub/state?lang=${encodeURIComponent(lang)}`);
 
-/** `button` names a click: `b0`, `b1`... the notice's buttons in order, `link` a link in its text. */
+/** `button` names a click: `b0`, `b1`... the notice's buttons in order, `u<hash>` a link of its text (`linkName`). */
 export const reportNotice = (id: string, event: 'shown' | 'clicked' | 'dismissed', button?: string) =>
   call<{ ok: true }>(`/v1/hub/notices/${encodeURIComponent(id)}/${event}${button ? `?button=${encodeURIComponent(button)}` : ''}`, { method: 'POST' });
+
+/** A link's name in the hub's counts: `u` and the FNV-1a 32-bit hash of its address as the notice's text writes it, in
+ * eight hex digits, so the name stays when the text's links move; the hub and the site embed compute the same. */
+export function linkName(href: string): string {
+  let hash = 0x811c9dc5;
+  for (const byte of new TextEncoder().encode(href)) hash = Math.imul(hash ^ byte, 0x01000193) >>> 0;
+  return `u${hash.toString(16).padStart(8, '0')}`;
+}
+
+/** A click in a notice's text: a link counts by its address, and `then` runs once it is recorded (the window reads
+ * the hub again, so a notice that leaves after a click leaves at once). */
+export function reportLinkClick(id: string, target: EventTarget, text: Element, then: () => void): void {
+  const link = (target as HTMLElement).closest('a');
+  if (!link || !text.contains(link)) return;
+  reportNotice(id, 'clicked', linkName(link.getAttribute('href') ?? ''))
+    .catch((error: Error) => console.warn('[hub] link not recorded:', error.message))
+    .finally(then);
+}
 
 export const setTelemetry = (enabled: boolean, acknowledge = false) =>
   call<HubState['telemetry']>('/v1/hub/telemetry', {

@@ -371,13 +371,14 @@ impl ModelManager {
                 Err(error) => {
                     job.status = DownloadStatus::Failed;
                     job.error = Some(error.to_string());
+                    if let Some(hub) = self.hub.get() {
+                        hub.setup_failed(crate::downloads::failure_code(&error));
+                    }
                 }
             }
-            if let Some(hub) = self.hub.get() {
-                match job.status {
-                    DownloadStatus::Completed => hub.setup_ready(),
-                    DownloadStatus::Failed => hub.setup_failed(job.error.as_deref().unwrap_or_default()),
-                    _ => {}
+            if matches!(job.status, DownloadStatus::Completed) {
+                if let Some(hub) = self.hub.get() {
+                    hub.setup_ready();
                 }
             }
             let _ = self.persist_locked(&state);

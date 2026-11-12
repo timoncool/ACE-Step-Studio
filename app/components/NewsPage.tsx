@@ -3,8 +3,8 @@ import { Newspaper, X, Star, FileText } from 'lucide-react';
 import { SiGithub } from '@icons-pack/react-simple-icons';
 import { useI18n } from '../context/I18nContext';
 import newsData from '../data/news.json';
-import { useHubState } from '../services/studioQueries';
-import { hubMediaUrl, hubText, reportNotice, type HubButton, type HubItem } from '../services/studioHub';
+import { hubStateChanged, useHubState } from '../services/studioQueries';
+import { hubMediaUrl, hubText, reportLinkClick, reportNotice, type HubButton, type HubItem } from '../services/studioHub';
 import { openExternal } from '../services/externalLinks';
 import changelogData from '../data/changelog.json';
 import { STUDIO, STUDIO_REPO_URL } from '../studio';
@@ -248,12 +248,12 @@ export const NewsPage: React.FC<{ onOpen?: (target: NonNullable<HubButton['targe
   }, [hubShown]);
   const hubClicked = (id: string, button: string) => {
     const hub = hubId(id);
-    if (hub) reportNotice(hub, 'clicked', button).catch(error => console.warn('[hub] news click not recorded:', error));
+    if (hub) reportNotice(hub, 'clicked', button).catch(error => console.warn('[hub] news click not recorded:', error)).finally(hubStateChanged);
   };
 
   const dismissNewsItem = (id: string) => {
     const hub = hubId(id);
-    if (hub) reportNotice(hub, 'dismissed').catch(error => console.warn('[hub] news close not recorded:', error));
+    if (hub) reportNotice(hub, 'dismissed').catch(error => console.warn('[hub] news close not recorded:', error)).finally(hubStateChanged);
     setDismissedNews(prev => {
       const next = new Set(prev);
       next.add(id);
@@ -322,7 +322,7 @@ export const NewsPage: React.FC<{ onOpen?: (target: NonNullable<HubButton['targe
 
         {item.image && <img src={hubMediaUrl(item.image)} alt="" className="mt-3 max-h-64 w-full rounded-xl object-cover" />}
 
-        <div onClickCapture={event => { if ((event.target as HTMLElement).closest('a')) hubClicked(item.id, 'link'); }}>
+        <div onClickCapture={event => { const hub = hubId(item.id); if (hub) reportLinkClick(hub, event.target, event.currentTarget, hubStateChanged); }}>
           <NewsBody text={localize(item.body)} />
         </div>
 

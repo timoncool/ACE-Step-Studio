@@ -320,7 +320,12 @@ pub struct Training {
     /// Held over each read-change-write of a `run.json` or `dataset.json`, so
     /// two edits never write over each other.
     edits: std::sync::Mutex<()>,
+    /// Told how each run ended: done, or the failure's reason and whether it was stopped.
+    ended: std::sync::OnceLock<RunEnded>,
 }
+
+/// How a training run ended, for whoever counts finished work: `Ok` done, `Err` the reason, and whether it was stopped.
+pub type RunEnded = Box<dyn Fn(std::result::Result<(), String>, bool) + Send + Sync>;
 
 struct Active {
     run_id: String,
@@ -556,7 +561,19 @@ fn read_json<T: for<'a> Deserialize<'a>>(path: &Path) -> Option<T> {
 impl Training {
     pub fn new(data_root: &Path, engine: &str) -> Self {
         let root = data_root.join("training");
-        Self { downloader: Downloader::with_runtimes(root.clone(), tools_root(data_root)), root, engine: engine.to_string(), active: RwLock::new(None), edits: std::sync::Mutex::new(()) }
+        Self {
+            downloader: Downloader::with_runtimes(root.clone(), tools_root(data_root)),
+            root,
+            engine: engine.to_string(),
+            active: RwLock::new(None),
+            edits: std::sync::Mutex::new(()),
+            ended: std::sync::OnceLock::new(),
+        }
+    }
+
+    /// Who is told how each run ends; set once.
+    pub fn on_run_ended(&self, ended: RunEnded) {
+        let _ = self.ended.set(ended);
     }
 
     pub fn downloader(&self) -> &Downloader {
@@ -1233,6 +1250,13 @@ impl Training {
 
     /// Records how a run ended and lets the next one start.
     async fn settle(&self, run_id: &str, outcome: Result<bool>) {
+        if let Some(ended) = self.ended.get() {
+            match &outcome {
+                Ok(true) => ended(Ok(()), false),
+                Ok(false) => ended(Err("stopped".to_string()), true),
+                Err(error) => ended(Err(format!("{error:#}")), false),
+            }
+        }
         {
             let _edit = self.edits.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
             if let Ok(mut run) = self.run(run_id) {

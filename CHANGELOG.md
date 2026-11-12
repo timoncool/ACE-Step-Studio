@@ -11,6 +11,8 @@ What changed, newest first. Dates are release dates.
 
 ### Changed
 
+- **The writing assistant lets llama.cpp place its layers**, as in YuE2 Studio: the studio no longer asks for every layer on the graphics card, which on a card of 8 GB or less could stop Gemma from loading, as it did in Dub Studio.
+- **Studio Hub notices follow what you do at once**, as in YuE2 Studio: a notice closed or clicked, and a song that ends, bring the next notice without waiting for the minute's refresh; a link in a notice is counted by its address, and the hub's requests wait while a song is made.
 - **Audio to MIDI shows its notes as it hears them** ([YuE2 Studio #185](https://github.com/timoncool/YuE2-Studio/issues/185)): the player draws the notes while MuScriptor works and says which chunk it is on, instead of staying empty until the end; Stop ends the run at once, and the finished MIDI is the same as before.
 - **The MIDI editor is updated to the latest signal**: rewind after recording, the direction of curves and lines, the shortest note length and the rest of upstream's work since our last update, with the studio's own mode, chord and section lanes kept.
 - **The create form and the song panel fold block by block** ([#63](https://github.com/timoncool/ACE-Step-Studio/issues/63)): in the studio mode the song, lyrics, song parameters, source and reference, LoRA and quality blocks fold by their title, and on the song panel so do Style (was Song Details), Note, Parameters (the ACE-Step settings, their summary kept in the title) and Lyrics; what you fold stays folded after a restart. The voice choice moved to the song block beside the style it is written into, and buttons above the lyrics put in [Intro], [Verse 1], [Chorus] and the other sections, as in YuE2 Studio.

@@ -1013,6 +1013,9 @@ pub async fn serve() -> anyhow::Result<()> {
     };
     processing::clear_workspace(state.library.media_dir());
     state.training.recover();
+    if let Some(hub) = state.hub.clone() {
+        state.training.on_run_ended(Box::new(move |ended, stopped| count_work_ended(&hub, "training", ended.as_ref().map(|_| ()).map_err(String::as_str), stopped)));
+    }
     if network_keyed {
         if let Err(error) = persist_studio_settings(&state).await {
             studio_log!("[ERROR] the key made for access from the network was not saved and changes at the next start: {error:#}");
@@ -3386,6 +3389,10 @@ async fn start_separation(
 
         let handle = tokio::runtime::Handle::current();
         handle.spawn(async move {
+            match &outcome {
+                Ok(_) => work_ended(&background, "stems", Ok(()), false),
+                Err(error) => work_ended(&background, "stems", Err(&format!("{error:#}")), false),
+            }
             if let Some(run) = background.separation_run.write().await.as_mut() {
                 run.done = true;
                 match outcome {
@@ -3424,8 +3431,14 @@ async fn draw_cover_now(
     Path(id): Path<String>,
 ) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
     match draw_cover(&state, &id).await {
-        Ok(()) => Ok(Json(serde_json::json!({ "drawn": true }))),
-        Err(error) => Err(api_error(StatusCode::BAD_GATEWAY, error.to_string())),
+        Ok(()) => {
+            work_ended(&state, "cover", Ok(()), false);
+            Ok(Json(serde_json::json!({ "drawn": true })))
+        }
+        Err(error) => {
+            work_ended(&state, "cover", Err(&format!("{error:#}")), false);
+            Err(api_error(StatusCode::BAD_GATEWAY, error.to_string()))
+        }
     }
 }
 
@@ -3468,6 +3481,25 @@ async fn note_activity(state: &AppState, song_id: &str, title: &str, kind: &'sta
     let overflow = activity.len().saturating_sub(20);
     if overflow > 0 {
         activity.drain(..overflow);
+    }
+}
+
+/// A piece of work other than a song, finished, for the hub's counters (CONTRACT, Counters): `<kind>_done`,
+/// `<kind>_cancelled`, or `<kind>_failed` with its reason.
+fn work_ended(state: &AppState, kind: &str, ended: Result<(), &str>, cancelled: bool) {
+    if let Some(hub) = &state.hub {
+        count_work_ended(hub, kind, ended, cancelled);
+    }
+}
+
+fn count_work_ended(hub: &studio_hub_client::Hub, kind: &str, ended: Result<(), &str>, cancelled: bool) {
+    match ended {
+        Ok(()) => hub.count(&format!("{kind}_done"), 1),
+        Err(_) if cancelled => hub.count(&format!("{kind}_cancelled"), 1),
+        Err(reason) => {
+            hub.count(&format!("{kind}_failed"), 1);
+            hub.failed(kind, reason);
+        }
     }
 }
 
@@ -3607,8 +3639,12 @@ async fn draw_cover_for(state: AppState, song_id: String) {
     let title = state.library.get_song(&song_id).ok().flatten().map(|song| song.title).unwrap_or_default();
     note_activity(&state, &song_id, &title, "cover", "running", None).await;
     match draw_cover(&state, &song_id).await {
-        Ok(()) => note_activity(&state, &song_id, &title, "cover", "done", None).await,
+        Ok(()) => {
+            work_ended(&state, "cover", Ok(()), false);
+            note_activity(&state, &song_id, &title, "cover", "done", None).await
+        }
         Err(error) => {
+            work_ended(&state, "cover", Err(&format!("{error:#}")), false);
             studio_log!("no cover for {song_id}: {error}");
             note_activity(&state, &song_id, &title, "cover", "failed", Some(format!("{error:#}"))).await;
         }
@@ -6512,15 +6548,23 @@ async fn create_song_karaoke(
         return Err(api_error(StatusCode::CONFLICT, "karaoke.model-missing".into()));
     }
 
-    let words = recognised_words(&state, &config, std::path::PathBuf::from(&audio), request.language.clone()).await?;
+    let words = match recognised_words(&state, &config, std::path::PathBuf::from(&audio), request.language.clone()).await {
+        Ok(words) => words,
+        Err(error) => {
+            work_ended(&state, "karaoke", Err(&error.1.error), false);
+            return Err(error);
+        }
+    };
 
     // Word by word, because that is what karaoke means: a line time alone
     // leaves a player sweeping the highlight linearly through the line, which
     // drifts off the singing immediately.
     let lines = lyrics_sync::align_lyrics_words(&words, &song.lyrics);
     if lines.is_empty() {
+        work_ended(&state, "karaoke", Err("karaoke.no-match"), false);
         return Err(api_error(StatusCode::BAD_GATEWAY, "karaoke.no-match".into()));
     }
+    work_ended(&state, "karaoke", Ok(()), false);
     let lrc = lyrics_sync::enhanced_lrc(&lines);
     state
         .library
@@ -7375,6 +7419,10 @@ fn midi_source(state: &AppState, id: &str) -> Result<(String, PathBuf), (StatusC
 
 /// Records how the run of the current track ended.
 async fn finish_midi_run(state: &AppState, outcome: anyhow::Result<usize>, output: &std::path::Path) {
+    match &outcome {
+        Ok(_) => work_ended(state, "midi", Ok(()), false),
+        Err(error) => work_ended(state, "midi", Err(&format!("{error:#}")), midi_stopped(state)),
+    }
     if let Some(run) = state.midi_run.write().await.as_mut() {
         run.done = true;
         match outcome {
@@ -8774,6 +8822,10 @@ async fn run_ace_job(state: AppState, run: AceRun) {
     let alone = !another_job_under_way(&state, &job_id).await;
     studio_log!("[song {job_id}] started");
     let started = std::time::Instant::now();
+    // the hub holds its asks back while a song is made
+    if let Some(hub) = &state.hub {
+        hub.task_running(true);
+    }
     let outcome = match engine_finds_the_models(&state, &run.request).await {
         Err(error) => Err(anyhow::anyhow!(error)),
         Ok(()) => {
@@ -8781,6 +8833,9 @@ async fn run_ace_job(state: AppState, run: AceRun) {
             ace_job(&state, run).await
         }
     };
+    if let Some(hub) = &state.hub {
+        hub.task_running(false);
+    }
     let worked = started.elapsed();
     let work = (alone && !another_job_under_way(&state, &job_id).await).then_some(worked);
     let cancelled = job_cancelled(&state, &job_id).await;
