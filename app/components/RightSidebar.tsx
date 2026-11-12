@@ -20,7 +20,7 @@ import { useSongActions } from '../context/SongActionsContext';
 import { stemOf } from '../services/songStems';
 import { named } from '../services/accessibleName';
 import { exactMoment } from '../services/dates';
-import { foldedAfter, keepFolded, keptFolded, SONG_PANEL_FOLDED_KEY } from '../services/createFold';
+import { isFolded, keepFolded, keptFolded, marksAfter, SONG_PANEL_FOLDED_KEY } from '../services/createFold';
 
 interface RightSidebarProps {
     song: Song | null;
@@ -657,6 +657,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                             <PanelBlock
                                 id="params"
                                 title={t('songParamsBlock')}
+                                foldedByDefault
                                 actions={
                                     <div className="flex flex-wrap justify-end gap-1.5 min-w-0">
                                         <span className="text-[11px] px-2 py-0.5 rounded-sm bg-zinc-200 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 font-medium">{TRACK_ARTIST}</span>
@@ -766,10 +767,10 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
 };
 
 /** A block of the song panel; its title folds and opens it, and the choice is kept across restarts. */
-const PanelBlock: React.FC<{ id: string; title: string; actions?: React.ReactNode; flush?: boolean; children: React.ReactNode }> = ({ id, title, actions, flush, children }) => {
-    const [folded, setFolded] = useState(() => keptFolded(SONG_PANEL_FOLDED_KEY).includes(id));
+const PanelBlock: React.FC<{ id: string; title: string; actions?: React.ReactNode; flush?: boolean; foldedByDefault?: boolean; children: React.ReactNode }> = ({ id, title, actions, flush, foldedByDefault, children }) => {
+    const [folded, setFolded] = useState(() => isFolded(keptFolded(SONG_PANEL_FOLDED_KEY), id, foldedByDefault));
     const toggle = () => setFolded(current => {
-        keepFolded(foldedAfter(keptFolded(SONG_PANEL_FOLDED_KEY), id, !current), SONG_PANEL_FOLDED_KEY);
+        keepFolded(marksAfter(keptFolded(SONG_PANEL_FOLDED_KEY), id, !current, foldedByDefault), SONG_PANEL_FOLDED_KEY);
         return !current;
     });
     return (

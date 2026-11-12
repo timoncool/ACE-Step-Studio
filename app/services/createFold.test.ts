@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { FOLDED_KEY, foldedAfter, keepFolded, keptFolded, SONG_PANEL_FOLDED_KEY } from './createFold';
+import { FOLDED_KEY, foldedAfter, isFolded, keepFolded, keptFolded, marksAfter, SONG_PANEL_FOLDED_KEY } from './createFold';
 
 describe('folded blocks of the create form', () => {
   beforeEach(() => window.localStorage.clear());
@@ -20,6 +20,16 @@ describe('folded blocks of the create form', () => {
     keepFolded(['style'], SONG_PANEL_FOLDED_KEY);
     expect(keptFolded()).toEqual(['lyrics']);
     expect(keptFolded(SONG_PANEL_FOLDED_KEY)).toEqual(['style']);
+  });
+
+  it('keep a block folded by default folded until the person opens it', () => {
+    expect(isFolded([], 'params', true)).toBe(true);
+    const opened = marksAfter([], 'params', false, true);
+    expect(opened).toEqual(['params:open']);
+    expect(isFolded(opened, 'params', true)).toBe(false);
+    expect(isFolded(marksAfter(opened, 'params', true, true), 'params', true)).toBe(true);
+    expect(isFolded(marksAfter([], 'note', true), 'note')).toBe(true);
+    expect(isFolded([], 'note')).toBe(false);
   });
 
   it('read nothing folded from a missing or broken record', () => {

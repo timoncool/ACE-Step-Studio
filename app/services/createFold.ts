@@ -18,6 +18,16 @@ export function foldedAfter(folded: string[], id: string, fold: boolean): string
   return fold ? [...rest, id] : rest;
 }
 
+/** A block folded by default is kept by the person opening it (`<id>:open`), the others by folding them. */
+export function isFolded(kept: string[], id: string, foldedByDefault = false): boolean {
+  return foldedByDefault ? !kept.includes(`${id}:open`) : kept.includes(id);
+}
+
+/** The kept marks with block `id` folded or opened. */
+export function marksAfter(kept: string[], id: string, fold: boolean, foldedByDefault = false): string[] {
+  return foldedByDefault ? foldedAfter(kept, `${id}:open`, !fold) : foldedAfter(kept, id, fold);
+}
+
 export function keepFolded(folded: string[], key: string = FOLDED_KEY): void {
   try {
     window.localStorage.setItem(key, JSON.stringify(folded));
