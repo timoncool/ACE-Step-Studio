@@ -8576,6 +8576,36 @@ fn first_fatal(lines: &[String], job: &str) -> Option<String> {
     })
 }
 
+/// The model files a request names that are on disk while the running engine
+/// does not list them: it reads its models folder only when it starts, so a
+/// model that arrived later - taken from another program, put in by hand, or
+/// downloaded while the engine could not be rescanned - is "not found" to it.
+fn models_the_engine_lacks(request: &Value, props: &Value, on_disk: impl Fn(&str) -> bool) -> Vec<String> {
+    [("synth_model", "dit"), ("lm_model", "lm"), ("vae", "vae")]
+        .into_iter()
+        .filter_map(|(field, bucket)| {
+            let name = request.get(field).and_then(Value::as_str)?;
+            let listed = props["models"][bucket].as_array().is_some_and(|names| names.iter().any(|known| known.as_str() == Some(name)));
+            (!listed && on_disk(name)).then(|| name.to_owned())
+        })
+        .collect()
+}
+
+/// Has the engine read its models folder again when a request names a model
+/// on disk that it does not know yet.
+async fn engine_finds_the_models(state: &AppState, request: &Value) -> Result<(), String> {
+    let Ok(Ok(props)) = tokio::time::timeout(std::time::Duration::from_secs(3), state.music_server.props()).await else {
+        return Ok(());
+    };
+    let root = state.model_manager.models_directory();
+    let lacking = models_the_engine_lacks(request, &props, |name| root.join(name).is_file());
+    if lacking.is_empty() {
+        return Ok(());
+    }
+    music_engine::server::note_in_log(&format!("the engine does not list {}; reading the models folder again", lacking.join(", ")));
+    rescan_resources(state).await.map(|_| ()).map_err(|error| format!("{} came after the engine started, and it could not read the models folder again: {error}", lacking.join(", ")))
+}
+
 async fn run_ace_job(state: AppState, run: AceRun) {
     let job_id = run.job_id.clone();
     // the parts as they were when the song started: the person may switch sets while it is made
@@ -8584,9 +8614,12 @@ async fn run_ace_job(state: AppState, run: AceRun) {
     let alone = !another_job_under_way(&state, &job_id).await;
     studio_log!("[song {job_id}] started");
     let started = std::time::Instant::now();
-    let outcome = {
-        let _using = state.engine_use.read().await;
-        ace_job(&state, run).await
+    let outcome = match engine_finds_the_models(&state, &run.request).await {
+        Err(error) => Err(anyhow::anyhow!(error)),
+        Ok(()) => {
+            let _using = state.engine_use.read().await;
+            ace_job(&state, run).await
+        }
     };
     let worked = started.elapsed();
     let work = (alone && !another_job_under_way(&state, &job_id).await).then_some(worked);
@@ -9593,6 +9626,16 @@ mod tests {
         assert!(reference.contains("reference track gone-2"), "{reference}");
         drop(library);
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_model_on_disk_the_engine_does_not_list_asks_for_a_rescan() {
+        let props = serde_json::json!({ "models": { "dit": ["acestep-v15-turbo-Q8_0.gguf"], "lm": ["acestep-5Hz-lm-0.6B-Q8_0.gguf"], "vae": ["vae-BF16.gguf"] } });
+        let request = serde_json::json!({ "synth_model": "acestep-v15-xl-sft-Q4_K_M.gguf", "lm_model": "acestep-5Hz-lm-0.6B-Q8_0.gguf", "vae": "vae-BF16.gguf" });
+        assert_eq!(models_the_engine_lacks(&request, &props, |_| true), vec!["acestep-v15-xl-sft-Q4_K_M.gguf".to_owned()]);
+        assert!(models_the_engine_lacks(&request, &props, |_| false).is_empty(), "a model not on disk is left to the engine's own answer");
+        let known = serde_json::json!({ "synth_model": "acestep-v15-turbo-Q8_0.gguf", "vae": "vae-BF16.gguf" });
+        assert!(models_the_engine_lacks(&known, &props, |_| true).is_empty());
     }
 
     #[test]
