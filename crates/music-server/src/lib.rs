@@ -8884,6 +8884,10 @@ const ENGINE_MAX_SECONDS: f64 = 600.0;
 /// which ace-server caps at 256 MB.
 const ENGINE_RATE: u32 = 48_000;
 
+/// A recording as the engine can read it. The engine's own readers take MP3
+/// and only some WAVs (16- and 24-bit PCM, float), while the library takes any
+/// file the studio decodes, so every recording is decoded here and goes as a
+/// 24-bit WAV at the engine's rate: the library keeps nothing finer.
 fn engine_audio(path: &std::path::Path) -> anyhow::Result<Vec<u8>> {
     let audio = audio_pcm::decode_stereo(path).with_context(|| format!("decode {}", path.display()))?;
     let seconds = audio.left.len() as f64 / f64::from(audio.rate);
