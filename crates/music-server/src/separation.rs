@@ -184,6 +184,15 @@ impl Separator {
         self.downloader.is_installed(&MODEL)
     }
 
+    /// Apollo's weights, kept with the separator's.
+    pub fn restore_model_path(&self) -> PathBuf {
+        self.downloader.path_of(&crate::restore::MODEL)
+    }
+
+    pub fn restore_installed(&self) -> bool {
+        self.downloader.is_installed(&crate::restore::MODEL)
+    }
+
     /// The BSRoformer.cpp build for the card or the processor on this machine, where this platform has one.
     pub fn roformer_engine(gpu: bool) -> Option<&'static Asset> {
         roformer_asset(machine_roformer_build(gpu))

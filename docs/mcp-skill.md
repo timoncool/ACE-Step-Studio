@@ -225,7 +225,7 @@ move around. Check the result with `ui_screenshot`.
 
 ## Tools by area
 
-- **studio**: `studio_status`, `studio_wait`, `studio_system`, `resources_rescan` (models and LoRAs put in the folders by hand), `studio_capabilities`, `studio_open_data_folder` (in Explorer, for the user), `runtime_status` (midi, training pack, training listen), `system_gpus` (the cards and the one in use).
+- **studio**: `studio_status`, `studio_wait`, `studio_system`, `resources_rescan` (models and LoRAs put in the folders by hand), `studio_capabilities`, `studio_open_data_folder` (in Explorer, for the user), `runtime_status` (midi, restore, training pack, training listen), `system_gpus` (the cards and the one in use).
 - **settings**: `settings_get`, `settings_set`.
 - **network**: `network_proxy_get`, `network_proxy_set` (no proxy, the system's or your own), `network_proxy_test`, `network_access_get`, `network_access_set` (opening the studio from other computers, a new key).
 - **journal**: `journal_read` (the Activity page), `journal_clear`, `journal_remove`.
@@ -239,6 +239,7 @@ move around. Check the result with `ui_screenshot`.
 - **cover**: `cover_draw`, `cover_templates_get`, `cover_templates_set`, `cover_set_from_file`, `cover_prompt_render`, `cover_look_get`, `cover_look_set` (the photo or pattern of tracks without a cover, unique: each track's pattern drawn from its words and music style, kept in the file or not), `cover_scenes`, `cover_photos_search`, `video_backgrounds_search`, `song_cover_photo_set`, `song_cover_pattern_set`.
 - **karaoke**: `karaoke_make`, `karaoke_settings_get`, `karaoke_settings_set`, `recogniser_install`, `recogniser_remove`, `recogniser_cancel_download`, `karaoke_delete`, `karaoke_set` (the person's own .srt, .ass or .lrc, or edited LRC lines), `lyrics_recognise` (the lyrics a song or an audio file sings, heard by the karaoke recogniser).
 - **stems**: `stems_split`, `stems_get`.
+- **restore**: `restore_status`, `restore_start` (a track or a file compressed to MP3, restored with Apollo into a new track `<title> · restored`), `restore_install`, `restore_remove`, `restore_cancel`.
 - **separator**: `separator_status`, `separator_runtime`, `separator_runtime_install`, `separator_cancel_download`, `separator_install`, `separator_remove`, `separator_settings_get`, `separator_settings_set`.
 - **midi**: `midi_status`, `midi_transcribe`, `midi_get`, `midi_delete`, `midi_install`, `midi_remove`, `midi_cancel`, `midi_set` (a .mid of your own).
 - **processing**: `processing_start`, `processing_get`, `processing_keep`, `processing_discard`, `processing_set_reference`.
@@ -267,3 +268,15 @@ move around. Check the result with `ui_screenshot`.
    A file named by path is written to the studio's `midi` folder (`midi_status` run.file).
 4. The weights are MuScriptor by Kyutai & Mirelo, CC BY-NC 4.0: say so when the user wants
    the MIDI for commercial work.
+
+## Restore a track after compression
+
+1. `restore_status`; when `ready` is false, `restore_install` (Apollo, 66 MB, and audio.cpp's
+   server of the stems' device when it is missing) and `studio_wait`, or `restore_status` until
+   the download is done.
+2. `restore_start` with `song_id`, or `path` of any audio file. It removes the artefacts of MP3
+   compression and gives 44.1 kHz in the source's channels.
+3. `studio_wait until: restore`; `restore_status` run.library_song names the new track,
+   `<title> · restored`, which plays, downloads and goes to the tools like any track. Restoring
+   the same track again replaces it; `restore_cancel` stops the run.
+4. Apollo's weights are CC BY-SA 4.0.

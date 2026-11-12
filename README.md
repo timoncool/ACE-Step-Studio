@@ -139,6 +139,9 @@ Code, save [docs/mcp-skill.md](docs/mcp-skill.md) as `~/.claude/skills/ace-step-
 - **Word-level karaoke** — enhanced LRC with a timestamp on every word, aligned by Parakeet
   or CrisperWhisper 2.0 turbo (in audio.cpp). Your lyrics are kept; only the timing is borrowed.
 - **Six stems on the GPU** — drums, bass, other, vocals, guitar and piano with HT-Demucs.
+- **Restore a track after compression** — Apollo removes the artefacts of MP3 compression
+  from a song or any audio file and gives 44.1 kHz in the source's channels, as a new track
+  beside it, in the audio.cpp server.
 - **Any track to MIDI** — a song, a stem or a processed take becomes multi-instrument MIDI
   with MuScriptor on the GPU, through HOT-Step's native port. A piano roll fills in while it
   listens; play it against the original, mute or solo an instrument, save the .mid.
@@ -271,7 +274,9 @@ the fixes back as a pull request.** The studio keeps its data in `~/.local/share
 | Training a LoRA · music-train | CUDA | not available | not available |
 | Style by ear · MOSS-Music | CUDA | processor | processor |
 | Tempo and key · Beat This!, S-KEY | processor | processor | processor |
-| Stems · HT-Demucs | CUDA | processor | processor |
+| Stems · HT-Demucs | CUDA | Vulkan | processor |
+| Stems · Mel-Band RoFormer | CUDA | Vulkan | processor |
+| Restore after compression · Apollo | CUDA | Vulkan | processor |
 | Karaoke timing · Parakeet | CUDA | Vulkan | processor |
 | Karaoke timing · CrisperWhisper | CUDA | Vulkan | processor |
 | Writing assistant · llama.cpp | CUDA | Vulkan | processor |
@@ -284,9 +289,10 @@ The main, tested path is an NVIDIA card.
 - Training needs an NVIDIA card with 12 GB of video memory or more. The trainer has no other
   path, and on the processor one run would take days, so on any other machine the studio
   does not offer the training files.
-- On AMD and Intel cards stems are separated on the processor.
+- On AMD and Intel cards HT-Demucs separates the stems through Vulkan in the audio.cpp server and
+  Mel-Band RoFormer through its Vulkan build; MuScriptor (audio to MIDI) runs on the processor there.
 - Karaoke's Parakeet runs on transcribe.cpp, the engine Dub Studio and Speech Studio use: its
-  CUDA build on an NVIDIA card with a CUDA 13 driver (on Linux when the system has CUDA 13's
+  CUDA 13 or CUDA 12 build by the card and driver (on Linux when the system has that CUDA's
   cuBLAS), its Vulkan build on any other card, its processor build without one; on a Mac, Metal
   on Apple silicon and the processor on Intel. The tempo and key models run on the processor, in 4.5 to 6
   seconds a song.

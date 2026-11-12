@@ -279,7 +279,7 @@ fn shape(name: &str, args: &Value, value: Value) -> Value {
 
 async fn status_summary() -> Value {
     let (jobs, activity, training, processing, separation) = tokio::join!(fetch("/v1/music/jobs"), fetch("/v1/activity"), fetch("/v1/training"), fetch("/v1/processing"), fetch("/v1/separation/status"));
-    let midi = fetch("/v1/midi").await;
+    let (midi, restore) = tokio::join!(fetch("/v1/midi"), fetch("/v1/restore"));
     let running_activity: Vec<Value> = activity["activity"].as_array().into_iter().flatten().filter(|entry| entry["state"] == "running").cloned().collect();
     let active_run = training["runs"].as_array().into_iter().flatten().find(|run| Some(run["id"].as_str().unwrap_or_default()) == training["active"].as_str()).map(compact_run);
     json!({
@@ -289,6 +289,7 @@ async fn status_summary() -> Value {
         "covers_and_karaoke": running_activity,
         "stems": separation["run"],
         "midi": midi["run"],
+        "restore": restore["run"],
         "preparation": compact_preparation(&training["prepare"]),
         "training": active_run,
         "processing": processing["run"],
@@ -303,6 +304,7 @@ fn busy(summary: &Value) -> Vec<&'static str> {
         ("covers_and_karaoke", summary["covers_and_karaoke"].as_array().is_some_and(|entries| !entries.is_empty())),
         ("stems", unfinished(&summary["stems"])),
         ("processing", unfinished(&summary["processing"])),
+        ("restore", unfinished(&summary["restore"])),
         ("midi", unfinished(&summary["midi"]) || summary["midi"]["batch"]["queued"].as_array().is_some_and(|queued| !queued.is_empty())),
         ("preparation", summary["preparation"].is_object() && summary["preparation"]["finished"] != true),
         ("training", !summary["training"].is_null()),
@@ -360,7 +362,7 @@ fn annotations(name: &str) -> Value {
     // reads whose names the rules above miss: create_form names the create page
     const READ_NAMES: &[&str] = &["assistant_cli_agents", "system_gpus", "cover_scenes", "cover_photos_search", "video_backgrounds_search", "network_proxy_test", "journal_read", "lyrics_find", "cover_prompt_render", "studio_wait", "engine_presets_get", "assistant_requests_wait", "ui_console", "song_defaults", "create_form_get", "library_liked", "models_update_plan", "problem_preview"];
     // writes over what was stored, so the earlier content is gone: a client asks first
-    const OVERWRITES: &[&str] = &["library_song_update", "playlist_update", "dataset_update", "dataset_song_update", "dataset_song_describe", "dataset_prepare", "lora_update", "stems_split", "karaoke_make", "midi_transcribe", "cover_draw", "cover_set_from_file", "openrouter_set_key", "models_update_apply"];
+    const OVERWRITES: &[&str] = &["library_song_update", "playlist_update", "dataset_update", "dataset_song_update", "dataset_song_describe", "dataset_prepare", "lora_update", "stems_split", "restore_start", "karaoke_make", "midi_transcribe", "cover_draw", "cover_set_from_file", "openrouter_set_key", "models_update_apply"];
     let changes = CHANGES.iter().any(|verb| name.split('_').any(|word| word == *verb));
     let read_only = READ_NAMES.contains(&name) || !changes && (READS.iter().any(|part| name.ends_with(part) || name.contains(&format!("{part}_"))) || name.starts_with("writing_"));
     let destructive = name.ends_with("_delete") || name.ends_with("_remove") || name == "processing_discard" || name.ends_with("_cancel") || name.contains("_cancel_") || OVERWRITES.contains(&name);
@@ -404,6 +406,8 @@ const JOURNAL: &[(&str, &str, &str)] = &[
     ("midi_transcribe", "started", "midi"),
     ("midi_cancel", "cancelled", "midi"),
     ("midi_delete", "deleted", "midi"),
+    ("restore_start", "started", "restore"),
+    ("restore_cancel", "cancelled", "restore"),
     ("processing_start", "started", "processing"),
     ("processing_keep", "kept", "processing"),
     ("processing_discard", "discarded", "processing"),
@@ -444,6 +448,7 @@ const JOURNAL: &[(&str, &str, &str)] = &[
     ("separator_runtime_install", "started", "download"),
     ("recogniser_install", "started", "download"),
     ("midi_install", "started", "download"),
+    ("restore_install", "started", "download"),
     ("models_cancel_download", "cancelled", "download"),
     ("training_pack_cancel", "cancelled", "download"),
     ("assistant_cancel_download", "cancelled", "download"),
@@ -456,6 +461,7 @@ const JOURNAL: &[(&str, &str, &str)] = &[
     ("separator_remove", "deleted", "model"),
     ("recogniser_remove", "deleted", "model"),
     ("midi_remove", "deleted", "model"),
+    ("restore_remove", "deleted", "model"),
     ("models_select", "updated", "settings"),
     ("settings_set", "updated", "settings"),
     ("engine_options_set", "updated", "settings"),
@@ -511,7 +517,7 @@ fn name_source(kind: &str, args: &Value) -> Option<NameSource> {
     let listed = |path: &str, list, id: &str| NameSource { path: path.into(), list: Some((list, id.to_string())), field: "name" };
     match kind {
         "playlist" => id("playlist_id").map(|id| itself(format!("/v1/library/playlists/{}", segment(id)), "name")),
-        "song" | "generation" | "version" | "stems" | "karaoke" | "midi" | "processing" | "cover" => {
+        "song" | "generation" | "version" | "stems" | "karaoke" | "midi" | "restore" | "processing" | "cover" => {
             id("song_id").map(|id| itself(format!("/v1/library/songs/{}", segment(id)), "title"))
         }
         "lora" => id("lora_id").map(|id| listed("/v1/adapters", "installed", id)),
@@ -945,8 +951,8 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "studio_wait",
-                description: "Wait for work to finish instead of polling: a song job (job_id), or until one kind of work is over - song_jobs, covers_and_karaoke, stems, midi, processing, preparation, training - or everything (until: idle, the default). Returns when it is done or after seconds (30 by default, at most 55, under the minute clients allow a call) with how far it got; call it again to keep waiting.",
-                schema: || object(json!({ "job_id": { "type": "string" }, "until": { "type": "string", "enum": ["idle", "song_jobs", "covers_and_karaoke", "stems", "midi", "processing", "preparation", "training"] }, "seconds": { "type": "integer" } }), &[]),
+                description: "Wait for work to finish instead of polling: a song job (job_id), or until one kind of work is over - song_jobs, covers_and_karaoke, stems, midi, restore, processing, preparation, training - or everything (until: idle, the default). Returns when it is done or after seconds (30 by default, at most 55, under the minute clients allow a call) with how far it got; call it again to keep waiting.",
+                schema: || object(json!({ "job_id": { "type": "string" }, "until": { "type": "string", "enum": ["idle", "song_jobs", "covers_and_karaoke", "stems", "midi", "restore", "processing", "preparation", "training"] }, "seconds": { "type": "integer" } }), &[]),
                 call: |_| composite("wait"),
             },
             Tool {
@@ -1694,6 +1700,37 @@ fn tools() -> &'static [Tool] {
                 schema: || id_only("song_id", "library song id"),
                 call: |args| get(format!("/v1/library/songs/{}/stems", segment(&text(args, "song_id")?))),
             },
+            // ---------------------------------------------------------------- restore after compression
+            Tool {
+                name: "restore_status",
+                description: "Restore after compression (Apollo, weights CC BY-SA 4.0): whether Apollo and audio.cpp's server (on the stems' device) are installed, what is still to download, the download at work, and the restoration at work or the last one (run: song_id, title, stage, error, library_song).",
+                schema: nothing,
+                call: |_| get("/v1/restore".into()),
+            },
+            Tool {
+                name: "restore_start",
+                description: "Remove the artefacts of MP3 compression from a library track (song_id) or an audio file on this computer (path): the result is 44.1 kHz in the channels of the source and becomes a new library track beside it, titled '<title> · restored' (made_from, made_by restore). Restoring a track again replaces the track its last restoration made; a restored track is not restored again. Apollo must be installed first (restore_install). Wait with studio_wait until restore; restore_status run.library_song names the new track.",
+                schema: || object(json!({ "song_id": { "type": "string" }, "path": { "type": "string", "description": "an audio file on this computer, instead of song_id" } }), &[]),
+                call: |args| post("/v1/restore/start".into(), args.clone()),
+            },
+            Tool {
+                name: "restore_install",
+                description: "Download Apollo (66 MB) and audio.cpp's server of the stems' device, whichever is missing. restore_status shows the progress.",
+                schema: nothing,
+                call: |_| post("/v1/restore/install".into(), json!({})),
+            },
+            Tool {
+                name: "restore_remove",
+                description: "Delete Apollo's weights; the restored tracks stay in the library.",
+                schema: nothing,
+                call: |_| post("/v1/restore/remove".into(), json!({})),
+            },
+            Tool {
+                name: "restore_cancel",
+                description: "Stop the restoration at work, or the download for it.",
+                schema: nothing,
+                call: |_| post("/v1/restore/cancel".into(), json!({})),
+            },
             // ---------------------------------------------------------------- audio to MIDI
             Tool {
                 name: "midi_status",
@@ -2406,13 +2443,14 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "runtime_status",
-                description: "Whether a downloadable part is installed and what it would download: midi (the Audio to MIDI transcriber), training_pack (the trainer and its models) or training_listen (the recognisers that hear a dataset).",
-                schema: || object(json!({ "part": { "type": "string", "enum": ["midi", "training_pack", "training_listen"] } }), &["part"]),
+                description: "Whether a downloadable part is installed and what it would download: midi (the Audio to MIDI transcriber), restore (Apollo, Restore after compression), training_pack (the trainer and its models) or training_listen (the recognisers that hear a dataset).",
+                schema: || object(json!({ "part": { "type": "string", "enum": ["midi", "restore", "training_pack", "training_listen"] } }), &["part"]),
                 call: |args| get(match text(args, "part")?.as_str() {
                     "midi" => "/v1/midi/runtime".into(),
+                    "restore" => "/v1/restore/runtime".into(),
                     "training_pack" => "/v1/training/pack/runtime".into(),
                     "training_listen" => "/v1/training/listen/runtime".into(),
-                    other => return Err(format!("no part '{other}': midi, training_pack or training_listen")),
+                    other => return Err(format!("no part '{other}': midi, restore, training_pack or training_listen")),
                 }),
             },
             Tool {
@@ -3246,8 +3284,8 @@ mod tests {
 
     /// What the composite tools read.
     const COMPOSITE_ROUTES: &[(&str, &[(&str, &str)])] = &[
-        ("composite:status", &[("GET", "/v1/music/jobs"), ("GET", "/v1/activity"), ("GET", "/v1/training"), ("GET", "/v1/processing"), ("GET", "/v1/separation/status"), ("GET", "/v1/midi")]),
-        ("composite:wait", &[("GET", "/v1/music/jobs/x1"), ("GET", "/v1/music/jobs"), ("GET", "/v1/activity"), ("GET", "/v1/training"), ("GET", "/v1/processing"), ("GET", "/v1/separation/status"), ("GET", "/v1/midi")]),
+        ("composite:status", &[("GET", "/v1/music/jobs"), ("GET", "/v1/activity"), ("GET", "/v1/training"), ("GET", "/v1/processing"), ("GET", "/v1/separation/status"), ("GET", "/v1/midi"), ("GET", "/v1/restore")]),
+        ("composite:wait", &[("GET", "/v1/music/jobs/x1"), ("GET", "/v1/music/jobs"), ("GET", "/v1/activity"), ("GET", "/v1/training"), ("GET", "/v1/processing"), ("GET", "/v1/separation/status"), ("GET", "/v1/midi"), ("GET", "/v1/restore")]),
         ("composite:questions", &[]),
         ("composite:answer", &[]),
         ("composite:equalizer_export", &[]),

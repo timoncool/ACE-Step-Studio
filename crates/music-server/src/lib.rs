@@ -41,6 +41,7 @@ mod request_log;
 mod resources;
 mod chunked;
 mod separation;
+mod restore;
 mod midi;
 mod midi_edit;
 mod smf;
@@ -156,6 +157,9 @@ struct AppState {
     midi_run: Arc<RwLock<Option<midi::Run>>>,
     midi_notes: Arc<RwLock<Vec<midi::Note>>>,
     midi_stop: Arc<(std::sync::atomic::AtomicBool, tokio::sync::Notify)>,
+    /// Restoring a compressed track with Apollo: the run at work or the last one, and its stop signal.
+    restore_run: Arc<RwLock<Option<RestoreRun>>>,
+    restore_stop: Arc<std::sync::atomic::AtomicBool>,
     /// The processing run in progress or the last one, with its preview.
     processing_run: Arc<RwLock<Option<processing::ProcessRun>>>,
     /// Installed adapters, the catalogue and their downloads.
@@ -1064,6 +1068,8 @@ pub async fn serve() -> anyhow::Result<()> {
         midi_run: Arc::new(RwLock::new(None)),
         midi_notes: Arc::new(RwLock::new(Vec::new())),
         midi_stop: Arc::new((std::sync::atomic::AtomicBool::new(false), tokio::sync::Notify::new())),
+        restore_run: Arc::new(RwLock::new(None)),
+        restore_stop: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         processing_run: Arc::new(RwLock::new(None)),
         prepare: Arc::new(std::sync::Mutex::new(None)),
         prepare_cancel: Arc::new(std::sync::atomic::AtomicBool::new(false)),
@@ -1115,6 +1121,8 @@ pub async fn serve() -> anyhow::Result<()> {
     state.lyrics_sync.register_crisper();
     let htdemucs = state.separator.model_path();
     state.lyrics_sync.acpp().register(acpp_server::ModelEntry::htdemucs(acpp::HTDEMUCS, &htdemucs), vec![htdemucs.clone()]);
+    let apollo = state.separator.restore_model_path();
+    state.lyrics_sync.acpp().register(restore::entry(&apollo), vec![apollo.clone()]);
     for size in &midi::SIZES {
         state.lyrics_sync.acpp().register(acpp_server::ModelEntry::muscriptor(&acpp::muscriptor_id(size.id), &state.midi.model_dir(size)), state.midi.model_files(size));
     }
@@ -1208,6 +1216,12 @@ pub async fn serve() -> anyhow::Result<()> {
         .route("/v1/separation/settings", get(read_separation_settings).put(write_separation_settings))
         .route("/v1/separation/install", post(install_separation_model))
         .route("/v1/separation/remove", post(remove_separation_model))
+        .route("/v1/restore", get(restore_status))
+        .route("/v1/restore/runtime", get(restore_runtime))
+        .route("/v1/restore/install", post(install_restore))
+        .route("/v1/restore/remove", post(remove_restore_model))
+        .route("/v1/restore/cancel", post(cancel_restore))
+        .route("/v1/restore/start", post(start_restore))
         .route("/v1/library/songs/{id}/process", post(start_processing))
         .route("/v1/library/songs/{id}/version", axum::routing::put(select_song_version))
         .route("/v1/library/songs/{id}/versions/{version}", axum::routing::delete(remove_song_version))
@@ -1879,6 +1893,12 @@ fn acpp_missing_bytes(state: &AppState, build: acpp_server::asset::Build) -> u64
     let server: u64 = state.lyrics_sync.acpp().missing(build).iter().map(|asset| asset.bytes).sum();
     let shared: u64 = shared_cuda(build).map(|cuda| state.engine_runtime.missing(cuda).iter().map(|asset| asset.bytes).sum()).unwrap_or(0);
     server + shared
+}
+
+
+/// The downloads of audio.cpp's server of `build`, the program first.
+fn acpp_assets(build: acpp_server::asset::Build) -> Vec<&'static downloads::Asset> {
+    acpp::server_ids(build).iter().filter_map(|id| acpp::asset(id)).collect()
 }
 
 /// The engine's CUDA build whose libraries audio.cpp's server of `build` loads: cuBLAS 13 on Windows for the CUDA 13
@@ -3541,6 +3561,311 @@ async fn start_separation(
     });
 
     Ok(Json(serde_json::json!({ "started": true, "song_id": id })))
+}
+
+
+/// One restoration with Apollo, at work or the last one, as the interface sees it.
+#[derive(Debug, Clone, Serialize)]
+struct RestoreRun {
+    /// The library track restored; none for a recording from this computer.
+    song_id: Option<String>,
+    title: String,
+    /// restoring, done, stopped
+    stage: &'static str,
+    /// When the run began, in milliseconds since the Unix epoch.
+    started_ms: u64,
+    done: bool,
+    error: Option<String>,
+    /// Whether the graphics card did the work, once the run is over.
+    used_gpu: Option<bool>,
+    /// The library track the restored audio became.
+    library_song: Option<String>,
+}
+
+/// What is restored: a library track, or a recording on this computer (`sent` when it came with the request and is
+/// the studio's to remove).
+enum RestoreSource {
+    Song(library::Song, PathBuf),
+    File { title: String, path: PathBuf, sent: bool },
+}
+
+impl RestoreSource {
+    fn audio(&self) -> &std::path::Path {
+        match self {
+            RestoreSource::Song(_, path) | RestoreSource::File { path, .. } => path,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct RestoreRequest {
+    /// A library track: the restored one goes into the library beside it.
+    #[serde(default)]
+    song_id: Option<String>,
+    /// Or an audio file on this computer.
+    #[serde(default)]
+    path: Option<String>,
+    /// Or a recording sent with the request, as the window sends a chosen file.
+    #[serde(default)]
+    audio_base64: Option<String>,
+    #[serde(default)]
+    audio_format: Option<String>,
+    #[serde(default)]
+    audio_name: Option<String>,
+}
+
+/// The download Apollo's restoration waits for: the model comes first and its finished record stays; the server
+/// downloading after it is the one to show.
+async fn restore_download(state: &AppState) -> Option<downloads::DownloadProgress> {
+    match (state.separator.downloader().active_for("restore").await, state.lyrics_sync.downloader().active_for("restore").await) {
+        (Some(model), Some(server)) if model.done && !server.done => Some(server),
+        (model, server) => model.or(server),
+    }
+}
+
+/// Restoring after compression: the model, the server it runs in (the stems' device), what is still to download, the
+/// download and the run.
+async fn restore_status(State(state): State<AppState>) -> Json<Value> {
+    let runtime = state.separation_config.read().await.runtime;
+    let build = separation_build(runtime);
+    let model_installed = state.separator.restore_installed();
+    let server_installed = build.as_ref().is_ok_and(|build| state.lyrics_sync.acpp().installed(*build));
+    let missing_bytes = (if model_installed { 0 } else { restore::MODEL.bytes }) + build.as_ref().map(|build| acpp_missing_bytes(&state, *build)).unwrap_or(0);
+    Json(serde_json::json!({
+        "model": {
+            "id": restore::MODEL.id,
+            "label": restore::MODEL.label,
+            "bytes": restore::MODEL.bytes,
+            "note": restore::MODEL.note,
+            "installed": model_installed,
+        },
+        "runtime_installed": server_installed,
+        "ready": model_installed && server_installed,
+        "missing_bytes": missing_bytes,
+        "error": build.err().map(|error| error.to_string()),
+        "download": restore_download(&state).await,
+        "run": state.restore_run.read().await.clone(),
+    }))
+}
+
+/// Restoring after compression on the models page: audio.cpp's server of the stems' device and Apollo's weights.
+async fn restore_runtime(State(state): State<AppState>) -> Json<Value> {
+    let runtime = state.separation_config.read().await.runtime;
+    let build = separation_build(runtime);
+    let server: Vec<&'static downloads::Asset> = build.as_ref().map(|build| acpp_assets(*build)).unwrap_or_default();
+    let mut assets: Vec<Value> = server
+        .iter()
+        .map(|asset| serde_json::json!({ "id": asset.id, "label": asset.label, "bytes": asset.bytes, "note": asset.note, "installed": state.lyrics_sync.downloader().is_installed(asset), "kind": "runtime" }))
+        .collect();
+    let model_installed = state.separator.restore_installed();
+    assets.push(serde_json::json!({ "id": restore::MODEL.id, "label": restore::MODEL.label, "bytes": restore::MODEL.bytes, "note": restore::MODEL.note, "installed": model_installed, "kind": "model" }));
+    let server_progress = set_progress(state.lyrics_sync.downloader(), &server);
+    let server_installed = build.as_ref().is_ok_and(|build| state.lyrics_sync.acpp().installed(*build));
+    Json(serde_json::json!({
+        "assets": assets,
+        "set": {
+            "bytes": server_progress["bytes"],
+            "installed_bytes": server_progress["installed_bytes"],
+            "ready": server_installed && model_installed,
+            "files": server.len(),
+        },
+        "error": build.err().map(|error| error.to_string()),
+        "active_download": restore_download(&state).await,
+        "chosen_model": restore::MODEL.id,
+    }))
+}
+
+/// Downloads Apollo and audio.cpp's server of the stems' device, whichever is missing.
+async fn install_restore(State(state): State<AppState>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    let runtime = state.separation_config.read().await.runtime;
+    let build = separation_build(runtime).map_err(|error| api_error(StatusCode::BAD_REQUEST, format!("{error:#}")))?;
+    let model: Vec<&'static downloads::Asset> = if state.separator.restore_installed() { Vec::new() } else { vec![&restore::MODEL] };
+    if model.is_empty() && state.lyrics_sync.acpp().installed(build) {
+        return Ok(Json(serde_json::json!({ "installed": true })));
+    }
+    let background = state.clone();
+    tokio::spawn(async move {
+        if let Err(error) = background.separator.downloader().install_all("restore", &model).await {
+            studio_log!("[ERROR] Apollo could not be downloaded: {error:#}");
+            return;
+        }
+        if let Err(error) = install_acpp(&background, build, "restore").await {
+            studio_log!("[ERROR] audio.cpp's server could not be installed for Apollo: {error:#}");
+            background.lyrics_sync.downloader().fail("restore", format!("{error:#}")).await;
+        }
+    });
+    Ok(Json(serde_json::json!({ "started": true })))
+}
+
+/// Deletes Apollo's weights; the restored tracks stay in the library.
+async fn remove_restore_model(State(state): State<AppState>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    if state.restore_run.read().await.as_ref().is_some_and(|run| !run.done) {
+        return Err(api_error(StatusCode::CONFLICT, "a track is being restored".into()));
+    }
+    let freed = state.separator.downloader().remove(&restore::MODEL).map_err(|error| api_error(StatusCode::CONFLICT, error.to_string()))?;
+    Ok(Json(serde_json::json!({ "freed_bytes": freed })))
+}
+
+/// Stops the restoration at work, or the download for it.
+async fn cancel_restore(State(state): State<AppState>) -> Json<Value> {
+    state.restore_stop.store(true, std::sync::atomic::Ordering::Relaxed);
+    state.separator.downloader().cancel_for("restore").await;
+    state.lyrics_sync.downloader().cancel_for("restore").await;
+    Json(serde_json::json!({ "cancelled": true }))
+}
+
+/// Restores a library track or a recording with Apollo, in the background: the result becomes a new library track
+/// beside it. Restoring a track again replaces the track its last restoration made.
+async fn start_restore(State(state): State<AppState>, Json(request): Json<RestoreRequest>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    card_free_of_training(&state, "restore tracks").await?;
+    if state.restore_run.read().await.as_ref().is_some_and(|run| !run.done) {
+        return Err(api_error(StatusCode::CONFLICT, "a track is already being restored".into()));
+    }
+    let runtime = state.separation_config.read().await.runtime;
+    let build = separation_build(runtime).map_err(|error| api_error(StatusCode::BAD_REQUEST, format!("{error:#}")))?;
+    if let Some(why) = restore::not_ready(state.separator.restore_installed(), state.lyrics_sync.acpp().installed(build)) {
+        return Err(api_error(StatusCode::BAD_REQUEST, why.into()));
+    }
+    let named = |value: Option<String>| value.map(|value| value.trim().to_string()).filter(|value| !value.is_empty());
+    let source = match (named(request.song_id), named(request.path), request.audio_base64) {
+        (Some(id), _, _) => {
+            let song = song_for_work(&state, &id)?.ok_or_else(|| api_error(StatusCode::NOT_FOUND, format!("Song {id} not found")))?;
+            if derived_from(&song).is_some_and(|(_, tool)| tool == "restore") {
+                return Err(api_error(StatusCode::CONFLICT, "this track is restored already; restore the track it came from".into()));
+            }
+            let audio = state.library.media_path_for_song(&song).ok_or_else(|| api_error(StatusCode::BAD_REQUEST, format!("{} has no stored audio", song.title)))?;
+            RestoreSource::Song(song, audio)
+        }
+        (None, Some(path), _) => {
+            let path = PathBuf::from(path);
+            if !path.is_file() {
+                return Err(api_error(StatusCode::BAD_REQUEST, format!("no audio file at {}", path.display())));
+            }
+            let title = path.file_stem().map(|stem| stem.to_string_lossy().into_owned()).unwrap_or_default();
+            RestoreSource::File { title, path, sent: false }
+        }
+        (None, None, Some(encoded)) => {
+            use base64::Engine as _;
+            let bytes = base64::engine::general_purpose::STANDARD
+                .decode(encoded)
+                .map_err(|error| api_error(StatusCode::BAD_REQUEST, format!("the recording is not base64: {error}")))?;
+            let extension: String = request.audio_format.as_deref().unwrap_or("wav").chars().filter(char::is_ascii_alphanumeric).take(8).collect();
+            let path = std::env::temp_dir().join(format!("studio-restore-{}.{}", uuid::Uuid::now_v7().simple(), if extension.is_empty() { "wav" } else { &extension }));
+            std::fs::write(&path, bytes).map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("could not keep the recording: {error}")))?;
+            let name = named(request.audio_name).unwrap_or_else(|| "recording".into());
+            let title = std::path::Path::new(&name).file_stem().map(|stem| stem.to_string_lossy().into_owned()).unwrap_or(name);
+            RestoreSource::File { title, path, sent: true }
+        }
+        _ => return Err(api_error(StatusCode::BAD_REQUEST, "song_id, path or audio_base64 is required".into())),
+    };
+    let (song_id, title) = match &source {
+        RestoreSource::Song(song, _) => (Some(song.id.clone()), song.title.clone()),
+        RestoreSource::File { title, .. } => (None, title.clone()),
+    };
+    state.restore_stop.store(false, std::sync::atomic::Ordering::Relaxed);
+    *state.restore_run.write().await = Some(RestoreRun { song_id: song_id.clone(), title, stage: "restoring", started_ms: unix_millis(), done: false, error: None, used_gpu: None, library_song: None });
+
+    let background = state.clone();
+    let model = state.separator.restore_model_path();
+    let acpp = state.lyrics_sync.acpp();
+    tokio::task::spawn_blocking(move || {
+        let stop = || background.restore_stop.load(std::sync::atomic::Ordering::Relaxed);
+        let outcome = restore_track(&background, &acpp, build, &model, &source, &stop);
+        if let RestoreSource::File { path, sent: true, .. } = &source {
+            if let Err(error) = std::fs::remove_file(path) {
+                studio_log!("[ERROR] could not remove the recording {}: {error}", path.display());
+            }
+        }
+        let stopped = stop();
+        let handle = tokio::runtime::Handle::current();
+        handle.spawn(async move {
+            match &outcome {
+                Ok(_) => work_ended(&background, "restore", Ok(()), false),
+                Err(error) => work_ended(&background, "restore", Err(&format!("{error:#}")), stopped),
+            }
+            if let Some(run) = background.restore_run.write().await.as_mut() {
+                run.done = true;
+                match outcome {
+                    Ok((song, problem)) => {
+                        run.stage = "done";
+                        run.used_gpu = Some(acpp::on_card(build));
+                        run.library_song = Some(song);
+                        run.error = problem;
+                    }
+                    Err(_) if stopped => run.stage = "stopped",
+                    Err(error) => run.error = Some(format!("{error:#}")),
+                }
+            }
+        });
+    });
+
+    Ok(Json(serde_json::json!({ "started": true, "song_id": song_id })))
+}
+
+/// Restores `source` with Apollo on audio.cpp's server of `build`: the audio goes to it as a 44.1 kHz WAV in its own
+/// channels, and what comes back goes into the library. The new track's id, and what could not be cleaned up.
+fn restore_track(
+    state: &AppState,
+    acpp: &acpp::Acpp,
+    build: acpp_server::asset::Build,
+    model: &std::path::Path,
+    source: &RestoreSource,
+    stop: &(dyn Fn() -> bool + Sync),
+) -> anyhow::Result<(String, Option<String>)> {
+    let planes = audio_pcm::decode_44k(source.audio())?;
+    let channels = u16::try_from(planes.len()).context("too many channels")?;
+    let work = tempfile::tempdir()?;
+    let input = work.path().join("input.wav");
+    audio_pcm::write_wav_planes_f32(&input, restore::SAMPLE_RATE, &planes)?;
+    drop(planes);
+    let restored = restore::restore(&input, channels, |request| acpp::run(acpp, build, restore::entry(model), vec![model.to_path_buf()], request, stop))?;
+    let output = work.path().join("restored.wav");
+    audio_pcm::write_wav24_interleaved(&output, restore::SAMPLE_RATE, restored.channels, &restored.samples)?;
+    let audio = std::fs::read(&output).with_context(|| format!("read {}", output.display()))?;
+    restored_into_library(state, source, audio)
+}
+
+/// The restored audio as a library track: a track's restoration wears its title marked, its words and its cover, and
+/// replaces the one its last restoration made; a recording's is a new track named after the file.
+fn restored_into_library(state: &AppState, source: &RestoreSource, audio: Vec<u8>) -> anyhow::Result<(String, Option<String>)> {
+    let duration = library::audio_duration_seconds(&audio, "wav", None);
+    let settings = serde_json::json!({ "model": restore::MODEL.label });
+    let (title, caption, lyrics, derived) = match source {
+        RestoreSource::Song(original, _) => (restore::restored_title(&original.title), original.caption.clone(), original.lyrics.clone(), derivation(original, "restore", settings)),
+        RestoreSource::File { title, .. } => (restore::restored_title(title), String::new(), String::new(), serde_json::json!({ "from_file": title, "tool": "restore", "settings": settings })),
+    };
+    let song = state
+        .library
+        .import_audio_song(library::AudioImportInput {
+            title,
+            caption,
+            lyrics,
+            metadata: serde_json::json!({ "derived": derived, "duration_seconds": duration }),
+            generation_settings: Value::Null,
+            engine_id: "restore".into(),
+            profile_id: None,
+            source: "restore".into(),
+            audio_extension: "wav".into(),
+            audio,
+        })?
+        .song;
+    let RestoreSource::Song(original, _) = source else {
+        return Ok((song.id, None));
+    };
+    cover_like(state, original, &song.id)?;
+    let replaced: Vec<library::Song> = state.library.list_songs()?.into_iter().filter(|old| old.id != song.id && derived_from(old) == Some((original.id.as_str(), "restore"))).collect();
+    let mut kept = Vec::new();
+    for old in replaced {
+        let files = song_files(state, &old);
+        state.library.delete_song(&old.id)?;
+        for path in files {
+            if let Err(error) = std::fs::remove_file(&path) {
+                kept.push(format!("{}: {error}", path.display()));
+            }
+        }
+    }
+    let problem = (!kept.is_empty()).then(|| format!("the restored track is in the library, but files of the earlier one could not be removed: {}", kept.join("; ")));
+    Ok((song.id, problem))
 }
 
 
@@ -8684,7 +9009,7 @@ fn update_catalogue(part: update_screen::Part) -> Vec<&'static downloads::Asset>
     let mut assets: Vec<&'static downloads::Asset> = match part {
         Part::Engine => engine_runtime::ASSETS.iter().collect(),
         Part::Karaoke => lyrics_sync::assets().iter().collect(),
-        Part::Separation => std::iter::once(&separation::MODEL).chain(roformer_set(true)).chain(roformer_set(false)).collect(),
+        Part::Separation => std::iter::once(&separation::MODEL).chain(roformer_set(true)).chain(roformer_set(false)).chain(std::iter::once(&restore::MODEL)).collect(),
         Part::Midi => midi::SIZES.iter().flat_map(midi::weight_assets).collect(),
         Part::Training => training::pack().iter().collect(),
         Part::Listening => training::listen_pack().iter().collect(),
