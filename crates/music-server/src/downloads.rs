@@ -453,7 +453,7 @@ impl Downloader {
         self.cancel.store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
-/// Stops the running download only when the panel of `scope` started it: a downloader two panels share (karaoke's
+    /// Stops the running download only when the panel of `scope` started it: a downloader two panels share (karaoke's
     /// carries audio.cpp's server for the stems and Audio to MIDI too) keeps the other panel's download going.
     pub async fn cancel_for(&self, scope: &str) -> bool {
         let ours = self.active_for(scope).await.is_some_and(|progress| !progress.done);
