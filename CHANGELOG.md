@@ -33,6 +33,7 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- **Karaoke keeps a verse on its first performance when a line of it is not sung**: a line the recogniser matched only in part could pull the whole verse to the song's second time through it, tens of seconds late; skipping sung words now costs the alignment more than such a match brings.
 - **The karaoke of a video moves up to 30 seconds either way, in hundredths** ([YuE2 Studio #231](https://github.com/timoncool/YuE2-Studio/issues/231)): the lyrics offset in the video window reached only 3 seconds in tenths; it now takes from -30.00 to +30.00 seconds, on the slider and typed in its field.
 - **The engine's log keeps to its size**: past eight megabytes its older half goes, as before, now also when the engine has written text that is not UTF-8; such a log used to grow without end.
 - **An error stays on screen until you close it** ([YuE2 Studio #230](https://github.com/timoncool/YuE2-Studio/issues/230)): an error message vanished after three seconds, often before it could be read; it now stays until closed, a long one scrolls and its text can be selected and copied. Ctrl with the wheel scales the interface over every panel, and an assistant that writes too slowly to finish in three minutes says so instead of reporting that it cannot be reached.
