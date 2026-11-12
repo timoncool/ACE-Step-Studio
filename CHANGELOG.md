@@ -8,6 +8,7 @@ What changed, newest first. Dates are release dates.
 
 - **The interface can be scaled**, as in YuE2 Studio ([YuE2 Studio #165](https://github.com/timoncool/YuE2-Studio/issues/165)): Settings - Appearance - Interface scale draws the whole studio from 90 to 150 % and keeps it for the next start; Ctrl + plus and Ctrl + minus, or Ctrl with the mouse wheel, change it too, and Ctrl + 0 returns to 100 %.
 - **The agent's guide names every platform the studio ships for** ([#68](https://github.com/timoncool/ACE-Step-Studio/pull/68)): the first step of the MCP skill said the studio is a Windows program that needs an NVIDIA card; it now points an agent to the Windows, macOS (Apple silicon) and Linux (experimental) packages of the latest release, and says the engine also runs on the processor and, untested, on AMD and Intel cards through Vulkan. From [pull request #68](https://github.com/timoncool/ACE-Step-Studio/pull/68) by the-media-vampire.
+- **Why a song failed is said in the studio's language**, as in YuE2 Studio: a song refused before it is sent, lost with an engine that restarted or given up by the engine is told in English, Russian, Chinese, Japanese or Korean, as the window is set - among them a LoRA that does not fit the chosen DiT, a source track over 10 minutes, a VAE or DiT that wrote values that are not numbers (now named by its stage), and an engine that returned silence; the service keeps the English text for its log, the statistics and agents, with a code and fields beside it.
 
 ### Fixed
 
