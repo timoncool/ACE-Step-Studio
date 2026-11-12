@@ -75,6 +75,10 @@ impl LyricsSyncConfig {
 /// code, not a sentence, so it is put in the reader's language.
 pub const NO_WORDS: &str = "karaoke.no-words";
 
+/// A cloud recogniser answered with no timed segments: the model returns no timings, or heard nothing. Not
+/// `NO_WORDS`, which marks a song instrumental in dataset preparation.
+pub const NO_TIMINGS: &str = "karaoke.no-timings";
+
 /// CrisperWhisper's id in the server and the id of its weights among the downloads; the folder its files land in is
 /// the Hugging Face repository's, as the other programs keep it.
 pub const CRISPERWHISPER: &str = "crisperwhisper";

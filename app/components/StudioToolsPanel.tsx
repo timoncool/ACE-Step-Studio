@@ -8,6 +8,7 @@ import { ConfirmDialog } from './ConfirmDialog';
 import { MidiTool } from './midi/MidiTool';
 import { MidiEditor } from './midi/MidiEditor';
 import { useI18n } from '../context/I18nContext';
+import { poll } from '../services/poll';
 import { SELF_READ, useKaraokeStatus } from '../services/studioQueries';
 import { saveFile } from '../services/saveFile';
 import { tempoAndKey } from '../services/songDownload';
@@ -90,23 +91,35 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
   const [query, setQuery] = useState('');
   const filePicker = useRef<HTMLInputElement | null>(null);
 
+  // an empty list before the library has answered is not "no songs"
+  const [songsLoaded, setSongsLoaded] = useState(false);
+  const [songsError, setSongsError] = useState<string | null>(null);
   const loadSongs = useCallback(async () => {
-    const body = await fetch('/v1/library/songs').then(response => response.json());
-    const list: NativeLibrarySong[] = Array.isArray(body) ? body : body.songs ?? [];
-    const playable = list.filter(song => song.audio_path);
-    setSongs(playable);
-    // a stems or MIDI run still at work keeps its song in view when the tab opens again
-    // a run that cannot be read leaves the choice to the first song, and says why
-    const runOf = (path: string) =>
-      fetch(path, { headers: SELF_READ })
-        .then(response => response.json() as Promise<{ run?: ToolRun | null }>)
-        .then(body => body.run ?? null)
-        .catch((error: unknown) => {
-          console.error(`[ERROR] the run at ${path} was not read:`, error);
-          return null;
-        });
-    const runs = await Promise.all([runOf('/v1/separation/status'), runOf('/v1/midi')]);
-    setSongId(current => current || toolsSongOnOpen(playable.map(song => song.id), runs));
+    try {
+      const response = await fetch('/v1/library/songs');
+      if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
+      const body = await response.json();
+      const list: NativeLibrarySong[] = Array.isArray(body) ? body : body.songs ?? [];
+      const playable = list.filter(song => song.audio_path);
+      setSongs(playable);
+      setSongsError(null);
+      // a stems or MIDI run still at work keeps its song in view when the tab opens again
+      // a run that cannot be read leaves the choice to the first song, and says why
+      const runOf = (path: string) =>
+        fetch(path, { headers: SELF_READ })
+          .then(response => response.json() as Promise<{ run?: ToolRun | null }>)
+          .then(body => body.run ?? null)
+          .catch((error: unknown) => {
+            console.error(`[ERROR] the run at ${path} was not read:`, error);
+            return null;
+          });
+      const runs = await Promise.all([runOf('/v1/separation/status'), runOf('/v1/midi')]);
+      setSongId(current => current || toolsSongOnOpen(playable.map(song => song.id), runs));
+    } catch (failure) {
+      setSongsError(failure instanceof Error ? failure.message : String(failure));
+    } finally {
+      setSongsLoaded(true);
+    }
   }, []);
 
   // A track handed over by a menu wins over whatever was chosen here before.
@@ -115,7 +128,7 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
   }, [initialSongId]);
 
   useEffect(() => {
-    void loadSongs().catch(() => undefined);
+    void loadSongs();
     void fetch('/v1/openrouter/catalog')
       .then(response => response.json())
       .then((body: { models?: CatalogModel[] }) => {
@@ -137,9 +150,7 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
   }, [songId]);
 
   useEffect(() => {
-    void refresh().catch(() => undefined);
-    const timer = window.setInterval(() => void refresh().catch(() => undefined), 1000);
-    return () => window.clearInterval(timer);
+    return poll(() => refresh().catch(() => undefined), 1000);
   }, [refresh]);
 
   const saveSettings = async (next: SeparationStatus['settings']) => {
@@ -257,7 +268,9 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
               />
             </div>
             <div className="mt-2 max-h-56 overflow-y-auto rounded-lg border border-zinc-200 dark:border-white/10">
-              {visible.length === 0 && (
+              {!songsLoaded && <Loader2 size={14} className="mx-3 my-3 animate-spin text-zinc-400" />}
+              {songsError && <p className="px-3 py-3 text-xs text-rose-600 dark:text-rose-300">{t('toolsSongsFailed').replace('{error}', songsError)}</p>}
+              {songsLoaded && !songsError && visible.length === 0 && (
                 <p className="px-3 py-3 text-xs text-zinc-500">{t('noSongsYet')}</p>
               )}
               {visible.map(song => (

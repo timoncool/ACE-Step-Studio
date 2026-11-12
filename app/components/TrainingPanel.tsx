@@ -6,6 +6,7 @@ import { ConfirmDialog } from './ConfirmDialog';
 import { StemPlayer } from './StemPlayer';
 import { TrainingGuide } from './TrainingGuide';
 import { AUDIO_ACCEPT } from '../services/audioFiles';
+import { karaokeReason } from '../services/karaoke';
 import {
   Dataset,
   DatasetItem,
@@ -368,7 +369,7 @@ function songState(item: DatasetItem, job: PrepareStatus | null, datasetId: stri
   if (mine && !mine.finished && mine.pending.includes(item.id)) {
     return { kind: 'queued', text: t('trainingQueued') };
   }
-  if (failure) return { kind: 'failed', text: failure.error };
+  if (failure) return { kind: 'failed', text: karaokeReason(t, failure.error) ?? failure.error };
   const lacks = [
     item.lyrics_state === 'wanted' ? t('trainingLacksLyrics') : '',
     item.lyrics_state === 'found' ? t('trainingLacksSections') : '',
