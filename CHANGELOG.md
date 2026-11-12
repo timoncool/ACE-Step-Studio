@@ -34,6 +34,7 @@ What changed, newest first. Dates are release dates.
 
 ### Fixed
 
+- **Another kind of DiT starts from its own sampling**: after Reuse Prompt on a turbo song, switching to a base, SFT or merge DiT kept the song's 8 steps, shift 3 and Heun, so base and SFT ran far too few steps; changing the kind of DiT now puts steps, shift, solver and scheduler back to the new model's preset, as Reset to engine defaults does, while a Reuse on the same kind keeps the song's.
 - **Karaoke keeps a verse on its first performance when a line of it is not sung**: a line the recogniser matched only in part could pull the whole verse to the song's second time through it, tens of seconds late; skipping sung words now costs the alignment more than such a match brings.
 - **The karaoke of a video moves up to 30 seconds either way, in hundredths** ([YuE2 Studio #231](https://github.com/timoncool/YuE2-Studio/issues/231)): the lyrics offset in the video window reached only 3 seconds in tenths; it now takes from -30.00 to +30.00 seconds, on the slider and typed in its field.
 - **The engine's log keeps to its size**: past eight megabytes its older half goes, as before, now also when the engine has written text that is not UTF-8; such a log used to grow without end.

@@ -471,6 +471,16 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const dit = DIT_DEFAULTS[kind];
   const turbo = kind === 'turbo';
 
+  // steps, shift, solver and scheduler suit one kind of DiT: another kind starts from its own preset
+  const sampledKind = useRef<DitKind | null>(null);
+  useEffect(() => {
+    if (!synthModel) return;
+    if (sampledKind.current !== null && sampledKind.current !== kind) {
+      setSteps(''); setShift(''); setSolver(''); setScheduler('');
+    }
+    sampledKind.current = kind;
+  }, [kind, synthModel]);
+
   useEffect(() => {
     if (!assisting && !planning) return;
     setAssistSeconds(0);
