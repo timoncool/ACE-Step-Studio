@@ -546,13 +546,13 @@ impl LyricsSync {
 
     /// `work` on the server of `runtime`'s build carrying CrisperWhisper (`Acpp::with_server`). An error, before the
     /// server is looked up, when a part of CrisperWhisper is not downloaded.
-    fn with_crisper<T>(&self, runtime: OnnxFlavour, work: impl FnOnce(&acpp_server::Server) -> Result<T>) -> Result<T> {
+    fn with_crisper<T>(&self, runtime: OnnxFlavour, stop: Option<&(dyn Fn() -> bool + Sync)>, work: impl FnOnce(&acpp_server::Server) -> Result<T>) -> Result<T> {
         let build = crate::acpp::build_for(runtime)?;
         if !self.crisper_ready(runtime) {
             bail!("CrisperWhisper is not completely downloaded into {}: download it in Settings - Models", self.downloader.root().join(CRISPERWHISPER_DIR).display());
         }
         let (entry, files) = self.crisper_entry();
-        self.acpp.with_server(build, entry, files, None, work)
+        self.acpp.with_server(build, entry, files, stop, work)
     }
 
     /// CrisperWhisper as audio.cpp's server carries it, with the files it is complete with.
@@ -734,8 +734,10 @@ impl LyricsSync {
                 Recognised::OnDevice
             }
             AsrProvider::Whisper => {
-                // the server ends after the run, so the card is the music engine's between recognitions
-                let run = self.with_crisper(config.runtime, |server| {
+                // the server ends after the run, so the card is the music engine's between recognitions; a wait for a
+                // server busy with other work ends with the run's cancel
+                let stop = || cancel.load(Ordering::Relaxed);
+                let run = self.with_crisper(config.runtime, Some(&stop), |server| {
                     for (index, path) in audio.iter().enumerate() {
                         if cancel.load(Ordering::Relaxed) {
                             break;
@@ -759,7 +761,7 @@ impl LyricsSync {
     /// The words CrisperWhisper hears in one track, each with the second it starts, on `runtime`'s build of the
     /// audio.cpp server; the server leaves the card afterwards when nothing else runs on it.
     pub fn crisper_words(&self, runtime: OnnxFlavour, audio: &Path, language: Option<&str>) -> Result<Vec<(f64, String)>> {
-        self.with_crisper(runtime, |server| self.crisper_transcribe(server, audio, language))
+        self.with_crisper(runtime, None, |server| self.crisper_transcribe(server, audio, language))
     }
 
     /// One track through the running server: decoded to the 16 kHz mono WAV the server reads, told its language when
