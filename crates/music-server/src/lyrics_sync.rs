@@ -760,50 +760,105 @@ impl LyricsSync {
     }
 }
 
-/// Groups a word stream into karaoke lines: a new line at a noticeable pause,
-/// at sentence-ending punctuation, or once a line grows past comfortable
-/// reading length. Ported from the segmentation Dub Studio uses for subtitles.
+/// Groups a word stream into lines: a sentence's end closes its line; a pause
+/// between the starts of two words opens a new one, 1.2 s anywhere (a held
+/// note is not a pause) or 0.6 s after a comma, except before the word that
+/// ends the sentence within 3 s; a line past 48 characters is
+/// cut after its last comma, else before its last word. Words of a script
+/// written without spaces (Chinese, Japanese) join without them, and the
+/// length counts characters either way.
 pub fn group_words(words: &[(f64, String)]) -> Vec<(f64, String)> {
-    const PAUSE: f64 = 0.6;
-    const MAX_CHARS: usize = 42;
+    const PAUSE: f64 = 1.2;
+    const PAUSE_AFTER_COMMA: f64 = 0.6;
+    const HELD_NOTE: f64 = 3.0;
 
     let mut lines: Vec<(f64, String)> = Vec::new();
-    let mut start = 0.0;
-    let mut current = String::new();
-    let mut previous: Option<f64> = None;
-
+    let mut current: Vec<(f64, &str)> = Vec::new();
     for (at, word) in words {
-        let pause = previous.is_some_and(|last| at - last > PAUSE);
-        let too_long = current.chars().count() + word.chars().count() + 1 > MAX_CHARS;
-        if !current.is_empty() && (pause || too_long) {
-            lines.push((start, std::mem::take(&mut current)));
+        let word = word.as_str();
+        if let Some(&(last_at, last)) = current.last() {
+            let after_comma = ends_clause(last) || starts_with_any(word, CLAUSE_ENDS);
+            let wait = if after_comma { PAUSE_AFTER_COMMA } else { PAUSE };
+            // a word that ends the sentence stays with it however long the note before it was held;
+            // punctuation a recogniser hangs at the start of the next word ends the line before it
+            let paused = at - last_at > wait && !(ends_sentence(word) && at - last_at < HELD_NOTE);
+            if paused || starts_with_any(word, SENTENCE_ENDS) {
+                lines.push(joined_line(&std::mem::take(&mut current)));
+            }
         }
-        if current.is_empty() {
-            start = *at;
-        } else {
-            current.push(' ');
+        current.push((*at, word));
+        if ends_sentence(word) {
+            lines.push(joined_line(&std::mem::take(&mut current)));
+            continue;
         }
-        current.push_str(word);
-        if word.ends_with(['.', '!', '?', '…']) {
-            lines.push((start, std::mem::take(&mut current)));
+        while current.len() > 1 && joined_line(&current).1.chars().count() > LINE_CHARS {
+            let before_last = current.len() - 1;
+            let cut = current[..before_last].iter().rposition(|(_, word)| ends_clause(word)).map_or(before_last, |index| index + 1);
+            lines.push(joined_line(&current[..cut]));
+            current.drain(..cut);
         }
-        previous = Some(*at);
     }
     if !current.is_empty() {
-        lines.push((start, current));
+        lines.push(joined_line(&current));
     }
     merge_flashing_lines(lines)
 }
 
+/// The longest line, in characters, that reads at a glance.
+const LINE_CHARS: usize = 48;
+const SENTENCE_ENDS: &[char] = &['.', '!', '?', '…', '。', '！', '？'];
+const CLAUSE_ENDS: &[char] = &[',', ';', '，', '、', '；'];
+const CLOSING_QUOTES: &[char] = &['"', '\'', '»', '”', '’', ')', '」', '』', '）'];
+
+/// Whether a word ends a sentence, a closing quote or bracket after the mark aside.
+fn ends_sentence(word: &str) -> bool {
+    word.trim_end().trim_end_matches(CLOSING_QUOTES).ends_with(SENTENCE_ENDS)
+}
+
+/// Whether a word ends a clause with a comma or its like.
+fn ends_clause(word: &str) -> bool {
+    word.trim_end().trim_end_matches(CLOSING_QUOTES).ends_with(CLAUSE_ENDS)
+}
+
+fn starts_with_any(word: &str, marks: &[char]) -> bool {
+    word.trim_start().starts_with(marks)
+}
+
+/// A character of a script written without spaces between words.
+fn unspaced(c: char) -> bool {
+    matches!(c, '\u{3040}'..='\u{30FF}' | '\u{3400}'..='\u{4DBF}' | '\u{4E00}'..='\u{9FFF}' | '\u{F900}'..='\u{FAFF}' | '\u{3000}'..='\u{303F}' | '\u{FF00}'..='\u{FFEF}')
+}
+
+/// The words of a line as text, starting at its first word.
+fn joined_line(words: &[(f64, &str)]) -> (f64, String) {
+    let mut text = String::new();
+    for (_, word) in words {
+        let word = word.trim();
+        let glued = text.chars().last().is_some_and(unspaced) && word.chars().next().is_some_and(unspaced);
+        if !text.is_empty() && !glued {
+            text.push(' ');
+        }
+        text.push_str(word);
+    }
+    (words.first().map_or(0.0, |(at, _)| *at), text)
+}
+
 /// ACE Step Studio merged LRC lines that begin less than two seconds apart so
-/// they do not flash past unread. Karaoke here follows the same rule.
+/// they do not flash past unread. Karaoke here follows the same rule, except
+/// across the end of a sentence.
 fn merge_flashing_lines(lines: Vec<(f64, String)>) -> Vec<(f64, String)> {
     const MIN_DISPLAY_SECONDS: f64 = 2.0;
     let mut merged: Vec<(f64, String)> = Vec::with_capacity(lines.len());
     for (start, text) in lines {
         match merged.last_mut() {
-            Some((previous_start, previous_text)) if start - *previous_start < MIN_DISPLAY_SECONDS => {
-                previous_text.push(' ');
+            Some((previous_start, previous_text))
+                if start - *previous_start < MIN_DISPLAY_SECONDS
+                    && !ends_sentence(previous_text)
+                    && previous_text.chars().count() + 1 + text.chars().count() <= LINE_CHARS =>
+            {
+                if !(previous_text.chars().last().is_some_and(unspaced) && text.chars().next().is_some_and(unspaced)) {
+                    previous_text.push(' ');
+                }
                 previous_text.push_str(&text);
             }
             _ => merged.push((start, text)),
@@ -1291,6 +1346,60 @@ mod tests {
                 (12.0, "the engine dies".to_string()),
             ]
         );
+    }
+
+    fn timed(words: &[(f64, &str)]) -> Vec<(f64, String)> {
+        words.iter().map(|(at, word)| (*at, word.to_string())).collect()
+    }
+
+    #[test]
+    fn a_held_note_does_not_break_a_line() {
+        let words = timed(&[(10.0, "Feel"), (10.3, "the"), (10.6, "rhythm"), (11.0, "in"), (11.3, "my"), (12.2, "feet.")]);
+        assert_eq!(group_words(&words), vec![(10.0, "Feel the rhythm in my feet.".to_string())]);
+        // held past the pause: the word that ends the sentence still stays on its line
+        let held = timed(&[(10.0, "Feel"), (10.3, "the"), (10.6, "rhythm"), (11.0, "in"), (11.3, "my"), (13.0, "feet.")]);
+        assert_eq!(group_words(&held), vec![(10.0, "Feel the rhythm in my feet.".to_string())]);
+    }
+
+    #[test]
+    fn a_sentence_end_closes_its_line_even_inside_the_flash_window() {
+        let words = timed(&[(20.0, "dancing"), (20.4, "through"), (20.8, "these"), (21.1, "city"), (21.6, "lanes."), (22.2, "Shadows"), (22.6, "moving,"), (23.4, "flashing"), (23.8, "heat.")]);
+        assert_eq!(
+            group_words(&words),
+            vec![(20.0, "dancing through these city lanes.".to_string()), (22.2, "Shadows moving, flashing heat.".to_string())]
+        );
+    }
+
+    #[test]
+    fn a_pause_after_a_comma_is_shorter() {
+        let words = timed(&[(0.0, "Take"), (0.3, "my"), (0.6, "hand,"), (1.4, "we'll"), (1.7, "find"), (2.0, "our"), (2.3, "way"), (5.0, "now")]);
+        assert_eq!(group_words(&words), vec![(0.0, "Take my hand, we'll find our way".to_string()), (5.0, "now".to_string())]);
+        let lines = group_words(&timed(&[(0.0, "Take"), (0.3, "my"), (0.6, "hand,"), (3.0, "we'll"), (3.3, "find")]));
+        assert_eq!(lines, vec![(0.0, "Take my hand,".to_string()), (3.0, "we'll find".to_string())]);
+    }
+
+    #[test]
+    fn a_long_line_without_marks_is_cut_at_a_word() {
+        let text = "one two three four five six seven eight nine ten eleven twelve thirteen fourteen";
+        let words: Vec<(f64, String)> = text.split(' ').enumerate().map(|(index, word)| (index as f64 * 0.4, word.to_string())).collect();
+        let lines = group_words(&words);
+        assert!(lines.len() >= 2, "{lines:?}");
+        assert!(lines.iter().all(|(_, line)| line.chars().count() <= 48 + "fourteen".len()), "{lines:?}");
+        assert_eq!(lines.iter().map(|(_, line)| line.as_str()).collect::<Vec<_>>().join(" "), text);
+    }
+
+    #[test]
+    fn a_long_line_is_cut_after_its_last_comma() {
+        let words = timed(&[(0.0, "Hear"), (0.3, "the"), (0.6, "echoes"), (0.9, "of"), (1.1, "the"), (1.3, "streets,"), (1.6, "whispers"), (1.9, "of"), (2.1, "a"), (2.3, "thousand"), (2.6, "beats"), (2.9, "tonight"), (3.2, "again")]);
+        let lines = group_words(&words);
+        assert_eq!(lines[0].1, "Hear the echoes of the streets,", "{lines:?}");
+        assert_eq!(lines[1].1, "whispers of a thousand beats tonight again", "{lines:?}");
+    }
+
+    #[test]
+    fn chinese_words_join_without_spaces() {
+        let words = timed(&[(0.0, "我"), (0.3, "爱"), (0.6, "你。"), (5.0, "再见")]);
+        assert_eq!(group_words(&words), vec![(0.0, "我爱你。".to_string()), (5.0, "再见".to_string())]);
     }
 
     #[test]
