@@ -2,6 +2,12 @@
 
 What changed, newest first. Dates are release dates.
 
+## Unreleased
+
+### Changed
+
+- **The interface can be scaled**, as in YuE2 Studio ([YuE2 Studio #165](https://github.com/timoncool/YuE2-Studio/issues/165)): Settings - Appearance - Interface scale draws the whole studio from 90 to 150 % and keeps it for the next start; Ctrl + plus and Ctrl + minus, or Ctrl with the mouse wheel, change it too, and Ctrl + 0 returns to 100 %.
+
 ## 2026-11-06 — 3.8.5
 
 ### Fixed

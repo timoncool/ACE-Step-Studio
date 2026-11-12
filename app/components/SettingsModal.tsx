@@ -16,6 +16,7 @@ import { STUDIO, STUDIO_REPO_URL } from '../studio';
 import { issueReportUrl, type ReportFacts } from '../services/issueReport';
 import { useSetupStatus } from '../services/studioQueries';
 import { onSidebarExtras, setSidebarExtras, sidebarExtras, type SidebarExtras } from '../services/playerPanels';
+import { setUiScale, storedUiScale, UI_SCALE_EVENT, UI_SCALE_MAX, UI_SCALE_MIN, UI_SCALE_STEP } from '../services/uiScale';
 
 /**
  * Settings.
@@ -211,6 +212,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
                   </div>
                 </div>
 
+                <UiScaleSetting />
+
                 <SidebarExtrasSetting />
 
                 <NetworkAccessSetting />
@@ -283,6 +286,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
 };
 
 /** Which of the player's extras the sidebar keeps: the player bar has them all. */
+/** How large the whole interface is drawn; Ctrl with plus, minus and nought changes the same setting. */
+const UiScaleSetting: React.FC = () => {
+  const { t } = useI18n();
+  const [scale, setScale] = React.useState(storedUiScale);
+  const [error, setError] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    const onScale = (event: Event) => setScale((event as CustomEvent<number>).detail);
+    window.addEventListener(UI_SCALE_EVENT, onScale);
+    return () => window.removeEventListener(UI_SCALE_EVENT, onScale);
+  }, []);
+  const change = (next: number) => {
+    setError(null);
+    setScale(next);
+    setUiScale(next).catch((problem) => setError(problem instanceof Error ? problem.message : String(problem)));
+  };
+  return (
+    <div className="space-y-2">
+      <div className="flex items-baseline justify-between">
+        <span className="text-sm font-semibold text-zinc-900 dark:text-white">{t('uiScale')}</span>
+        <span className="text-sm tabular-nums text-zinc-700 dark:text-zinc-200">{scale} %</span>
+      </div>
+      <input
+        type="range"
+        min={UI_SCALE_MIN}
+        max={UI_SCALE_MAX}
+        step={UI_SCALE_STEP}
+        value={scale}
+        onChange={(event) => change(Number(event.target.value))}
+        aria-label={t('uiScale')}
+        className="w-full accent-pink-500"
+      />
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">{t('uiScaleHint')}</p>
+      {error && <p className="text-xs text-rose-600 dark:text-rose-300">{error}</p>}
+    </div>
+  );
+};
+
 const SidebarExtrasSetting: React.FC = () => {
   const { t } = useI18n();
   const [extras, setExtras] = React.useState(sidebarExtras);

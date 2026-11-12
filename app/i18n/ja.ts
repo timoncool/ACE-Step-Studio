@@ -1705,6 +1705,8 @@ export const ja = {
     scoreListen: '聴く',
     scoreStop: '停止',
     scoreListenHint: '楽譜の音符をシンプルな音色で再生します',
+    uiScale: 'インターフェースの拡大率',
+    uiScaleHint: 'スタジオ全体を大きく、または小さく表示し、次回の起動まで保持します。Ctrl + プラス、Ctrl + マイナス、または Ctrl を押しながらマウスホイールでも変えられます。Ctrl + 0 で 100 % に戻ります。',
     sidebarExtras: '左パネルのボタン',
     sidebarExtrasHint: 'プレーヤーバーには常に3つとも表示されます。ここでは左パネルにも残すものを選びます。',
     repeatMode_none: 'リピートなし：リストの最後まで再生',

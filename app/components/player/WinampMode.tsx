@@ -9,6 +9,7 @@ import { parseDuration } from '../../services/nativeLibrary';
 import { TRACK_ARTIST } from '../../services/studio';
 import { trackCoverUrl } from '../../services/playerPanels';
 import { isDesktop } from '../../services/externalLinks';
+import { applyUiScale, storedUiScale } from '../../services/uiScale';
 import { EQ_BANDS, equalizer, setEqualizer } from '../../services/audioGraph';
 import { addWinampSkin, pickSkin, registerWinampControl, setWinampSettings, winampSettings, winampSkins, type WinampSkin } from '../../services/winamp';
 import { sharpenSkin, sharpSkinCss, skinScale } from '../../services/winampSharp';
@@ -117,7 +118,7 @@ async function restoreWindow(win: ReturnType<typeof getCurrentWindow>, saved: Sa
     ['size', () => win.setSize(saved.size)],
     ['position', () => win.setPosition(saved.position)],
     ['maximised', () => (saved.maximized ? win.maximize() : Promise.resolve())],
-    ['page zoom', () => getCurrentWebview().setZoom(1)],
+    ['page zoom', () => applyUiScale(storedUiScale())],
   ];
   for (const [what, step] of steps) {
     try {

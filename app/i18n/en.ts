@@ -1710,6 +1710,8 @@ export const en = {
     scoreListen: 'Listen',
     scoreStop: 'Stop',
     scoreListenHint: 'Hear the notes of the score, played by simple voices',
+    uiScale: 'Interface scale',
+    uiScaleHint: 'Draws the whole studio larger or smaller and is kept for the next start. Ctrl + plus and Ctrl + minus, or Ctrl with the mouse wheel, change it too; Ctrl + 0 returns to 100 %.',
     sidebarExtras: 'Buttons in the left panel',
     sidebarExtrasHint: 'The player bar always has all three; here you choose which of them the left panel keeps too.',
     repeatMode_none: 'Repeat off: play on to the end of the list',

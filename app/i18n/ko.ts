@@ -1705,6 +1705,8 @@ export const ko = {
     scoreListen: '듣기',
     scoreStop: '정지',
     scoreListenHint: '악보의 음표를 간단한 음색으로 재생합니다',
+    uiScale: '인터페이스 배율',
+    uiScaleHint: '스튜디오 전체를 크게 또는 작게 표시하며 다음 실행까지 유지됩니다. Ctrl + 더하기, Ctrl + 빼기 또는 Ctrl을 누른 채 마우스 휠로도 바꿀 수 있고, Ctrl + 0은 100 %로 되돌립니다.',
     sidebarExtras: '왼쪽 패널의 버튼',
     sidebarExtrasHint: '플레이어 바에는 세 가지가 항상 있습니다. 여기서는 왼쪽 패널에도 둘 버튼을 고릅니다.',
     repeatMode_none: '반복 없음: 목록 끝까지 재생',
