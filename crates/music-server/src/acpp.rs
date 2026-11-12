@@ -547,6 +547,33 @@ pub fn describe(error: &AcppError) -> String {
 
 /// Runs `request` on `model` in the server of `build` (`Acpp::with_server`). `stop` is asked every tenth of a second.
 pub fn run(acpp: &Acpp, build: Build, model: ModelEntry, files: Vec<PathBuf>, request: Value, stop: &(dyn Fn() -> bool + Sync)) -> Result<Value> {
+    run_with(acpp, build, model, files, stop, |server, id, cancel| server.run_task(id, request, cancel))
+}
+
+/// [`run`] through the server's stream: the artifacts of each event go to `on_event` as the model produces them; the
+/// answer is the same result.
+pub fn run_stream(
+    acpp: &Acpp,
+    build: Build,
+    model: ModelEntry,
+    files: Vec<PathBuf>,
+    request: Value,
+    stop: &(dyn Fn() -> bool + Sync),
+    on_event: &mut dyn FnMut(&[acpp_server::TaskArtifact]),
+) -> Result<Value> {
+    run_with(acpp, build, model, files, stop, |server, id, cancel| server.run_task_stream(id, request, cancel, on_event))
+}
+
+/// A task on `model` in the server of `build`, with `stop` asked every tenth of a second and turned into the task's
+/// cancel.
+fn run_with(
+    acpp: &Acpp,
+    build: Build,
+    model: ModelEntry,
+    files: Vec<PathBuf>,
+    stop: &(dyn Fn() -> bool + Sync),
+    task: impl FnOnce(&Server, &str, &AtomicBool) -> std::result::Result<Value, AcppError>,
+) -> Result<Value> {
     let id = model.id.clone();
     acpp.with_server(build, model, files, Some(stop), |server| {
         let cancel = AtomicBool::new(false);
@@ -561,7 +588,7 @@ pub fn run(acpp: &Acpp, build: Build, model: ModelEntry, files: Vec<PathBuf>, re
                     std::thread::sleep(Duration::from_millis(100));
                 }
             });
-            let answer = server.run_task(&id, request, &cancel);
+            let answer = task(server, &id, &cancel);
             finished.store(true, Ordering::SeqCst);
             answer
         });

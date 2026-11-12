@@ -7495,7 +7495,27 @@ async fn transcribe_to_midi(state: &AppState, size: &'static midi::Size, audio: 
     let background = state.clone();
     let result = tokio::task::spawn_blocking(move || -> anyhow::Result<Value> {
         let acpp = background.lyrics_sync.acpp();
-        acpp::run(&acpp, build, acpp_server::ModelEntry::muscriptor(&id, &model), files, serde_json::json!({ "audio": input }), &|| midi_stopped(&background))
+        // the notes and the chunks as the server streams them; the file and the count come from the answer
+        let mut live = midi::Events::default();
+        let mut on_event = |artifacts: &[acpp_server::TaskArtifact]| {
+            let mut chunks = None;
+            for artifact in artifacts {
+                match live.take_streamed(&artifact.payload) {
+                    Ok(Some(progress)) => chunks = Some(progress),
+                    Ok(None) => {}
+                    Err(error) => studio_log!("[ERROR] MuScriptor: {error}"),
+                }
+            }
+            if let Some(run) = background.midi_run.blocking_write().as_mut() {
+                run.notes = live.notes.len();
+                if let Some((done, total)) = chunks {
+                    run.chunks_done = u32::try_from(done).unwrap_or(u32::MAX);
+                    run.chunks_total = u32::try_from(total).unwrap_or(u32::MAX);
+                }
+            }
+            *background.midi_notes.blocking_write() = live.notes.clone();
+        };
+        acpp::run_stream(&acpp, build, acpp_server::ModelEntry::muscriptor(&id, &model), files, serde_json::json!({ "audio": input }), &|| midi_stopped(&background), &mut on_event)
     })
     .await
     .context("the transcriber stopped")?;

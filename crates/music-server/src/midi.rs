@@ -214,33 +214,51 @@ impl Events {
     /// index and an instrument, and `end` events naming the start they close. An event of another type is passed over.
     pub fn take_all(&mut self, text: &str) -> Result<(), String> {
         let events: Vec<serde_json::Value> = serde_json::from_str(text).map_err(|error| format!("the transcriber's events are not JSON: {error}"))?;
-        for event in events {
-            match event["type"].as_str() {
-                Some("start") => {
-                    let start = event["start_time"].as_f64().unwrap_or(0.0);
-                    self.notes.push(Note {
-                        pitch: event["pitch"].as_u64().unwrap_or(0).min(127) as u8,
-                        start,
-                        end: start,
-                        instrument: event["instrument"].as_str().unwrap_or("unknown").to_string(),
-                        velocity: None,
-                    });
-                    if let Some(index) = event["index"].as_i64() {
-                        self.open.insert(index, self.notes.len() - 1);
-                    }
-                }
-                Some("end") => {
-                    if let (Some(index), Some(time)) = (event["start_event_index"].as_i64(), event["end_time"].as_f64()) {
-                        if let Some(at) = self.open.remove(&index) {
-                            self.notes[at].end = time.max(self.notes[at].start);
-                        }
-                    }
-                }
-                _ => {}
-            }
+        for event in &events {
+            self.take(event);
         }
         self.finished = true;
         Ok(())
+    }
+
+    /// One event of the transcriber, as `take_all` reads each of its list.
+    fn take(&mut self, event: &serde_json::Value) {
+        match event["type"].as_str() {
+            Some("start") => {
+                let start = event["start_time"].as_f64().unwrap_or(0.0);
+                self.notes.push(Note {
+                    pitch: event["pitch"].as_u64().unwrap_or(0).min(127) as u8,
+                    start,
+                    end: start,
+                    instrument: event["instrument"].as_str().unwrap_or("unknown").to_string(),
+                    velocity: None,
+                });
+                if let Some(index) = event["index"].as_i64() {
+                    self.open.insert(index, self.notes.len() - 1);
+                }
+            }
+            Some("end") => {
+                if let (Some(index), Some(time)) = (event["start_event_index"].as_i64(), event["end_time"].as_f64()) {
+                    if let Some(at) = self.open.remove(&index) {
+                        self.notes[at].end = time.max(self.notes[at].start);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// One event as the server streams it while the transcriber works (the payload of an artifact, the JSON of one
+    /// event): a note's start or end goes into the notes, as in `take_all`; a `progress` event gives the chunks done
+    /// and the chunks in all.
+    pub fn take_streamed(&mut self, payload: &[u8]) -> Result<Option<(usize, usize)>, String> {
+        let event: serde_json::Value = serde_json::from_slice(payload).map_err(|error| format!("a streamed event is not JSON: {error}"))?;
+        if event["type"].as_str() == Some("progress") {
+            let count = |field: &str| event[field].as_u64().map(|value| value as usize);
+            return Ok(count("completed").zip(count("total")));
+        }
+        self.take(&event);
+        Ok(None)
     }
 
     pub fn instruments(&self) -> Vec<String> {
@@ -272,6 +290,33 @@ mod tests {
         assert!(events.finished);
         assert_eq!(events.instruments(), ["acoustic_piano", "drums"]);
         assert!(Events::default().take_all("[ace-midi] a log line").is_err());
+    }
+
+
+    /// The events the server streams while it works give the notes the final answer gives, and its progress the chunks.
+    #[test]
+    fn the_streamed_events_give_the_notes_of_the_answer() {
+        let events = [
+            r#"{"type":"start","pitch":65,"start_time":0.32,"index":0,"instrument":"acoustic_piano"}"#,
+            r#"{"type":"start","pitch":36,"start_time":0.5,"index":1,"instrument":"drums"}"#,
+            r#"{"type":"progress","completed":1,"total":6}"#,
+            r#"{"type":"end","end_time":0.52,"start_event_index":1}"#,
+            r#"{"type":"end","end_time":1.25,"start_event_index":0}"#,
+        ];
+        let mut streamed = Events::default();
+        let mut progress = Vec::new();
+        for event in events {
+            if let Some(chunks) = streamed.take_streamed(event.as_bytes()).unwrap() {
+                progress.push(chunks);
+            }
+        }
+        assert_eq!(progress, [(1, 6)]);
+        let mut answered = Events::default();
+        answered.take_all(&format!("[{}]", events.join(","))).unwrap();
+        let pairs = |events: &Events| events.notes.iter().map(|note| (note.pitch, note.start, note.end, note.instrument.clone())).collect::<Vec<_>>();
+        assert_eq!(pairs(&streamed), pairs(&answered));
+        assert_eq!(pairs(&streamed)[0], (65, 0.32, 1.25, "acoustic_piano".to_string()));
+        assert!(streamed.take_streamed(b"not json").is_err());
     }
 
     #[test]
