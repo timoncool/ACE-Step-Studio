@@ -789,7 +789,7 @@ interface SongItemProps {
     nested?: boolean;
 }
 
-const SongItem: React.FC<SongItemProps> = ({
+export const SongItem: React.FC<SongItemProps> = ({
     song,
     isCurrent,
     isSelected,
@@ -943,8 +943,11 @@ const SongItem: React.FC<SongItemProps> = ({
                         )}
                     </div>
                 ) : (
-                    <div
-                        className={`absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[1px] cursor-pointer transition-opacity duration-200 ${isCurrent ? 'opacity-100' : 'opacity-0 group-hover/image:opacity-100'}`}
+                    <button
+                        type="button"
+                        aria-label={`${isCurrent && isPlaying ? t('pause') : t('play')}: ${song.title}`}
+                        aria-pressed={isCurrent && isPlaying}
+                        className={`absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[1px] cursor-pointer transition-opacity duration-200 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-pink-500 ${isCurrent ? 'opacity-100' : 'opacity-0 group-hover/image:opacity-100'}`}
                         onClick={(e) => {
                             e.stopPropagation();
                             onPlay();
@@ -957,7 +960,7 @@ const SongItem: React.FC<SongItemProps> = ({
                                 <Play fill="black" className={`text-black ml-0.5 ${compact ? 'h-3.5 w-3.5' : 'h-5 w-5'}`} />
                             )}
                         </div>
-                    </div>
+                    </button>
                 )}
             </div>
 
