@@ -16,6 +16,9 @@ use serde_json::Value;
 use crate::downloads::{Asset, AssetKind, Downloader};
 use crate::lyrics_sync::OnnxFlavour;
 
+/// HT-Demucs's id in the server's config.
+pub const HTDEMUCS: &str = "htdemucs";
+
 /// How long a start may take before the server answers `/health` (it loads no model at start).
 const READY_WITHIN: Duration = Duration::from_secs(60);
 
@@ -320,6 +323,10 @@ impl Acpp {
         let mut models: Vec<ModelEntry> = known.iter().filter(|model| model.files.iter().all(|file| file.is_file())).map(|model| model.entry.clone()).collect();
         models.sort_by(|a, b| a.id.cmp(&b.id));
         models
+    }
+
+    pub fn downloader(&self) -> &Downloader {
+        &self.downloader
     }
 
     pub fn folder(&self, build: Build) -> PathBuf {

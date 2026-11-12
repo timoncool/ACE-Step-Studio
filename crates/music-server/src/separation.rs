@@ -1,15 +1,7 @@
-//! Splitting a finished track into stems.
-//!
-//! ACE-Step Studio did this in the browser: an ONNX build of htdemucs running
-//! under WebAssembly on a page of its own. That is the arrangement this studio
-//! replaced everywhere else, and it is replaced here too - the model runs in
-//! this process, on the ONNX Runtime the studio already ships for the karaoke
-//! recogniser, with no Python and no second window.
-//!
-//! The model takes 7.8 seconds of 44.1 kHz stereo at a time and returns the
-//! same span once per stem. A song is longer than that, so it is cut into
-//! overlapping segments and cross-faded back together: without the overlap the
-//! seams are audible, which is the usual way a separator sounds broken.
+//! Splitting a finished track into stems: HT-Demucs 6s on audio.cpp's server
+//! (six stems of 44.1 kHz stereo, the server cuts and joins the segments
+//! itself), or Mel-Band RoFormer through Dub Studio's separator for the vocals
+//! and the rest.
 
 use std::path::{Path, PathBuf};
 
@@ -32,9 +24,6 @@ pub struct SeparationConfig {
     /// returns all six - but writing only what the user wants keeps the
     /// library from filling with silence they never asked for.
     pub stems: Vec<String>,
-    /// How much neighbouring segments share. More overlap means more passes
-    /// and a smoother seam; a quarter is the model's own reference setting.
-    pub overlap: f64,
     /// Which separator runs: HT-Demucs for six stems, Mel-Band RoFormer for the
     /// vocals and the rest. It also separates the vocals the vocals-only mode
     /// and training take.
@@ -56,18 +45,12 @@ impl Default for SeparationConfig {
             // what the panel shows before anything is chosen
             runtime: crate::lyrics_sync::OnnxFlavour::Auto,
             stems: STEMS.iter().map(|stem| (*stem).to_string()).collect(),
-            overlap: OVERLAP,
             engine: Engine::Htdemucs,
         }
     }
 }
 
 impl SeparationConfig {
-    /// The overlap, kept inside what the segment length can actually support.
-    pub fn sane_overlap(&self) -> f64 {
-        self.overlap.clamp(0.0, 0.5)
-    }
-
     pub fn wants(&self, stem: &str) -> bool {
         self.stems.iter().any(|wanted| wanted == stem)
     }
@@ -77,11 +60,25 @@ impl SeparationConfig {
 
 /// The separation model, and where it comes from.
 ///
-/// One file, one download, pinned to the revision it was measured at. Like
-/// everything else here it is fetched only when the user asks for it: a studio
-/// that never separates a track never spends the 136 MB.
+/// One file, one download, pinned to the revision it was measured at: audio.cpp's own GGUF of HT-Demucs 6s, f16 as
+/// it is published. Like everything else here it is fetched only when the user asks for it.
 pub const MODEL: Asset = Asset {
     id: "htdemucs-6s",
+    label: "HT-Demucs 6 stems",
+    kind: AssetKind::Model,
+    url: "https://huggingface.co/audio-cpp/audio.cpp-gguf/resolve/462b4cec041e06ffb3d8fcf0d8c655051b1cd9f5/HTDemucs-6stems-GGUF/htdemucs-6stems-f16.gguf",
+    relative_path: "models/htdemucs/htdemucs-6stems-f16.gguf",
+    bytes: 54_919_200,
+    unzip_into: None,
+    marker: "",
+    pick: &[],
+    vram_gb: Some(2),
+    note: "Six stems: drums, bass, other, vocals, guitar, piano. MIT-licensed, runs on audio.cpp's server.",
+};
+
+/// The ONNX HT-Demucs of 3.8.5 and earlier, which ran on the studio's ONNX Runtime.
+pub const ONNX_MODEL: Asset = Asset {
+    id: "htdemucs-6s-onnx",
     label: "HT-Demucs 6 stems",
     kind: AssetKind::Model,
     url: "https://huggingface.co/StemSplitio/htdemucs-6s-onnx/resolve/49df9b6989cf2150840ea65b0bef77a2e471b678/htdemucs_6s_fp16weights.onnx",
@@ -458,6 +455,35 @@ fn fade_window(length: usize, fade: usize) -> Vec<f32> {
         window[length - 1 - index] = gain;
     }
     window
+}
+
+/// The six stems of interleaved 44.1 kHz stereo, through audio.cpp's HT-Demucs on `build`. `stop` is asked while it
+/// runs; a stop ends the server and the call says "stopped".
+pub fn separate_htdemucs(
+    acpp: &crate::acpp::Acpp,
+    model: &Path,
+    audio: &[f32],
+    build: acpp_server::asset::Build,
+    stop: &(dyn Fn() -> bool + Sync),
+) -> Result<Separated> {
+    if audio.is_empty() {
+        bail!("nothing to separate: the track decoded to no audio");
+    }
+    let work = tempfile::tempdir()?;
+    let mix = work.path().join("mix.wav");
+    write_wav_stereo(&mix, audio)?;
+    let entry = acpp_server::ModelEntry::htdemucs(crate::acpp::HTDEMUCS, model);
+    let result = crate::acpp::run(acpp, build, entry, vec![model.to_path_buf()], serde_json::json!({ "audio": mix }), stop)?;
+    let outputs = acpp_server::task_audio(&result).map_err(|error| anyhow::anyhow!("HT-Demucs: {}", crate::acpp::describe(&error)))?;
+    let mut stems = Vec::new();
+    for name in STEMS {
+        let output = outputs.iter().find(|output| output.id.as_deref() == Some(name)).with_context(|| format!("HT-Demucs returned no {name}"))?;
+        if output.sample_rate != SAMPLE_RATE || usize::from(output.channels) != CHANNELS {
+            bail!("HT-Demucs returned {name} at {} Hz in {} channels, not {SAMPLE_RATE} Hz stereo", output.sample_rate, output.channels);
+        }
+        stems.push(Stem { name, samples: output.samples.clone() });
+    }
+    Ok(Separated { stems, used_gpu: crate::acpp::on_card(build) })
 }
 
 /// Writes interleaved stereo samples as a 16-bit WAV, which every player and

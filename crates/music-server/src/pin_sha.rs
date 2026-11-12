@@ -62,6 +62,7 @@ const PINNED: &[(&str, &str)] = &[
     ("https://github.com/timoncool/YuE2-Studio/releases/download/hotstep-tools-2ef93a1c/ace-caption-windows-x64.zip", "a2d7495bee6f01c3b6c55c79aba23d91169d9a3ce70a4d0ed9a24bf23c1865b4"),
     ("https://github.com/timoncool/YuE2-Studio/releases/download/hotstep-tools-2ef93a1c/hotstep-tools-cuda-windows-x64.zip", "07e157864bec7bba62f491a24c54881810d6943cca4af986f14cc41a8e972390"),
     ("https://huggingface.co/StemSplitio/htdemucs-6s-onnx/resolve/49df9b6989cf2150840ea65b0bef77a2e471b678/htdemucs_6s_fp16weights.onnx", "7ce55792e2231c93fbf92de95f5fd5b3a5e6c89f7db690dfd693e8f1dce56869"),
+    ("https://huggingface.co/audio-cpp/audio.cpp-gguf/resolve/462b4cec041e06ffb3d8fcf0d8c655051b1cd9f5/HTDemucs-6stems-GGUF/htdemucs-6stems-f16.gguf", "1db9bd58af6995d8caab209c99f5a284212e5bd0654fbfd7e50ce1d5ac140ba9"),
     ("https://huggingface.co/chenmozhijin/BSRoformer-GGUF/resolve/df802a6773d25ba6ef785ff619daa3e510503168/GaboxR67/MelBandRoformers/melbandroformers/vocals/voc_fv6-Q8_0.gguf", "2cd84c9f24513749b0cb1a6ab3e3be5c5e2f7d0e8533e50512c1f394d2828a73"),
     ("https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf/resolve/29d097773436b69ff9feafd636ab4cf873786537/gemma-4-12b-it-qat-q4_0.gguf", "93567e57a8fe10b23569b9d9ec38cd005deedf71e29477c421a4b83f418a538b"),
     ("https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf/resolve/4b4a2c1d584be7264f87aac328a1bc739ce81b6c/gemma-4-E4B_q4_0-it.gguf", "676c35070db6dbe52f93e9c864ee0fba4eddea94b9c875d9cb10daff453fbaee"),
