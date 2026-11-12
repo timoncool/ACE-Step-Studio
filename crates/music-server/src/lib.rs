@@ -8376,6 +8376,19 @@ struct AceRun {
     fades: (f32, f32),
 }
 
+/// A source or reference the request names that the library no longer has:
+/// refused when the request comes in, not when the song reaches the engine.
+fn tracks_in_library(library: &library::Library, source: Option<&str>, reference: Option<&str>) -> Result<(), String> {
+    for (role, id) in [("source", source), ("reference", reference)] {
+        let Some(id) = id else { continue };
+        let kept = library.get_song(id).map_err(|error| format!("the library could not be read: {error:#}"))?;
+        if kept.is_none() {
+            return Err(format!("the {role} track {id} is not in the library; choose another track"));
+        }
+    }
+    Ok(())
+}
+
 /// Completes the page's request with what the studio decides: the model files
 /// of the selected set, the adapters under their engine names, the studio's
 /// defaults for anything left out.
@@ -8453,6 +8466,7 @@ async fn ace_request_from(state: &AppState, request: &CreateMusicJobRequest) -> 
     if ace::needs_source(&task) && request.source_song_id.is_none() {
         return Err(format!("{task} works on a recording; choose the source track"));
     }
+    tracks_in_library(&state.library, request.source_song_id.as_deref(), request.reference_song_id.as_deref())?;
     ace::prepare(&Value::Object(fields)).map_err(|error| error.to_string())
 }
 
@@ -9151,6 +9165,7 @@ async fn submit_replay_job(state: AppState, request: ReplayMusicJobRequest, atte
     }
     let (prepared, source_song_id, reference_song_id, fades) =
         prepare_replay(replay, &request).map_err(|error| api_error(StatusCode::BAD_REQUEST, error))?;
+    tracks_in_library(&state.library, source_song_id.as_deref(), reference_song_id.as_deref()).map_err(|error| api_error(StatusCode::NOT_FOUND, error))?;
     let caption = prepared.get("caption").and_then(Value::as_str).unwrap_or_default().to_owned();
     let lyrics = prepared.get("lyrics").and_then(Value::as_str).unwrap_or_default().to_owned();
     let job = MusicJob {
@@ -9565,6 +9580,19 @@ mod tests {
         let reader = hound::WavReader::new(std::io::Cursor::new(bytes)).unwrap();
         assert_eq!(reader.spec().sample_rate, ENGINE_RATE);
         assert!((reader.duration() as i64 - 48_000).abs() <= 1_024, "one second stays one second: {}", reader.duration());
+    }
+
+    #[test]
+    fn a_source_or_reference_gone_from_the_library_is_refused_on_arrival() {
+        let root = std::env::temp_dir().join(format!("ace-tracks-{}", uuid::Uuid::now_v7().simple()));
+        let library = library::Library::open_at(root.join("library.sqlite"), root.join("media")).unwrap();
+        assert_eq!(tracks_in_library(&library, None, None), Ok(()));
+        let source = tracks_in_library(&library, Some("gone-1"), None).unwrap_err();
+        assert!(source.contains("source track gone-1"), "{source}");
+        let reference = tracks_in_library(&library, None, Some("gone-2")).unwrap_err();
+        assert!(reference.contains("reference track gone-2"), "{reference}");
+        drop(library);
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]
