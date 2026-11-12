@@ -1039,7 +1039,7 @@ pub struct Gaps {
     pub leading: bool,
 }
 
-pub const GAPS: Gaps = Gaps { per_word: 0.02, leading: true };
+pub const GAPS: Gaps = Gaps { per_word: 0.05, leading: true };
 
 pub fn align_lyrics_with(words: &[(f64, String)], lyrics: &str, gaps: Gaps) -> Vec<(f64, String)> {
     let lines: Vec<&str> = lyrics
@@ -1566,6 +1566,24 @@ Third");
         words.push((20.0, "yeah".into()));
         words.push((21.0, "oh".into()));
         assert_eq!(align_lyrics(&words, &lyrics).len(), 1, "two stray words do not time 68 lines");
+    }
+
+    #[test]
+    fn a_verse_whose_first_line_is_not_sung_stays_on_its_first_performance() {
+        // what Parakeet heard in en-A, a song that sings its verse twice, against a text whose first line it never sings
+        let words: Vec<(f64, String)> = include_str!("testdata/en-A-words.txt")
+            .lines()
+            .filter_map(|line| line.strip_prefix("W "))
+            .filter_map(|rest| {
+                let mut parts = rest.trim().splitn(2, ' ');
+                Some((parts.next()?.parse().ok()?, parts.next()?.trim().to_string()))
+            })
+            .collect();
+        assert_eq!(words.len(), 150);
+        let lines = align_lyrics(&words, include_str!("testdata/en-A-first-line-changed.txt"));
+        let starts: Vec<f64> = lines.iter().map(|(at, _)| *at).collect();
+        assert_eq!(starts, vec![11.76, 14.48, 17.28, 19.84, 22.88, 25.68], "{lines:?}");
+        assert_eq!(lines[1].1, "Footsteps keep the time of rain");
     }
 
     #[test]
