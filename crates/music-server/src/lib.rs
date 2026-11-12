@@ -4725,6 +4725,7 @@ async fn restart_engine(state: &AppState) -> Result<(), String> {
             Ok(_) => {
                 *supervisor = Some(engine);
                 *state.active_device.write().await = Some(device);
+                RESCANNED_FOR.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).clear();
                 if options.backend == music_engine::server::ComputeBackend::Auto {
                     music_engine::server::note_in_log(&format!("computing on {}", device_name(device)));
                 }
@@ -8592,7 +8593,9 @@ fn models_the_engine_lacks(request: &Value, props: &Value, on_disk: impl Fn(&str
 }
 
 /// Has the engine read its models folder again when a request names a model
-/// on disk that it does not know yet.
+/// on disk that it does not know yet: once per name for each start of the
+/// engine, so a file its registry does not take as a model is named as such
+/// instead of restarting the engine on every song.
 async fn engine_finds_the_models(state: &AppState, request: &Value) -> Result<(), String> {
     let Ok(Ok(props)) = tokio::time::timeout(std::time::Duration::from_secs(3), state.music_server.props()).await else {
         return Ok(());
@@ -8602,8 +8605,30 @@ async fn engine_finds_the_models(state: &AppState, request: &Value) -> Result<()
     if lacking.is_empty() {
         return Ok(());
     }
+    {
+        let read_again = RESCANNED_FOR.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        unrecognised_after_a_rescan(&read_again, &lacking)?;
+    }
     music_engine::server::note_in_log(&format!("the engine does not list {}; reading the models folder again", lacking.join(", ")));
-    rescan_resources(state).await.map(|_| ()).map_err(|error| format!("{} came after the engine started, and it could not read the models folder again: {error}", lacking.join(", ")))
+    rescan_resources(state).await.map_err(|error| format!("{} came after the engine started, and it could not read the models folder again: {error}", lacking.join(", ")))?;
+    RESCANNED_FOR.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).extend(lacking.iter().cloned());
+    let props = state.music_server.props().await.map_err(|error| format!("the engine did not answer after reading the models folder again: {error}"))?;
+    let still = models_the_engine_lacks(request, &props, |name| root.join(name).is_file());
+    let read_again = RESCANNED_FOR.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    unrecognised_after_a_rescan(&read_again, &still)
+}
+
+/// The model files this run of the engine has already been made to read its
+/// folder again for; emptied when the engine starts.
+static RESCANNED_FOR: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
+/// A file the engine still does not list after it read its folder again for
+/// it is one its registry does not take as a model.
+fn unrecognised_after_a_rescan(read_again: &[String], lacking: &[String]) -> Result<(), String> {
+    match lacking.iter().find(|name| read_again.contains(name)) {
+        Some(name) => Err(format!("the engine did not recognise {name} as a model after reading its models folder again; the file may be incomplete or not an ACE-Step model - download it again in Settings - Models")),
+        None => Ok(()),
+    }
 }
 
 async fn run_ace_job(state: AppState, run: AceRun) {
@@ -9636,6 +9661,17 @@ mod tests {
         assert!(models_the_engine_lacks(&request, &props, |_| false).is_empty(), "a model not on disk is left to the engine's own answer");
         let known = serde_json::json!({ "synth_model": "acestep-v15-turbo-Q8_0.gguf", "vae": "vae-BF16.gguf" });
         assert!(models_the_engine_lacks(&known, &props, |_| true).is_empty());
+    }
+
+    #[test]
+    fn a_model_read_again_for_once_is_not_read_again_for_on_the_next_song() {
+        let lacking = vec!["broken.gguf".to_owned()];
+        assert_eq!(unrecognised_after_a_rescan(&[], &lacking), Ok(()), "the first time the folder is read again");
+        let read_again = vec!["broken.gguf".to_owned()];
+        let refused = unrecognised_after_a_rescan(&read_again, &lacking).unwrap_err();
+        assert!(refused.contains("did not recognise broken.gguf as a model"), "{refused}");
+        assert_eq!(unrecognised_after_a_rescan(&read_again, &["other.gguf".to_owned()]), Ok(()), "another name gets its own read");
+        assert_eq!(unrecognised_after_a_rescan(&read_again, &[]), Ok(()));
     }
 
     #[test]
