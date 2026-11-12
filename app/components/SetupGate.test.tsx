@@ -71,9 +71,9 @@ describe('optional capability download poll', () => {
 });
 
 describe('where each part runs', () => {
-  it('says HT-Demucs computes on AMD and Intel cards through Vulkan and Mel-Band RoFormer on the processor there', () => {
+  it('says HT-Demucs and Mel-Band RoFormer compute on AMD and Intel cards through Vulkan', () => {
     const row = (name: string) => WHERE_IT_RUNS.find(entry => entry.name === name);
     expect(row('HT-Demucs')?.other).toBe('vulkan');
-    expect(row('Mel-Band RoFormer')?.other).toBe('cpu');
+    expect(row('Mel-Band RoFormer')?.other).toBe('vulkan');
   });
 });

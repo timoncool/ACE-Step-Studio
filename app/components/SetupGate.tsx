@@ -642,7 +642,7 @@ export const WHERE_IT_RUNS: { part: TranslationKey; name: string; nvidia: Path; 
   { part: 'hubPartListen', name: 'MOSS-Music', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
   { part: 'hubPartTempoKey', name: 'Beat This!, S-KEY', nvidia: 'cpu', other: 'cpu', none: 'cpu' },
   { part: 'hubPartStems', name: 'HT-Demucs', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
-  { part: 'hubPartStems', name: 'Mel-Band RoFormer', nvidia: 'cuda', other: 'cpu', none: 'cpu' },
+  { part: 'hubPartStems', name: 'Mel-Band RoFormer', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
   { part: 'hubPartKaraoke', name: 'Parakeet', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
   { part: 'hubPartKaraoke', name: 'CrisperWhisper', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
   { part: 'hubPartAssistant', name: 'llama.cpp', nvidia: 'cuda', other: 'vulkan', none: 'cpu' },
