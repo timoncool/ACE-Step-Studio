@@ -289,7 +289,8 @@ mod tests {
         let downloads = crate::lyrics_sync::assets()
             .iter()
             .chain(crate::engine_runtime::ASSETS)
-            .chain([&crate::separation::ROFORMER_ENGINE, &crate::separation::ROFORMER_ENGINE_CPU]);
+            // the builds a studio downloaded before records: CUDA 13 and the processor
+            .chain([crate::separation::RoformerBuild::Cuda13, crate::separation::RoformerBuild::Cpu].into_iter().filter_map(crate::separation::roformer_asset));
         // the audio.cpp server and its libraries came after records: no install of them predates one
         let since_records = |asset: &crate::downloads::Asset| asset.id.starts_with("audiocpp-");
         for asset in downloads.filter(|asset| asset.kind == crate::downloads::AssetKind::Runtime && archive(asset.url) && !since_records(asset)) {

@@ -37,6 +37,10 @@ const PINNED: &[(&str, &str)] = &[
     ("https://github.com/chenmozhijin/BSRoformer.cpp/releases/download/v0.1.0/BSRoformer-macos-arm64.tar.xz", "d0fc45181d31dcceea99c3828378f4a7376e52e7fdbc43e29a07e806785b4c9a"),
     ("https://github.com/timoncool/BSRoformer.cpp/releases/download/studio-0.1.1/BSRoformer-windows-cuda13-x64.zip", "c89128404d29c52ac0efed1a1072a76b277ccf13a33247611032746932e8d032"),
     ("https://github.com/timoncool/BSRoformer.cpp/releases/download/studio-0.1.1/BSRoformer-windows-cpu-x64.zip", "0b212654ea598503992119328daec051bbce5f14b73808c5cc588f278817f908"),
+    ("https://github.com/timoncool/BSRoformer.cpp/releases/download/studio-0.1.1/BSRoformer-windows-cuda12-x64.zip", "72211af3451d9d4266406da8039a3ecdd9eabde1373cd235ff408711af8f7400"),
+    ("https://github.com/timoncool/BSRoformer.cpp/releases/download/studio-0.1.1/BSRoformer-windows-vulkan-x64.zip", "fc82682b4071d065e2e3e84998817877a4d936da7fbb3e580799904c54a6a4ab"),
+    ("https://github.com/timoncool/BSRoformer.cpp/releases/download/studio-0.1.1/BSRoformer-linux-cuda12-x64.tar.gz", "82540c02b5a9730137b0059ffda8c0c79b589a649af554dff1f88867a6c7444d"),
+    ("https://github.com/timoncool/BSRoformer.cpp/releases/download/studio-0.1.1/BSRoformer-linux-vulkan-x64.tar.gz", "d0b6acc7b4b05c453bbfe99ea8154251fde4d96b2edd957fdab6e596f7a64927"),
     ("https://github.com/ggml-org/llama.cpp/releases/download/b11236/cudart-llama-bin-win-cuda-12.4-x64.zip", "8c79a9b226de4b3cacfd1f83d24f962d0773be79f1e7b75c6af4ded7e32ae1d6"),
     ("https://github.com/ggml-org/llama.cpp/releases/download/b12248/cudart-llama-bin-win-cuda-13.5-x64.zip", "c2bf4cc202bfbaaa7a0b75f5082457c3811326947bb216059b72839d844e9cba"),
     ("https://github.com/ggml-org/llama.cpp/releases/download/b12248/cudart-llama-b12248-bin-ubuntu-cuda-12.8-x64.tar.gz", "ad244917cc8701d0fa517d6500dafd55bb74e29f26fb3a051ef31c8eed1cb90d"),
@@ -153,7 +157,7 @@ mod tests {
         urls.extend(crate::acpp::ASSETS.iter().map(|asset| asset.url));
         urls.extend(crate::assistant_runtime::ASSETS.iter().map(|asset| asset.url));
         urls.extend([crate::separation::MODEL.url, crate::separation::ROFORMER_MODEL.url]);
-        urls.extend([true, false].into_iter().filter_map(crate::separation::Separator::roformer_engine).map(|asset| asset.url));
+        urls.extend(crate::separation::RoformerBuild::ALL.into_iter().filter_map(crate::separation::roformer_asset).map(|asset| asset.url));
         let missing: Vec<&str> = urls.into_iter().filter(|url| sha256(url).is_none()).collect();
         assert!(missing.is_empty(), "pins without a SHA-256: {missing:#?}");
         for (url, sha256) in PINNED {

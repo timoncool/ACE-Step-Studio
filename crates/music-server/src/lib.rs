@@ -1745,16 +1745,35 @@ fn engine_stems(engine: separation::Engine) -> &'static [&'static str] {
     }
 }
 
-/// Whether Mel-Band RoFormer runs on the card: an NVIDIA card, a runtime choice other than the
-/// processor, and a cuBLAS 13 the CUDA build's loader finds - the engine's, or one on PATH.
+/// Whether Mel-Band RoFormer runs on the card: a runtime choice other than the processor, a build for the card - the
+/// CUDA build its card and driver run (13 or 12), Vulkan on a card of another make - and for a CUDA build the engine's
+/// CUDA libraries of that build in place (downloaded, or on the search path).
 fn roformer_on_card(state: &AppState, runtime: lyrics_sync::OnnxFlavour) -> bool {
-    let found = |name: &str| {
-        state.engine_runtime.library_dir().join(name).is_file()
-            || std::env::var_os("PATH").is_some_and(|path| std::env::split_paths(&path).any(|folder| folder.join(name).is_file()))
-    };
-    runtime != lyrics_sync::OnnxFlavour::Cpu
-        && lyrics_sync::OnnxFlavour::Auto.uses_cuda()
-        && (!cfg!(windows) || engine_runtime::CUDA13_LIBRARIES.iter().all(|name| found(name)))
+    if runtime == lyrics_sync::OnnxFlavour::Cpu {
+        return false;
+    }
+    match separation::machine_roformer_build(true) {
+        separation::RoformerBuild::Cpu => false,
+        separation::RoformerBuild::Vulkan => true,
+        separation::RoformerBuild::Cuda13 | separation::RoformerBuild::Cuda12 => {
+            cuda_build::card().is_some_and(|cuda| state.engine_runtime.missing(cuda).is_empty())
+        }
+    }
+}
+
+/// Where BSRoformer.cpp's CUDA build takes the libraries it is linked to: the engine's cuBLAS folder, and the engine's
+/// own folder, beside which CUDA 12's runtime ships.
+fn roformer_library_sources(state: &AppState) -> Vec<std::path::PathBuf> {
+    vec![state.engine_runtime.library_dir(), engine_bundle_root()]
+}
+
+/// Whether the separator chosen in Settings would run on the card under `runtime`: RoFormer by `roformer_on_card`,
+/// HT-Demucs by the audio.cpp server build that choice takes.
+async fn separator_on_card(state: &AppState, runtime: lyrics_sync::OnnxFlavour) -> bool {
+    match state.separation_config.read().await.engine {
+        separation::Engine::Roformer => roformer_on_card(state, runtime),
+        separation::Engine::Htdemucs => separation_build(runtime).is_ok_and(acpp::on_card),
+    }
 }
 
 /// The separator's files to download for its engine: HT-Demucs's model, or RoFormer's model and engine build.
@@ -1956,7 +1975,7 @@ async fn install_separation_asset(
             return Err(api_error(StatusCode::BAD_REQUEST, "Mel-Band RoFormer has no build for this platform; HT-Demucs separates here".into()));
         }
         let separator = state.separator.clone();
-        let libraries = state.engine_runtime.library_dir();
+        let libraries = roformer_library_sources(&state);
         tokio::spawn(async move {
             match separator.downloader().install_all("separation", &set).await {
                 Ok(()) if gpu => {
@@ -6724,7 +6743,7 @@ async fn remove_separation_model(State(state): State<AppState>, request: Option<
     let downloader = state.separator.downloader();
     let freed = if roformer {
         let mut freed = downloader.remove(&separation::ROFORMER_MODEL).map_err(|error| api_error(StatusCode::CONFLICT, error.to_string()))?;
-        for engine in [true, false].into_iter().filter_map(separation::Separator::roformer_engine) {
+        for engine in separation::RoformerBuild::ALL.into_iter().filter_map(separation::roformer_asset) {
             freed += downloader.remove(engine).map_err(|error| api_error(StatusCode::CONFLICT, error.to_string()))?;
         }
         freed
