@@ -7916,7 +7916,7 @@ fn update_catalogue(part: update_screen::Part) -> Vec<&'static downloads::Asset>
         Part::Engine => engine_runtime::ASSETS.iter().collect(),
         Part::Karaoke => lyrics_sync::assets().iter().collect(),
         Part::Separation => std::iter::once(&separation::MODEL).chain(roformer_set(true)).chain(roformer_set(false)).collect(),
-        Part::Midi => vec![midi::tool_asset()],
+        Part::Midi => midi::SIZES.iter().flat_map(midi::weight_assets).collect(),
         Part::Training => training::pack().iter().collect(),
         Part::Listening => training::listen_pack().iter().collect(),
         Part::Assistant => Vec::new(),
@@ -7951,7 +7951,7 @@ fn update_data_root(state: &AppState) -> &std::path::Path {
 }
 
 /// This release's plan against the disk; it reads files and changes none.
-fn update_plan_now(state: &AppState, karaoke: &lyrics_sync::LyricsSyncConfig) -> update_screen::Plan {
+fn update_plan_now(state: &AppState, karaoke: &lyrics_sync::LyricsSyncConfig, separation: lyrics_sync::OnnxFlavour, options: &EngineOptions) -> update_screen::Plan {
     use update_screen::{Candidate, Part};
     let of = |part: Part, asset: &'static downloads::Asset, downloader: &downloads::Downloader, earlier: Option<String>| Candidate {
         part,
@@ -7989,15 +7989,32 @@ fn update_plan_now(state: &AppState, karaoke: &lyrics_sync::LyricsSyncConfig) ->
             });
         }
     }
-    let leftovers = state.lyrics_sync.leftovers();
-    let whisper_left = leftovers.iter().any(|leftover| leftover.what == "faster-whisper" && !leftover.paths.is_empty());
+    let mut leftovers = state.lyrics_sync.leftovers();
+    leftovers.extend(state.separator.leftovers());
+    let left = |what: &str| leftovers.iter().any(|leftover| leftover.what == what && !leftover.paths.is_empty());
     let mut added = Vec::new();
-    if whisper_left && karaoke_on_whisper(karaoke) {
-        let downloader = state.lyrics_sync.downloader();
+    let mut take = |part: Part, asset: &'static downloads::Asset, downloader: &downloads::Downloader| {
+        if !downloader.is_installed(asset) && !updated.iter().chain(added.iter()).any(|row: &Candidate| row.id == asset.id) {
+            added.push(of(part, asset, downloader, None));
+        }
+    };
+    if left("faster-whisper") && karaoke_on_whisper(karaoke) {
         for asset in lyrics_sync::crisper_assets(karaoke.runtime).into_iter().filter_map(lyrics_sync::asset) {
-            if !downloader.is_installed(asset) && !updated.iter().any(|row: &Candidate| row.id == asset.id) {
-                added.push(of(Part::Karaoke, asset, downloader, None));
-            }
+            take(Part::Karaoke, asset, state.lyrics_sync.downloader());
+        }
+    }
+    // HT-Demucs and Audio to MIDI in use before move onto audio.cpp's server: its GGUF, and the server of their device
+    let mut builds = Vec::new();
+    if left("htdemucs-onnx") {
+        take(Part::Separation, &separation::MODEL, state.separator.downloader());
+        builds.extend(separation_build(separation).ok());
+    }
+    if midi::SIZES.iter().any(|size| state.midi.model_installed(size)) {
+        builds.extend(midi_build(options).ok());
+    }
+    for build in builds {
+        for asset in state.lyrics_sync.acpp().missing(build) {
+            take(Part::Karaoke, asset, state.lyrics_sync.downloader());
         }
     }
     update_screen::plan(updated, added, leftovers, update_data_root(state), studio_version())
@@ -8005,8 +8022,10 @@ fn update_plan_now(state: &AppState, karaoke: &lyrics_sync::LyricsSyncConfig) ->
 
 async fn update_plan(state: &AppState) -> Result<update_screen::Plan, (StatusCode, Json<ApiError>)> {
     let karaoke = state.lyrics_sync_config.read().await.clone();
+    let separation = state.separation_config.read().await.runtime;
+    let options = state.engine_options.read().await.clone();
     let state = state.clone();
-    tokio::task::spawn_blocking(move || update_plan_now(&state, &karaoke))
+    tokio::task::spawn_blocking(move || update_plan_now(&state, &karaoke, separation, &options))
         .await
         .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("the update plan was not read: {error}")))
 }
@@ -8099,13 +8118,20 @@ async fn run_update(state: &AppState, rows: &[update_screen::Row]) -> anyhow::Re
         }
     }
     let karaoke = state.lyrics_sync_config.read().await.clone();
+    let separation_runtime = state.separation_config.read().await.runtime;
+    // the ONNX HT-Demucs goes only once the audio.cpp one runs in its place
+    let htdemucs_replaced = htdemucs_installed(state, separation_runtime);
     let sync = state.lyrics_sync.clone();
+    let separator = state.separator.clone();
     tokio::task::spawn_blocking(move || {
         let mut gone = vec!["parakeet-onnx"];
         if !karaoke_on_whisper(&karaoke) || sync.crisper_ready(karaoke.runtime) {
             gone.push("faster-whisper");
         }
         sync.remove_leftovers(&gone);
+        if htdemucs_replaced {
+            separator.remove_leftovers(&["htdemucs-onnx"]);
+        }
     })
     .await?;
     Ok(())

@@ -24,6 +24,8 @@ const WHY: Record<string, TranslationKey> = {
   'ort-gpu-gone': 'updateWhyOrtGpuGone',
   'demucs-audiocpp': 'updateWhyDemucsAudiocpp',
   'midi-audiocpp': 'updateWhyMidiAudiocpp',
+  'audiocpp-server': 'updateWhyAudiocppServer',
+  'htdemucs-onnx-gone': 'updateWhyHtdemucsOnnxGone',
   'newer': 'updateWhyNewer',
   'unused': 'updateWhyUnused',
 };

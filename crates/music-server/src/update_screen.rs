@@ -32,23 +32,22 @@ struct Change {
 }
 
 /// The table of changes of this release against 3.7.0. A release that changes what the studio downloads writes its
-/// own rows here; ONNX Runtime on the processor, HT-Demucs, MuScriptor and SheetSage2 on audio.cpp have their reasons
-/// in `REASONS` already and add their rows when they come.
+/// own rows here; ONNX Runtime on the processor has its reasons in `REASONS` already and adds its rows when it comes.
 const CHANGES: &[Change] = &[
     Change { what: "crisperwhisper-turbo*", reason: "crisperwhisper" },
-    // More specific rows come first: `reason_of` takes the first that matches. The audio.cpp engine
-    // (the server builds) carries the karaoke reason; its CUDA libraries are not karaoke, so they
-    // get their own reason instead of sharing it (#180).
+    Change { what: "htdemucs-6s", reason: "demucs-audiocpp" },
+    Change { what: "htdemucs-onnx", reason: "htdemucs-onnx-gone" },
+    // More specific rows come first: `reason_of` takes the first that matches. The audio.cpp server's CUDA libraries
+    // have a reason of their own beside the server's.
     Change { what: "audiocpp-cuda13-cufft*", reason: "audiocpp-cuda" },
     Change { what: "audiocpp-cuda12-cufft*", reason: "audiocpp-cuda" },
     Change { what: "audiocpp-cuda12-cudart*", reason: "audiocpp-cuda" },
     Change { what: "audiocpp-cuda12-cublas*", reason: "audiocpp-cuda" },
-    Change { what: "audiocpp-*", reason: "crisperwhisper" },
+    Change { what: "audiocpp-*", reason: "audiocpp-server" },
     Change { what: "transcribe-engine*", reason: "transcribe-avx2" },
     Change { what: "llama-*", reason: "llama" },
     Change { what: "music-train", reason: "hotstep" },
     Change { what: "ace-caption", reason: "hotstep" },
-    Change { what: "music-midi", reason: "hotstep" },
     Change { what: "engine-cuda12-cublas", reason: "cublas-wheel" },
     Change { what: "cuda-cublas", reason: "cublas-wheel" },
     Change { what: "faster-whisper", reason: "faster-whisper-gone" },
@@ -61,14 +60,16 @@ pub const REASONS: &[(&str, &str)] = &[
     ("audiocpp-cuda", "A CUDA library the audio.cpp engine needs on an NVIDIA card"),
     ("transcribe-avx2", "Built for every processor with AVX2: Parakeet no longer closes the studio on processors without AVX-512"),
     ("llama", "A newer llama.cpp for the assistant"),
-    ("hotstep", "A newer build of HOT-Step's tools for training, captions and audio to MIDI"),
+    ("hotstep", "A newer build of HOT-Step's tools for training and captions"),
     ("cublas-wheel", "The same cuBLAS 12.9, now from NVIDIA's package with its checksum pinned"),
     ("faster-whisper-gone", "Faster-Whisper is replaced by CrisperWhisper"),
     ("parakeet-onnx-gone", "Parakeet runs on transcribe.cpp; these ONNX models are no longer read"),
     ("ort-cpu", "Tempo, key and the listening pack run on ONNX Runtime on the processor"),
     ("ort-gpu-gone", "ONNX Runtime no longer runs on the card; its CUDA, cuDNN and DirectML files are not read"),
     ("demucs-audiocpp", "Stems are split by HT-Demucs in the audio.cpp server"),
-    ("midi-audiocpp", "Audio to MIDI runs MuScriptor and SheetSage2 in the audio.cpp server"),
+    ("audiocpp-server", "The audio.cpp engine behind stem separation, karaoke and audio-to-MIDI"),
+    ("htdemucs-onnx-gone", "No longer needed — HT-Demucs now runs in the audio.cpp engine"),
+    ("midi-audiocpp", "Audio to MIDI runs MuScriptor in the audio.cpp server"),
     ("newer", "This release uses another build of it"),
     ("unused", "No longer used"),
 ];
@@ -106,6 +107,28 @@ pub struct Leftover {
     pub what: &'static str,
     pub name: &'static str,
     pub paths: Vec<PathBuf>,
+}
+
+/// Removes the leftovers named in `what`: the update screen's last step, after the downloads that take their place. A
+/// link (another program's folder linked in) loses only the link; a hard-linked file stays with the program that
+/// shares it.
+pub fn remove_leftovers(leftovers: Vec<Leftover>, what: &[&str]) {
+    for leftover in leftovers.into_iter().filter(|leftover| what.contains(&leftover.what)) {
+        for path in leftover.paths {
+            let Ok(meta) = std::fs::symlink_metadata(&path) else { continue };
+            let removed = if meta.file_type().is_symlink() {
+                std::fs::remove_dir(&path).or_else(|_| std::fs::remove_file(&path))
+            } else if meta.is_dir() {
+                std::fs::remove_dir_all(&path)
+            } else {
+                std::fs::remove_file(&path)
+            };
+            match removed {
+                Ok(()) => studio_log!("removed the retired {}", path.display()),
+                Err(error) => studio_log!("[ERROR] could not remove the retired {}: {error}", path.display()),
+            }
+        }
+    }
 }
 
 /// A component to download: updated (`from` names the release on disk when the disk tells it) or new. The files of
@@ -359,14 +382,16 @@ mod tests {
 
     #[test]
     fn the_audiocpp_engine_and_its_cuda_libraries_read_apart() {
-        // The server builds carry the karaoke reason; the CUDA libraries are not karaoke (#180).
+        // The server builds carry stems, karaoke and MIDI; the CUDA libraries are not the server (#180).
         for server in ["audiocpp-cuda13", "audiocpp-cuda12", "audiocpp-vulkan", "audiocpp-cpu", "audiocpp-metal"] {
-            assert_eq!(reason_of(server, "unused"), "crisperwhisper", "{server}");
+            assert_eq!(reason_of(server, "unused"), "audiocpp-server", "{server}");
         }
         for lib in ["audiocpp-cuda13-cufft", "audiocpp-cuda12-cufft", "audiocpp-cuda12-cudart", "audiocpp-cuda12-cublas"] {
             assert_eq!(reason_of(lib, "unused"), "audiocpp-cuda", "{lib}");
         }
-        assert!(REASONS.iter().any(|(code, _)| *code == "audiocpp-cuda"), "the reason has its text");
+        for code in ["audiocpp-cuda", "audiocpp-server"] {
+            assert!(REASONS.iter().any(|(reason, _)| *reason == code), "{code} has its text");
+        }
     }
 
     #[test]

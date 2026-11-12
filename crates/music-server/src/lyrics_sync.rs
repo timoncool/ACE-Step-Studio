@@ -912,26 +912,8 @@ impl LyricsSync {
         ]
     }
 
-    /// Removes the leftovers named in `what`: the update screen's last step, after the downloads that take their
-    /// place. A link (another program's folder linked in) loses only the link; a hard-linked file stays with the
-    /// program that shares it.
     pub fn remove_leftovers(&self, what: &[&str]) {
-        for leftover in self.leftovers().into_iter().filter(|leftover| what.contains(&leftover.what)) {
-            for path in leftover.paths {
-                let Ok(meta) = fs::symlink_metadata(&path) else { continue };
-                let removed = if meta.file_type().is_symlink() {
-                    fs::remove_dir(&path).or_else(|_| fs::remove_file(&path))
-                } else if meta.is_dir() {
-                    fs::remove_dir_all(&path)
-                } else {
-                    fs::remove_file(&path)
-                };
-                match removed {
-                    Ok(()) => studio_log!("removed the retired {}", path.display()),
-                    Err(error) => studio_log!("[ERROR] could not remove the retired {}: {error}", path.display()),
-                }
-            }
-        }
+        crate::update_screen::remove_leftovers(self.leftovers(), what);
     }
 
     /// The folder of the cuBLAS 13 the music engine runs on: transcribe.cpp's and audio.cpp's CUDA builds take links to it.
