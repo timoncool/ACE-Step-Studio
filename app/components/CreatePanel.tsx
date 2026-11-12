@@ -3,7 +3,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { scriptLanguage } from '../services/lyricsLanguage';
 import { libraryChanged, SELF_READ, setupStatusChanged, updateLibrarySongs, useActivity, useAssistantStatus, useLibrarySongs, useSetupStatus, type ActivityEntry } from '../services/studioQueries';
 import { mapNativeLibrarySong } from '../services/nativeLibrary';
-import { karaokeReason } from '../services/karaoke';
+import { karaokeReason, recogniseLyrics } from '../services/karaoke';
+import { ConfirmDialog } from './ConfirmDialog';
 import { clampDurationToKept } from '../services/createDuration';
 import { foldedAfter, keepFolded, keptFolded } from '../services/createFold';
 import { AlertTriangle, ChevronDown, CircleAlert, Dices, Ear, FolderOpen, Loader2, Pause, Play, RotateCcw, Save, Sparkles, Square, Tags, Undo2, Upload, Wand2, Lightbulb, ListChecks } from 'lucide-react';
@@ -391,6 +392,8 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
   const [bulk, setBulk] = useState('');
   const [uploading, setUploading] = useState<'source' | 'reference' | null>(null);
   const [listening, setListening] = useState<'codes' | 'describe' | null>(null);
+  const [hearingLyrics, setHearingLyrics] = useState(false);
+  const [confirmHearLyrics, setConfirmHearLyrics] = useState(false);
   const [playing, setPlaying] = useState<string | null>(null);
   const preview = useRef<HTMLAudioElement | null>(null);
 
@@ -889,6 +892,23 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
     }
   };
 
+  /** The karaoke recogniser hears what the source track sings; the lyrics take it, to be edited. */
+  const hearLyrics = async () => {
+    if (!sourceSong || hearingLyrics) return;
+    setHearingLyrics(true);
+    setError(null);
+    try {
+      const heard = await recogniseLyrics({ songId: sourceSong });
+      remember();
+      setLyrics(heard);
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : String(reason);
+      setError(karaokeReason(t, message) ?? message);
+    } finally {
+      setHearingLyrics(false);
+    }
+  };
+
   /** The engine listens to the source track: its codes, or its caption, lyrics and metadata. */
   const listen = async (what: 'codes' | 'describe') => {
     if (!sourceSong || listening || !ready) return;
@@ -1375,6 +1395,18 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
                     <button type="button" onClick={() => (assistantReady ? void askAssistant('lyrics') : openAssistantSetup())} disabled={assistantReady && (busy)} className={ICON} title={assistantReady ? t('writeLyrics') : t('setUpAssistant')}>
                       {assisting === 'lyrics' ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} className="text-pink-500" />}
                     </button>
+                    {needsSource(task) && sourceSong && (
+                      <button
+                        type="button"
+                        onClick={() => (lyrics.trim() ? setConfirmHearLyrics(true) : void hearLyrics())}
+                        disabled={hearingLyrics}
+                        className={ICON}
+                        aria-label={t('recogniseFromSource')}
+                        title={t('recogniseFromSourceHint')}
+                      >
+                        {hearingLyrics ? <Loader2 size={14} className="animate-spin" /> : <Ear size={14} />}
+                      </button>
+                    )}
                     <button type="button" onClick={() => setLyrics('')} className={ICON} title={t('resetPrompt')}><RotateCcw size={14} /></button>
                   </>
                 }
@@ -1401,6 +1433,14 @@ export const CreatePanel: React.FC<CreatePanelProps> = ({ onGenerate, isGenerati
                     </>
                   )}
                 </div>
+                <ConfirmDialog
+                  isOpen={confirmHearLyrics}
+                  title={t('recogniseFromSource')}
+                  message={t('recogniseFromSourceReplace')}
+                  confirmLabel={t('recogniseFromSource')}
+                  onConfirm={() => { setConfirmHearLyrics(false); void hearLyrics(); }}
+                  onCancel={() => setConfirmHearLyrics(false)}
+                />
               </Card>
 
               <Card

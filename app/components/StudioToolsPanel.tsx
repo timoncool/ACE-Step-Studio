@@ -8,11 +8,12 @@ import { ConfirmDialog } from './ConfirmDialog';
 import { MidiTool } from './midi/MidiTool';
 import { MidiEditor } from './midi/MidiEditor';
 import { useI18n } from '../context/I18nContext';
-import { SELF_READ } from '../services/studioQueries';
+import { SELF_READ, useKaraokeStatus } from '../services/studioQueries';
 import { saveFile } from '../services/saveFile';
 import { tempoAndKey } from '../services/songDownload';
 import { DevicePicker } from './DevicePicker';
 import { transcribeWithNativeOpenRouter } from '../services/nativeOpenRouter';
+import { karaokeReason, recogniseLyrics } from '../services/karaoke';
 import { apiUrl } from '../services/apiBase';
 import { openExternal } from '../services/externalLinks';
 import { StemPlayer } from './StemPlayer';
@@ -80,6 +81,11 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
   const [asrLanguage, setAsrLanguage] = useState('');
   const [asrBusy, setAsrBusy] = useState(false);
   const [asrText, setAsrText] = useState('');
+  const { data: karaoke } = useKaraokeStatus();
+  const karaokeRecogniser = Boolean(karaoke?.provider && karaoke.provider !== 'none');
+  const [chosenWay, setChosenWay] = useState<'karaoke' | 'openrouter' | null>(null);
+  // the karaoke recogniser hears the file on this computer when one is chosen; OpenRouter otherwise
+  const asrWay = chosenWay ?? (karaokeRecogniser ? 'karaoke' : 'openrouter');
   const [copied, setCopied] = useState(false);
   const [query, setQuery] = useState('');
   const filePicker = useRef<HTMLInputElement | null>(null);
@@ -171,14 +177,18 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
   };
 
   const transcribe = async () => {
-    if (!asrFile || !asrModel) return;
+    if (!asrFile || (asrWay === 'openrouter' && !asrModel)) return;
     setAsrBusy(true);
     setError(null);
     setAsrText('');
     try {
-      setAsrText(await transcribeWithNativeOpenRouter(asrModel, asrFile, asrLanguage.trim() || undefined));
+      const language = asrLanguage.trim() || undefined;
+      setAsrText(asrWay === 'karaoke'
+        ? await recogniseLyrics({ file: asrFile }, language)
+        : await transcribeWithNativeOpenRouter(asrModel, asrFile, language));
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      const message = reason instanceof Error ? reason.message : String(reason);
+      setError(karaokeReason(t, message) ?? message);
     } finally {
       setAsrBusy(false);
     }
@@ -489,11 +499,30 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
           </div>
           <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{t('transcribeIntro')}</p>
 
+          <div role="radiogroup" aria-label={t('transcribeWay')} className="mt-3 inline-flex rounded-lg border border-zinc-200 p-0.5 text-xs font-semibold dark:border-white/10">
+            {(['karaoke', 'openrouter'] as const).map(way => (
+              <button
+                key={way}
+                type="button"
+                role="radio"
+                aria-checked={asrWay === way}
+                onClick={() => setChosenWay(way)}
+                title={t(way === 'karaoke' ? 'transcribeWayKaraokeHint' : 'transcribeWayOpenRouterHint')}
+                className={`rounded-md px-3 py-1.5 ${asrWay === way ? 'bg-pink-600 text-white' : 'text-zinc-600 hover:text-pink-600 dark:text-zinc-300'}`}
+              >
+                {t(way === 'karaoke' ? 'transcribeWayKaraoke' : 'transcribeWayOpenRouter')}
+              </button>
+            ))}
+          </div>
+          {asrWay === 'karaoke' && !karaokeRecogniser && <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">{t('karaokeNoRecogniser')}</p>}
+
           <div className="mt-3 grid gap-2 md:grid-cols-3">
-            <select value={asrModel} onChange={event => setAsrModel(event.target.value)} className={CONTROL}>
-              {asrModels.length === 0 && <option value="">{t('noSpeechModel')}</option>}
-              {asrModels.map(model => <option key={model.id} value={model.id}>{model.name}</option>)}
-            </select>
+            {asrWay === 'openrouter' && (
+              <select value={asrModel} onChange={event => setAsrModel(event.target.value)} className={CONTROL}>
+                {asrModels.length === 0 && <option value="">{t('noSpeechModel')}</option>}
+                {asrModels.map(model => <option key={model.id} value={model.id}>{model.name}</option>)}
+              </select>
+            )}
             <button
               type="button"
               onClick={() => filePicker.current?.click()}
@@ -519,7 +548,7 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
           <button
             type="button"
             onClick={() => void transcribe()}
-            disabled={!asrFile || !asrModel || asrBusy}
+            disabled={!asrFile || (asrWay === 'openrouter' ? !asrModel : !karaokeRecogniser) || asrBusy}
             className="mt-3 inline-flex items-center gap-2 rounded-lg bg-linear-to-r from-orange-500 to-pink-600 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
             {asrBusy ? <Loader2 size={14} className="animate-spin" /> : <FileAudio size={14} />} {t('transcribeAudio')}

@@ -1094,6 +1094,7 @@ pub async fn serve() -> anyhow::Result<()> {
         .route("/v1/openrouter/catalog", get(openrouter_catalog))
         .route("/v1/openrouter/catalog/refresh", post(refresh_openrouter_catalog))
         .route("/v1/openrouter/transcriptions", post(create_openrouter_transcription))
+        .route("/v1/lyrics/recognise", post(recognise_lyrics))
         .route("/v1/openrouter/covers", post(create_openrouter_cover))
         .route("/editor", get(|| async { axum::response::Redirect::permanent("/editor/index.html") }))
         .route("/editor/{*path}", get(editor_asset))
@@ -6571,6 +6572,78 @@ async fn create_song_karaoke(
         .set_song_lrc(&id, &lrc)
         .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
     Ok(Json(serde_json::json!({ "lrc": lrc, "lines": lines.len(), "provider": config.provider })))
+}
+
+#[derive(Debug, Deserialize)]
+struct RecogniseLyricsRequest {
+    /// A song of the library, or else a recording sent with the request.
+    #[serde(default)]
+    song_id: Option<String>,
+    #[serde(default)]
+    audio_base64: Option<String>,
+    #[serde(default)]
+    audio_format: Option<String>,
+    /// Overrides the language guess, as for karaoke.
+    #[serde(default)]
+    language: Option<String>,
+}
+
+/// The lyrics a song or a recording sings, heard by the recogniser chosen for
+/// karaoke and laid out in lines as dataset preparation lays them out.
+async fn recognise_lyrics(
+    State(state): State<AppState>,
+    Json(request): Json<RecogniseLyricsRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    let config = state.lyrics_sync_config.read().await.clone();
+    if config.provider == lyrics_sync::AsrProvider::None {
+        return Err(api_error(StatusCode::CONFLICT, "karaoke.no-recogniser".into()));
+    }
+    if matches!(config.provider, lyrics_sync::AsrProvider::Whisper | lyrics_sync::AsrProvider::Parakeet) {
+        card_free_of_training(&state, "recognise lyrics").await?;
+    }
+    if !config.available() {
+        return Err(api_error(StatusCode::CONFLICT, "karaoke.off".into()));
+    }
+    let (audio, sent) = match (&request.song_id, &request.audio_base64) {
+        (Some(id), _) => {
+            let song = state
+                .library
+                .get_song(id)
+                .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
+                .ok_or_else(|| api_error(StatusCode::NOT_FOUND, "no such song".into()))?;
+            let path = state
+                .library
+                .media_path_for_song(&song)
+                .ok_or_else(|| api_error(StatusCode::BAD_REQUEST, "this track has no audio to listen to".into()))?;
+            (path, false)
+        }
+        (None, Some(encoded)) => {
+            use base64::Engine as _;
+            let bytes = base64::engine::general_purpose::STANDARD
+                .decode(encoded)
+                .map_err(|error| api_error(StatusCode::BAD_REQUEST, format!("the recording is not base64: {error}")))?;
+            let extension: String = request.audio_format.as_deref().unwrap_or("wav").chars().filter(char::is_ascii_alphanumeric).take(8).collect();
+            let path = std::env::temp_dir().join(format!("ace-lyrics-{}.{}", uuid::Uuid::now_v7().simple(), if extension.is_empty() { "wav" } else { &extension }));
+            std::fs::write(&path, bytes).map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("could not keep the recording: {error}")))?;
+            (path, true)
+        }
+        (None, None) => return Err(api_error(StatusCode::BAD_REQUEST, "name a song_id or send audio_base64".into())),
+    };
+    let owner = request.song_id.clone().unwrap_or_default();
+    if !ensure_local_recogniser(&state, &config, &owner).await {
+        if sent {
+            std::fs::remove_file(&audio).ok();
+        }
+        return Err(api_error(StatusCode::CONFLICT, "karaoke.model-missing".into()));
+    }
+    let heard = recognised_words(&state, &config, audio.clone(), request.language.clone()).await;
+    if sent {
+        if let Err(error) = std::fs::remove_file(&audio) {
+            studio_log!("[ERROR] could not remove the recording {}: {error}", audio.display());
+        }
+    }
+    let lyrics = prepare::recognised_lyrics(&heard?).ok_or_else(|| api_error(StatusCode::BAD_GATEWAY, lyrics_sync::NO_WORDS.to_string()))?;
+    Ok(Json(serde_json::json!({ "text": lyrics, "provider": config.provider })))
 }
 
 async fn delete_song_karaoke(
