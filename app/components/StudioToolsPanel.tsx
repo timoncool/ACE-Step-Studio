@@ -354,6 +354,15 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
               {stems.length > 0 ? t('stemsAgain') : t('stemsStart')}
             </button>
             {chosenIsStem && <p className="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('stemOfStem')}</p>}
+            {/* the model is in place and the server it runs in is not (missing or of an earlier release): why Split waits */}
+            {status && status.model.installed && !status.ready && (
+              <p className="mt-2 text-xs leading-5 text-amber-600 dark:text-amber-300">
+                {t('updateWhyAudiocppServer')} ·{' '}
+                <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('studio:open-settings', { detail: 'models' }))} className="underline underline-offset-2">
+                  {t('changeProfileHint')}
+                </button>
+              </p>
+            )}
             <ConfirmDialog
               isOpen={confirmReplace}
               title={t('replaceStemsTitle')}
