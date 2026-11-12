@@ -152,237 +152,22 @@ fn heard_words(transcript: &acpp_server::Transcript) -> Vec<(f64, String)> {
         .collect()
 }
 
-/// The build of audio.cpp's server karaoke runs on for `runtime`: the processor when it is chosen; else the card's
-/// CUDA build (on Linux CUDA 13 alone, as the engine ships it), Vulkan on a card CUDA does not run (AMD, Intel), the
-/// processor without a card; a Mac its Metal program.
-pub fn crisper_build(runtime: OnnxFlavour) -> Result<acpp_server::asset::Build> {
-    use acpp_server::asset::Build;
-    if let Some(mac) = Build::for_this_mac() {
-        return Ok(mac);
-    }
-    if cfg!(target_os = "macos") {
-        bail!("the audio.cpp server is published for Apple silicon only");
-    }
-    if matches!(runtime, OnnxFlavour::Cpu) {
-        return Ok(Build::Cpu);
-    }
-    Ok(match crate::cuda_build::current() {
-        Some(crate::cuda_build::CudaBuild::Cuda13) => Build::Cuda13,
-        Some(crate::cuda_build::CudaBuild::Cuda12) if cfg!(windows) => Build::Cuda12,
-        _ if crate::presets::display_card().is_some() => Build::Vulkan,
-        _ => Build::Cpu,
-    })
-}
-
 /// What CrisperWhisper needs on `runtime`'s build: the server and the CUDA libraries it does not carry, and every file
 /// of the model.
 pub fn crisper_assets(runtime: OnnxFlavour) -> Vec<&'static str> {
-    use acpp_server::asset::Build;
-    let Ok(build) = crisper_build(runtime) else { return Vec::new() };
-    let server: &[&str] = match build {
-        Build::Cuda13 => &["audiocpp-cuda13", "audiocpp-cuda13-cufft"],
-        Build::Cuda12 => &["audiocpp-cuda12", "audiocpp-cuda12-cudart", "audiocpp-cuda12-cublas", "audiocpp-cuda12-cufft"],
-        Build::Vulkan => &["audiocpp-vulkan"],
-        Build::Cpu => &["audiocpp-cpu"],
-        Build::Metal => &["audiocpp-metal"],
-    };
-    let model = ASSETS.iter().filter(|asset| asset.relative_path.starts_with(CRISPERWHISPER_DIR)).map(|asset| asset.id);
-    server.iter().copied().chain(model).collect()
+    let Ok(build) = crate::acpp::build_for(runtime) else { return Vec::new() };
+    let model = OWN.iter().filter(|asset| asset.relative_path.starts_with(CRISPERWHISPER_DIR)).map(|asset| asset.id);
+    crate::acpp::server_ids(build).iter().copied().chain(model).collect()
 }
 
-/// CrisperWhisper's memory freed on every running server; its next request loads it again.
-fn unload_crisper() {
-    for (pid, error) in acpp_server::SERVERS.unload(&[CRISPERWHISPER]) {
-        studio_log!("[ERROR] audiocpp_server {pid} did not unload CrisperWhisper: {error}");
-    }
+/// Every download of karaoke: its own and the audio.cpp server CrisperWhisper runs in.
+pub fn assets() -> &'static [Asset] {
+    static ALL: std::sync::OnceLock<Vec<Asset>> = std::sync::OnceLock::new();
+    ALL.get_or_init(|| crate::acpp::ASSETS.iter().chain(OWN).copied().collect())
 }
 
-pub const ASSETS: &[Asset] = &[
-    // CrisperWhisper runs in audio.cpp's server, the build of the card or the processor; the archives and CUDA
-    // libraries are the shared client's pins (acpp_server::asset), one folder a build as Dub Studio and Speech Studio
-    // lay them out.
-    #[cfg(windows)]
-    Asset {
-        id: "audiocpp-cuda13",
-        label: "audio.cpp server (CUDA 13)",
-        kind: AssetKind::Runtime,
-        url: acpp_server::asset::SERVER_WIN_CUDA13.url,
-        relative_path: "runtime/audiocpp-cuda13.zip",
-        bytes: acpp_server::asset::SERVER_WIN_CUDA13.size,
-        unzip_into: Some(acpp_server::asset::Build::Cuda13.folder()),
-        marker: "audiocpp_server",
-        pick: &[],
-        vram_gb: None,
-        note: "Runs CrisperWhisper on an NVIDIA card from the GTX 16 and RTX 20 series on.",
-    },
-    #[cfg(windows)]
-    Asset {
-        id: "audiocpp-cuda13-cufft",
-        label: "NVIDIA cuFFT 12.4 (for the audio.cpp server)",
-        kind: AssetKind::Runtime,
-        url: "https://developer.download.nvidia.com/compute/cuda/redist/libcufft/windows-x86_64/libcufft-windows-x86_64-12.4.0.43-archive.zip",
-        relative_path: "runtime/audiocpp-cuda13-cufft.zip",
-        bytes: 159_602_693,
-        unzip_into: Some(acpp_server::asset::Build::Cuda13.folder()),
-        marker: "cufft64_12.dll",
-        pick: &["cufft64_12.dll"],
-        vram_gb: None,
-        note: "The Fourier transforms of the CUDA 13 server; its cuBLAS is the music engine's.",
-    },
-    #[cfg(windows)]
-    Asset {
-        id: "audiocpp-cuda12",
-        label: "audio.cpp server (CUDA 12)",
-        kind: AssetKind::Runtime,
-        url: acpp_server::asset::SERVER_WIN_CUDA12.url,
-        relative_path: "runtime/audiocpp-cuda12.zip",
-        bytes: acpp_server::asset::SERVER_WIN_CUDA12.size,
-        unzip_into: Some(acpp_server::asset::Build::Cuda12.folder()),
-        marker: "audiocpp_server",
-        pick: &[],
-        vram_gb: None,
-        note: "Runs CrisperWhisper on the NVIDIA cards and drivers CUDA 13 does not.",
-    },
-    #[cfg(windows)]
-    Asset {
-        id: "audiocpp-cuda12-cudart",
-        label: "NVIDIA CUDA runtime 12.9 (for the audio.cpp server)",
-        kind: AssetKind::Runtime,
-        url: acpp_server::asset::CUDA12_RUNTIME[0].url,
-        relative_path: "runtime/audiocpp-cuda12-cudart.whl",
-        bytes: acpp_server::asset::CUDA12_RUNTIME[0].size,
-        unzip_into: Some(acpp_server::asset::Build::Cuda12.folder()),
-        marker: "cudart64_12.dll",
-        pick: &["cudart64_12.dll"],
-        vram_gb: None,
-        note: "Part of the CUDA 12 server.",
-    },
-    #[cfg(windows)]
-    Asset {
-        id: "audiocpp-cuda12-cublas",
-        label: "NVIDIA cuBLAS 12.9 (for the audio.cpp server)",
-        kind: AssetKind::Runtime,
-        url: acpp_server::asset::CUDA12_RUNTIME[1].url,
-        relative_path: "runtime/audiocpp-cuda12-cublas.whl",
-        bytes: acpp_server::asset::CUDA12_RUNTIME[1].size,
-        unzip_into: Some(acpp_server::asset::Build::Cuda12.folder()),
-        marker: "cublasLt64_12.dll",
-        pick: &["cublas64_12.dll", "cublasLt64_12.dll"],
-        vram_gb: None,
-        note: "Part of the CUDA 12 server.",
-    },
-    #[cfg(windows)]
-    Asset {
-        id: "audiocpp-cuda12-cufft",
-        label: "NVIDIA cuFFT 11.4 (for the audio.cpp server)",
-        kind: AssetKind::Runtime,
-        url: acpp_server::asset::CUDA12_RUNTIME[2].url,
-        relative_path: "runtime/audiocpp-cuda12-cufft.whl",
-        bytes: acpp_server::asset::CUDA12_RUNTIME[2].size,
-        unzip_into: Some(acpp_server::asset::Build::Cuda12.folder()),
-        marker: "cufft64_11.dll",
-        pick: &["cufft64_11.dll"],
-        vram_gb: None,
-        note: "Part of the CUDA 12 server.",
-    },
-    #[cfg(windows)]
-    Asset {
-        id: "audiocpp-vulkan",
-        label: "audio.cpp server (Vulkan)",
-        kind: AssetKind::Runtime,
-        url: acpp_server::asset::SERVER_WIN_VULKAN.url,
-        relative_path: "runtime/audiocpp-vulkan.zip",
-        bytes: acpp_server::asset::SERVER_WIN_VULKAN.size,
-        unzip_into: Some(acpp_server::asset::Build::Vulkan.folder()),
-        marker: "audiocpp_server",
-        pick: &[],
-        vram_gb: None,
-        note: "Runs CrisperWhisper on an AMD or Intel card.",
-    },
-    #[cfg(windows)]
-    Asset {
-        id: "audiocpp-cpu",
-        label: "audio.cpp server (processor)",
-        kind: AssetKind::Runtime,
-        url: acpp_server::asset::SERVER_WIN_CPU.url,
-        relative_path: "runtime/audiocpp-cpu.zip",
-        bytes: acpp_server::asset::SERVER_WIN_CPU.size,
-        unzip_into: Some(acpp_server::asset::Build::Cpu.folder()),
-        marker: "audiocpp_server",
-        pick: &[],
-        vram_gb: None,
-        note: "Runs CrisperWhisper on the processor: slower, the same words.",
-    },
-    #[cfg(target_os = "linux")]
-    Asset {
-        id: "audiocpp-cuda13",
-        label: "audio.cpp server (CUDA 13)",
-        kind: AssetKind::Runtime,
-        url: acpp_server::asset::SERVER_LINUX_CUDA13.url,
-        relative_path: "runtime/audiocpp-cuda13.tar.gz",
-        bytes: acpp_server::asset::SERVER_LINUX_CUDA13.size,
-        unzip_into: Some(acpp_server::asset::Build::Cuda13.folder()),
-        marker: "audiocpp_server",
-        pick: &[],
-        vram_gb: None,
-        note: "Runs CrisperWhisper on an NVIDIA card from the GTX 16 and RTX 20 series on.",
-    },
-    #[cfg(target_os = "linux")]
-    Asset {
-        id: "audiocpp-cuda13-cufft",
-        label: "NVIDIA cuFFT 12.4 (for the audio.cpp server)",
-        kind: AssetKind::Runtime,
-        url: "https://developer.download.nvidia.com/compute/cuda/redist/libcufft/linux-x86_64/libcufft-linux-x86_64-12.4.0.43-archive.tar.xz",
-        relative_path: "runtime/audiocpp-cuda13-cufft.tar.xz",
-        bytes: 249_327_988,
-        unzip_into: Some(acpp_server::asset::Build::Cuda13.folder()),
-        marker: "libcufft.so.12",
-        pick: &["libcufft.so.12"],
-        vram_gb: None,
-        note: "The Fourier transforms of the CUDA 13 server; its cuBLAS is the music engine's.",
-    },
-    #[cfg(target_os = "linux")]
-    Asset {
-        id: "audiocpp-vulkan",
-        label: "audio.cpp server (Vulkan)",
-        kind: AssetKind::Runtime,
-        url: acpp_server::asset::SERVER_LINUX_VULKAN.url,
-        relative_path: "runtime/audiocpp-vulkan.tar.gz",
-        bytes: acpp_server::asset::SERVER_LINUX_VULKAN.size,
-        unzip_into: Some(acpp_server::asset::Build::Vulkan.folder()),
-        marker: "audiocpp_server",
-        pick: &[],
-        vram_gb: None,
-        note: "Runs CrisperWhisper on an AMD or Intel card.",
-    },
-    #[cfg(target_os = "linux")]
-    Asset {
-        id: "audiocpp-cpu",
-        label: "audio.cpp server (processor)",
-        kind: AssetKind::Runtime,
-        url: acpp_server::asset::SERVER_LINUX_CPU.url,
-        relative_path: "runtime/audiocpp-cpu.tar.gz",
-        bytes: acpp_server::asset::SERVER_LINUX_CPU.size,
-        unzip_into: Some(acpp_server::asset::Build::Cpu.folder()),
-        marker: "audiocpp_server",
-        pick: &[],
-        vram_gb: None,
-        note: "Runs CrisperWhisper on the processor: slower, the same words.",
-    },
-    #[cfg(target_os = "macos")]
-    Asset {
-        id: "audiocpp-metal",
-        label: "audio.cpp server (Metal)",
-        kind: AssetKind::Runtime,
-        url: acpp_server::asset::SERVER_MACOS.url,
-        relative_path: "runtime/audiocpp-metal.tar.gz",
-        bytes: acpp_server::asset::SERVER_MACOS.size,
-        unzip_into: Some(acpp_server::asset::Build::Metal.folder()),
-        marker: "audiocpp_server",
-        pick: &[],
-        vram_gb: None,
-        note: "Runs CrisperWhisper on Apple silicon: Metal and the processor in one program.",
-    },
+/// Karaoke's own downloads; the audio.cpp server CrisperWhisper runs in is `acpp::ASSETS`, which `assets()` adds.
+const OWN: &[Asset] = &[
     // CrisperWhisper 2.0 turbo as Speech Studio and Dub Studio fetch it: the Hugging Face repository at its revision,
     // in a folder of that name, so one program's copy serves the others
     Asset {
@@ -1076,7 +861,7 @@ pub fn parakeet_assets(runtime: OnnxFlavour, variant: Option<&str>) -> Vec<&'sta
 }
 
 pub fn asset(id: &str) -> Option<&'static Asset> {
-    ASSETS.iter().find(|asset| asset.id == id)
+    assets().iter().find(|asset| asset.id == id)
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1099,13 +884,20 @@ pub struct SyncStatus {
 
 pub struct LyricsSync {
     downloader: Downloader,
-    /// Where the music engine's cuBLAS 13 is, which transcribe.cpp's CUDA build imports.
-    cuda_libraries: std::sync::OnceLock<PathBuf>,
+    /// audio.cpp's server, installed in this folder: CrisperWhisper's, and the stems' and MIDI's.
+    acpp: std::sync::Arc<crate::acpp::Acpp>,
 }
 
 impl LyricsSync {
     pub fn new(data_root: &Path) -> Self {
-        Self { downloader: Downloader::new(data_root.join("karaoke")), cuda_libraries: std::sync::OnceLock::new() }
+        let downloader = Downloader::new(data_root.join("karaoke"));
+        let acpp = std::sync::Arc::new(crate::acpp::Acpp::new(downloader.clone()));
+        Self { downloader, acpp }
+    }
+
+    /// The studio's audio.cpp server.
+    pub fn acpp(&self) -> std::sync::Arc<crate::acpp::Acpp> {
+        self.acpp.clone()
     }
 
     /// What former releases left in the karaoke folder, by the names the update screen's table of changes knows:
@@ -1142,32 +934,13 @@ impl LyricsSync {
         }
     }
 
-    /// The folder of the cuBLAS 13 the music engine runs on: transcribe.cpp's CUDA build takes links to it.
+    /// The folder of the cuBLAS 13 the music engine runs on: transcribe.cpp's and audio.cpp's CUDA builds take links to it.
     pub fn set_cuda_libraries(&self, folder: PathBuf) {
-        self.cuda_libraries.set(folder).ok();
+        self.acpp.set_cuda13_libraries(folder);
     }
 
-    /// Windows looks for a library's imports beside it: the CUDA build gets links to the engine's cuBLAS 13, no
-    /// copies, unless the files are on PATH already.
     fn link_cuda13(&self, engine_dir: &Path, who: &str) -> Result<()> {
-        if !cfg!(windows) {
-            return Ok(());
-        }
-        let on_path = |name: &str| std::env::var_os("PATH").is_some_and(|path| std::env::split_paths(&path).any(|dir| dir.join(name).is_file()));
-        for name in crate::engine_runtime::CUDA13_LIBRARIES {
-            let target = engine_dir.join(name);
-            if target.is_file() || on_path(name) {
-                continue;
-            }
-            let source = self.cuda_libraries.get().map(|folder| folder.join(name)).filter(|source| source.is_file());
-            let Some(source) = source else {
-                bail!("{who} on the card needs {name}, which comes with the music engine's CUDA 13 runtime: download it in Settings - Local engine, or choose the processor");
-            };
-            if fs::hard_link(&source, &target).is_err() {
-                fs::copy(&source, &target).with_context(|| format!("copy {} beside transcribe.cpp", source.display()))?;
-            }
-        }
-        Ok(())
+        crate::acpp::link_cuda13(self.acpp.cuda13_libraries(), engine_dir, who)
     }
 
     pub fn downloader(&self) -> &Downloader {
@@ -1176,9 +949,7 @@ impl LyricsSync {
 
     /// The audio.cpp server of the build `runtime` runs on, when it is downloaded.
     pub fn crisper_server_exe(&self, runtime: OnnxFlavour) -> Option<PathBuf> {
-        let build = crisper_build(runtime).ok()?;
-        let exe = self.downloader.runtime_dir(build.folder()).join(if cfg!(windows) { "audiocpp_server.exe" } else { "audiocpp_server" });
-        exe.is_file().then_some(exe)
+        self.acpp.exe(crate::acpp::build_for(runtime).ok()?)
     }
 
     /// CrisperWhisper runs here: the server of this choice's build, the CUDA libraries it does not carry and every
@@ -1188,57 +959,20 @@ impl LyricsSync {
         !wanted.is_empty() && wanted.iter().all(|id| asset(id).is_some_and(|asset| self.downloader.is_installed(asset)))
     }
 
-    /// The running server of `runtime`'s build carrying CrisperWhisper: the one there is, or a new one. An error, before
-    /// the program starts, when a part of it is missing.
-    fn crisper_server(&self, runtime: OnnxFlavour) -> Result<std::sync::Arc<acpp_server::Server>> {
-        let build = crisper_build(runtime)?;
-        let folder = self.downloader.runtime_dir(build.folder());
-        let exe = self.crisper_server_exe(runtime).ok_or_else(|| anyhow!("the audio.cpp server ({}) is not downloaded: download CrisperWhisper in Settings - Models", build.folder()))?;
+    /// `work` on the server of `runtime`'s build carrying CrisperWhisper (`Acpp::with_server`). An error, before the
+    /// server is looked up, when a part of CrisperWhisper is not downloaded.
+    fn with_crisper<T>(&self, runtime: OnnxFlavour, work: impl FnOnce(&acpp_server::Server) -> Result<T>) -> Result<T> {
+        let build = crate::acpp::build_for(runtime)?;
         let model = self.downloader.root().join(CRISPERWHISPER_DIR);
-        if !crisper_assets(runtime).iter().all(|id| asset(id).is_some_and(|asset| self.downloader.is_installed(asset))) {
-            bail!("CrisperWhisper is not completely downloaded into {}", model.display());
+        if !self.crisper_ready(runtime) {
+            bail!("CrisperWhisper is not completely downloaded into {}: download it in Settings - Models", model.display());
         }
-        if build == acpp_server::asset::Build::Cuda13 {
-            self.link_cuda13(&folder, "the audio.cpp server")?;
-        }
-        // Windows looks beside the program, then on PATH, where the engine's folder and its cuBLAS 13 are
-        let path: Vec<PathBuf> = std::env::var_os("PATH").map(|path| std::env::split_paths(&path).collect()).unwrap_or_default();
-        let searched: Vec<&Path> = std::iter::once(folder.as_path()).chain(path.iter().map(PathBuf::as_path)).collect();
-        let missing = acpp_server::asset::missing_libraries(build, &searched);
-        if !missing.is_empty() {
-            bail!("the audio.cpp server misses {} beside it in {}", missing.join(", "), folder.display());
-        }
-        let config = acpp_server::ServerConfig {
-            exe,
-            backend: build.backend(),
-            device: 0,
-            threads: std::thread::available_parallelism().map(|threads| threads.get() as u32).unwrap_or(8).min(16),
-            models: vec![acpp_server::ModelEntry::crisperwhisper(CRISPERWHISPER, &model)],
-            data_dir: self.downloader.root().join("logs").join(build.folder()),
-            log: false,
-        };
-        // a Linux loader finds the engine's cuBLAS 13 for the CUDA build where the engine keeps it
-        let libraries = [folder.clone(), crate::engine_bundle_root()];
-        let prepare = move |command: &mut std::process::Command| {
-            // the engine's folder lies inside the image too: it goes on after the image's folders are taken off
-            dub_core::proc::outside_appimage(command);
-            if cfg!(target_os = "linux") {
-                let inherited = match command.get_envs().find(|(key, _)| *key == "LD_LIBRARY_PATH") {
-                    Some((_, value)) => value.map(std::ffi::OsStr::to_os_string),
-                    None => std::env::var_os("LD_LIBRARY_PATH"),
-                };
-                if let Ok(path) = std::env::join_paths(libraries.iter().cloned().chain(inherited.iter().flat_map(std::env::split_paths))) {
-                    command.env("LD_LIBRARY_PATH", path);
-                }
-            }
-        };
-        let server = acpp_server::SERVERS.get(&config, std::time::Duration::from_secs(60), &prepare).map_err(|error| anyhow!("the audio.cpp server did not start: {error}"))?;
-        studio_log!("audiocpp_server {} ({}) carries CrisperWhisper", server.pid(), build.folder());
-        Ok(server)
+        let files = OWN.iter().filter(|asset| asset.relative_path.starts_with(CRISPERWHISPER_DIR)).map(|asset| self.downloader.root().join(asset.relative_path)).collect();
+        self.acpp.with_server(build, acpp_server::ModelEntry::crisperwhisper(CRISPERWHISPER, &model), files, work)
     }
 
     pub fn installed_models(&self) -> Vec<&'static Asset> {
-        ASSETS
+        OWN
             .iter()
             .filter(|asset| asset.kind == AssetKind::Model && self.downloader.is_installed(asset))
             .collect()
@@ -1379,7 +1113,7 @@ impl LyricsSync {
             whisper_model: config.whisper_model.clone(),
             openrouter_model: config.openrouter_model.clone(),
             installed_models: self.installed_models().iter().map(|asset| asset.id.to_string()).collect(),
-            assets: self.downloader.status_of(ASSETS),
+            assets: self.downloader.status_of(assets()),
             active_download: self.downloader.active_for("karaoke").await,
         }
     }
@@ -1432,21 +1166,19 @@ impl LyricsSync {
                 Recognised::OnDevice
             }
             AsrProvider::Whisper => {
-                let server = match self.crisper_server(config.runtime) {
-                    Ok(server) => server,
-                    Err(error) => {
-                        failed(heard, error);
-                        return Recognised::OnDevice;
+                // the server ends after the run, so the card is the music engine's between recognitions
+                let run = self.with_crisper(config.runtime, |server| {
+                    for (index, path) in audio.iter().enumerate() {
+                        if cancel.load(Ordering::Relaxed) {
+                            break;
+                        }
+                        heard(index, self.crisper_transcribe(server, path, language));
                     }
-                };
-                for (index, path) in audio.iter().enumerate() {
-                    if cancel.load(Ordering::Relaxed) {
-                        break;
-                    }
-                    heard(index, self.crisper_transcribe(&server, path, language));
+                    Ok(())
+                });
+                if let Err(error) = run {
+                    failed(heard, error);
                 }
-                // the card is the music engine's between recognitions
-                unload_crisper();
                 Recognised::OnDevice
             }
             _ => {
@@ -1457,12 +1189,9 @@ impl LyricsSync {
     }
 
     /// The words CrisperWhisper hears in one track, each with the second it starts, on `runtime`'s build of the
-    /// audio.cpp server; the model leaves the card afterwards.
+    /// audio.cpp server; the server leaves the card afterwards when nothing else runs on it.
     pub fn crisper_words(&self, runtime: OnnxFlavour, audio: &Path, language: Option<&str>) -> Result<Vec<(f64, String)>> {
-        let server = self.crisper_server(runtime)?;
-        let words = self.crisper_transcribe(&server, audio, language);
-        unload_crisper();
-        words
+        self.with_crisper(runtime, |server| self.crisper_transcribe(server, audio, language))
     }
 
     /// One track through the running server: decoded to the 16 kHz mono WAV the server reads, told its language when
@@ -1898,7 +1627,7 @@ mod tests {
     /// A model is fetched from a pinned commit: a repository's latest files can be other builds under the same name.
     #[test]
     fn every_model_is_pinned_to_a_commit() {
-        for asset in ASSETS.iter().filter(|asset| asset.url.contains("huggingface.co/")) {
+        for asset in assets().iter().filter(|asset| asset.url.contains("huggingface.co/")) {
             assert!(asset.url.contains("/resolve/") && !asset.url.contains("/resolve/main/"), "{} is not pinned", asset.url);
         }
     }
@@ -2076,10 +1805,10 @@ Third");
 
     #[test]
     fn every_runtime_is_pinned_and_every_asset_is_distinct() {
-        for entry in ASSETS {
+        for entry in assets() {
             assert!(entry.bytes > 0, "{} has no size", entry.id);
             assert!(entry.url.starts_with("https://"), "{} is not fetched over https", entry.id);
-            assert_eq!(ASSETS.iter().filter(|other| other.id == entry.id).count(), 1);
+            assert_eq!(assets().iter().filter(|other| other.id == entry.id).count(), 1);
             if entry.kind == AssetKind::Runtime {
                 // Every runtime is pinned to an exact release - the audio.cpp server to its tag, ONNX Runtime to its
                 // version, NVIDIA's libraries to their own version in the archive name - so a working setup keeps
@@ -2207,7 +1936,7 @@ mod live_recognition {
         let (Some(root), Some(track)) = (std::env::var_os("STUDIO_TEST_DATA_ROOT"), std::env::var_os("STUDIO_TEST_TRACK")) else { return };
         let sync = LyricsSync::new(std::path::Path::new(&root));
         let runtime = if std::env::var_os("STUDIO_TEST_CPU").is_some() { OnnxFlavour::Cpu } else { OnnxFlavour::Cuda };
-        assert!(sync.crisper_ready(runtime), "CrisperWhisper is not installed for {:?}", crisper_build(runtime));
+        assert!(sync.crisper_ready(runtime), "CrisperWhisper is not installed for {:?}", crate::acpp::build_for(runtime));
         let words = sync.crisper_words(runtime, std::path::Path::new(&track), Some("ru")).expect("recognition");
         studio_log!("words: {}", words.len());
         for (at, word) in words.iter().take(8) {

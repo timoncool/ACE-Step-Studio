@@ -153,7 +153,7 @@ mod tests {
     #[test]
     fn every_download_names_the_sha256_of_its_pin() {
         let mut urls: Vec<&str> = Vec::new();
-        urls.extend(crate::lyrics_sync::ASSETS.iter().map(|asset| asset.url));
+        urls.extend(crate::lyrics_sync::assets().iter().map(|asset| asset.url));
         urls.extend(crate::engine_runtime::ASSETS.iter().map(|asset| asset.url));
         urls.extend(crate::assistant_runtime::ASSETS.iter().map(|asset| asset.url));
         urls.extend([crate::separation::MODEL.url, crate::separation::ROFORMER_MODEL.url]);
@@ -167,7 +167,7 @@ mod tests {
 
     #[test]
     fn every_picked_hash_is_of_a_file_a_download_picks() {
-        let downloads: Vec<&crate::downloads::Asset> = crate::lyrics_sync::ASSETS.iter().chain(crate::engine_runtime::ASSETS).collect();
+        let downloads: Vec<&crate::downloads::Asset> = crate::lyrics_sync::assets().iter().chain(crate::engine_runtime::ASSETS).collect();
         for (url, name, sha256) in PICKED {
             assert_eq!(sha256.len(), 64, "{name}");
             if let Some(asset) = downloads.iter().find(|asset| asset.url == *url) {

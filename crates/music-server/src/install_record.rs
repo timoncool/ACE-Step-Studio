@@ -305,7 +305,7 @@ mod tests {
     fn every_pinned_windows_archive_names_its_key_file() {
         let archive = |url: &str| url.ends_with(".zip") || url.ends_with(".nupkg");
         let mut missing: Vec<&str> = Vec::new();
-        let downloads = crate::lyrics_sync::ASSETS
+        let downloads = crate::lyrics_sync::assets()
             .iter()
             .chain(crate::engine_runtime::ASSETS)
             .chain([&crate::separation::ROFORMER_ENGINE, &crate::separation::ROFORMER_ENGINE_CPU]);
