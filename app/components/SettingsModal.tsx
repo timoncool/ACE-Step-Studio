@@ -285,7 +285,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
   );
 };
 
-/** Which of the player's extras the sidebar keeps: the player bar has them all. */
 /** How large the whole interface is drawn; Ctrl with plus, minus and nought changes the same setting. */
 const UiScaleSetting: React.FC = () => {
   const { t } = useI18n();
@@ -323,6 +322,7 @@ const UiScaleSetting: React.FC = () => {
   );
 };
 
+/** Which of the player's extras the sidebar keeps: the player bar has them all. */
 const SidebarExtrasSetting: React.FC = () => {
   const { t } = useI18n();
   const [extras, setExtras] = React.useState(sidebarExtras);
