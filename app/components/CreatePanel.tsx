@@ -256,6 +256,8 @@ const Stage: React.FC<{ title: string; hint: string; children: React.ReactNode }
 /** A block of the form; with `fold` its title folds and opens it, and the choice is kept across restarts. */
 const Card: React.FC<{ title: string; actions?: React.ReactNode; fold?: string; children: React.ReactNode }> = ({ title, actions, fold, children }) => {
   const [folded, setFolded] = useState(() => (fold ? keptFolded().includes(fold) : false));
+  // React keeps a block's state when the simple mode's block in the same place turns into a studio one
+  useEffect(() => setFolded(fold ? keptFolded().includes(fold) : false), [fold]);
   const toggle = () => {
     if (!fold) return;
     setFolded(current => {
