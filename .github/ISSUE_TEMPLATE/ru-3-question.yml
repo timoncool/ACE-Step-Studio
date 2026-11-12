@@ -1,0 +1,25 @@
+name: Вопрос (Русский)
+description: Как что-то сделать или что-то непонятно
+labels: ["question"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Ваш вопрос
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Версия ACE-Step Studio
+      description: "**Настройки → О программе**"
+  - type: input
+    id: os
+    attributes:
+      label: Система
+      placeholder: "Windows 11 · macOS 15.4 · Ubuntu 24.04"
+  - type: input
+    id: gpu
+    attributes:
+      label: Видеокарта
+      placeholder: "RTX 4060 8 GB · Apple M3 16 GB · без видеокарты"

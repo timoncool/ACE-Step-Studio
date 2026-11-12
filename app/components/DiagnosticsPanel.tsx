@@ -23,7 +23,7 @@ const post = async <T,>(path: string, body: unknown = {}): Promise<T> => {
  * to copy into an issue or to pack with the journal and the logs for a bug report; keys never get in.
  */
 export const DiagnosticsPanel: React.FC = () => {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const setup = useSetupStatus<ReportFacts>();
   const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -75,7 +75,7 @@ export const DiagnosticsPanel: React.FC = () => {
         <button type="button" onClick={() => void makePack()} disabled={packing} className={button}>
           {packing ? <Loader2 size={13} className="animate-spin" /> : <Package size={13} />}{t('diagnosticsPack')}
         </button>
-        <a href={issueReportUrl(STUDIO_REPO_URL, __APP_VERSION__, setup.data)} target="_blank" rel="noopener noreferrer" className={button}>
+        <a href={issueReportUrl(STUDIO_REPO_URL, __APP_VERSION__, language, setup.data)} target="_blank" rel="noopener noreferrer" className={button}>
           <Bug size={13} />{t('diagnosticsReport')}
         </a>
         <button type="button" onClick={revealLogs} className={button}><FolderOpen size={13} />{t('diagnosticsLogs')}</button>

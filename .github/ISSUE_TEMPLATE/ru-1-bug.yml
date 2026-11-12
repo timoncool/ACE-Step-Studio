@@ -1,0 +1,88 @@
+name: Ошибка (Русский)
+description: Что-то сломалось или работает не так
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо, что сообщаете!
+
+        - Проверьте, что у вас [последняя версия](https://github.com/timoncool/ACE-Step-Studio/releases/latest) — многое уже исправлено.
+        - [Поищите похожие сообщения](https://github.com/timoncool/ACE-Step-Studio/issues?q=is%3Aissue) — если ваше уже есть, поставьте 👍 или допишите комментарий.
+        - Одна проблема — одно сообщение.
+  - type: textarea
+    id: what
+    attributes:
+      label: Что случилось?
+      description: Если было сообщение об ошибке, скопируйте его текст целиком.
+      placeholder: |
+        Песня останавливается на «Декодировании» с сообщением «Движок остановился во время этой песни…»
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Как повторить
+      placeholder: |
+        1. Открыть «Создать»
+        2. Вставить текст, 3 минуты
+        3. Нажать «Создать»
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Что ожидали?
+  - type: input
+    id: version
+    attributes:
+      label: Версия ACE-Step Studio
+      description: "**Настройки → О программе**"
+    validations:
+      required: true
+  - type: dropdown
+    id: package
+    attributes:
+      label: Система и сборка
+      options:
+        - Windows — installer (.exe)
+        - Windows — portable (.zip)
+        - macOS — Apple Silicon (.dmg)
+        - Linux — AppImage
+        - Linux — .deb
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Версия системы
+      placeholder: "Windows 11 24H2 · macOS 15.4 · Ubuntu 24.04"
+  - type: input
+    id: gpu
+    attributes:
+      label: Видеокарта
+      description: Карта, её память и версия драйвера.
+      placeholder: "RTX 3060 12 GB, драйвер 581.57 · RX 6600 XT 8 GB · Apple M3 16 GB · без видеокарты"
+    validations:
+      required: true
+  - type: input
+    id: models
+    attributes:
+      label: Набор моделей
+      description: "**Настройки → Модели**"
+      placeholder: "Качество — Q8_0 · Лёгкий — Q5_K_M"
+  - type: textarea
+    id: log
+    attributes:
+      label: Лог
+      description: |
+        В студии: **Настройки → Локальный движок → Лог движка** — скопируйте строки рядом с ошибкой. Если студия не открывается, файл `engine.log` лежит в папке данных (её путь — в **Настройки → Модели**).
+
+        Уберите ключи API, если они там есть.
+      render: shell
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Скриншоты или файлы
+      description: Перетащите сюда картинки, видео или файл лога.

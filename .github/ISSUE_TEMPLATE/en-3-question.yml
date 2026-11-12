@@ -1,0 +1,25 @@
+name: Question
+description: How to do something, or something is unclear
+labels: ["question"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ACE-Step Studio version
+      description: "**Settings → About**"
+  - type: input
+    id: os
+    attributes:
+      label: System
+      placeholder: "Windows 11 · macOS 15.4 · Ubuntu 24.04"
+  - type: input
+    id: gpu
+    attributes:
+      label: Graphics card
+      placeholder: "RTX 4060 8 GB · Apple M3 16 GB · no GPU"

@@ -1,0 +1,88 @@
+name: 错误报告 (中文)
+description: 某个功能坏了或工作不正常
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你花时间反馈！
+
+        - 请先确认你用的是[最新版本](https://github.com/timoncool/ACE-Step-Studio/releases/latest)——很多问题已经修好了。
+        - [搜索已有的问题](https://github.com/timoncool/ACE-Step-Studio/issues?q=is%3Aissue)——如果已经有人报告过，点个 👍 或补充一条评论。
+        - 一个问题一份报告。
+  - type: textarea
+    id: what
+    attributes:
+      label: 发生了什么？
+      description: 如果出现了错误提示，请完整复制它的文字。
+      placeholder: |
+        歌曲停在「解码」，提示「引擎在生成这首歌时停止了……」
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开「创作」
+        2. 粘贴歌词，时长 3 分钟
+        3. 点击「创作」
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 你期望的结果
+  - type: input
+    id: version
+    attributes:
+      label: ACE-Step Studio 版本
+      description: "**设置 → 关于**"
+    validations:
+      required: true
+  - type: dropdown
+    id: package
+    attributes:
+      label: 系统和安装包
+      options:
+        - Windows — installer (.exe)
+        - Windows — portable (.zip)
+        - macOS — Apple Silicon (.dmg)
+        - Linux — AppImage
+        - Linux — .deb
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: 系统版本
+      placeholder: "Windows 11 24H2 · macOS 15.4 · Ubuntu 24.04"
+  - type: input
+    id: gpu
+    attributes:
+      label: 显卡
+      description: 显卡型号、显存大小和驱动版本。
+      placeholder: "RTX 3060 12 GB，驱动 581.57 · RX 6600 XT 8 GB · Apple M3 16 GB · 无独立显卡"
+    validations:
+      required: true
+  - type: input
+    id: models
+    attributes:
+      label: 模型套装
+      description: "**设置 → 模型**"
+      placeholder: "质量 — Q8_0 · 轻量 — Q5_K_M"
+  - type: textarea
+    id: log
+    attributes:
+      label: 日志
+      description: |
+        在工作室中：**设置 → 本地引擎 → 引擎日志**——复制出错位置附近的几行。如果工作室打不开，`engine.log` 文件在数据文件夹里（路径见 **设置 → 模型**）。
+
+        如果日志里有 API 密钥，请删掉。
+      render: shell
+  - type: textarea
+    id: attachments
+    attributes:
+      label: 截图或文件
+      description: 把图片、视频或日志文件拖到这里。

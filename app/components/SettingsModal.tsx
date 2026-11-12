@@ -267,7 +267,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
                     <a href={STUDIO_REPO_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-medium text-white dark:bg-zinc-700">
                       <SiGithub size={14} />{STUDIO.name}
                     </a>
-                    <a href={issueReportUrl(STUDIO_REPO_URL, __APP_VERSION__, reportFacts)} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">{t('reportIssues')}</a>
+                    <a href={issueReportUrl(STUDIO_REPO_URL, __APP_VERSION__, language, reportFacts)} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">{t('reportIssues')}</a>
                   </div>
                 </div>
               </div>

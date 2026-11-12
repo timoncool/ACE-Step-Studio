@@ -1,0 +1,88 @@
+name: Bug report
+description: Something is broken or works wrong
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report!
+
+        - Please check that you have the [latest version](https://github.com/timoncool/ACE-Step-Studio/releases/latest) — many problems are already fixed.
+        - [Search existing issues](https://github.com/timoncool/ACE-Step-Studio/issues?q=is%3Aissue) — if yours is there, add a 👍 or a comment.
+        - One problem per report.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Copy the exact error text from the notification, if there was one.
+      placeholder: |
+        The song stops at "Decoding" with "The engine stopped during this song…"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Create
+        2. Paste lyrics, 3 minutes
+        3. Press Create
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+  - type: input
+    id: version
+    attributes:
+      label: ACE-Step Studio version
+      description: "**Settings → About**"
+    validations:
+      required: true
+  - type: dropdown
+    id: package
+    attributes:
+      label: System and package
+      options:
+        - Windows — installer (.exe)
+        - Windows — portable (.zip)
+        - macOS — Apple Silicon (.dmg)
+        - Linux — AppImage
+        - Linux — .deb
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: System version
+      placeholder: "Windows 11 24H2 · macOS 15.4 · Ubuntu 24.04"
+  - type: input
+    id: gpu
+    attributes:
+      label: Graphics card
+      description: The card, its memory and the driver version.
+      placeholder: "RTX 3060 12 GB, driver 581.57 · RX 6600 XT 8 GB · Apple M3 16 GB · no GPU"
+    validations:
+      required: true
+  - type: input
+    id: models
+    attributes:
+      label: Model set
+      description: "**Settings → Models**"
+      placeholder: "Quality — Q8_0 · Light — Q5_K_M"
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: |
+        In the studio: **Settings → Local engine → Engine log** — copy the lines around the error. If the studio does not open, the file `engine.log` is in the data folder (**Settings → Models** shows it).
+
+        Remove API keys if any.
+      render: shell
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Screenshots or files
+      description: Drag images, videos or the log file here.
