@@ -1,0 +1,71 @@
+name: バグ報告 (日本語)
+description: 何かが壊れている、または正しく動かない
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ご報告ありがとうございます。多くの問題は[最新版](https://github.com/timoncool/ACE-Step-Studio/releases/latest)で修正済みです。
+        スタジオから開いた場合、下の欄はすでに入力されています。
+  - type: textarea
+    id: what
+    attributes:
+      label: 何が起きましたか？
+      description: エラーの通知が出た場合は、その文面をそのままコピーしてください。スクリーンショットもここにドロップできます。
+      placeholder: |
+        曲が「デコード中」で止まり、「この曲の途中でエンジンが停止しました…」と表示される
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順
+      placeholder: |
+        1. 「作成」を開く
+        2. 歌詞を貼り付け、3 分に設定
+        3. 「作成」を押す
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待した結果
+  - type: upload
+    id: log
+    attributes:
+      label: ログまたは報告パック
+      description: "スタジオで **設定 → ローカルエンジン → システム診断 → バグ報告用パックを作成** を押し、できた .zip をここにドロップしてください。スタジオが開かない場合は、データフォルダーの `engine.log` をドロップしてください。"
+    validations:
+      required: false
+      accept: ".zip,.log,.txt,.png,.jpg,.mp4"
+  - type: input
+    id: version
+    attributes:
+      label: ACE-Step Studio のバージョン
+      description: "**設定 → について**"
+    validations:
+      required: true
+  - type: dropdown
+    id: package
+    attributes:
+      label: システムとパッケージ
+      options:
+        - Windows — installer (.exe)
+        - Windows — portable (.zip)
+        - macOS — Apple Silicon (.dmg)
+        - Linux — AppImage
+        - Linux — .deb
+        - Other
+  - type: input
+    id: os
+    attributes:
+      label: システムのバージョン
+      placeholder: "Windows 11 24H2 · macOS 15.4 · Ubuntu 24.04"
+  - type: input
+    id: gpu
+    attributes:
+      label: グラフィックカード
+      placeholder: "RTX 3060 12 GB、ドライバー 581.57 · RX 6600 XT 8 GB · Apple M3 16 GB · GPU なし"
+  - type: input
+    id: models
+    attributes:
+      label: モデルセット
+      description: "**設定 → モデル**"

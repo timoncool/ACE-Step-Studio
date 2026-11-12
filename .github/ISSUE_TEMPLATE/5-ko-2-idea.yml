@@ -1,0 +1,26 @@
+name: 아이디어 (한국어)
+description: 기능이나 개선을 제안하기
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        먼저 [기존 이슈를 검색](https://github.com/timoncool/ACE-Step-Studio/issues?q=is%3Aissue)해 주세요. 같은 아이디어가 있으면 👍를 눌러 주세요.
+  - type: textarea
+    id: problem
+    attributes:
+      label: 무엇을 하고 싶으신가요?
+      description: 하려는 일이나 불편한 점을 적어 주세요. 해결 방법은 아직 없어도 됩니다.
+      placeholder: "제 곡으로 커버를 만들 때마다 인트로를 손으로 잘라 냅니다."
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: ACE-Step Studio가 어떻게 도울 수 있을까요?
+      placeholder: "커버를 만들기 전에 원본 트랙을 바로 다듬을 수 있는 손잡이."
+  - type: textarea
+    id: examples
+    attributes:
+      label: 예시나 스크린샷
+      description: 다른 프로그램의 방식, 스케치, 링크.

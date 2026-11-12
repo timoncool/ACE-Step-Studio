@@ -11,11 +11,12 @@ function system(portable: boolean | undefined): string {
   return portable ? `${name} (portable)`.trim() : name;
 }
 
-/** The bug form in the window's language: Russian and Chinese have their own, every other language the English one. */
+/** The bug form of each window language; the file names keep English first in GitHub's list. */
+const BUG_FORMS: Record<string, string> = { en: '1-en-1-bug.yml', ru: '2-ru-1-bug.yml', zh: '3-zh-1-bug.yml', ja: '4-ja-1-bug.yml', ko: '5-ko-1-bug.yml' };
+
+/** The bug form in the window's language, the English one for a language the forms do not have. */
 export function bugTemplate(language: string): string {
-  if (language === 'ru') return 'ru-1-bug.yml';
-  if (language === 'zh') return 'zh-1-bug.yml';
-  return 'en-1-bug.yml';
+  return BUG_FORMS[language] ?? BUG_FORMS.en;
 }
 
 /**
