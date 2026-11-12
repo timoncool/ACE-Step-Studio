@@ -105,10 +105,12 @@ fn engine_tag(line: &str) -> Option<&str> {
 /// chain of thought it printed - replaced by one line [`LEFT_OUT`]; loading, steps and errors stay. The engine prints
 /// that text after a header that ends in a colon (`[fill Batch0] seed=N:`, `[inspire Batch0] seed=N:`,
 /// `[LM-Phase2] N=1, CoT[0]:`) up to its next own line, and a caption it heard on one line (`[Understand-Result]
-/// caption: ...`). Lines before the first engine line belong to text whose header is earlier and go too.
+/// caption: ...`). Untagged lines before the first engine line may belong to text whose header is earlier and go too,
+/// except those that read as a failure: an engine that fails at its start prints them before any line of its own.
 pub fn without_request_text(lines: &[String]) -> Vec<String> {
     let mut kept: Vec<String> = Vec::with_capacity(lines.len());
     let mut in_text = true;
+    let mut after_header = false;
     let mut leave_out = |kept: &mut Vec<String>| {
         if kept.last().map(String::as_str) != Some(LEFT_OUT) {
             kept.push(LEFT_OUT.to_string());
@@ -121,11 +123,14 @@ pub fn without_request_text(lines: &[String]) -> Vec<String> {
             kept.push(line.clone());
             leave_out(&mut kept);
             in_text = true;
+            after_header = true;
             continue;
         }
         let own = engine_tag(trimmed).is_some_and(|tag| ENGINE_TAGS.contains(&tag)) || trimmed.starts_with("load_backend:") || trimmed.starts_with("ggml_");
         if in_text && !own {
-            if !trimmed.is_empty() {
+            if !after_header && reads_as_failure(trimmed) {
+                kept.push(line.clone());
+            } else if !trimmed.is_empty() {
                 leave_out(&mut kept);
             }
             continue;
@@ -138,6 +143,26 @@ pub fn without_request_text(lines: &[String]) -> Vec<String> {
         kept.push(line.clone());
     }
     kept
+}
+
+/// An untagged line that reads as a failure of the engine or its libraries: CUDA, ggml and the loader print these
+/// before the engine's first line of its own (`CUDA error: out of memory`, `  current device: 0, in function ...`,
+/// `...ggml-cuda.cu:111: CUDA error`, `...ggml.c:1234: GGML_ASSERT(...) failed`).
+fn reads_as_failure(line: &str) -> bool {
+    let lower = line.to_lowercase();
+    if ["error", "fatal", "failed", "assert", "exception", "cannot", "not found", "abort"].iter().any(|word| lower.contains(word)) {
+        return true;
+    }
+    if line.starts_with(char::is_whitespace) && lower.trim_start().starts_with("current device") {
+        return true;
+    }
+    // a source file and its line: `...\ggml-cuda.cu:111:`
+    let parts: Vec<&str> = line.split(':').collect();
+    parts.windows(3).any(|window| {
+        let (file, number) = (window[0].trim_end(), window[1]);
+        let source = [".c", ".cc", ".cpp", ".cu", ".h", ".hpp"].iter().any(|extension| file.ends_with(extension));
+        source && (file.contains('/') || file.contains('\\') || !file.contains(' ')) && !number.is_empty() && number.bytes().all(|byte| byte.is_ascii_digit())
+    })
 }
 
 fn hub_of(state: &AppState) -> Result<&Hub, (StatusCode, Value)> {
@@ -283,5 +308,27 @@ mod tests {
         let shown = body["log"].as_str().unwrap();
         assert!(shown.contains("[DiT] Step 8/8") && !shown.contains("Coffee in the morning sun"));
         std::fs::remove_dir_all(&data).ok();
+    }
+
+
+    /// An engine that fails at its start prints the failure before any line of its own: those lines leave whole, while
+    /// a log that starts inside a song's text still starts with the mark.
+    #[test]
+    fn a_failure_at_the_start_leaves_whole() {
+        let failure: Vec<String> = [
+            "CUDA error: out of memory",
+            "  current device: 0, in function ggml_cuda_init at D:\\a\\ggml\\src\\ggml-cuda\\ggml-cuda.cu:254",
+            "D:\\a\\ggml\\src\\ggml-cuda\\ggml-cuda.cu:111: CUDA error",
+        ]
+        .map(String::from)
+        .to_vec();
+        assert_eq!(without_request_text(&failure), failure);
+        let assert = ["/src/ggml/src/ggml.c:1934: GGML_ASSERT(ggml_can_mul_mat(a, b)) failed".to_string(), "error: unknown argument: --keep".to_string()];
+        assert_eq!(without_request_text(&assert), assert);
+
+        let song = ["Coffee in the morning sun".to_string(), "Meet me, Mr. Brown, at 5:30".to_string(), "[Chorus]".to_string(), "[DiT] Step 1/8 t=1.000".to_string()];
+        assert_eq!(without_request_text(&song), [LEFT_OUT, "[DiT] Step 1/8 t=1.000"]);
+        let after_header = ["[fill Batch0] seed=7:".to_string(), "caption: an error of my ways".to_string(), "[LM-Phase2] max_tokens: 250".to_string()];
+        assert_eq!(without_request_text(&after_header), ["[fill Batch0] seed=7:", LEFT_OUT, "[LM-Phase2] max_tokens: 250"], "after a header the text goes whatever it says");
     }
 }
