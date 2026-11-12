@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronsRight, Square } from 'lucide-react';
+import { pageZoom } from '../services/uiScale';
 
 /** Past this share of the way the slide counts; short of it the knob goes back. */
 const COMMIT_AT = 0.9;
@@ -61,7 +62,7 @@ export const SlideToEnable: React.FC<SlideToEnableProps> = ({ on, onChange, offL
 
   const reach = (clientX: number) => {
     const slide = drag.current;
-    return slide ? Math.min(slide.travel, Math.max(0, clientX - slide.startX)) : 0;
+    return slide ? Math.min(slide.travel, Math.max(0, (clientX - slide.startX) / pageZoom())) : 0;
   };
 
   const start = (event: React.PointerEvent<HTMLButtonElement>) => {

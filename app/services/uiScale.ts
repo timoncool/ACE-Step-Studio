@@ -61,3 +61,9 @@ export function scaleForKey(key: string, current: number): number | null {
   if (key === '0') return UI_SCALE_DEFAULT;
   return null;
 }
+
+/** The page's own scale: a pointer's clientX and an element's getBoundingClientRect come in screen pixels, the layout
+ * (scrollLeft, a width in CSS, a position set in style) in CSS pixels, which is the screen's divided by this. */
+export function pageZoom(): number {
+  return Number(document.documentElement.style.zoom) || 1;
+}

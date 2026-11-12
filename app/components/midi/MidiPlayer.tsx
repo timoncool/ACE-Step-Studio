@@ -10,6 +10,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pause, Play, Radio } from 'lucide-react';
+import { pageZoom } from '../../services/uiScale';
 import { useI18n } from '../../context/I18nContext';
 import { MidiSynth, type PlayNote } from './midiSynth';
 
@@ -333,7 +334,7 @@ export const MidiPlayer: React.FC<Props> = ({ notes, sourceAudioUrl, live, chunk
           style={{ height: ROLL_H }}
           onClick={e => {
             const rect = (e.target as HTMLCanvasElement).getBoundingClientRect();
-            seekTo((e.clientX - rect.left) / PPS);
+            seekTo((e.clientX - rect.left) / pageZoom() / PPS);
           }}
         />
       </div>
