@@ -281,296 +281,63 @@ const OWN: &[Asset] = &[
     },
     #[cfg(windows)]
     Asset {
-        id: "onnxruntime-cuda",
-        label: "ONNX Runtime 1.30.0 · CUDA",
-        kind: AssetKind::Runtime,
-        url: "https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-win-x64-gpu_cuda12-1.30.0.zip",
-        relative_path: "runtime/onnxruntime-cuda.zip",
-        bytes: 379_723_801,
-        unzip_into: Some("onnx-cuda"),
-        marker: "onnxruntime_providers_cuda.dll",
-        pick: &["onnxruntime.dll", "onnxruntime_providers_shared.dll", "onnxruntime_providers_cuda.dll"],
-        vram_gb: Some(2),
-        note: "Runs the separator on an NVIDIA card instead of the processor. Needs CUDA 12.",
-    },
-    #[cfg(windows)]
-    Asset {
-        id: "cuda-cublas",
-        label: "NVIDIA cuBLAS 12.9",
-        kind: AssetKind::Runtime,
-        // NVIDIA's PyPI wheel (a zip): its redistributable archive of 12.9.2.10 has no published SHA-256
-        url: "https://files.pythonhosted.org/packages/20/e2/fc9a0e985249d873150276d5afb02e39a66817fedbf1a385724393e505ed/nvidia_cublas_cu12-12.9.2.10-py3-none-win_amd64.whl",
-        relative_path: "runtime/cuda-cublas.whl",
-        bytes: 553_162_896,
-        unzip_into: Some("onnx-cuda"),
-        marker: "cublasLt64_12.dll",
-        pick: &["cublasLt64_12.dll", "cublas64_12.dll"],
-        vram_gb: None,
-        note: "The linear algebra the CUDA provider is built on.",
-    },
-    #[cfg(windows)]
-    Asset {
-        id: "cuda-cudart",
-        label: "NVIDIA CUDA runtime 12.9",
-        kind: AssetKind::Runtime,
-        url: "https://developer.download.nvidia.com/compute/cuda/redist/cuda_cudart/windows-x86_64/cuda_cudart-windows-x86_64-12.9.79-archive.zip",
-        relative_path: "runtime/cuda-cudart.zip",
-        bytes: 3_521_238,
-        unzip_into: Some("onnx-cuda"),
-        marker: "cudart64_12.dll",
-        pick: &["cudart64_12.dll"],
-        vram_gb: None,
-        note: "The CUDA runtime itself.",
-    },
-    #[cfg(windows)]
-    Asset {
-        id: "cuda-cufft",
-        label: "NVIDIA cuFFT 11.4",
-        kind: AssetKind::Runtime,
-        url: "https://developer.download.nvidia.com/compute/cuda/redist/libcufft/windows-x86_64/libcufft-windows-x86_64-11.4.1.4-archive.zip",
-        relative_path: "runtime/cuda-cufft.zip",
-        bytes: 198_361_265,
-        unzip_into: Some("onnx-cuda"),
-        marker: "cufft64_11.dll",
-        pick: &["cufft64_11.dll"],
-        vram_gb: None,
-        note: "The transforms the provider uses for spectral work.",
-    },
-    #[cfg(windows)]
-    Asset {
-        id: "cuda-cudnn",
-        label: "NVIDIA cuDNN 9.25",
-        kind: AssetKind::Runtime,
-        url: "https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/windows-x86_64/cudnn-windows-x86_64-9.25.0.15_cuda12-archive.zip",
-        relative_path: "runtime/cuda-cudnn.zip",
-        bytes: 1_904_452_100,
-        unzip_into: Some("onnx-cuda"),
-        marker: "cudnn64_9.dll",
-        // Everything the convolution path loads, and nothing else: the
-        // attention kernels alone are another 250 MB the separator never calls.
-        pick: &[
-            "cudnn64_9.dll",
-            "cudnn_graph64_9.dll",
-            "cudnn_ops64_9.dll",
-            "cudnn_cnn64_9.dll",
-            "cudnn_heuristic64_9.dll",
-            "cudnn_engines_precompiled64_9.dll",
-            "cudnn_engines_runtime_compiled64_9.dll",
-            "cudnn_engines_tensor_ir64_9.dll",
-            "cudnn_ext64_9.dll",
-        ],
-        vram_gb: None,
-        note: "The convolution kernels the separator spends its time in.",
-    },
-    #[cfg(windows)]
-    Asset {
         id: "onnxruntime",
-        label: "ONNX Runtime 1.30.0",
+        label: "ONNX Runtime 1.31.1",
         kind: AssetKind::Runtime,
-        url: "https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-win-x64-1.30.0.zip",
+        url: "https://github.com/microsoft/onnxruntime/releases/download/v1.31.1/onnxruntime-win-x64-1.31.1.zip",
         relative_path: "runtime/onnxruntime.zip",
-        bytes: 82_645_522,
+        bytes: 82_929_944,
         unzip_into: Some("onnx"),
         marker: "onnxruntime.dll",
         pick: &[],
         vram_gb: None,
-        note: "Parakeet runs on this; it is loaded at run time, not linked in.",
+        note: "Tempo and key run on this, on the processor; it is loaded at run time, not linked in.",
     },
     #[cfg(target_os = "macos")]
     Asset {
         id: "onnxruntime",
-        label: "ONNX Runtime 1.30.0",
+        label: "ONNX Runtime 1.31.1",
         kind: AssetKind::Runtime,
-        url: "https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-osx-arm64-1.30.0.tgz",
+        url: "https://github.com/microsoft/onnxruntime/releases/download/v1.31.1/onnxruntime-osx-arm64-1.31.1.tgz",
         relative_path: "runtime/onnxruntime.tgz",
-        bytes: 42_373_116,
+        bytes: 36_936_435,
         unzip_into: Some("onnx"),
         marker: "libonnxruntime",
         pick: &[],
         vram_gb: None,
-        note: "Parakeet runs on this; it is loaded at run time, not linked in.",
-    },
-    // The card path for every card that is not an NVIDIA one running CUDA:
-    // DirectML over DirectX 12. 1.24.4 is the last DirectML build Microsoft
-    // publishes; it speaks the same API level (24) as the builds above.
-    #[cfg(windows)]
-    Asset {
-        id: "onnxruntime-directml",
-        label: "ONNX Runtime 1.24.4 · DirectML",
-        kind: AssetKind::Runtime,
-        url: "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime.directml/1.24.4/microsoft.ml.onnxruntime.directml.1.24.4.nupkg",
-        relative_path: "runtime/onnxruntime-directml.nupkg",
-        bytes: 12_458_649,
-        unzip_into: Some("onnx-dml"),
-        marker: "onnxruntime.dll",
-        pick: &["runtimes/win-x64/native/onnxruntime.dll", "runtimes/win-x64/native/onnxruntime_providers_shared.dll"],
-        vram_gb: None,
-        note: "Runs karaoke's Parakeet and the tempo model on an AMD or Intel card through DirectX 12.",
-    },
-    #[cfg(windows)]
-    Asset {
-        id: "directml",
-        label: "DirectML 1.15.4",
-        kind: AssetKind::Runtime,
-        url: "https://api.nuget.org/v3-flatcontainer/microsoft.ai.directml/1.15.4/microsoft.ai.directml.1.15.4.nupkg",
-        relative_path: "runtime/directml.nupkg",
-        bytes: 202_292_617,
-        unzip_into: Some("onnx-dml"),
-        marker: "DirectML.dll",
-        // the package carries the library for Xbox too, under the same name
-        pick: &["bin/x64-win/DirectML.dll"],
-        vram_gb: None,
-        note: "The DirectML the runtime above is built for; the copy inside Windows is older.",
-    },
-    // Linux: the same versions as the Windows builds above, from the same
-    // places - Microsoft's tarballs and NVIDIA's linux-x86_64 redistributables.
-    #[cfg(target_os = "linux")]
-    Asset {
-        id: "onnxruntime-cuda",
-        label: "ONNX Runtime 1.30.0 · CUDA",
-        kind: AssetKind::Runtime,
-        url: "https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-linux-x64-gpu_cuda12-1.30.0.tgz",
-        relative_path: "runtime/onnxruntime-cuda.tgz",
-        bytes: 439_354_926,
-        unzip_into: Some("onnx-cuda"),
-        marker: "libonnxruntime_providers_cuda.so",
-        pick: &[],
-        vram_gb: Some(2),
-        note: "Runs the separator on an NVIDIA card instead of the processor. Needs CUDA 12.",
-    },
-    #[cfg(target_os = "linux")]
-    Asset {
-        id: "cuda-cublas",
-        label: "NVIDIA cuBLAS 12.9",
-        kind: AssetKind::Runtime,
-        // NVIDIA's PyPI wheel (a zip): its redistributable archive of 12.9.2.10 has no published SHA-256
-        url: "https://files.pythonhosted.org/packages/cb/c0/0a517bfe63ccd3b92eb254d264e28fca3c7cab75d07daea315250fb1bf73/nvidia_cublas_cu12-12.9.2.10-py3-none-manylinux_2_27_x86_64.whl",
-        relative_path: "runtime/cuda-cublas.whl",
-        bytes: 581_240_110,
-        unzip_into: Some("onnx-cuda"),
-        marker: "libcublasLt.so.12",
-        pick: &["libcublasLt.so.12", "libcublas.so.12"],
-        vram_gb: None,
-        note: "The linear algebra the CUDA provider is built on.",
-    },
-    #[cfg(target_os = "linux")]
-    Asset {
-        id: "cuda-cudart",
-        label: "NVIDIA CUDA runtime 12.9",
-        kind: AssetKind::Runtime,
-        url: "https://developer.download.nvidia.com/compute/cuda/redist/cuda_cudart/linux-x86_64/cuda_cudart-linux-x86_64-12.9.79-archive.tar.xz",
-        relative_path: "runtime/cuda-cudart.tar.xz",
-        bytes: 1_514_676,
-        unzip_into: Some("onnx-cuda"),
-        marker: "libcudart.so.12",
-        pick: &["libcudart.so.12"],
-        vram_gb: None,
-        note: "The CUDA runtime itself.",
-    },
-    #[cfg(target_os = "linux")]
-    Asset {
-        id: "cuda-cufft",
-        label: "NVIDIA cuFFT 11.4",
-        kind: AssetKind::Runtime,
-        url: "https://developer.download.nvidia.com/compute/cuda/redist/libcufft/linux-x86_64/libcufft-linux-x86_64-11.4.1.4-archive.tar.xz",
-        relative_path: "runtime/cuda-cufft.tar.xz",
-        bytes: 470_942_192,
-        unzip_into: Some("onnx-cuda"),
-        marker: "libcufft.so.11",
-        pick: &["libcufft.so.11"],
-        vram_gb: None,
-        note: "The transforms the provider uses for spectral work.",
-    },
-    // The Linux provider links cuRAND by name; the Windows one does not.
-    #[cfg(target_os = "linux")]
-    Asset {
-        id: "cuda-curand",
-        label: "NVIDIA cuRAND 10.3",
-        kind: AssetKind::Runtime,
-        url: "https://developer.download.nvidia.com/compute/cuda/redist/libcurand/linux-x86_64/libcurand-linux-x86_64-10.3.10.19-archive.tar.xz",
-        relative_path: "runtime/cuda-curand.tar.xz",
-        bytes: 89_582_256,
-        unzip_into: Some("onnx-cuda"),
-        marker: "libcurand.so.10",
-        pick: &["libcurand.so.10"],
-        vram_gb: None,
-        note: "Random numbers, which the CUDA provider is linked against.",
-    },
-    #[cfg(target_os = "linux")]
-    Asset {
-        id: "cuda-cudnn",
-        label: "NVIDIA cuDNN 9.25",
-        kind: AssetKind::Runtime,
-        url: "https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-9.25.0.15_cuda12-archive.tar.xz",
-        relative_path: "runtime/cuda-cudnn.tar.xz",
-        bytes: 987_863_504,
-        unzip_into: Some("onnx-cuda"),
-        marker: "libcudnn.so.9",
-        pick: &[
-            "libcudnn.so.9",
-            "libcudnn_graph.so.9",
-            "libcudnn_ops.so.9",
-            "libcudnn_cnn.so.9",
-            "libcudnn_heuristic.so.9",
-            "libcudnn_engines_precompiled.so.9",
-            "libcudnn_engines_runtime_compiled.so.9",
-            "libcudnn_engines_tensor_ir.so.9",
-            "libcudnn_ext.so.9",
-        ],
-        vram_gb: None,
-        note: "The convolution kernels the separator spends its time in.",
+        note: "Tempo and key run on this, on the processor; it is loaded at run time, not linked in.",
     },
     #[cfg(target_os = "linux")]
     Asset {
         id: "onnxruntime",
-        label: "ONNX Runtime 1.30.0",
+        label: "ONNX Runtime 1.31.1",
         kind: AssetKind::Runtime,
-        url: "https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-linux-x64-1.30.0.tgz",
+        url: "https://github.com/microsoft/onnxruntime/releases/download/v1.31.1/onnxruntime-linux-x64-1.31.1.tgz",
         relative_path: "runtime/onnxruntime.tgz",
-        bytes: 11_306_877,
+        bytes: 11_413_655,
         unzip_into: Some("onnx"),
         marker: "libonnxruntime.so",
         pick: &[],
         vram_gb: None,
-        note: "Parakeet runs on this; it is loaded at run time, not linked in.",
+        note: "Tempo and key run on this, on the processor; it is loaded at run time, not linked in.",
     },
 ];
 
-/// The file names of this platform's ONNX Runtime and of the libraries its
-/// CUDA provider loads.
+/// The file name of this platform's ONNX Runtime.
 #[cfg(target_os = "macos")]
 mod libraries {
     pub const ORT: &str = "libonnxruntime.dylib";
-    pub const ORT_SHARED: &str = "libonnxruntime_providers_shared.dylib";
-    pub const CUDA: &[&str] = &[];
 }
 
 #[cfg(windows)]
 mod libraries {
     pub const ORT: &str = "onnxruntime.dll";
-    pub const ORT_SHARED: &str = "onnxruntime_providers_shared.dll";
-    pub const CUDA: &[&str] = &["onnxruntime_providers_cuda.dll", "cublasLt64_12.dll", "cudart64_12.dll", "cudnn64_9.dll"];
 }
 
 #[cfg(target_os = "linux")]
 mod libraries {
     pub const ORT: &str = "libonnxruntime.so";
-    pub const ORT_SHARED: &str = "libonnxruntime_providers_shared.so";
-    pub const CUDA: &[&str] =
-        &["libonnxruntime_providers_cuda.so", "libcublasLt.so.12", "libcublas.so.12", "libcudart.so.12", "libcufft.so.11", "libcurand.so.10", "libcudnn.so.9"];
 }
-
-/// The CUDA provider's parts, in the order they are used: `karaoke_set` and the
-/// separator build their card path out of these.
-#[cfg(target_os = "macos")]
-pub const CUDA_ASSETS: &[&str] = &[];
-#[cfg(windows)]
-pub const CUDA_ASSETS: &[&str] = &["onnxruntime-cuda", "cuda-cudart", "cuda-cublas", "cuda-cufft", "cuda-cudnn"];
-#[cfg(target_os = "linux")]
-pub const CUDA_ASSETS: &[&str] = &["onnxruntime-cuda", "cuda-cudart", "cuda-cublas", "cuda-cufft", "cuda-curand", "cuda-cudnn"];
-
-/// Everything the DirectML path needs, in the order it is used.
-pub const DIRECTML_ASSETS: [&str; 2] = ["onnxruntime-directml", "directml"];
 
 /// Which build of the ONNX Runtime to load.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -593,32 +360,6 @@ impl OnnxFlavour {
     pub fn uses_cuda(self) -> bool {
         !matches!(self, OnnxFlavour::Cpu) && crate::cuda_build::current().is_some()
     }
-
-    /// Whether work runs on the card through DirectML: every card CUDA does
-    /// not run on - AMD, Intel, an NVIDIA card whose driver is too old - as
-    /// long as there is a card at all.
-    pub fn uses_directml(self) -> bool {
-        cfg!(windows) && !matches!(self, OnnxFlavour::Cpu) && crate::cuda_build::current().is_none() && crate::presets::display_card().is_some()
-    }
-
-    /// The card path this choice takes on this machine; none is the processor.
-    pub fn card(self) -> Option<OnnxCard> {
-        if self.uses_cuda() {
-            Some(OnnxCard::Cuda)
-        } else if self.uses_directml() {
-            Some(OnnxCard::DirectMl)
-        } else {
-            None
-        }
-    }
-}
-
-/// How an ONNX Runtime build reaches the graphics card.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum OnnxCard {
-    Cuda,
-    DirectMl,
 }
 
 /// The words Parakeet hears in one track, each with the second it starts. `language` is a hint the model takes
@@ -640,121 +381,12 @@ fn parakeet_transcribe(asr: &std::sync::Mutex<dub_tcpp::TcppAsr>, model: &dub_tc
     Ok(words)
 }
 
-/// A DXGI adapter tests pin DirectML to - the integrated Radeon beside an
-/// NVIDIA card - where the studio takes the fastest card.
-#[cfg(test)]
-static DIRECTML_ADAPTER: std::sync::OnceLock<i32> = std::sync::OnceLock::new();
-
-/// Puts a session on the card a path reaches: CUDA, or DirectML with what it
-/// requires - no memory pattern, one operator at a time - on the fastest card
-/// DirectX reports. Says whether the card took it: a card that refuses runs
-/// the work on the processor and the caller reports that, instead of it
-/// quietly taking ten times as long.
-pub fn with_card(builder: ort::session::builder::SessionBuilder, card: Option<OnnxCard>) -> (ort::session::builder::SessionBuilder, bool) {
-    let attempt = match card {
-        None => return (builder, false),
-        Some(OnnxCard::Cuda) => builder.clone().with_execution_providers([ort::ep::CUDA::default().build().error_on_failure()]),
-        Some(OnnxCard::DirectMl) => {
-            let provider = ort::ep::DirectML::default()
-                .with_performance_preference(ort::ep::directml::PerformancePreference::HighPerformance)
-                .with_device_filter(ort::ep::directml::DeviceFilter::Gpu);
-            #[cfg(test)]
-            let provider = match DIRECTML_ADAPTER.get() {
-                Some(&adapter) => provider.with_device_id(adapter),
-                None => provider,
-            };
-            builder
-                .clone()
-                .with_memory_pattern(false)
-                .and_then(|builder| builder.with_parallel_execution(false))
-                .and_then(|builder| builder.with_execution_providers([provider.build().error_on_failure()]))
-        }
-    };
-    match attempt {
-        Ok(on_card) => (on_card, true),
-        Err(error) => {
-            studio_log!("[ERROR] the {card:?} provider did not register, the processor runs this instead: {error}");
-            (builder, false)
-        }
-    }
-}
-
-fn point_ort_at(runtime: &Path, card: Option<OnnxCard>) {
+fn point_ort_at(runtime: &Path) {
     unsafe { std::env::set_var("ORT_DYLIB_PATH", runtime) };
-    let Some(directory) = runtime.parent() else { return };
     #[cfg(windows)]
-    {
+    if let Some(directory) = runtime.parent() {
         let existing = std::env::var("PATH").unwrap_or_default();
         unsafe { std::env::set_var("PATH", format!("{};{existing}", directory.display())) };
-        if card == Some(OnnxCard::DirectMl) {
-            preload(&directory.join("DirectML.dll"));
-        }
-    }
-    #[cfg(target_os = "linux")]
-    if card == Some(OnnxCard::Cuda) {
-        preload_cuda(directory);
-    }
-    #[cfg(not(any(windows, target_os = "linux")))]
-    let _ = (directory, card);
-}
-
-/// Linux reads LD_LIBRARY_PATH once, at process start, and the CUDA provider
-/// carries no path to its libraries. A library already loaded is what the
-/// loader hands every later request for its name, so each one in the folder
-/// is loaded here by its full path first, dependencies before dependants -
-/// in passes, because which needs which is the libraries' business.
-#[cfg(target_os = "linux")]
-fn preload_cuda(directory: &Path) {
-    use std::os::unix::ffi::OsStrExt;
-    unsafe extern "C" {
-        fn dlopen(filename: *const std::ffi::c_char, flag: std::ffi::c_int) -> *mut std::ffi::c_void;
-        fn dlerror() -> *const std::ffi::c_char;
-    }
-    const RTLD_NOW: std::ffi::c_int = 2;
-    const RTLD_GLOBAL: std::ffi::c_int = 0x100;
-    let mut pending: Vec<PathBuf> = fs::read_dir(directory)
-        .map(|entries| {
-            entries
-                .flatten()
-                .map(|entry| entry.path())
-                .filter(|path| {
-                    let name = path.file_name().unwrap_or_default().to_string_lossy();
-                    // the loader's names only: `libcudnn_ops.so.9`, not the versioned file it links to
-                    !name.starts_with("libonnxruntime") && name.split_once(".so.").is_some_and(|(_, version)| !version.is_empty() && version.bytes().all(|byte| byte.is_ascii_digit()))
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-    while !pending.is_empty() {
-        let before = pending.len();
-        let mut errors = Vec::new();
-        pending.retain(|library| {
-            let Ok(name) = std::ffi::CString::new(library.as_os_str().as_bytes()) else { return false };
-            if !unsafe { dlopen(name.as_ptr(), RTLD_NOW | RTLD_GLOBAL) }.is_null() {
-                return false;
-            }
-            let error = unsafe { dlerror() };
-            errors.push(if error.is_null() { library.display().to_string() } else { unsafe { std::ffi::CStr::from_ptr(error) }.to_string_lossy().into_owned() });
-            true
-        });
-        if pending.len() == before {
-            studio_log!("[ERROR] the CUDA libraries did not load, the provider will not register: {}", errors.join("; "));
-            return;
-        }
-    }
-}
-
-#[cfg(windows)]
-fn preload(library: &Path) {
-    use std::os::windows::ffi::OsStrExt;
-    #[link(name = "kernel32")]
-    unsafe extern "system" {
-        fn LoadLibraryExW(name: *const u16, file: *mut std::ffi::c_void, flags: u32) -> *mut std::ffi::c_void;
-    }
-    const LOAD_WITH_ALTERED_SEARCH_PATH: u32 = 0x8;
-    let wide: Vec<u16> = library.as_os_str().encode_wide().chain(Some(0)).collect();
-    if unsafe { LoadLibraryExW(wide.as_ptr(), std::ptr::null_mut(), LOAD_WITH_ALTERED_SEARCH_PATH) }.is_null() {
-        studio_log!("[ERROR] could not load {}: {}", library.display(), std::io::Error::last_os_error());
     }
 }
 
@@ -963,29 +595,11 @@ impl LyricsSync {
     }
 
     /// `ort` loads this at run time; linking it would tie the build to one
-    /// toolchain and one machine's libraries.
+    /// toolchain and one machine's libraries. The processor build at today's
+    /// pin: an earlier one left on disk is not loaded.
     pub fn onnxruntime_library(&self) -> Option<PathBuf> {
-        self.machine_runtime().map(|(library, _)| library)
-    }
-
-    /// The ONNX Runtime this process loads, and the card it reaches. A process
-    /// binds one build on first use, so it is chosen by the machine, not by a
-    /// setting: the build for this machine's card when every file of it is
-    /// there - it carries the processor provider too - else the processor build.
-    /// Only a build at today's pin counts: an earlier one left on disk is not loaded.
-    pub fn machine_runtime(&self) -> Option<(PathBuf, Option<OnnxCard>)> {
-        let cuda = self.downloader.runtime_dir("onnx-cuda").join(libraries::ORT);
-        let directml = self.downloader.runtime_dir("onnx-dml").join(libraries::ORT);
         let cpu = self.downloader.runtime_dir("onnx").join(libraries::ORT);
-        match OnnxFlavour::Auto.card() {
-            Some(OnnxCard::Cuda) if self.has_cuda_libraries() => return Some((cuda, Some(OnnxCard::Cuda))),
-            Some(OnnxCard::DirectMl) if self.has_directml_libraries() => return Some((directml, Some(OnnxCard::DirectMl))),
-            _ => {}
-        }
-        [(cpu, "onnxruntime"), (cuda, "onnxruntime-cuda"), (directml, "onnxruntime-directml")]
-            .into_iter()
-            .find(|(library, id)| library.is_file() && self.pinned(&[id]))
-            .map(|(library, _)| (library, None))
+        (cpu.is_file() && self.pinned(&["onnxruntime"])).then_some(cpu)
     }
 
     /// Whether every one of these downloads is installed at today's pin.
@@ -993,48 +607,24 @@ impl LyricsSync {
         ids.iter().all(|id| asset(id).is_some_and(|asset| self.downloader.is_installed(asset)))
     }
 
-    /// The DirectML build and the DirectML it is built for, side by side, at today's pins.
-    pub fn has_directml_libraries(&self) -> bool {
-        let dir = self.downloader.runtime_dir("onnx-dml");
-        [libraries::ORT, libraries::ORT_SHARED, "DirectML.dll"].iter().all(|name| dir.join(name).is_file()) && self.pinned(&DIRECTML_ASSETS)
-    }
-
-    /// Binds `ort` to this machine's runtime - once per process, before
+    /// Binds `ort` to the studio's processor runtime - once per process, before
     /// anything touches `ort`, or it binds to whatever `onnxruntime.dll` the
-    /// system happens to have - and says which card the bound build reaches.
-    /// Every piece of work on ONNX asks here first, so all of it runs on the
-    /// one build that was bound. The library is loaded here, not on first use:
-    /// one this process cannot load (another system's build, a signature macOS
-    /// refuses) is then an error of the work that needed it, where `ort` would
-    /// panic and stay unusable until the studio restarts.
-    pub fn bind_ort(&self) -> Result<Option<OnnxCard>> {
-        static BOUND: std::sync::OnceLock<Option<OnnxCard>> = std::sync::OnceLock::new();
-        if let Some(card) = BOUND.get() {
-            return Ok(*card);
+    /// system happens to have. Every piece of work on ONNX asks here first. The
+    /// library is loaded here, not on first use: one this process cannot load
+    /// (another system's build, a signature macOS refuses) is then an error of
+    /// the work that needed it, where `ort` would panic and stay unusable until
+    /// the studio restarts.
+    pub fn bind_ort(&self) -> Result<()> {
+        static BOUND: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+        if BOUND.get().is_some() {
+            return Ok(());
         }
-        let (library, card) = self.machine_runtime().ok_or_else(|| anyhow!("the ONNX Runtime library is not installed"))?;
-        point_ort_at(&library, card);
-        // Microsoft's builds send usage telemetry unless the environment turns it off
-        let configured = ort::init_from(&library).map_err(|error| anyhow!("load ONNX Runtime {}: {error}", library.display()))?.with_telemetry(false).commit();
-        if !configured {
-            bail!("ONNX Runtime was set up before its library was bound, so its telemetry could not be turned off");
-        }
-        Ok(*BOUND.get_or_init(|| card))
-    }
-
-    /// The card work set to `runtime` runs on, with the machine's runtime
-    /// bound first; none is the processor.
-    pub fn onnx_card(&self, runtime: OnnxFlavour) -> Result<Option<OnnxCard>> {
-        let bound = self.bind_ort()?;
-        Ok(if matches!(runtime, OnnxFlavour::Cpu) { None } else { bound })
-    }
-
-    /// The CUDA provider is a separate library, and it in turn needs cuBLAS and
-    /// cuDNN beside it. Without all of them the provider refuses to load and the
-    /// run silently lands on the processor. All of them at today's pins.
-    pub fn has_cuda_libraries(&self) -> bool {
-        let dir = self.downloader.runtime_dir("onnx-cuda");
-        libraries::CUDA.iter().all(|name| dir.join(name).is_file()) && self.pinned(CUDA_ASSETS)
+        let library = self.onnxruntime_library().ok_or_else(|| anyhow!("the ONNX Runtime library is not installed"))?;
+        point_ort_at(&library);
+        // the process's one environment, telemetry off, over the library pointed at above
+        dub_core::runtime::ort_env().map_err(|error| anyhow!(error))?;
+        BOUND.get_or_init(|| ());
+        Ok(())
     }
 
     /// A model counts as present only with every one of its files: a directory
@@ -1623,7 +1213,7 @@ mod tests {
     const CUFFT_BUILD: &str = "11.4.1.4";
     const CUDNN_BUILD: &str = "9.25.0.15";
     const CURAND_BUILD: &str = "10.3.10.19";
-    const ONNXRUNTIME_BUILD: &str = "v1.30.0";
+    const ONNXRUNTIME_BUILD: &str = "v1.31.1";
     const ONNXRUNTIME_DIRECTML_BUILD: &str = "onnxruntime.directml/1.24.4/";
     const DIRECTML_BUILD: &str = "ai.directml/1.15.4/";
 
@@ -1833,18 +1423,6 @@ mod live_recognition {
         }
     }
 
-    /// The CUDA build of ONNX Runtime comes with its symbols, headers and import libraries, a gigabyte the studio
-    /// never reads: only the libraries it loads are taken out of the archive.
-    #[test]
-    #[cfg(windows)]
-    fn only_the_libraries_of_onnx_runtime_cuda_are_taken() {
-        let runtime = asset("onnxruntime-cuda").unwrap();
-        for library in [libraries::ORT, libraries::ORT_SHARED, libraries::CUDA[0]] {
-            assert!(runtime.pick.contains(&library), "{library} is not taken");
-        }
-        assert!(runtime.pick.iter().all(|name| name.ends_with(".dll")), "{:?}", runtime.pick);
-    }
-
     /// The whole recognition path against a real installation, when one is
     /// pointed at: decode, run the recogniser, read its JSON, get words with
     /// times. Checking the download and the binary separately is what let a
@@ -1926,70 +1504,12 @@ mod live_recognition {
 
 
 #[cfg(all(test, windows))]
-mod directml_live {
+mod parakeet_live {
     use super::*;
     use std::time::Instant;
 
-    /// Where the DirectML.dll this process loaded came from.
-    fn loaded_directml() -> Option<PathBuf> {
-        #[link(name = "kernel32")]
-        unsafe extern "system" {
-            fn GetModuleHandleW(name: *const u16) -> *mut std::ffi::c_void;
-            fn GetModuleFileNameW(module: *mut std::ffi::c_void, file: *mut u16, size: u32) -> u32;
-        }
-        let name: Vec<u16> = "DirectML.dll".encode_utf16().chain(Some(0)).collect();
-        let module = unsafe { GetModuleHandleW(name.as_ptr()) };
-        if module.is_null() {
-            return None;
-        }
-        let mut path = vec![0u16; 1024];
-        let length = unsafe { GetModuleFileNameW(module, path.as_mut_ptr(), path.len() as u32) } as usize;
-        Some(PathBuf::from(String::from_utf16_lossy(&path[..length])))
-    }
-
     fn env_path(name: &str) -> PathBuf {
         PathBuf::from(std::env::var_os(name).unwrap_or_else(|| panic!("{name} is not set")))
-    }
-
-    /// The DirectML build installed the way the studio installs it and bound,
-    /// once for the process. `STUDIO_TEST_DML_ADAPTER` pins a DXGI adapter -
-    /// the integrated Radeon beside an NVIDIA card - instead of the fastest card.
-    fn directml() -> Option<OnnxCard> {
-        static BOUND: std::sync::Once = std::sync::Once::new();
-        BOUND.call_once(|| {
-            let sync = LyricsSync::new(&env_path("STUDIO_TEST_DATA_ROOT"));
-            let parts: Vec<&'static Asset> = DIRECTML_ASSETS.iter().filter_map(|id| asset(id)).collect();
-            tokio::runtime::Runtime::new().unwrap().block_on(sync.downloader().install_all("test", &parts)).expect("install DirectML");
-            assert!(sync.has_directml_libraries(), "the DirectML build is incomplete after installing it");
-            if let Ok(adapter) = std::env::var("STUDIO_TEST_DML_ADAPTER") {
-                DIRECTML_ADAPTER.set(adapter.parse().expect("a DXGI adapter index")).unwrap();
-            }
-            let runtime = sync.downloader().runtime_dir("onnx-dml");
-            point_ort_at(&runtime.join("onnxruntime.dll"), Some(OnnxCard::DirectMl));
-            assert_eq!(loaded_directml().as_deref(), Some(runtime.join("DirectML.dll").as_path()), "another DirectML.dll serves the process");
-        });
-        Some(OnnxCard::DirectMl)
-    }
-
-    /// Beat This! and S-KEY on the card beside the processor: the tempo and
-    /// the key each hears.
-    #[test]
-    #[ignore = "downloads DirectML; needs STUDIO_TEST_DATA_ROOT, STUDIO_TEST_TRACK and STUDIO_TEST_AUDIO_FACTS"]
-    fn tempo_and_key_run_through_directml() {
-        let card = directml();
-        let mono = crate::audio_facts::decode(&env_path("STUDIO_TEST_TRACK")).expect("decode the track");
-        let models = env_path("STUDIO_TEST_AUDIO_FACTS");
-        let measure = |card| {
-            let started = Instant::now();
-            let mut measurer = crate::audio_facts::Measurer::load(&models, card).expect("load the models");
-            let facts = measurer.measure_mono(&mono).expect("measure");
-            (facts, measurer.on_gpu, started.elapsed().as_secs_f64())
-        };
-        let (on_card, on_gpu, card_time) = measure(card);
-        assert!(on_gpu, "DirectML did not take both models");
-        let (on_processor, _, processor_time) = measure(None);
-        studio_log!("card {on_card:?} in {card_time:.1} s, processor {on_processor:?} in {processor_time:.1} s");
-        assert_eq!(on_card, on_processor, "the card hears another tempo or key");
     }
 
     /// Parakeet on each transcribe.cpp build, from the karaoke folder of `STUDIO_TEST_DATA_ROOT`: how much of the song's own

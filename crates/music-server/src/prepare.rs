@@ -301,8 +301,8 @@ pub async fn describe_song_style(State(state): State<AppState>, Path(song_id): P
     if !state.training.listen_ready() {
         return Err(api_error(StatusCode::CONFLICT, "auto-describe (MOSS-Music) is not installed; install it on the training page".into()));
     }
-    // tempo and key are measured on the card the machine's runtime reaches
-    let card = state.lyrics_sync.onnx_card(crate::lyrics_sync::OnnxFlavour::Auto).map_err(|error| api_error(StatusCode::CONFLICT, format!("{error:#}")))?;
+    // tempo and key are measured on the processor, on the studio's ONNX Runtime
+    state.lyrics_sync.bind_ort().map_err(|error| api_error(StatusCode::CONFLICT, format!("{error:#}")))?;
     if state.training.active_run().await.is_some() || state.prepare.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).as_ref().is_some_and(|job| !job.finished) {
         return Err(api_error(StatusCode::CONFLICT, "the card is training or preparing songs; describe once it is free".into()));
     }
@@ -321,7 +321,7 @@ pub async fn describe_song_style(State(state): State<AppState>, Path(song_id): P
         // the card's cuBLAS goes on the captioner's path only when it runs on the card
         let (captioner, moss, facts_dir, libraries) = (state.training.captioner(), state.training.moss_dir(), state.training.audio_facts_dir(), on_card.then(crate::engine_bundle_root));
         tokio::task::spawn_blocking(move || -> anyhow::Result<listen::Heard> {
-            let facts = audio_facts::Measurer::load(&facts_dir, card)?.measure_mono(&audio_facts::decode(&audio)?)?;
+            let facts = audio_facts::Measurer::load(&facts_dir)?.measure_mono(&audio_facts::decode(&audio)?)?;
             let cancel = AtomicBool::new(false);
             let mut caption: Option<anyhow::Result<String>> = None;
             listen::hear_batch(&captioner, &moss, libraries.as_deref(), std::slice::from_ref(&audio), &cancel, |_, heard| caption = Some(heard))?;
@@ -727,12 +727,12 @@ async fn listen_branch(state: &AppState, job: &Job, style_items: &[&training::Da
         } else {
             update(&shared, |status| status.notices.push("listen_on_cpu"));
         }
-        let card = state.lyrics_sync.onnx_card(crate::lyrics_sync::OnnxFlavour::Auto)?;
+        state.lyrics_sync.bind_ort()?;
         let (captioner, moss, facts_dir) = (state.training.captioner(), state.training.moss_dir(), state.training.audio_facts_dir());
         let ids: Vec<String> = style_items.iter().map(|item| item.id.clone()).collect();
         let audio: Vec<PathBuf> = ids.iter().map(|item| state.training.item_audio(id, item)).collect::<anyhow::Result<_>>()?;
         // tempo and key are measured ahead of MOSS: four threads decode, Beat
-        // This! and S-KEY - loaded once, on the card - measure. Each song's
+        // This! and S-KEY - loaded once, on the processor - measure. Each song's
         // description is stored the moment MOSS has heard it
         let facts: Arc<Mutex<Vec<Option<Result<audio_facts::Facts, String>>>>> = Arc::new(Mutex::new(vec![None; audio.len()]));
         let (decoded_tx, decoded) = std::sync::mpsc::sync_channel::<(usize, anyhow::Result<Vec<f32>>)>(8);
@@ -753,7 +753,7 @@ async fn listen_branch(state: &AppState, job: &Job, style_items: &[&training::Da
         // measurement that will never come
         let measured_all = Arc::new(AtomicBool::new(false));
         {
-            let (facts, facts_dir, facts_shared, finished) = (facts.clone(), facts_dir.clone(), shared.clone(), measured_all.clone());
+            let (facts, facts_dir, finished) = (facts.clone(), facts_dir.clone(), measured_all.clone());
             measuring.push(std::thread::spawn(move || {
                 struct Finished(Arc<AtomicBool>);
                 impl Drop for Finished {
@@ -762,10 +762,7 @@ async fn listen_branch(state: &AppState, job: &Job, style_items: &[&training::Da
                     }
                 }
                 let _finished = Finished(finished);
-                let mut measurer = audio_facts::Measurer::load(&facts_dir, card).map_err(|error| format!("{error:#}"));
-                if matches!(&measurer, Ok(measurer) if !measurer.on_gpu) {
-                    update(&facts_shared, |status| status.notices.push(if crate::lyrics_sync::OnnxFlavour::Auto.card() == Some(crate::lyrics_sync::OnnxCard::DirectMl) { "facts_on_cpu_directml" } else { "facts_on_cpu" }));
-                }
+                let mut measurer = audio_facts::Measurer::load(&facts_dir).map_err(|error| format!("{error:#}"));
                 for (index, mono) in decoded {
                     let measured = match (&mut measurer, mono) {
                         (Ok(measurer), Ok(mono)) => measurer.measure_mono(&mono).map_err(|error| format!("{error:#}")),

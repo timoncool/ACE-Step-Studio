@@ -42,6 +42,42 @@ const RETIRED: &[(&str, &str, &[&str])] = &[
     // HOT-Step's MIDI transcriber of its own folder, before the tools shared one in `hotstep`; MuScriptor runs on
     // audio.cpp's server
     ("midi-hotstep", "HOT-Step MIDI transcriber", &["midi/runtime"]),
+    // ONNX Runtime on the card, CUDA and DirectML, with their CUDA and DirectML libraries, of 3.8 and earlier; tempo
+    // and key run on the processor build
+    (
+        "ort-gpu",
+        "ONNX Runtime for the graphics card (CUDA, cuDNN, DirectML)",
+        &[
+            "karaoke/runtime/onnx-cuda",
+            "karaoke/runtime/onnx-dml",
+            "karaoke/runtime/onnxruntime-cuda.zip",
+            "karaoke/runtime/onnxruntime-cuda.zip.json",
+            "karaoke/runtime/onnxruntime-cuda.tgz",
+            "karaoke/runtime/onnxruntime-cuda.tgz.json",
+            "karaoke/runtime/cuda-cublas.whl",
+            "karaoke/runtime/cuda-cublas.whl.json",
+            "karaoke/runtime/cuda-cublas.zip",
+            "karaoke/runtime/cuda-cublas.zip.json",
+            "karaoke/runtime/cuda-cudart.zip",
+            "karaoke/runtime/cuda-cudart.zip.json",
+            "karaoke/runtime/cuda-cudart.tar.xz",
+            "karaoke/runtime/cuda-cudart.tar.xz.json",
+            "karaoke/runtime/cuda-cufft.zip",
+            "karaoke/runtime/cuda-cufft.zip.json",
+            "karaoke/runtime/cuda-cufft.tar.xz",
+            "karaoke/runtime/cuda-cufft.tar.xz.json",
+            "karaoke/runtime/cuda-curand.tar.xz",
+            "karaoke/runtime/cuda-curand.tar.xz.json",
+            "karaoke/runtime/cuda-cudnn.zip",
+            "karaoke/runtime/cuda-cudnn.zip.json",
+            "karaoke/runtime/cuda-cudnn.tar.xz",
+            "karaoke/runtime/cuda-cudnn.tar.xz.json",
+            "karaoke/runtime/onnxruntime-directml.nupkg",
+            "karaoke/runtime/onnxruntime-directml.nupkg.json",
+            "karaoke/runtime/directml.nupkg",
+            "karaoke/runtime/directml.nupkg.json",
+        ],
+    ),
 ];
 
 /// The leftovers under `data_root`, each with the paths of it that are there.
@@ -94,6 +130,8 @@ mod tests {
             root.path().join("karaoke/models/asr-gguf-parakeet-v3/parakeet-tdt-0.6b-v3-Q8_0.gguf"),
             root.path().join("karaoke/models/crisperwhisper2-turbo/model.safetensors"),
             whisper.clone(),
+            root.path().join("karaoke/runtime/onnx/onnxruntime.dll"),
+            root.path().join("karaoke/runtime/onnxruntime.zip.json"),
         ];
         for file in &kept {
             fs::create_dir_all(file.parent().unwrap()).unwrap();
@@ -110,8 +148,15 @@ mod tests {
         let weights = root.path().join("midi/models/muscriptor-medium/model.safetensors");
         fs::create_dir_all(weights.parent().unwrap()).unwrap();
         fs::write(&weights, b"x").unwrap();
+        for path in RETIRED.iter().find(|(what, _, _)| *what == "ort-gpu").unwrap().2 {
+            let path = root.path().join(path);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(&path, b"x").unwrap();
+        }
         let found: Vec<(&str, usize)> = leftovers(root.path()).iter().map(|leftover| (leftover.what, leftover.paths.len())).collect();
-        assert_eq!(found, vec![("parakeet-onnx", 3), ("faster-whisper", 1), ("htdemucs-onnx", 1), ("midi-hotstep", 1)]);
+        assert_eq!(found, vec![("parakeet-onnx", 3), ("faster-whisper", 1), ("htdemucs-onnx", 1), ("midi-hotstep", 1), ("ort-gpu", 28)]);
+        remove_leftovers(root.path(), &["ort-gpu"]);
+        assert!(!root.path().join("karaoke/runtime/onnx-cuda").exists(), "the card's ONNX Runtime goes");
         remove_leftovers(root.path(), &["midi-hotstep"]);
         assert!(!root.path().join("midi/runtime").exists() && weights.is_file(), "the old transcriber goes, MuScriptor's weights stay");
         remove_leftovers(root.path(), &["htdemucs-onnx"]);

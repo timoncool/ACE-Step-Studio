@@ -1641,7 +1641,7 @@ fn roformer_on_card(state: &AppState, runtime: lyrics_sync::OnnxFlavour) -> bool
             || std::env::var_os("PATH").is_some_and(|path| std::env::split_paths(&path).any(|folder| folder.join(name).is_file()))
     };
     runtime != lyrics_sync::OnnxFlavour::Cpu
-        && lyrics_sync::OnnxFlavour::Auto.card() == Some(lyrics_sync::OnnxCard::Cuda)
+        && lyrics_sync::OnnxFlavour::Auto.uses_cuda()
         && (!cfg!(windows) || engine_runtime::CUDA13_LIBRARIES.iter().all(|name| found(name)))
 }
 
@@ -6285,13 +6285,7 @@ fn karaoke_set(name: &str, device: lyrics_sync::OnnxFlavour, whisper_model: Opti
     let mut wanted: Vec<String> = Vec::new();
     match name {
         "parakeet" => {
-            // the transcribe.cpp build this machine runs and the model the dropdown names; on a card CUDA does not
-            // run, DirectML comes with it for the tempo model, as before transcribe.cpp (on NVIDIA, separation brings
-            // the CUDA runtime)
-            if device.card() == Some(lyrics_sync::OnnxCard::DirectMl) {
-                wanted.push("onnxruntime".into());
-                wanted.extend(lyrics_sync::DIRECTML_ASSETS.iter().map(|id| id.to_string()));
-            }
+            // the transcribe.cpp build this machine runs and the model the dropdown names
             wanted.extend(lyrics_sync::parakeet_assets(device, whisper_model).into_iter().map(String::from));
         }
         "whisper" => wanted.extend(lyrics_sync::crisper_assets(device).into_iter().map(String::from)),
@@ -8092,6 +8086,12 @@ fn update_plan_now(state: &AppState, karaoke: &lyrics_sync::LyricsSyncConfig, se
     if midi::SIZES.iter().any(|size| state.midi.model_installed(size)) {
         builds.extend(midi_build(options).ok());
     }
+    // tempo and key of the listening pack move from the card's ONNX Runtime to the processor's
+    if left("ort-gpu") && state.training.listen_ready() {
+        if let Some(runtime) = lyrics_sync::asset("onnxruntime") {
+            take(Part::Karaoke, runtime, state.lyrics_sync.downloader());
+        }
+    }
     for build in builds {
         for asset in state.lyrics_sync.acpp().missing(build) {
             take(Part::Karaoke, asset, state.lyrics_sync.downloader());
@@ -8206,9 +8206,13 @@ async fn run_update(state: &AppState, rows: &[update_screen::Row]) -> anyhow::Re
     let midi_replaced = !midi::SIZES.iter().any(|size| state.midi.model_installed(size))
         || midi_build(&options).is_ok_and(|build| state.lyrics_sync.acpp().installed(build));
     let whisper_replaced = !karaoke_on_whisper(&karaoke) || state.lyrics_sync.crisper_ready(karaoke.runtime);
+    let tempo_ready = !state.training.listen_ready() || state.lyrics_sync.onnxruntime_library().is_some();
     let data_root = update_data_root(state).to_path_buf();
     tokio::task::spawn_blocking(move || {
         let mut gone = vec!["parakeet-onnx"];
+        if tempo_ready {
+            gone.push("ort-gpu");
+        }
         if whisper_replaced {
             gone.push("faster-whisper");
         }

@@ -121,11 +121,11 @@ pub const ASSETS: &[Asset] = &[
     #[cfg(windows)]
     Asset {
         id: "llama-cuda",
-        label: "llama.cpp runtime (CUDA 13.4)",
+        label: "llama.cpp runtime (CUDA 13.5)",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11900/llama-b11900-bin-win-cuda-13.4-x64.zip",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b12248/llama-b12248-bin-win-cuda-13.5-x64.zip",
         relative_path: "runtime/llama-cuda.zip",
-        bytes: 164_721_212,
+        bytes: 170_994_198,
         unzip_into: Some("cuda"),
         marker: "llama-server",
         vram_gb: None,
@@ -136,9 +136,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-cuda-runtime",
         label: "CUDA runtime for llama.cpp",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11236/cudart-llama-bin-win-cuda-13.4-x64.zip",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b12248/cudart-llama-bin-win-cuda-13.5-x64.zip",
         relative_path: "runtime/cudart.zip",
-        bytes: 423_535_356,
+        bytes: 426_314_199,
         unzip_into: Some("cuda"),
         marker: "cudart64",
         vram_gb: None,
@@ -151,9 +151,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-cuda12",
         label: "llama.cpp runtime (CUDA 12.4)",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11900/llama-b11900-bin-win-cuda-12.4-x64.zip",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b12248/llama-b12248-bin-win-cuda-12.4-x64.zip",
         relative_path: "runtime/llama-cuda12.zip",
-        bytes: 279_417_051,
+        bytes: 288_964_573,
         unzip_into: Some("cuda12"),
         marker: "llama-server",
         vram_gb: None,
@@ -179,9 +179,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-vulkan",
         label: "llama.cpp runtime (Vulkan)",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11900/llama-b11900-bin-win-vulkan-x64.zip",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b12248/llama-b12248-bin-win-vulkan-x64.zip",
         relative_path: "runtime/llama-vulkan.zip",
-        bytes: 37_051_563,
+        bytes: 37_891_595,
         unzip_into: Some("vulkan"),
         marker: "llama-server",
         vram_gb: None,
@@ -192,9 +192,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-cpu",
         label: "llama.cpp runtime (CPU)",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11900/llama-b11900-bin-win-cpu-x64.zip",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b12248/llama-b12248-bin-win-cpu-x64.zip",
         relative_path: "runtime/llama-cpu.zip",
-        bytes: 24_228_419,
+        bytes: 24_930_550,
         unzip_into: Some("cpu"),
         marker: "llama-server",
         vram_gb: None,
@@ -203,11 +203,11 @@ pub const ASSETS: &[Asset] = &[
     #[cfg(target_os = "linux")]
     Asset {
         id: "llama-cuda",
-        label: "llama.cpp runtime (CUDA 13.4)",
+        label: "llama.cpp runtime (CUDA 13.5)",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11900/llama-b11900-bin-ubuntu-cuda-13.4-x64.tar.gz",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b12248/llama-b12248-bin-ubuntu-cuda-13.5-x64.tar.gz",
         relative_path: "runtime/llama-cuda.tar.gz",
-        bytes: 163_678_003,
+        bytes: 169_885_605,
         unzip_into: Some("cuda"),
         marker: "llama-server",
         vram_gb: None,
@@ -218,9 +218,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-cuda-runtime",
         label: "CUDA runtime for llama.cpp",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11900/cudart-llama-b11900-bin-ubuntu-cuda-13.4-x64.tar.gz",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b12248/cudart-llama-b12248-bin-ubuntu-cuda-13.5-x64.tar.gz",
         relative_path: "runtime/cudart.tar.gz",
-        bytes: 440_236_550,
+        bytes: 444_079_115,
         unzip_into: Some("cuda"),
         marker: "libcudart",
         vram_gb: None,
@@ -231,9 +231,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-cuda12",
         label: "llama.cpp runtime (CUDA 12.8)",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11900/llama-b11900-bin-ubuntu-cuda-12.8-x64.tar.gz",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b12248/llama-b12248-bin-ubuntu-cuda-12.8-x64.tar.gz",
         relative_path: "runtime/llama-cuda12.tar.gz",
-        bytes: 182_211_176,
+        bytes: 188_303_941,
         unzip_into: Some("cuda12"),
         marker: "llama-server",
         vram_gb: None,
@@ -244,9 +244,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-cuda12-runtime",
         label: "CUDA 12 runtime for llama.cpp",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11900/cudart-llama-b11900-bin-ubuntu-cuda-12.8-x64.tar.gz",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b12248/cudart-llama-b12248-bin-ubuntu-cuda-12.8-x64.tar.gz",
         relative_path: "runtime/cudart12.tar.gz",
-        bytes: 594_377_835,
+        bytes: 594_371_484,
         unzip_into: Some("cuda12"),
         marker: "libcudart",
         vram_gb: None,
@@ -257,9 +257,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-vulkan",
         label: "llama.cpp runtime (Vulkan)",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11900/llama-b11900-bin-ubuntu-vulkan-x64.tar.gz",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b12248/llama-b12248-bin-ubuntu-vulkan-x64.tar.gz",
         relative_path: "runtime/llama-vulkan.tar.gz",
-        bytes: 35_162_561,
+        bytes: 35_975_646,
         unzip_into: Some("vulkan"),
         marker: "llama-server",
         vram_gb: None,
@@ -270,9 +270,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-cpu",
         label: "llama.cpp runtime (CPU)",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11900/llama-b11900-bin-ubuntu-x64.tar.gz",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b12248/llama-b12248-bin-ubuntu-x64.tar.gz",
         relative_path: "runtime/llama-cpu.tar.gz",
-        bytes: 22_497_562,
+        bytes: 23_157_778,
         unzip_into: Some("cpu"),
         marker: "llama-server",
         vram_gb: None,
@@ -283,9 +283,9 @@ pub const ASSETS: &[Asset] = &[
         id: "llama-cpu",
         label: "llama.cpp runtime (Metal)",
         kind: AssetKind::Runtime,
-        url: "https://github.com/ggml-org/llama.cpp/releases/download/b11900/llama-b11900-bin-macos-arm64.tar.gz",
+        url: "https://github.com/ggml-org/llama.cpp/releases/download/b12248/llama-b12248-bin-macos-arm64.tar.gz",
         relative_path: "runtime/llama-cpu.tar.gz",
-        bytes: 16_295_973,
+        bytes: 16_742_946,
         unzip_into: Some("cpu"),
         marker: "llama-server",
         vram_gb: None,
@@ -311,7 +311,7 @@ pub fn card_flavour() -> Option<&'static str> {
     flavour_for(card, glibc_version())
 }
 
-/// The oldest glibc the upstream llama.cpp CUDA builds for Linux start on (b11900 needs GLIBC_2.38 and GLIBCXX_3.4.32).
+/// The oldest glibc the upstream llama.cpp CUDA builds for Linux start on (b12248 needs GLIBC_2.38 and GLIBCXX_3.4.32).
 pub const LLAMA_CUDA_GLIBC: (u32, u32) = (2, 38);
 
 fn flavour_for(card: Option<&'static str>, glibc: Option<(u32, u32)>) -> Option<&'static str> {
@@ -1020,12 +1020,12 @@ mod tests {
     use super::*;
 
     /// llama.cpp is pinned to one build so a working setup keeps working.
-    const LLAMA_BUILD: &str = "b11900";
-    /// The Windows CUDA runtimes carry no build number in their names and are the
-    /// same bytes in every build since: they stay at the build that first shipped
-    /// them, so an update of llama.cpp does not fetch 800 MB of the same files.
+    const LLAMA_BUILD: &str = "b12248";
+    /// The Windows CUDA 12.4 runtime carries no build number in its name and is the
+    /// same bytes in every build since: it stays at the build that first shipped
+    /// it, so an update of llama.cpp does not fetch 390 MB of the same files.
     #[cfg(windows)]
-    const CUDART_BUILD: &str = "b11236";
+    const CUDART12_BUILD: &str = "b11236";
 
     #[test]
     fn a_cuda_card_runs_vulkan_where_glibc_is_older_than_the_cuda_build_needs() {
@@ -1088,7 +1088,7 @@ mod tests {
     fn the_runtime_is_pinned_to_one_llama_cpp_build() {
         for entry in ASSETS.iter().filter(|entry| entry.kind == AssetKind::Runtime) {
             #[cfg(windows)]
-            let build = if entry.url.contains("/cudart-llama-bin-win-") { CUDART_BUILD } else { LLAMA_BUILD };
+            let build = if entry.url.contains("/cudart-llama-bin-win-cuda-12.4-") { CUDART12_BUILD } else { LLAMA_BUILD };
             #[cfg(not(windows))]
             let build = LLAMA_BUILD;
             assert!(entry.url.contains(&format!("/download/{build}/")), "{} is not pinned", entry.id);
