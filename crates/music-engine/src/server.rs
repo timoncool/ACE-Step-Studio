@@ -914,6 +914,19 @@ mod tests {
         assert_eq!(excluded_range_in(listing, 50000), Some((50000, 50059)));
         assert_eq!(excluded_range_in(listing, 9000), None);
     }
+
+    #[test]
+    fn a_log_with_a_broken_utf8_byte_still_gives_its_last_lines() {
+        let root = fresh_directory("log-tail");
+        unsafe { std::env::set_var("STUDIO_DATA_ROOT", &root) };
+        let mut log = b"[Server] Job 1 created (1 requests)\n[LM-Phase2] caption \xd0\n".to_vec();
+        log.extend_from_slice(b"[Resolve-T] ERROR: T=15500 exceeds silence_latent max 15000, skipping\n");
+        fs::write(root.join("engine-startup.log"), log).unwrap();
+        let tail = startup_log_tail(2);
+        assert_eq!(tail.len(), 2, "{tail:?}");
+        assert!(tail[1].contains("ERROR: T=15500"), "{tail:?}");
+        let _ = fs::remove_dir_all(&root);
+    }
 }
 
 /// Where the engine's startup output is kept: beside the studio's data, so the
@@ -952,11 +965,11 @@ pub fn startup_log_path() -> PathBuf {
     root.join("engine-startup.log")
 }
 
-/// The tail of that file, oldest first.
 pub fn startup_log_tail(lines: usize) -> Vec<String> {
-    let Ok(text) = std::fs::read_to_string(startup_log_path()) else {
+    let Ok(bytes) = std::fs::read(startup_log_path()) else {
         return Vec::new();
     };
+    let text = String::from_utf8_lossy(&bytes);
     let all: Vec<&str> = text.lines().filter(|line| !line.trim().is_empty()).collect();
     all.iter().rev().take(lines).rev().map(|line| (*line).to_string()).collect()
 }

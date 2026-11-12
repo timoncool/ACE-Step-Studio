@@ -8,6 +8,10 @@ What changed, newest first. Dates are release dates.
 
 - **The interface can be scaled**, as in YuE2 Studio ([YuE2 Studio #165](https://github.com/timoncool/YuE2-Studio/issues/165)): Settings - Appearance - Interface scale draws the whole studio from 90 to 150 % and keeps it for the next start; Ctrl + plus and Ctrl + minus, or Ctrl with the mouse wheel, change it too, and Ctrl + 0 returns to 100 %.
 
+### Fixed
+
+- **A failed song names the engine's reason again after the engine log took a broken character**: the studio read the engine log as strict UTF-8, so a single malformed byte in it - a half-written character in text the language model wrote - made the whole log unreadable and every later failure said only "the engine failed this job and its log names no cause". The log is now read past such bytes, as YuE2 Studio already does.
+
 ## 2026-11-06 — 3.8.5
 
 ### Fixed
