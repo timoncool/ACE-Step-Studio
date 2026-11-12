@@ -591,6 +591,9 @@ struct EngineOptions {
     keep_loaded: bool,
     max_batch: Option<u32>,
     max_seq: Option<u32>,
+    flash_attention: FlashAttention,
+    /// The switch of settings saved before `flash_attention`: read once and turned into `Off`, never written.
+    #[serde(skip_serializing)]
     disable_flash_attention: bool,
     split_cfg_forwards: bool,
     clamp_fp16: bool,
@@ -607,6 +610,19 @@ struct EngineOptions {
     /// `STUDIO_ENGINE_BIN` still wins over whatever is saved here, so a
     /// developer build needs no settings at all.
     engine_bin: Option<String>,
+}
+
+/// The language model's KV cache in tokens when nothing sets it: the engine's own default.
+const MODEL_CONTEXT: u32 = 8192;
+
+/// Flash attention as Settings chooses it: `Auto` leaves it off only where it is known to go wrong.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+enum FlashAttention {
+    #[default]
+    Auto,
+    On,
+    Off,
 }
 
 impl EngineOptions {
@@ -690,10 +706,7 @@ impl EngineOptions {
 
     fn to_engine(self) -> music_engine::server::ServerOptions {
         let cuda = self.cuda_build();
-        let fa_regression = self.new_cuda_fa_regression();
-        if fa_regression {
-            studio_log!("flash-attention off: new CUDA compute capability, ggml 0.27 FA regression (#194)");
-        }
+        let fa_off = self.flash_attention_off_reason().is_some();
         music_engine::server::ServerOptions {
             backend: self.backend,
             keep_loaded: self.keep_loaded,
@@ -705,7 +718,7 @@ impl EngineOptions {
             // songs failed before it started.
             max_batch: Some(self.effective_max_batch()),
             max_seq: self.max_seq,
-            disable_flash_attention: self.disable_flash_attention || fa_regression,
+            disable_flash_attention: fa_off,
             split_cfg_forwards: self.split_cfg_forwards,
             // Off CUDA - Vulkan, where an AMD Radeon leaves the FP16 range
             // and renders silence, or the processor - and on CUDA cards before
@@ -713,6 +726,25 @@ impl EngineOptions {
             clamp_fp16: self.clamp_fp16 || cuda.is_none() || cuda_build::accumulates_in_fp16(),
             cuda_folder: cuda.map(cuda_build::CudaBuild::folder),
             extra_args: self.extra_args,
+        }
+    }
+
+    /// Settings saved before the three-way choice said "off" with a switch.
+    fn migrated(mut self) -> Self {
+        if self.disable_flash_attention {
+            self.flash_attention = FlashAttention::Off;
+            self.disable_flash_attention = false;
+        }
+        self
+    }
+
+    /// Why flash attention is off for this start, `None` when it is on.
+    fn flash_attention_off_reason(&self) -> Option<&'static str> {
+        match self.flash_attention {
+            FlashAttention::On => None,
+            FlashAttention::Off => Some("chosen in Settings"),
+            FlashAttention::Auto if self.new_cuda_fa_regression() => Some("new CUDA compute capability, the flash-attention kernels sing gibberish there (#194)"),
+            FlashAttention::Auto => None,
         }
     }
 }
@@ -965,7 +997,7 @@ pub async fn serve() -> anyhow::Result<()> {
         library: library::Library::open_default()?,
         engine: Arc::new(tokio::sync::Mutex::new(None)),
         engine_use: Arc::new(tokio::sync::RwLock::new(())),
-        engine_options: Arc::new(RwLock::new(persisted.as_ref().map(|settings| settings.engine_options.clone()).unwrap_or_default())),
+        engine_options: Arc::new(RwLock::new(persisted.as_ref().map(|settings| settings.engine_options.clone().migrated()).unwrap_or_default())),
         failed_devices: Arc::new(RwLock::new(Vec::new())),
         active_device: Arc::new(RwLock::new(None)),
         engine_runtime: Arc::new(engine_runtime::EngineRuntime::new(&engine_bundle_root(), &studio_data_root().unwrap_or_else(|| std::path::PathBuf::from(".")))),
@@ -4563,13 +4595,27 @@ async fn engine_options(State(state): State<AppState>) -> Json<Value> {
         "bundled"
     };
     // a start holds the engine for as long as it takes (a download, the weights): the page is answered now
-    let (running, starting) = match state.engine.try_lock() {
-        // canonicalised paths carry the \\?\ prefix, which the saved path and the environment do not
-        Ok(engine) => (engine.as_ref().map(|engine| music_engine::server::strip_verbatim(&engine.config().executable).display().to_string()), false),
-        Err(_) => (None, true),
+    let (running, starting, launched) = match state.engine.try_lock() {
+        // canonicalised paths carry the verbatim prefix, which the saved path and the environment do not
+        Ok(engine) => (
+            engine.as_ref().map(|engine| music_engine::server::strip_verbatim(&engine.config().executable).display().to_string()),
+            false,
+            engine.as_ref().map(|engine| engine.config().options.clone()),
+        ),
+        Err(_) => (None, true, None),
     };
+    // What the running engine was started with, so the page says what is in effect, not only what is saved.
+    let in_effect = launched.map(|launched| {
+        serde_json::json!({
+            "max_seq": launched.max_seq.unwrap_or(MODEL_CONTEXT),
+            "max_seq_reason": if launched.max_seq.is_some() { "set" } else { "full" },
+            "flash_attention": !launched.disable_flash_attention,
+        })
+    });
     Json(serde_json::json!({
         "options": options,
+        "in_effect": in_effect,
+        "saved_max_seq": options.max_seq.unwrap_or(MODEL_CONTEXT),
         "effective_max_batch": options.effective_max_batch(),
         "restart_required_to_apply": true,
         "executable": executable,
@@ -4585,6 +4631,7 @@ async fn update_engine_options(
     State(state): State<AppState>,
     Json(mut request): Json<EngineOptions>,
 ) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    request = request.migrated();
     if request.max_batch.is_some_and(|value| value == 0 || value > 8) {
         return Err(api_error(StatusCode::BAD_REQUEST, "max_batch must be between 1 and 8".into()));
     }
@@ -4749,6 +4796,9 @@ async fn restart_engine(state: &AppState) -> Result<(), String> {
         // The engine loads eleven gigabytes of weights the moment it starts.
         // If the writing assistant is still holding the card, it does not finish.
         free_the_card_for_the_engine(state).await;
+        if let Some(reason) = attempt.flash_attention_off_reason() {
+            music_engine::server::note_in_log(&format!("flash-attention off on {}: {reason}", device_name(device)));
+        }
         let config = engine_location(attempt)
             .resolve()
             .map_err(|error| format!("the local engine runtime was not found: {error}"))?;
@@ -9928,6 +9978,25 @@ mod tests {
     fn nothing_is_kept_in_memory_by_default() {
         assert!(!EngineOptions::default().keep_loaded);
         assert!(!EngineOptions::default().to_engine().keep_loaded);
+    }
+
+
+    #[test]
+    fn flash_attention_is_auto_on_or_off_and_the_old_switch_reads_as_off() {
+        let old: EngineOptions = serde_json::from_value(serde_json::json!({ "disable_flash_attention": true })).unwrap();
+        assert_eq!(old.migrated().flash_attention, FlashAttention::Off);
+        let old: EngineOptions = serde_json::from_value(serde_json::json!({ "disable_flash_attention": false })).unwrap();
+        assert_eq!(old.migrated().flash_attention, FlashAttention::Auto);
+        let written = serde_json::to_value(EngineOptions { flash_attention: FlashAttention::On, ..EngineOptions::default() }).unwrap();
+        assert_eq!(written["flash_attention"], "on");
+        assert!(written.get("disable_flash_attention").is_none(), "the old switch is never written again");
+        let off = EngineOptions { flash_attention: FlashAttention::Off, ..EngineOptions::default() };
+        assert_eq!(off.flash_attention_off_reason(), Some("chosen in Settings"));
+        assert!(off.to_engine().disable_flash_attention, "Off reaches the engine as --no-fa");
+        let on = EngineOptions { flash_attention: FlashAttention::On, ..EngineOptions::default() };
+        assert!(!on.to_engine().disable_flash_attention, "On is passed even where Auto would turn it off");
+        let auto = EngineOptions { backend: music_engine::server::ComputeBackend::Cpu, ..EngineOptions::default() };
+        assert_eq!(auto.flash_attention_off_reason(), None, "Auto keeps it on away from the cards it fails on");
     }
 
     /// Extra launch arguments are kept as typed and reach the engine last,

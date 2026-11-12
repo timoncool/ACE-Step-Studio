@@ -4,6 +4,11 @@ What changed, newest first. Dates are release dates.
 
 ## Unreleased
 
+### Added
+
+- **Flash attention can be switched on by hand**, as in YuE2 Studio ([YuE2 Studio #228](https://github.com/timoncool/YuE2-Studio/issues/228)): Settings - Local engine has Auto, On and Off beside the KV cache in place of the Diagnostics switch that could only turn it off. Auto still leaves it off on RTX 50 cards, where singing comes out garbled with it; On runs it there too. A setting saved with the old switch on reads as Off. The engine log says once per start why flash attention is off, instead of on every status check ([#69](https://github.com/timoncool/ACE-Step-Studio/issues/69)).
+- **Settings - Local engine says which KV cache the engine runs with**: the field reads Auto when empty, a line under it names the cache of the running engine (the engine's default, or set by you), and a saved value that has not reached the engine yet says it applies at the next start.
+
 ### Changed
 
 - **The interface can be scaled**, as in YuE2 Studio ([YuE2 Studio #165](https://github.com/timoncool/YuE2-Studio/issues/165)): Settings - Appearance - Interface scale draws the whole studio from 90 to 150 % and keeps it for the next start; Ctrl + plus and Ctrl + minus, or Ctrl with the mouse wheel, change it too, and Ctrl + 0 returns to 100 %.

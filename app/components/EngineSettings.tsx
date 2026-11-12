@@ -14,12 +14,20 @@ import { DiagnosticsPanel } from './DiagnosticsPanel';
  */
 
 type ComputeBackend = 'auto' | 'cuda' | 'vulkan' | 'cpu';
+type FlashAttention = 'auto' | 'on' | 'off';
+
+/** What the running engine was started with, as the service read it from the launch. */
+interface InEffect {
+  max_seq: number;
+  max_seq_reason: 'full' | 'set';
+  flash_attention: boolean;
+}
 
 interface EngineOptions {
   backend: ComputeBackend;
   keep_loaded: boolean;
   max_seq: number | null;
-  disable_flash_attention: boolean;
+  flash_attention: FlashAttention;
   split_cfg_forwards: boolean;
   clamp_fp16: boolean;
   /** The NVIDIA card by nvidia-smi index; null: the first. Taken at the studio's start. */
@@ -34,7 +42,7 @@ const DEFAULTS: EngineOptions = {
   backend: 'auto',
   keep_loaded: false,
   max_seq: null,
-  disable_flash_attention: false,
+  flash_attention: 'auto',
   split_cfg_forwards: false,
   clamp_fp16: false,
   gpu: null,
@@ -67,6 +75,9 @@ export const EngineSettings: React.FC = () => {
   // Which engine executable a start takes and which one is running, so the
   // page answers "did my change apply?" without opening the engine log.
   const [runtime, setRuntime] = useState<{ executable: string | null; executable_source: string; running_executable: string | null; engine_starting: boolean } | null>(null);
+  // The KV cache and flash attention of the running engine, and the cache the saved settings start the next one with.
+  const [inEffect, setInEffect] = useState<InEffect | null>(null);
+  const [savedMaxSeq, setSavedMaxSeq] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [picking, setPicking] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -96,7 +107,9 @@ export const EngineSettings: React.FC = () => {
     try {
       const response = await fetch('/engine/options');
       if (!response.ok) throw new Error(`Engine options are unavailable (${response.status})`);
-      const body: { options: EngineOptions; executable?: string | null; executable_source?: string; running_executable?: string | null; engine_starting?: boolean } = await response.json();
+      const body: { options: EngineOptions; in_effect?: InEffect | null; saved_max_seq?: number; executable?: string | null; executable_source?: string; running_executable?: string | null; engine_starting?: boolean } = await response.json();
+      setInEffect(body.in_effect ?? null);
+      setSavedMaxSeq(typeof body.saved_max_seq === 'number' ? body.saved_max_seq : null);
       // A settings file written before a flag existed arrives without it;
       // the default keeps the comparison below honest.
       setOptions({ ...DEFAULTS, ...body.options });
@@ -286,7 +299,7 @@ export const EngineSettings: React.FC = () => {
             type="number"
             min={512}
             step={512}
-            placeholder={t('maxSeqHint')}
+            placeholder={t('maxSeqAuto')}
             value={options.max_seq ?? ''}
             onChange={event => {
               const value = Number(event.target.value);
@@ -297,16 +310,34 @@ export const EngineSettings: React.FC = () => {
           <span className="mt-1 block font-normal text-zinc-500">{t('maxSeqHint')}</span>
         </label>
       </div>
+      {inEffect && (
+        <div className="-mt-1 space-y-0.5 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+          <span className="block">
+            {t('maxSeqNow').replace('{n}', String(inEffect.max_seq)).replace('{reason}', t(inEffect.max_seq_reason === 'set' ? 'maxSeqReasonSet' : 'maxSeqReasonFull'))}
+          </span>
+          {savedMaxSeq != null && savedMaxSeq !== inEffect.max_seq && (
+            <span className="block text-amber-600 dark:text-amber-300">{t('maxSeqPending').replace('{n}', String(savedMaxSeq))}</span>
+          )}
+        </div>
+      )}
+
+      <label className="block rounded-xl border border-zinc-200 p-3 dark:border-white/10">
+        <span className="block text-sm font-medium text-zinc-800 dark:text-zinc-100">{t('flashAttentionLabel')}</span>
+        <select
+          value={options.flash_attention}
+          onChange={event => setOptions(current => ({ ...current, flash_attention: event.target.value as FlashAttention }))}
+          className={`${CONTROL} mt-2`}
+        >
+          <option value="auto">{t('flashAttentionAuto')}</option>
+          <option value="on">{t('flashAttentionOn')}</option>
+          <option value="off">{t('flashAttentionOff')}</option>
+        </select>
+        <span className="mt-2 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('flashAttentionHint')}</span>
+      </label>
 
       <details className="rounded-xl border border-zinc-200 p-3 dark:border-white/10">
         <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-zinc-500">{t('diagnostics')}</summary>
         <div className="mt-3 space-y-3">
-          <Toggle
-            label={t('noFlashAttentionLabel')}
-            hint={t('noFlashAttentionHint')}
-            checked={options.disable_flash_attention}
-            onChange={value => setOptions(current => ({ ...current, disable_flash_attention: value }))}
-          />
           <Toggle
             label={t('splitCfgLabel')}
             hint={t('splitCfgHint')}
