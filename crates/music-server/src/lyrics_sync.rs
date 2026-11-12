@@ -987,14 +987,6 @@ impl LyricsSync {
         [libraries::ORT, libraries::ORT_SHARED, "DirectML.dll"].iter().all(|name| dir.join(name).is_file()) && self.pinned(&DIRECTML_ASSETS)
     }
 
-    /// Whether every library the card's provider needs is installed.
-    pub fn has_card_libraries(&self, card: OnnxCard) -> bool {
-        match card {
-            OnnxCard::Cuda => self.has_cuda_libraries(),
-            OnnxCard::DirectMl => self.has_directml_libraries(),
-        }
-    }
-
     /// Binds `ort` to this machine's runtime - once per process, before
     /// anything touches `ort`, or it binds to whatever `onnxruntime.dll` the
     /// system happens to have - and says which card the bound build reaches.

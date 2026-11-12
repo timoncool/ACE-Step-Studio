@@ -1693,19 +1693,6 @@ struct InstallSeparationAssetRequest {
     asset_id: String,
 }
 
-/// Whether separation runs on this card: CUDA only. HT-Demucs's ONNX export
-/// does not run through DirectML - out of memory on a 2 GB card, over twenty
-/// gigabytes and minutes for 30 seconds on a 24 GB one - so every other card
-/// separates on the processor.
-fn separates_on(card: lyrics_sync::OnnxCard) -> bool {
-    card == lyrics_sync::OnnxCard::Cuda
-}
-
-/// The runtime parts separation needs on this machine's card.
-fn separation_card_assets(runtime: lyrics_sync::OnnxFlavour) -> &'static [&'static str] {
-    if runtime.card().is_some_and(separates_on) { lyrics_sync::CUDA_ASSETS } else { &[] }
-}
-
 /// The audio.cpp build HT-Demucs separates on for the separation settings' device: the processor, the card (CUDA, or
 /// Vulkan on a card of another make) or Auto.
 fn separation_build(runtime: lyrics_sync::OnnxFlavour) -> anyhow::Result<acpp_server::asset::Build> {
@@ -7307,21 +7294,6 @@ async fn set_midi_stage(state: &AppState, stage: &'static str) {
 
 fn midi_stopped(state: &AppState) -> bool {
     state.midi_stop.0.load(std::sync::atomic::Ordering::Relaxed)
-}
-
-/// The device the transcriber computes on, as its `--device` names it: left to it (CUDA) where
-/// the engine runs the CUDA 13 build, else the processor - Pascal and Maxwell have no CUDA 13 code,
-/// AMD and Intel no CUDA, and its Vulkan path writes wrong notes.
-fn midi_device(options: &EngineOptions) -> &'static str {
-    // the macOS build carries Metal alone, which its own choice finds
-    if cfg!(target_os = "macos") {
-        return if options.backend == music_engine::server::ComputeBackend::Cpu { "cpu" } else { "auto" };
-    }
-    match options.backend {
-        music_engine::server::ComputeBackend::Cpu => "cpu",
-        _ if options.cuda_build() == Some(cuda_build::CudaBuild::Cuda13) => "auto",
-        _ => "cpu",
-    }
 }
 
 /// Fetches what is missing, reads the audio as the transcriber wants it and

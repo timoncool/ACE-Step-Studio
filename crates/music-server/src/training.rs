@@ -444,8 +444,8 @@ const CAPTIONER_PICK: [&str; 12] = [
 ];
 
 /// The captioner the macOS app bundle and the Linux packages carry in
-/// `resources/music-midi`, built with the MIDI transcriber from the same
-/// HOT-Step; the downloadable archive is a Windows build.
+/// `resources/music-midi`, built from the pinned HOT-Step; the downloadable
+/// archive is a Windows build.
 fn bundled_captioner() -> Option<PathBuf> {
     if cfg!(windows) {
         return None;

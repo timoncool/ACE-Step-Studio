@@ -56,8 +56,6 @@ if [ "${1:-}" = "--inside" ]; then
   # the engine answers --help with its usage and a non-zero code
   "$engine" --help > /tmp/engine-help.txt 2>&1 || true
   grep -q 'Usage' /tmp/engine-help.txt || { echo "[ERROR] the engine does not start"; head -5 /tmp/engine-help.txt; exit 1; }
-  midi=desktop/src-tauri/resources/music-midi/music-midi
-  if ldd "$midi" | grep -i 'not found'; then echo "[ERROR] the MIDI transcriber misses libraries"; exit 1; fi
   caption=desktop/src-tauri/resources/music-midi/music-caption
   if ldd "$caption" | grep -i 'not found'; then echo "[ERROR] the captioner misses libraries"; exit 1; fi
   version="$(node -p "require('./desktop/src-tauri/tauri.conf.json').version")"
