@@ -1,5 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { toolsSongOnOpen } from './toolsSong';
+import { shownSongs, toolsSongOnOpen } from './toolsSong';
+
+describe('shownSongs', () => {
+  const list = ['a', 'b', 'c', 'd'].map(id => ({ id }));
+  const ids = (songs: { id: string }[]) => songs.map(song => song.id);
+
+  it('draws the first matches when the chosen song is among them', () => {
+    expect(ids(shownSongs(list, 'b', 3))).toEqual(['a', 'b', 'c']);
+  });
+
+  it('puts a chosen song past the limit first', () => {
+    expect(ids(shownSongs(list, 'd', 3))).toEqual(['d', 'a', 'b']);
+  });
+
+  it('leaves out a chosen song the search does not match', () => {
+    expect(ids(shownSongs(list.slice(0, 2), 'd', 3))).toEqual(['a', 'b']);
+  });
+});
 
 describe('toolsSongOnOpen', () => {
   const songs = ['a', 'b', 'c'];

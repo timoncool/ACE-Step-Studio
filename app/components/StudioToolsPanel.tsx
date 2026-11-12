@@ -17,7 +17,7 @@ import { apiUrl } from '../services/apiBase';
 import { openExternal } from '../services/externalLinks';
 import { StemPlayer } from './StemPlayer';
 import { WorkProgress } from './WorkProgress';
-import { toolsSongOnOpen, type ToolRun } from '../services/toolsSong';
+import { shownSongs, toolsSongOnOpen, type ToolRun } from '../services/toolsSong';
 
 /**
  * Studio tools.
@@ -192,7 +192,7 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
   // narrows it, and only the first handful of matches are drawn.
   const needle = query.trim().toLowerCase();
   const matches = needle ? songs.filter(song => song.title.toLowerCase().includes(needle)) : songs;
-  const visible = matches.slice(0, 12);
+  const visible = shownSongs(matches, songId, 12);
   const hidden = matches.length - visible.length;
   const settings = status?.settings ?? { stems: status?.stems ?? [], runtime: 'auto' as const };
   // what separating again replaces: the stems it makes that the song has already

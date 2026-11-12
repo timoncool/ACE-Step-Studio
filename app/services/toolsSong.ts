@@ -5,6 +5,17 @@ export interface ToolRun {
 }
 
 /**
+ * The songs the Tools list draws: the first `limit` matches, with the chosen one always among them - first, when it
+ * would otherwise be past the limit - so the song the tools work on is never out of sight.
+ */
+export function shownSongs<T extends { id: string }>(matches: T[], chosen: string, limit: number): T[] {
+  const first = matches.slice(0, limit);
+  if (!chosen || first.some(song => song.id === chosen)) return first;
+  const picked = matches.find(song => song.id === chosen);
+  return picked ? [picked, ...first.slice(0, limit - 1)] : first;
+}
+
+/**
  * The song the Tools tab opens on when nothing chose one: the song a stems or MIDI run is still working on, so its
  * progress is in view at once, else the first song of the library.
  */
