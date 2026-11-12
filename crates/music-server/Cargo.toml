@@ -14,6 +14,8 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace = true
+# A song deleted for good sends its files to the system's recycle bin, as Dub Studio does with a project.
+trash = "5"
 # Dub Studio's vocal separator: Mel-Band RoFormer through BSRoFormer.cpp.
 dub-sep = { git = "https://github.com/timoncool/dub-studio", rev = "bd27e1179221c7dc546177bdf6afa2f60ecc6791" }
 # Programs of the computer and downloaded ones started without the AppImage's libraries (dub_core::proc).

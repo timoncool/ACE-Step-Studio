@@ -1033,6 +1033,19 @@ pub async fn serve() -> anyhow::Result<()> {
     tokio::spawn(resume_unfinished_jobs(state.clone()));
     {
         let state = state.clone();
+        tokio::spawn(async move {
+            let mut every = tokio::time::interval(std::time::Duration::from_secs(6 * 3600));
+            loop {
+                every.tick().await;
+                let state = state.clone();
+                if let Err(error) = tokio::task::spawn_blocking(move || purge_old_trash(&state)).await {
+                    studio_log!("[ERROR] the bin was not emptied of its old songs: {error}");
+                }
+            }
+        });
+    }
+    {
+        let state = state.clone();
         // all three read or rewrite the stored tracks in place, so one after the other
         tokio::spawn(async move {
             let library = state.library.clone();
@@ -1181,6 +1194,9 @@ pub async fn serve() -> anyhow::Result<()> {
         .route("/v1/library/songs", get(library_songs).post(create_library_song))
         .route("/v1/library/import", post(import_library_audio))
         .route("/v1/library/songs/{id}", get(library_song).put(update_library_song).delete(delete_library_song))
+        .route("/v1/library/trash", get(library_trash).delete(empty_library_trash))
+        .route("/v1/library/trash/{id}", axum::routing::delete(delete_trashed_song))
+        .route("/v1/library/trash/{id}/restore", post(restore_library_song))
         .route("/v1/library/songs/{id}/liked", axum::routing::put(set_library_song_liked))
         .route("/v1/library/songs/{id}/note", axum::routing::put(set_library_song_note))
         .route("/v1/library/liked", get(library_liked))
@@ -4415,23 +4431,133 @@ async fn update_library_song(State(state):State<AppState>,Path(id):Path<String>,
     }
     Ok(Json(song))
 }
-/// Removes a song and its files; a file that cannot go (a player holds it)
-/// is named in the answer instead of only in the log.
+/// Puts a song in the bin with the songs made from it (its stems and the
+/// like); the bin keeps them for `TRASH_DAYS` days, Restore brings them back.
 async fn delete_library_song(State(state): State<AppState>, Path(id): Path<String>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
-    let song = state.library.get_song(&id).map_err(|e| api_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    if !state.library.delete_song(&id).map_err(|e| api_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))? {
-        return Err(api_error(StatusCode::NOT_FOUND, "Song not found".into()));
+    let internal = |e: anyhow::Error| api_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string());
+    let song = state.library.get_song(&id).map_err(internal)?.ok_or_else(|| api_error(StatusCode::NOT_FOUND, "Song not found".into()))?;
+    if library::is_trashed(&song) {
+        return Ok(Json(serde_json::json!({ "deleted": true, "trashed": true, "with": 0 })));
+    }
+    let made_from: Vec<String> = state
+        .library
+        .list_songs()
+        .map_err(internal)?
+        .into_iter()
+        .filter(|other| derived_from(other).is_some_and(|(from, _)| from == id))
+        .map(|other| other.id)
+        .collect();
+    state.library.set_song_trashed(&id, true, None).map_err(internal)?;
+    for other in &made_from {
+        state.library.set_song_trashed(other, true, Some(&id)).map_err(internal)?;
+    }
+    Ok(Json(serde_json::json!({ "deleted": true, "trashed": true, "with": made_from.len() })))
+}
+
+/// How long the bin keeps a song before it goes for good.
+const TRASH_DAYS: u64 = 30;
+
+/// The songs in the bin, each with the songs that went there with it.
+async fn library_trash(State(state): State<AppState>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    let internal = |e: anyhow::Error| api_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string());
+    let trashed = state.library.trashed_songs().map_err(internal)?;
+    let mut songs = Vec::new();
+    for song in trashed.iter().filter(|song| library::trashed_with(song).is_none()) {
+        let mut listed = listed_song(song).map_err(|e| api_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        let with = trashed.iter().filter(|other| library::trashed_with(other) == Some(song.id.as_str())).count();
+        listed["trashed_at"] = Value::from(library::trashed_at(song));
+        listed["gone_at"] = Value::from(library::trashed_at(song) + TRASH_DAYS * 86_400);
+        listed["with"] = Value::from(with);
+        songs.push(listed);
+    }
+    Ok(Json(serde_json::json!({ "songs": songs, "days": TRASH_DAYS })))
+}
+
+/// Takes a song out of the bin with the songs that went there with it.
+async fn restore_library_song(State(state): State<AppState>, Path(id): Path<String>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    let internal = |e: anyhow::Error| api_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string());
+    let song = state.library.get_song(&id).map_err(internal)?.ok_or_else(|| api_error(StatusCode::NOT_FOUND, "Song not found".into()))?;
+    if !library::is_trashed(&song) {
+        return Err(api_error(StatusCode::CONFLICT, "the song is not in the bin".into()));
+    }
+    let with: Vec<String> = state
+        .library
+        .trashed_songs()
+        .map_err(internal)?
+        .into_iter()
+        .filter(|other| library::trashed_with(other) == Some(id.as_str()))
+        .map(|other| other.id)
+        .collect();
+    state.library.set_song_trashed(&id, false, None).map_err(internal)?;
+    for other in &with {
+        state.library.set_song_trashed(other, false, None).map_err(internal)?;
+    }
+    Ok(Json(serde_json::json!({ "restored": true, "with": with.len() })))
+}
+
+/// Deletes a song of the bin for good, with the songs that went there with it.
+async fn delete_trashed_song(State(state): State<AppState>, Path(id): Path<String>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    let song = state
+        .library
+        .get_song(&id)
+        .map_err(|e| api_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .ok_or_else(|| api_error(StatusCode::NOT_FOUND, "Song not found".into()))?;
+    if !library::is_trashed(&song) {
+        return Err(api_error(StatusCode::CONFLICT, "only a song in the bin is deleted for good".into()));
+    }
+    let left = delete_for_good(&state, &id).map_err(|e| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("{e:#}")))?;
+    Ok(Json(serde_json::json!({ "deleted": true, "files_left": left })))
+}
+
+/// Empties the bin.
+async fn empty_library_trash(State(state): State<AppState>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
+    let internal = |e: anyhow::Error| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("{e:#}"));
+    let ids: Vec<String> = state.library.trashed_songs().map_err(internal)?.into_iter().filter(|song| library::trashed_with(song).is_none()).map(|song| song.id).collect();
+    let mut left = Vec::new();
+    for id in &ids {
+        left.extend(delete_for_good(&state, id).map_err(internal)?);
+    }
+    Ok(Json(serde_json::json!({ "deleted": ids.len(), "files_left": left })))
+}
+
+/// Deletes the songs of the bin older than `TRASH_DAYS` for good.
+fn purge_old_trash(state: &AppState) {
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |since| since.as_secs());
+    let songs = match state.library.trashed_songs() {
+        Ok(songs) => songs,
+        Err(error) => {
+            studio_log!("[ERROR] the bin could not be read to empty its old songs: {error:#}");
+            return;
+        }
+    };
+    for song in songs.iter().filter(|song| library::trashed_with(song).is_none() && library::trashed_at(song) + TRASH_DAYS * 86_400 <= now) {
+        match delete_for_good(state, &song.id) {
+            Ok(left) if !left.is_empty() => studio_log!("[ERROR] {} left the bin, these files stayed: {}", song.id, left.join("; ")),
+            Ok(_) => studio_log!("{} left the bin after {TRASH_DAYS} days", song.id),
+            Err(error) => studio_log!("[ERROR] {} could not leave the bin: {error:#}", song.id),
+        }
+    }
+}
+
+/// Removes a song of the bin and the songs that went there with it from the
+/// library; their files go to the system's recycle bin. The files that could
+/// not go are named.
+fn delete_for_good(state: &AppState, id: &str) -> anyhow::Result<Vec<String>> {
+    let mut songs: Vec<library::Song> = state.library.trashed_songs()?.into_iter().filter(|song| library::trashed_with(song) == Some(id)).collect();
+    if let Some(song) = state.library.get_song(id)? {
+        songs.push(song);
     }
     let mut left = Vec::new();
-    if let Some(song) = song {
-        for path in song_files(&state, &song) {
-            if let Err(error) = std::fs::remove_file(&path) {
-                studio_log!("[ERROR] delete song {id}: could not remove {}: {error}", path.display());
+    for song in &songs {
+        state.library.delete_song(&song.id)?;
+        for path in song_files(state, song).into_iter().filter(|path| path.exists()) {
+            if let Err(error) = trash::delete(&path) {
+                studio_log!("[ERROR] delete song {}: could not move {} to the recycle bin: {error}", song.id, path.display());
                 left.push(format!("{}: {error}", plain_path(&path)));
             }
         }
     }
-    Ok(Json(serde_json::json!({ "deleted": true, "files_left": left })))
+    Ok(left)
 }
 
 /// The files in the media folder that belong to one song: its audio, its

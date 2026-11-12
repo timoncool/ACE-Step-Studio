@@ -5,10 +5,10 @@ version = 4
 [[package]]
 name = "acpp-server"
 version = "2.0.0"
-source = "git+https://github.com/timoncool/dub-studio?rev=ba53e572bd7cc5bd5e57dfe9ed386f1746640a7a#ba53e572bd7cc5bd5e57dfe9ed386f1746640a7a"
+source = "git+https://github.com/timoncool/dub-studio?rev=bd27e1179221c7dc546177bdf6afa2f60ecc6791#bd27e1179221c7dc546177bdf6afa2f60ecc6791"
 dependencies = [
  "base64 0.23.1",
- "dub-core 2.0.0 (git+https://github.com/timoncool/dub-studio?rev=ba53e572bd7cc5bd5e57dfe9ed386f1746640a7a)",
+ "dub-core",
  "dub-tcpp",
  "hound",
  "libc",
@@ -395,6 +395,19 @@ name = "base64"
 version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
+
+[[package]]
+name = "bigdecimal"
+version = "0.4.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8fa3f3d8cbf4dffcfe4991de61d012bef509a409ecbe9dd41049bfe32b4d4653"
+dependencies = [
+ "autocfg",
+ "libm",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+]
 
 [[package]]
 name = "bit-set"
@@ -1193,21 +1206,15 @@ dependencies = [
 [[package]]
 name = "dub-core"
 version = "2.0.0"
-source = "git+https://github.com/timoncool/dub-studio?rev=ba53e572bd7cc5bd5e57dfe9ed386f1746640a7a#ba53e572bd7cc5bd5e57dfe9ed386f1746640a7a"
+source = "git+https://github.com/timoncool/dub-studio?rev=bd27e1179221c7dc546177bdf6afa2f60ecc6791#bd27e1179221c7dc546177bdf6afa2f60ecc6791"
 dependencies = [
  "iced-x86",
  "libc",
+ "num-bigint",
+ "num2words2-core",
  "object",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "dub-core"
-version = "2.0.0"
-source = "git+https://github.com/timoncool/dub-studio?rev=d7d3f7600ff23c25ba497a1636002e429b571641#d7d3f7600ff23c25ba497a1636002e429b571641"
-dependencies = [
- "libc",
+ "ort",
+ "regex",
  "serde",
  "serde_json",
 ]
@@ -1215,9 +1222,9 @@ dependencies = [
 [[package]]
 name = "dub-sep"
 version = "2.0.0"
-source = "git+https://github.com/timoncool/dub-studio?rev=d7d3f7600ff23c25ba497a1636002e429b571641#d7d3f7600ff23c25ba497a1636002e429b571641"
+source = "git+https://github.com/timoncool/dub-studio?rev=bd27e1179221c7dc546177bdf6afa2f60ecc6791#bd27e1179221c7dc546177bdf6afa2f60ecc6791"
 dependencies = [
- "dub-core 2.0.0 (git+https://github.com/timoncool/dub-studio?rev=d7d3f7600ff23c25ba497a1636002e429b571641)",
+ "dub-core",
  "thiserror 2.0.21",
  "tracing",
  "windows-sys 0.61.2",
@@ -1226,7 +1233,7 @@ dependencies = [
 [[package]]
 name = "dub-tcpp"
 version = "2.0.0"
-source = "git+https://github.com/timoncool/dub-studio?rev=ba53e572bd7cc5bd5e57dfe9ed386f1746640a7a#ba53e572bd7cc5bd5e57dfe9ed386f1746640a7a"
+source = "git+https://github.com/timoncool/dub-studio?rev=bd27e1179221c7dc546177bdf6afa2f60ecc6791#bd27e1179221c7dc546177bdf6afa2f60ecc6791"
 dependencies = [
  "libloading 0.9.0",
 ]
@@ -2760,6 +2767,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "libm"
+version = "0.2.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
+
+[[package]]
 name = "libredox"
 version = "0.1.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3055,7 +3068,7 @@ name = "music-engine"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "dub-core 2.0.0 (git+https://github.com/timoncool/dub-studio?rev=d7d3f7600ff23c25ba497a1636002e429b571641)",
+ "dub-core",
  "libc",
  "music-core",
  "serde",
@@ -3076,7 +3089,7 @@ dependencies = [
  "chrono",
  "dicebear-core",
  "dicebear-styles",
- "dub-core 2.0.0 (git+https://github.com/timoncool/dub-studio?rev=d7d3f7600ff23c25ba497a1636002e429b571641)",
+ "dub-core",
  "dub-sep",
  "dub-tcpp",
  "encoding_rs",
@@ -3112,6 +3125,7 @@ dependencies = [
  "tokio-stream",
  "tower",
  "tower-http 0.7.1",
+ "trash",
  "uuid",
  "windows-sys 0.61.2",
  "zip",
@@ -3281,6 +3295,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "num2words2-core"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c81a6ea9e9d61a0dcd855b0ec7b43efc76e6c249d3353c24e19cd7445d6569f6"
+dependencies = [
+ "bigdecimal",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
 ]
 
 [[package]]
@@ -3548,9 +3574,9 @@ dependencies = [
 
 [[package]]
 name = "object"
-version = "0.40.0"
+version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd229a0361b9d0d4396176e02d65897f487eebeab7caa6d443855ee152ca0b9c"
+checksum = "11dbdb66876026054e4ffc8d757d862bdf5df5aebd5c0b95a41f17832a94f7d2"
 dependencies = [
  "memchr",
 ]
@@ -3605,9 +3631,9 @@ dependencies = [
 
 [[package]]
 name = "ort"
-version = "2.0.0-rc.13"
+version = "2.0.0-rc.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4336a1e2b38848325241c72889086886004e589b7c74f335e60a8e8db5138a0b"
+checksum = "37c87aa7a90b7ff3e0fe36cccd475df8d67f15f07f4d6c370c4b38464232813c"
 dependencies = [
  "libloading 0.9.0",
  "ndarray",
@@ -3618,9 +3644,9 @@ dependencies = [
 
 [[package]]
 name = "ort-sys"
-version = "2.0.0-rc.13"
+version = "2.0.0-rc.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf211e3776eea6aec988552fa118dd746d70e1b1e5e244058d1c98015f3e5872"
+checksum = "8d22b0417f1838db5a3ac0b3f98dfe39f6fb73624aa0a27c6bbb5040b9c7db2b"
 
 [[package]]
 name = "osakit"
@@ -5160,7 +5186,7 @@ dependencies = [
 [[package]]
 name = "studio-hub-client"
 version = "0.1.0"
-source = "git+https://github.com/timoncool/studio-hub-client?rev=365c2b757bfddd45fff67e7264b41f4f961a0032#365c2b757bfddd45fff67e7264b41f4f961a0032"
+source = "git+https://github.com/timoncool/studio-hub-client?rev=ff20969c25a9531616a130b7e7db5d80922125d1#ff20969c25a9531616a130b7e7db5d80922125d1"
 dependencies = [
  "axum",
  "chrono",
@@ -6321,6 +6347,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "trash"
+version = "5.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e13ed7a76ae8b9053f33493745ebb4cd2e5ee1cccd9823bb96ec97b78ec4844"
+dependencies = [
+ "chrono",
+ "libc",
+ "log",
+ "objc2",
+ "objc2-foundation",
+ "once_cell",
+ "percent-encoding",
+ "scopeguard",
+ "urlencoding",
+ "windows",
+ "windows-core",
+]
+
+[[package]]
 name = "tray-icon"
 version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6419,6 +6464,12 @@ dependencies = [
  "serde",
  "serde_derive",
 ]
+
+[[package]]
+name = "urlencoding"
+version = "2.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "daf8dba3b7eb870caf1ddeed7bc9d2a049f3cfdfae7cb521b087cc33ae4c49da"
 
 [[package]]
 name = "urlpattern"
