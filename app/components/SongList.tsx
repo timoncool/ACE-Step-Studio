@@ -17,6 +17,7 @@ import { exactMoment, relativeMoment } from '../services/dates';
 import { compareBy, SONG_ORDERS, useListOrder, type SongOrder } from '../services/songOrder';
 import { onPlayHistory } from '../services/playHistory';
 import { downloadSongAudio } from '../services/songDownload';
+import { nameMatches, searchWords, songMatches } from '../services/songSearch';
 import { TRACK_ARTIST } from '../services/studio';
 
 interface SongListProps {
@@ -260,15 +261,12 @@ export const SongList: React.FC<SongListProps> = ({
         return next;
     });
 
+    const words = useMemo(() => searchWords(searchQuery), [searchQuery]);
+
     const filteredSongs = useMemo(() => {
         return songs.filter(song => {
             // 1. Search Logic
-            const matchesSearch =
-                song.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                song.style.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                song.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-
-            if (!matchesSearch) return false;
+            if (!songMatches(song, words)) return false;
 
             // 2. Filter Logic
             if (activeFilters.size === 0) return true;
@@ -285,16 +283,16 @@ export const SongList: React.FC<SongListProps> = ({
 
             return true;
         });
-    }, [songs, searchQuery, activeFilters, likedSongIds]);
+    }, [songs, words, activeFilters, likedSongIds]);
 
     const filteredUploads = useMemo(() => {
         if (activeFilters.size > 0) return [];
         if (!referenceTracks.length) return [];
         return referenceTracks.filter(track => {
             const title = track.filename.replace(/\.[^/.]+$/, '');
-            return title.toLowerCase().includes(searchQuery.toLowerCase());
+            return nameMatches(title, words);
         });
-    }, [referenceTracks, searchQuery, activeFilters]);
+    }, [referenceTracks, words, activeFilters]);
 
     // The songs being made stay on top, newest first, and the newest finished
     // song sits right under them: a card that finishes becomes the song in its
