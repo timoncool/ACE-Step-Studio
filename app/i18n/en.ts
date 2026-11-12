@@ -1715,6 +1715,8 @@ export const en = {
     networkAccessInternet: 'From the internet: forward this port to this computer on your router and open http://<your address>:<port>/?key=<key>. Anyone with the key controls the studio.',
     gpuChoice: 'Graphics card',
     gpuChoiceFirst: 'The first card',
+    gpuChoiceGone: 'The graphics card {index} chosen here is not in this computer - choose a card, or the engine does not start.',
+    gpuChoiceMissing: '{index}: not in this computer',
     gpuChoiceHint: 'Every part of the studio that runs on CUDA - the engine, training, the assistant, recognition - uses this card.',
     gpuChoiceRestart: 'Save, then close and open the studio: the card is chosen when it starts.',
     scoreListen: 'Listen',

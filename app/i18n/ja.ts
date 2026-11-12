@@ -1710,6 +1710,8 @@ export const ja = {
     networkAccessInternet: 'インターネットから：ルーターでこのポートをこのコンピューターに転送し、http://<あなたのアドレス>:<ポート>/?key=<キー> を開きます。キーを持つ人はスタジオを操作できます。',
     gpuChoice: 'グラフィックカード',
     gpuChoiceFirst: '最初のカード',
+    gpuChoiceGone: 'ここで選んだグラフィックカード {index} はこのコンピューターにありません。カードを選んでください。選ばないとエンジンは起動しません。',
+    gpuChoiceMissing: '{index}：このコンピューターにありません',
     gpuChoiceHint: 'スタジオで CUDA を使うすべての部分（エンジン、学習、アシスタント、認識）がこのカードを使います。',
     gpuChoiceRestart: '保存してからスタジオを閉じて開き直してください。カードは起動時に選ばれます。',
     scoreListen: '聴く',

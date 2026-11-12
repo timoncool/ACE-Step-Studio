@@ -1710,6 +1710,8 @@ export const ko = {
     networkAccessInternet: '인터넷에서: 라우터에서 이 포트를 이 컴퓨터로 포워딩하고 http://<내 주소>:<포트>/?key=<키> 를 여세요. 키를 가진 사람은 스튜디오를 조작할 수 있습니다.',
     gpuChoice: '그래픽카드',
     gpuChoiceFirst: '첫 번째 카드',
+    gpuChoiceGone: '여기서 고른 그래픽카드 {index}가 이 컴퓨터에 없습니다. 카드를 고르세요. 그러지 않으면 엔진이 시작되지 않습니다.',
+    gpuChoiceMissing: '{index}: 이 컴퓨터에 없음',
     gpuChoiceHint: '스튜디오에서 CUDA로 도는 모든 부분(엔진, 학습, 도우미, 인식)이 이 카드를 씁니다.',
     gpuChoiceRestart: '저장한 뒤 스튜디오를 닫았다가 다시 여세요. 카드는 시작할 때 정해집니다.',
     scoreListen: '듣기',

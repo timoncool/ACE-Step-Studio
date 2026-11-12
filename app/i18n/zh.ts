@@ -1710,6 +1710,8 @@ export const zh = {
     networkAccessInternet: '从互联网访问：在路由器上把此端口转发到这台电脑，然后打开 http://<你的地址>:<端口>/?key=<密钥>。拥有密钥的人可以控制工作室。',
     gpuChoice: '显卡',
     gpuChoiceFirst: '第一张显卡',
+    gpuChoiceGone: '此处选择的显卡 {index} 不在这台电脑中——请选择一张显卡，否则引擎无法启动。',
+    gpuChoiceMissing: '{index}：不在这台电脑中',
     gpuChoiceHint: '工作室中所有使用 CUDA 的部分——引擎、训练、助手、识别——都使用这张显卡。',
     gpuChoiceRestart: '请保存，然后关闭并重新打开工作室：显卡在启动时选定。',
     scoreListen: '试听',

@@ -174,11 +174,12 @@ mod crash {
     }
 }
 
-/// Anything that looks like a key masked: OpenRouter, Google, Hugging Face, the network access key, bearer headers.
+/// Anything that looks like a key masked: OpenRouter, Google, Hugging Face, the network access key, an id:secret pair,
+/// bearer headers.
 pub(crate) fn masked(text: &str) -> String {
     static KEYS: OnceLock<regex::Regex> = OnceLock::new();
     let keys = KEYS.get_or_init(|| {
-        regex::Regex::new(r"(sk-[A-Za-z0-9_-]{8,}|AIza[0-9A-Za-z_-]{20,}|hf_[A-Za-z0-9]{20,}|key=[A-Za-z0-9_-]{12,}|(?i:bearer)\s+[A-Za-z0-9._-]{12,})").expect("key pattern")
+        regex::Regex::new(r"(sk-[A-Za-z0-9_-]{8,}|AIza[0-9A-Za-z_-]{20,}|hf_[A-Za-z0-9]{20,}|key=[A-Za-z0-9_-]{12,}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}:[0-9a-f]{20,}|(?i:bearer)\s+[A-Za-z0-9._-]{12,})").expect("key pattern")
     });
     keys.replace_all(text, "[key]").into_owned()
 }

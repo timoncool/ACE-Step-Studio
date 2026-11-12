@@ -4776,8 +4776,26 @@ fn engine_failure_code(error: &str) -> String {
         ("did not start is already running on the engine port", "engine port busy"),
         ("engine bundle is incomplete", "engine bundle incomplete"),
         ("runtime was not found", "engine runtime not found"),
+        ("graphics card chosen in Settings", "chosen card not present"),
     ];
     kinds.iter().find(|(marker, _)| error.contains(marker)).map(|(_, kind)| kind.to_string()).unwrap_or_else(|| "other".into())
+}
+
+/// Why the engine cannot start on the card the settings name: a card that is not in this computer would leave CUDA
+/// with no device at all, and the engine would go to the processor without a word.
+fn missing_chosen_card(chosen: Option<u32>, cards: &[(u32, String, f64)]) -> Option<String> {
+    let index = chosen?;
+    if cards.iter().any(|(number, ..)| *number == index) {
+        return None;
+    }
+    let present = if cards.is_empty() {
+        "nvidia-smi lists no NVIDIA card".to_string()
+    } else {
+        format!("nvidia-smi lists {}", cards.iter().map(|(number, name, _)| format!("{number}: {name}")).collect::<Vec<_>>().join(", "))
+    };
+    Some(format!(
+        "the graphics card chosen in Settings - Local engine (number {index}) is not in this computer ({present}); choose another card or Auto there"
+    ))
 }
 
 async fn start_engine_again(state: &AppState) -> Result<(), String> {
@@ -4823,6 +4841,21 @@ async fn start_engine_again(state: &AppState) -> Result<(), String> {
     let options = (*state.engine_options.read().await).clone();
     if options.backend == music_engine::server::ComputeBackend::Cuda && cuda_build::current().is_none() {
         return Err(cuda_build::UNSUPPORTED.into());
+    }
+    // nvidia-smi is a process of its own: asked off the async workers, and only for a chosen card
+    let chosen_card = options.gpu;
+    let missing = match chosen_card {
+        None => None,
+        Some(_) => tokio::task::spawn_blocking(move || missing_chosen_card(chosen_card, &cuda_build::nvidia_cards()))
+            .await
+            .unwrap_or_else(|error| Some(format!("the graphics card chosen in Settings - Local engine was not looked for: {error}"))),
+    };
+    if let Some(problem) = missing {
+        // the supervisor asks again every few seconds: the log gets the reason once
+        if music_engine::server::startup_log_tail(1).last() != Some(&format!("[studio] {problem}")) {
+            music_engine::server::note_in_log(&problem);
+        }
+        return Err(problem);
     }
     let chain = options.device_chain(&state.failed_devices.read().await);
     let mut last_error = String::new();
@@ -5335,13 +5368,15 @@ async fn execute_openrouter_json(
         .to_string();
     request_log::asked(what, &model, authenticated.request.body.to_string().chars().count());
     let started = std::time::Instant::now();
-    let response = net::client()
-        .post(format!("{}{}", providers::openrouter::API_BASE_URL, authenticated.request.path))
-        .bearer_auth(authenticated.api_key)
-        .json(&authenticated.request.body)
-        .send()
-        .await
-        .inspect_err(|error| request_log::failed(what, &model, &error.to_string()))?;
+    let client = net::client();
+    let response = net::send_cloud(|| {
+        client
+            .post(format!("{}{}", providers::openrouter::API_BASE_URL, authenticated.request.path))
+            .bearer_auth(&authenticated.api_key)
+            .json(&authenticated.request.body)
+    })
+    .await
+    .inspect_err(|error| request_log::failed(what, &model, &format!("{error:#}")))?;
     let status = response.status();
     let response = match response.error_for_status_ref() {
         Ok(_) => response,
@@ -5551,8 +5586,13 @@ pub fn studio_data_root() -> Option<PathBuf> {
 /// assistant, the captioner, and ONNX Runtime inside the service - at the card
 /// chosen in the engine settings, numbered as nvidia-smi numbers them. Called
 /// by the desktop shell and the standalone service before anything starts.
+/// A chosen card that is not in the computer is not pointed at: CUDA would see no card at all, and the engine start
+/// says why (`missing_chosen_card`).
 pub fn apply_saved_gpu() {
     let Some(index) = load_studio_settings(&studio_settings_path()).and_then(|settings| settings.engine_options.gpu) else { return };
+    if missing_chosen_card(Some(index), &cuda_build::nvidia_cards()).is_some() {
+        return;
+    }
     // SAFETY: called first thing in the process, before the service and its
     // runtimes read the environment; on Windows the variables are set through
     // SetEnvironmentVariableW, which is thread safe.
@@ -5571,6 +5611,8 @@ async fn system_gpus(State(state): State<AppState>) -> Json<Value> {
         "cards": cards.iter().map(|(index, name, gigabytes)| serde_json::json!({ "index": index, "name": name, "memory_gb": gigabytes })).collect::<Vec<_>>(),
         "chosen": chosen,
         "running": running,
+        // the chosen card is not in the computer: why the engine does not start until another is chosen
+        "chosen_missing": missing_chosen_card(chosen, &cards),
     }))
 }
 
@@ -5639,6 +5681,15 @@ async fn compose_setup_status(state: &AppState, manager_status: model_manager::M
             Value::Bool(state.music_server.health().await),
         );
         fields.insert("engine_id".into(), Value::String(PRIMARY_MUSIC_ENGINE_ID.into()));
+        // the chosen card is not in the computer: the start screen says why the engine does not start
+        let chosen_card = state.engine_options.read().await.gpu;
+        let problem = match chosen_card {
+            Some(_) => tokio::task::spawn_blocking(move || missing_chosen_card(chosen_card, &cuda_build::nvidia_cards()))
+                .await
+                .unwrap_or_else(|error| Some(format!("the graphics card chosen in Settings - Local engine was not looked for: {error}"))),
+            None => None,
+        };
+        fields.insert("engine_problem".into(), serde_json::to_value(problem).unwrap_or(Value::Null));
         fields.insert("selected_profile_id".into(), serde_json::to_value(selected_profile_id).unwrap_or(Value::Null));
         fields.insert("selected_component_ids".into(), serde_json::to_value(selected_component_ids).unwrap_or(Value::Null));
         fields.insert("hardware".into(), serde_json::to_value(presets::hardware()).unwrap_or(Value::Null));
@@ -6771,16 +6822,19 @@ async fn assistant_write_stream(
         let started = std::time::Instant::now();
 
         let client = net::client();
-        let mut outgoing = client
-            .post(format!("{}/chat/completions", base.trim_end_matches('/')))
-            .json(&body)
-            .timeout(std::time::Duration::from_secs(600));
-        if let Some(key) = key {
-            outgoing = outgoing
-                .header(reqwest::header::AUTHORIZATION, format!("Bearer {key}"))
-                .header("HTTP-Referer", music_core::studio().repo_url())
-                .header("X-Title", &music_core::studio().name);
-        }
+        let outgoing = || {
+            let mut outgoing = client
+                .post(format!("{}/chat/completions", base.trim_end_matches('/')))
+                .json(&body)
+                .timeout(std::time::Duration::from_secs(600));
+            if let Some(key) = &key {
+                outgoing = outgoing
+                    .header(reqwest::header::AUTHORIZATION, format!("Bearer {key}"))
+                    .header("HTTP-Referer", music_core::studio().repo_url())
+                    .header("X-Title", &music_core::studio().name);
+            }
+            outgoing
+        };
 
         // Until the first byte the window can be closed as well: a model
         // still loading or reading a long prompt sends nothing for minutes.
@@ -6790,12 +6844,12 @@ async fn assistant_write_stream(
                 release_assistant_unless_kept(&state).await;
                 return;
             }
-            sent = outgoing.send() => sent,
+            sent = net::send_cloud(outgoing) => sent,
         };
         let response = match sent {
             Ok(response) => response,
             Err(error) => {
-                request_log::failed("assistant", &model, &error.to_string());
+                request_log::failed("assistant", &model, &format!("{error:#}"));
                 emit(sender.clone(), serde_json::json!({ "error": format!("the assistant is unreachable: {error}") })).await;
                 return;
             }
@@ -9388,12 +9442,15 @@ fn openrouter_music_prompt(request: &CreateMusicJobRequest) -> String {
 
 async fn run_openrouter_music_generation(state: AppState, job_id: String, stream_request: providers::openrouter::OpenRouterMusicStreamRequest) {
     let outcome = async {
-        let response = net::client()
-            .post(format!("{}{}", providers::openrouter::API_BASE_URL, stream_request.request.path))
-            .bearer_auth(stream_request.api_key)
-            .json(&stream_request.request.body)
-            .send().await?
-            .error_for_status()?;
+        let client = net::client();
+        let response = net::send_cloud(|| {
+            client
+                .post(format!("{}{}", providers::openrouter::API_BASE_URL, stream_request.request.path))
+                .bearer_auth(&stream_request.api_key)
+                .json(&stream_request.request.body)
+        })
+        .await?
+        .error_for_status()?;
         let mut stream = response.bytes_stream();
         let mut sse = Vec::new();
         while let Some(chunk) = stream.next().await { sse.extend_from_slice(&chunk?); }
@@ -10072,6 +10129,18 @@ mod tests {
         assert_eq!(engine_failure_code(cuda_build::UNSUPPORTED), "CUDA not supported by the card or driver");
         assert_eq!(engine_failure_code("The engine has no device Vulkan0 on this computer; it sees CPU."), "device not present");
         assert_eq!(engine_failure_code("something new"), "other");
+        let card = missing_chosen_card(Some(3), &[(0, "NVIDIA GeForce RTX 4090".into(), 24.0)]).expect("card 3 is not there");
+        assert_eq!(engine_failure_code(&card), "chosen card not present");
+    }
+
+    #[test]
+    fn a_chosen_card_that_is_not_there_is_said_not_left_to_the_processor() {
+        let cards = vec![(0, "NVIDIA GeForce RTX 4090".to_string(), 24.0)];
+        assert_eq!(missing_chosen_card(None, &cards), None);
+        assert_eq!(missing_chosen_card(Some(0), &cards), None);
+        let missing = missing_chosen_card(Some(1), &cards).expect("card 1 is not there");
+        assert!(missing.contains("number 1") && missing.contains("0: NVIDIA GeForce RTX 4090"), "{missing}");
+        assert!(missing_chosen_card(Some(0), &[]).expect("no card at all").contains("lists no NVIDIA card"));
     }
 
 

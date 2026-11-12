@@ -337,6 +337,45 @@ pub fn download_client() -> reqwest::Client {
         .expect("an HTTP client with a proxy callback builds")
 }
 
+/// Attempts at a cloud request that a server answers with 408, 409 or 429.
+const CLOUD_ATTEMPTS: u32 = 4;
+
+/// Whether a cloud server's answer asks for the same request again later: 408, 409 (a provider's concurrency
+/// conflict) and 429, as the OpenAI SDKs retry them. Any other 4xx is the request's own fault.
+pub fn is_transient(status: reqwest::StatusCode) -> bool {
+    matches!(status.as_u16(), 408 | 409 | 429)
+}
+
+/// How long a transient answer asks to wait: its `Retry-After` in seconds, at most a minute, else a doubling wait.
+fn wait_after(headers: &reqwest::header::HeaderMap, attempt: u32) -> std::time::Duration {
+    headers
+        .get(reqwest::header::RETRY_AFTER)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .map(|seconds| std::time::Duration::from_secs(seconds.clamp(1, 60)))
+        .unwrap_or_else(|| std::time::Duration::from_secs(2u64 << attempt.min(4)))
+}
+
+/// Sends a cloud request built by `request`, again after 408, 409 and 429 answers. A server that cannot be connected
+/// to is named by its host in the error; any other answer is the caller's to read.
+pub async fn send_cloud(request: impl Fn() -> reqwest::RequestBuilder) -> Result<reqwest::Response> {
+    let mut attempt = 0;
+    loop {
+        let built = request();
+        let host = built.try_clone().and_then(|copy| copy.build().ok()).and_then(|built| built.url().host_str().map(str::to_owned)).unwrap_or_default();
+        let response = match built.send().await {
+            Ok(response) => response,
+            Err(error) if error.is_connect() => bail!("could not connect to {host}: {}", why(&error)),
+            Err(error) => return Err(error.into()),
+        };
+        attempt += 1;
+        if !is_transient(response.status()) || attempt >= CLOUD_ATTEMPTS {
+            return Ok(response);
+        }
+        tokio::time::sleep(wait_after(response.headers(), attempt - 1)).await;
+    }
+}
+
 /// Whether Hugging Face, where the models come from, and OpenRouter answer
 /// through `settings`, before they are kept. An answer of any status counts;
 /// a connection that fails does not. Without the mirror chosen, HF-Mirror is
@@ -492,6 +531,35 @@ mod tests {
         assert_eq!(route, ProxyRoute { address: "http://127.0.0.1:9".into(), system: true });
         let off = ProxySettings { mode: ProxyMode::Off, ..ProxySettings::default() };
         assert_eq!(route_with(&off, &system, &url("https://huggingface.co/x")), None);
+    }
+
+    /// A cloud server that answers 429 is asked again after the wait it names; one that cannot be reached is named.
+    #[tokio::test]
+    async fn a_busy_cloud_server_is_asked_again_and_an_unreachable_one_is_named() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            for answer in ["HTTP/1.1 429 Too Many Requests\r\nRetry-After: 1\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok"] {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let mut buffer = [0u8; 4096];
+                let _ = socket.read(&mut buffer).await;
+                socket.write_all(answer.as_bytes()).await.unwrap();
+                socket.shutdown().await.ok();
+            }
+        });
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+        let started = std::time::Instant::now();
+        let response = send_cloud(|| client.get(format!("http://127.0.0.1:{port}/x"))).await.unwrap();
+        assert_eq!(response.status(), 200);
+        assert!(started.elapsed() >= std::time::Duration::from_secs(1), "the Retry-After second was waited");
+        assert!(is_transient(reqwest::StatusCode::REQUEST_TIMEOUT) && is_transient(reqwest::StatusCode::CONFLICT));
+        assert!(!is_transient(reqwest::StatusCode::UNAUTHORIZED));
+        let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let gone = closed.local_addr().unwrap().port();
+        drop(closed);
+        let error = send_cloud(|| client.get(format!("http://127.0.0.1:{gone}/x"))).await.unwrap_err().to_string();
+        assert!(error.starts_with("could not connect to 127.0.0.1: "), "{error}");
     }
 
     #[test]

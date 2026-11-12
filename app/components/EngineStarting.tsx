@@ -48,7 +48,9 @@ export const EngineStarting: React.FC<{ onReady?: () => void }> = ({ onReady }) 
         .catch(() => undefined);
       await fetch('/setup/status', { headers: SELF_READ })
         .then((response) => (response.ok ? response.json() : Promise.reject(new Error())))
-        .then((body: { engine_runtime?: { ready?: boolean; downloading?: boolean; downloaded_bytes?: number; total_bytes?: number; error?: string | null } }) => {
+        .then((body: { engine_problem?: string | null; engine_runtime?: { ready?: boolean; downloading?: boolean; downloaded_bytes?: number; total_bytes?: number; error?: string | null } }) => {
+          // a reason the engine cannot start at all is said at once, not after the slow-start wait
+          if (body.engine_problem) setFailed(body.engine_problem);
           const state = body.engine_runtime;
           setRuntime(
             state && state.ready === false
