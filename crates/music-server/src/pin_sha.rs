@@ -8,6 +8,7 @@ use std::path::Path;
 use anyhow::{bail, Result};
 
 const PINNED: &[(&str, &str)] = &[
+    ("https://github.com/mosynthkey/beat_this_cpp/raw/07ab790a9ec2eda8093d52d249e3ec4f0510ee72/onnx/beat_this.onnx", "c5c1466e08abdb03fdeb50668a06f244b787d564c212490482231a9cfbe9ccbd"),
     ("https://developer.download.nvidia.com/compute/cuda/redist/libcublas/windows-x86_64/libcublas-windows-x86_64-12.9.1.4-archive.zip", "d534d98b0b453a98914dbf3adf47d7e84b55037abf02f87466439e1dcef581ed"),
     ("https://developer.download.nvidia.com/compute/cuda/redist/libcublas/windows-x86_64/libcublas-windows-x86_64-13.5.1.27-archive.zip", "c946e1c825e05895747a95ed4fee18030b08052c09783b9b7b19818fd2e31f58"),
     ("https://developer.download.nvidia.com/compute/cuda/redist/libcufft/windows-x86_64/libcufft-windows-x86_64-12.4.0.43-archive.zip", "69d0ad8dc3a1be66f01a748a8206d0ceaafa56939474663fbe790dc3e91d2009"),
@@ -176,6 +177,8 @@ mod tests {
         assert!(branches.is_empty(), "downloads that follow a branch instead of a pinned revision: {branches:#?}");
         let skey = crate::training::listen_pack().iter().find(|asset| asset.id == "s-key").expect("the listening set downloads S-KEY");
         assert!(sha256(skey.url).is_some(), "S-KEY names the SHA-256 of its pin");
+        let beat = crate::training::listen_pack().iter().find(|asset| asset.id == "beat-this").expect("the listening set downloads Beat This!");
+        assert!(sha256(beat.url).is_some(), "Beat This! names the SHA-256 of its pin");
     }
 
     #[test]
