@@ -17,6 +17,7 @@ import { apiUrl } from '../services/apiBase';
 import { openExternal } from '../services/externalLinks';
 import { StemPlayer } from './StemPlayer';
 import { WorkProgress } from './WorkProgress';
+import { toolsSongOnOpen, type ToolRun } from '../services/toolsSong';
 
 /**
  * Studio tools.
@@ -88,7 +89,11 @@ export function StudioToolsPanel({ initialSongId }: { initialSongId?: string | n
     const list: NativeLibrarySong[] = Array.isArray(body) ? body : body.songs ?? [];
     const playable = list.filter(song => song.audio_path);
     setSongs(playable);
-    setSongId(current => current || playable[0]?.id || '');
+    // a stems or MIDI run still at work keeps its song in view when the tab opens again
+    const runOf = (path: string) =>
+      fetch(path, { headers: SELF_READ }).then(response => response.json() as Promise<{ run?: ToolRun | null }>).then(body => body.run ?? null);
+    const runs = await Promise.all([runOf('/v1/separation/status'), runOf('/v1/midi')]);
+    setSongId(current => current || toolsSongOnOpen(playable.map(song => song.id), runs));
   }, []);
 
   // A track handed over by a menu wins over whatever was chosen here before.
