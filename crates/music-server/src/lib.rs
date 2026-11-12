@@ -22,6 +22,7 @@ mod downloads;
 mod install_record;
 mod pin_sha;
 mod update_screen;
+mod retired;
 mod diagnostics;
 mod cuda_build;
 mod engine_runtime;
@@ -7989,8 +7990,7 @@ fn update_plan_now(state: &AppState, karaoke: &lyrics_sync::LyricsSyncConfig, se
             });
         }
     }
-    let mut leftovers = state.lyrics_sync.leftovers();
-    leftovers.extend(state.separator.leftovers());
+    let leftovers = retired::leftovers(update_data_root(state));
     let left = |what: &str| leftovers.iter().any(|leftover| leftover.what == what && !leftover.paths.is_empty());
     let mut added = Vec::new();
     let mut take = |part: Part, asset: &'static downloads::Asset, downloader: &downloads::Downloader| {
@@ -8009,6 +8009,7 @@ fn update_plan_now(state: &AppState, karaoke: &lyrics_sync::LyricsSyncConfig, se
         take(Part::Separation, &separation::MODEL, state.separator.downloader());
         builds.extend(separation_build(separation).ok());
     }
+    // the transcriber of 3.8 ran from HOT-Step's shared tools, not `midi/runtime`: any MuScriptor size on disk counts
     if midi::SIZES.iter().any(|size| state.midi.model_installed(size)) {
         builds.extend(midi_build(options).ok());
     }
@@ -8121,17 +8122,24 @@ async fn run_update(state: &AppState, rows: &[update_screen::Row]) -> anyhow::Re
     let separation_runtime = state.separation_config.read().await.runtime;
     // the ONNX HT-Demucs goes only once the audio.cpp one runs in its place
     let htdemucs_replaced = htdemucs_installed(state, separation_runtime);
-    let sync = state.lyrics_sync.clone();
-    let separator = state.separator.clone();
+    // HOT-Step's own transcriber goes once MuScriptor has its server, or when no MuScriptor size is there to run
+    let options = state.engine_options.read().await.clone();
+    let midi_replaced = !midi::SIZES.iter().any(|size| state.midi.model_installed(size))
+        || midi_build(&options).is_ok_and(|build| state.lyrics_sync.acpp().installed(build));
+    let whisper_replaced = !karaoke_on_whisper(&karaoke) || state.lyrics_sync.crisper_ready(karaoke.runtime);
+    let data_root = update_data_root(state).to_path_buf();
     tokio::task::spawn_blocking(move || {
         let mut gone = vec!["parakeet-onnx"];
-        if !karaoke_on_whisper(&karaoke) || sync.crisper_ready(karaoke.runtime) {
+        if whisper_replaced {
             gone.push("faster-whisper");
         }
-        sync.remove_leftovers(&gone);
         if htdemucs_replaced {
-            separator.remove_leftovers(&["htdemucs-onnx"]);
+            gone.push("htdemucs-onnx");
         }
+        if midi_replaced {
+            gone.push("midi-hotstep");
+        }
+        retired::remove_leftovers(&data_root, &gone);
     })
     .await?;
     Ok(())

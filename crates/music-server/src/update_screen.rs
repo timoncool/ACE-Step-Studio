@@ -109,28 +109,6 @@ pub struct Leftover {
     pub paths: Vec<PathBuf>,
 }
 
-/// Removes the leftovers named in `what`: the update screen's last step, after the downloads that take their place. A
-/// link (another program's folder linked in) loses only the link; a hard-linked file stays with the program that
-/// shares it.
-pub fn remove_leftovers(leftovers: Vec<Leftover>, what: &[&str]) {
-    for leftover in leftovers.into_iter().filter(|leftover| what.contains(&leftover.what)) {
-        for path in leftover.paths {
-            let Ok(meta) = std::fs::symlink_metadata(&path) else { continue };
-            let removed = if meta.file_type().is_symlink() {
-                std::fs::remove_dir(&path).or_else(|_| std::fs::remove_file(&path))
-            } else if meta.is_dir() {
-                std::fs::remove_dir_all(&path)
-            } else {
-                std::fs::remove_file(&path)
-            };
-            match removed {
-                Ok(()) => studio_log!("removed the retired {}", path.display()),
-                Err(error) => studio_log!("[ERROR] could not remove the retired {}: {error}", path.display()),
-            }
-        }
-    }
-}
-
 /// A component to download: updated (`from` names the release on disk when the disk tells it) or new. The files of
 /// one model's folder are one row.
 #[derive(Clone, Debug, Serialize)]

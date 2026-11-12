@@ -764,32 +764,6 @@ pub const PARAKEET_V3: &str = "parakeet-tdt-int8";
 pub const PARAKEET_ULTRA: &str = "parakeet-ultra-int8";
 pub const PARAKEET_FP32: &str = "parakeet-tdt-fp32";
 
-/// The folders of the ONNX Parakeet of 3.6 and earlier, under the karaoke folder.
-/// Parakeet on ONNX Runtime, before transcribe.cpp: removed by the update screen.
-const RETIRED: &[&str] = &["models/parakeet", "models/parakeet-fp32", "models/parakeet-ultra"];
-
-/// Whisper-Faster (CTranslate2) with its CUDA 11 cuBLAS and cuDNN 8, and its models, before CrisperWhisper on
-/// audio.cpp: removed by the update screen once CrisperWhisper is in place or karaoke hears with another recogniser.
-pub const RETIRED_WHISPER: &[&str] = &[
-    "runtime/whisper",
-    "models/whisper",
-    "runtime/whisper-faster.zip",
-    "runtime/whisper-faster.zip.json",
-    "runtime/whisper-faster.part",
-    "runtime/whisper-cublas.zip",
-    "runtime/whisper-cublas.zip.json",
-    "runtime/whisper-cublas.part",
-    "runtime/whisper-cublas.tar.xz",
-    "runtime/whisper-cublas.tar.xz.json",
-    "runtime/whisper-cublas.tar.part",
-    "runtime/whisper-cudnn.zip",
-    "runtime/whisper-cudnn.zip.json",
-    "runtime/whisper-cudnn.part",
-    "runtime/whisper-cudnn.tar.xz",
-    "runtime/whisper-cudnn.tar.xz.json",
-    "runtime/whisper-cudnn.tar.part",
-];
-
 /// Where each transcribe.cpp build's download lands in the karaoke runtime. Windows and Linux fetch the engine-0.2.0
 /// archive (the library and a ggml-cpu per instruction level, so any x86-64 runs it) and unpack it into the build's
 /// folder under `runtime/`; the Mac fetches the single dylib straight into its folder. The loader opens
@@ -898,22 +872,6 @@ impl LyricsSync {
     /// The studio's audio.cpp server.
     pub fn acpp(&self) -> std::sync::Arc<crate::acpp::Acpp> {
         self.acpp.clone()
-    }
-
-    /// What former releases left in the karaoke folder, by the names the update screen's table of changes knows:
-    /// the ONNX Parakeet and Faster-Whisper with its CUDA 11 libraries and models.
-    pub fn leftovers(&self) -> Vec<crate::update_screen::Leftover> {
-        let found = |listed: &[&str]| -> Vec<PathBuf> {
-            listed.iter().map(|relative| self.downloader.root().join(relative)).filter(|path| fs::symlink_metadata(path).is_ok()).collect()
-        };
-        vec![
-            crate::update_screen::Leftover { what: "parakeet-onnx", name: "Parakeet (ONNX)", paths: found(RETIRED) },
-            crate::update_screen::Leftover { what: "faster-whisper", name: "Faster-Whisper", paths: found(RETIRED_WHISPER) },
-        ]
-    }
-
-    pub fn remove_leftovers(&self, what: &[&str]) {
-        crate::update_screen::remove_leftovers(self.leftovers(), what);
     }
 
     /// The folder of the cuBLAS 13 the music engine runs on: transcribe.cpp's and audio.cpp's CUDA builds take links to it.
@@ -1839,32 +1797,6 @@ Third");
 #[cfg(test)]
 mod live_recognition {
     use super::*;
-
-    #[test]
-    fn the_leftovers_wait_for_the_update_screen_and_go_by_name() {
-        let root = tempfile::tempdir().unwrap();
-        let sync = LyricsSync::new(root.path());
-        let karaoke = root.path().join("karaoke");
-        for folder in RETIRED {
-            fs::create_dir_all(karaoke.join(folder)).unwrap();
-            fs::write(karaoke.join(folder).join("model.bin"), b"x").unwrap();
-        }
-        let whisper = karaoke.join("models/whisper/faster-whisper-small/model.bin");
-        let kept = [karaoke.join("models/asr-gguf-parakeet-v3/parakeet-tdt-0.6b-v3-Q8_0.gguf"), karaoke.join("models/crisperwhisper2-turbo/model.safetensors"), whisper.clone()];
-        for file in &kept {
-            fs::create_dir_all(file.parent().unwrap()).unwrap();
-            fs::write(file, b"x").unwrap();
-        }
-        let found: Vec<(&str, usize)> = sync.leftovers().iter().map(|leftover| (leftover.what, leftover.paths.len())).collect();
-        assert_eq!(found, vec![("parakeet-onnx", RETIRED.len()), ("faster-whisper", 1)]);
-        sync.remove_leftovers(&["parakeet-onnx"]);
-        assert!(RETIRED.iter().all(|retired| !karaoke.join(retired).exists()));
-        assert!(kept.iter().all(|file| file.is_file()), "Faster-Whisper waits for its own turn");
-        sync.remove_leftovers(&["parakeet-onnx", "faster-whisper"]);
-        assert!(!karaoke.join("models/whisper").exists());
-        assert!(kept[..2].iter().all(|file| file.is_file()));
-        assert!(sync.leftovers().iter().all(|leftover| leftover.paths.is_empty()));
-    }
 
     #[test]
     fn karaoke_files_land_where_the_shared_binding_looks() {

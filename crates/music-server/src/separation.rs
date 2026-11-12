@@ -205,17 +205,6 @@ impl Separator {
         self.downloader.is_installed(&MODEL)
     }
 
-    /// What former releases left in the separation folder: the ONNX HT-Demucs, which the audio.cpp one replaces.
-    pub fn leftovers(&self) -> Vec<crate::update_screen::Leftover> {
-        let onnx = self.downloader.path_of(&ONNX_MODEL);
-        let paths = [onnx.clone(), crate::install_record::record_path(&onnx)].into_iter().filter(|path| std::fs::symlink_metadata(path).is_ok()).collect();
-        vec![crate::update_screen::Leftover { what: "htdemucs-onnx", name: "HT-Demucs (ONNX)", paths }]
-    }
-
-    pub fn remove_leftovers(&self, what: &[&str]) {
-        crate::update_screen::remove_leftovers(self.leftovers(), what);
-    }
-
     /// True when a run could start right now: the model is here and so is the
     /// runtime that executes it.
     pub fn ready(&self, runtime: Option<&Path>) -> bool {
