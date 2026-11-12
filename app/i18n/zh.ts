@@ -209,6 +209,8 @@ export const zh = {
     flowEditNAvgLabel: 'n_avg',
     copyParams: '复制参数',
     songNote: '备注',
+    songStyleBlock: '样式',
+    songParamsBlock: '参数',
     songNotePlaceholder: '关于这首歌的备注：哪些效果好，下一步试什么',
     paramsToForm: '填入表单',
     paramsShowJson: '显示 JSON',

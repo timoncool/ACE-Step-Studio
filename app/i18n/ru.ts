@@ -211,6 +211,8 @@ export const ru = {
     flowEditNAvgLabel: 'n_avg',
     copyParams: 'Скопировать параметры',
     songNote: 'Заметка',
+    songStyleBlock: 'Стиль',
+    songParamsBlock: 'Параметры',
     songNotePlaceholder: 'Ваша заметка о песне: что удалось, что попробовать дальше',
     paramsToForm: 'Передать в форму',
     paramsShowJson: 'Показать JSON',

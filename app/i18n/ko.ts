@@ -209,6 +209,8 @@ export const ko = {
     flowEditNAvgLabel: 'n_avg',
     copyParams: '매개변수 복사',
     songNote: '메모',
+    songStyleBlock: '스타일',
+    songParamsBlock: '매개변수',
     songNotePlaceholder: '이 곡에 대한 메모: 잘 된 점, 다음에 시도할 것',
     paramsToForm: '폼으로 보내기',
     paramsShowJson: 'JSON 보기',

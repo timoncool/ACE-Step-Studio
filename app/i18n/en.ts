@@ -210,6 +210,8 @@ export const en = {
     flowEditNAvgLabel: 'n_avg',
     copyParams: 'Copy Parameters',
     songNote: 'Note',
+    songStyleBlock: 'Style',
+    songParamsBlock: 'Parameters',
     songNotePlaceholder: 'Your note on this song: what worked, what to try next',
     paramsToForm: 'To the form',
     paramsShowJson: 'Show JSON',

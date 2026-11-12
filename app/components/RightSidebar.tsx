@@ -20,6 +20,7 @@ import { useSongActions } from '../context/SongActionsContext';
 import { stemOf } from '../services/songStems';
 import { named } from '../services/accessibleName';
 import { exactMoment } from '../services/dates';
+import { foldedAfter, keepFolded, keptFolded, SONG_PANEL_FOLDED_KEY } from '../services/createFold';
 
 interface RightSidebarProps {
     song: Song | null;
@@ -542,10 +543,10 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
 
                     <div className="h-px bg-zinc-200 dark:bg-white/5 w-full"></div>
 
-                    {/* Tags / Style */}
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wide">{t('songDetails')}</h2>
+                    <PanelBlock
+                        id="style"
+                        title={t('songStyleBlock')}
+                        actions={
                             <button
                                 onClick={async (e) => {
                                     e.stopPropagation();
@@ -566,7 +567,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                             >
                                 <Copy size={12} /> {copiedStyle ? t('copied') : t('copy')}
                             </button>
-                        </div>
+                        }
+                    >
                         <div
                             onClick={() => setTagsExpanded(!tagsExpanded)}
                             className={`flex flex-wrap gap-1.5 cursor-pointer relative ${!tagsExpanded ? 'max-h-[22px] overflow-hidden' : ''}`}
@@ -590,10 +592,9 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                                 </span>
                             )}
                         </div>
-                    </div>
+                    </PanelBlock>
 
-                    <div>
-                        <label className="mb-1 block text-[11px] font-medium text-zinc-500">{t('songNote')}</label>
+                    <PanelBlock id="note" title={t('songNote')}>
                         <textarea
                             value={noteDraft}
                             onChange={event => { setNoteDraft(event.target.value); if (song?.isGenerating) pendingNotes.set(song.id, event.target.value); }}
@@ -603,7 +604,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                             className="w-full resize-y rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-pink-500/40 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200"
                         />
                         {noteError && <p role="alert" className="mt-1 text-[11px] text-rose-500">{noteError}</p>}
-                    </div>
+                    </PanelBlock>
 
                     {/* Generation parameters, as the engine recorded them. */}
                     {(() => {
@@ -653,9 +654,11 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                         const copyText = visibleRows.map(([k, v]) => `${k}: ${v}`).join('\n');
 
                         return (
-                            <details className="group">
-                                <summary className="flex items-center justify-between cursor-pointer px-3 py-2 rounded-xl bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 transition-colors">
-                                    <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
+                            <PanelBlock
+                                id="params"
+                                title={t('songParamsBlock')}
+                                actions={
+                                    <div className="flex flex-wrap justify-end gap-1.5 min-w-0">
                                         <span className="text-[11px] px-2 py-0.5 rounded-sm bg-zinc-200 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 font-medium">{TRACK_ARTIST}</span>
                                         {p.inference_steps && (
                                             <span className="text-[11px] px-2 py-0.5 rounded-sm bg-zinc-200 dark:bg-white/10 text-zinc-600 dark:text-zinc-400">{p.inference_steps}st</span>
@@ -664,9 +667,9 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                                             <span className="text-[11px] px-2 py-0.5 rounded-sm bg-pink-500/10 text-pink-600 dark:text-pink-300 font-medium">LoRA ×{uses.length}</span>
                                         )}
                                     </div>
-                                    <ChevronDown size={14} className="text-zinc-400 transition-transform group-open:rotate-180 shrink-0 ml-2" />
-                                </summary>
-                                <div className="mt-2 space-y-1">
+                                }
+                            >
+                                <div className="space-y-1">
                                     <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[11px] px-1">
                                         {visibleRows.map(([label, value]) => (
                                             <React.Fragment key={label}>
@@ -705,7 +708,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                                         <pre className="mt-2 max-h-72 overflow-auto rounded-lg bg-zinc-100 p-2 text-[10px] leading-4 text-zinc-700 dark:bg-black/30 dark:text-zinc-300">{JSON.stringify(song.generationParams, null, 2)}</pre>
                                     )}
                                 </div>
-                            </details>
+                            </PanelBlock>
                         );
                     })()}
 
@@ -725,10 +728,11 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                         </button>
                     )}
 
-                    {/* Lyrics Section */}
-                    <div className="bg-white dark:bg-black/20 rounded-xl border border-zinc-200 dark:border-white/5 overflow-hidden">
-                        <div className="px-4 py-3 border-b border-zinc-100 dark:border-white/5 flex items-center justify-between bg-zinc-50 dark:bg-white/5">
-                            <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2 flex items-center justify-between">{t('lyricsSection')}</h3>
+                    <PanelBlock
+                        id="lyrics"
+                        title={t('lyricsSection')}
+                        flush
+                        actions={
                             <button
                                 onClick={async (e) => {
                                     e.stopPropagation();
@@ -746,16 +750,38 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({ song, onClose, onOpe
                             >
                                 <Copy size={12} /> {copiedLyrics ? t('copied') : t('copy')}
                             </button>
-                        </div>
+                        }
+                    >
                         <div className="p-4 max-h-[300px] overflow-y-auto custom-scrollbar">
                             <div className="text-sm text-zinc-700 dark:text-zinc-300 font-mono whitespace-pre-wrap leading-relaxed opacity-90">
                                 {song.lyrics || <div className="text-zinc-400 dark:text-zinc-600 italic text-center py-8">{t('instrumental')}<br /><span className="text-xs not-italic">{t('noLyrics')}</span></div>}
                             </div>
                         </div>
-                    </div>
+                    </PanelBlock>
 
                 </div>
             </div>
+        </div>
+    );
+};
+
+/** A block of the song panel; its title folds and opens it, and the choice is kept across restarts. */
+const PanelBlock: React.FC<{ id: string; title: string; actions?: React.ReactNode; flush?: boolean; children: React.ReactNode }> = ({ id, title, actions, flush, children }) => {
+    const [folded, setFolded] = useState(() => keptFolded(SONG_PANEL_FOLDED_KEY).includes(id));
+    const toggle = () => setFolded(current => {
+        keepFolded(foldedAfter(keptFolded(SONG_PANEL_FOLDED_KEY), id, !current), SONG_PANEL_FOLDED_KEY);
+        return !current;
+    });
+    return (
+        <div className="bg-white dark:bg-black/20 rounded-xl border border-zinc-200 dark:border-white/5 overflow-hidden">
+            <div className={`px-4 py-3 flex items-center justify-between gap-2 bg-zinc-50 dark:bg-white/5 ${folded ? '' : 'border-b border-zinc-100 dark:border-white/5'}`}>
+                <button type="button" onClick={toggle} aria-expanded={!folded} className="flex shrink-0 items-center gap-1.5 text-[10px] font-bold text-zinc-500 uppercase tracking-wider hover:text-black dark:hover:text-white">
+                    {title}
+                    <ChevronDown size={12} className={folded ? 'transition-transform' : 'rotate-180 transition-transform'} />
+                </button>
+                {actions && <div className="flex min-w-0 items-center gap-2">{actions}</div>}
+            </div>
+            {!folded && (flush ? children : <div className="p-3">{children}</div>)}
         </div>
     );
 };

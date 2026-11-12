@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { FOLDED_KEY, foldedAfter, keepFolded, keptFolded } from './createFold';
+import { FOLDED_KEY, foldedAfter, keepFolded, keptFolded, SONG_PANEL_FOLDED_KEY } from './createFold';
 
 describe('folded blocks of the create form', () => {
   beforeEach(() => window.localStorage.clear());
@@ -13,6 +13,13 @@ describe('folded blocks of the create form', () => {
   it('are kept across a restart', () => {
     keepFolded(['song', 'lora']);
     expect(keptFolded()).toEqual(['song', 'lora']);
+  });
+
+  it('keep the song panel apart from the create form', () => {
+    keepFolded(['lyrics']);
+    keepFolded(['style'], SONG_PANEL_FOLDED_KEY);
+    expect(keptFolded()).toEqual(['lyrics']);
+    expect(keptFolded(SONG_PANEL_FOLDED_KEY)).toEqual(['style']);
   });
 
   it('read nothing folded from a missing or broken record', () => {

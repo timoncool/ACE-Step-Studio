@@ -209,6 +209,8 @@ export const ja = {
   flowEditNAvgLabel: 'n_avg',
   copyParams: 'パラメータをコピー',
   songNote: 'メモ',
+  songStyleBlock: 'スタイル',
+  songParamsBlock: 'パラメーター',
   songNotePlaceholder: 'この曲のメモ：うまくいった点、次に試すこと',
   paramsToForm: 'フォームへ送る',
   paramsShowJson: 'JSON を表示',
