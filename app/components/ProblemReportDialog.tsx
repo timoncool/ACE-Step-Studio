@@ -6,14 +6,6 @@ import { issueReportUrl, type IssueKind, type ReportFacts } from '../services/is
 import { STUDIO_REPO_URL } from '../studio';
 import { AuthorNewsLinks } from './AuthorNewsLinks';
 
-/** A message sent earlier from this computer, as the hub client knows it (`GET /v1/hub/problems`). */
-export interface SentProblem {
-  number: number;
-  url: string;
-  closed: boolean;
-  filed_at: number;
-}
-
 /** The service's refusal, by kind: each has its own words in the window. */
 export interface ProblemRefusal {
   code: 'field' | 'rate' | 'not_configured' | 'busy' | 'unreachable';
@@ -82,7 +74,6 @@ export const ProblemReportDialog: React.FC<Props> = ({ facts, onClose }) => {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState<{ number: number; url: string } | null>(null);
   const [refusal, setRefusal] = useState<ProblemRefusal | null>(null);
-  const [mine, setMine] = useState<SentProblem[]>([]);
   const request = () => ({ kind, what: what.trim(), steps: stepsLabel ? steps.trim() : '', expected: expectedLabel ? expected.trim() : '', attach_log: attachLog });
 
   // what will be sent, asked for when the person opens it, as the service builds the request
@@ -97,12 +88,6 @@ export const ProblemReportDialog: React.FC<Props> = ({ facts, onClose }) => {
       })
       .catch((error: unknown) => setPreviewError(error instanceof Error ? error.message : String(error)));
   };
-
-  useEffect(() => {
-    fetch('/v1/problem/list')
-      .then(async response => (response.ok ? setMine(((await response.json()) as { problems: SentProblem[] }).problems) : undefined))
-      .catch((error: unknown) => console.warn('[problem] own messages not read:', error));
-  }, [sent]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
@@ -187,18 +172,6 @@ export const ProblemReportDialog: React.FC<Props> = ({ facts, onClose }) => {
             <p className="text-xs text-zinc-500 dark:text-zinc-400">{tt('problemPublic')}</p>
             {refusal && <p role="alert" className="text-xs text-rose-600 dark:text-rose-400">{refusalText(refusal, tt)}</p>}
           </div>
-        )}
-        {mine.length > 0 && (
-          <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
-            {tt('problemYours')}{' '}
-            {mine.map((item, index) => (
-              <span key={item.number}>
-                {index > 0 ? ', ' : ''}
-                <a href={item.url} target="_blank" rel="noopener noreferrer" className="underline">№ {item.number}</a>{' '}
-                {tt(item.closed ? 'problemClosed' : 'problemOpen')}
-              </span>
-            ))}
-          </p>
         )}
         <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
           <span>{tt('problemAuthorNews')}</span>

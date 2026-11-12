@@ -1843,15 +1843,9 @@ fn tools() -> &'static [Tool] {
             },
             Tool {
                 name: "problem_report",
-                description: "Reports a problem without a GitHub account, as Report a problem does: Studio Hub's bot opens a public GitHub issue with the words and the facts problem_preview shows, and answers its number and url; a later answer on it shows in the studio's notices. A refusal comes back by code: field, rate (retry_after_s), not_configured, busy or unreachable - then the GitHub form is the way.",
+                description: "Reports a problem without a GitHub account, as Report a problem does: Studio Hub's bot opens a public GitHub issue with the words and the facts problem_preview shows, and answers its number and url. A refusal comes back by code: field, rate (retry_after_s), not_configured, busy or unreachable - then the GitHub form is the way.",
                 schema: || object(json!({ "kind": { "type": "string", "enum": ["bug", "idea", "question"] }, "what": { "type": "string" }, "steps": { "type": "string" }, "expected": { "type": "string" }, "attach_log": { "type": "boolean" } }), &["what"]),
                 call: |args| post("/v1/problem/report".into(), args.clone()),
-            },
-            Tool {
-                name: "problem_list",
-                description: "The problems reported from this computer, newest first, each with its issue number, url and whether it is closed.",
-                schema: nothing,
-                call: |_| get("/v1/problem/list".into()),
             },
             Tool {
                 name: "studio_capabilities",

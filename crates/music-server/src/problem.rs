@@ -83,12 +83,6 @@ pub async fn preview(State(state): State<AppState>, Json(request): Json<ProblemR
     shown.await.map(Json).map_err(|(status, body)| (status, Json(body)))
 }
 
-/// GET /v1/problem/list: the problems reported from this computer, newest first, and whether each is closed.
-pub async fn list(State(state): State<AppState>) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    let hub = hub_of(&state).map_err(|(status, body)| (status, Json(body)))?;
-    Ok(Json(json!({ "problems": hub.problems() })))
-}
-
 /// Files a report through `hub`, the refusal by kind when it does not go.
 pub async fn file(hub: &Hub, report: ProblemReport) -> Result<Filed, (StatusCode, Value)> {
     hub.report_problem(report).await.map_err(|error| refusal(&error))
@@ -176,7 +170,7 @@ mod tests {
         std::fs::remove_dir_all(&data).ok();
         let (hub, data) = hub_answering(200, json!({ "number": 77, "url": "https://github.com/timoncool/ACE-Step-Studio/issues/77", "token": "6f1c2a3b-0d4e-4f5a-8b6c-7d8e9f0a1b2c" })).await;
         let filed = file(&hub, report()).await.expect("filed");
-        assert_eq!((filed.number, hub.problems().len()), (77, 1), "the studio remembers the issue");
+        assert_eq!((filed.number, filed.url.as_str()), (77, "https://github.com/timoncool/ACE-Step-Studio/issues/77"));
         std::fs::remove_dir_all(&data).ok();
     }
 

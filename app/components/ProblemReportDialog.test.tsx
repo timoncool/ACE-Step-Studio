@@ -46,7 +46,7 @@ const sendButton = () => [...host.querySelectorAll('button')].find(button => but
 
 describe('ProblemReportDialog', () => {
   it('sends only with what happened written, and keeps the GitHub form beside', async () => {
-    serve({ '/v1/problem/list': { status: 200, body: { problems: [] } },'/v1/problem/report': { status: 200, body: { number: 77, url: 'https://github.com/x/y/issues/77' } } });
+    serve({ '/v1/problem/report': { status: 200, body: { number: 77, url: 'https://github.com/x/y/issues/77' } } });
     await open();
     expect(sendButton().disabled).toBe(true);
     const github = [...host.querySelectorAll('a')].find(link => link.textContent?.includes('problemOpenGithub'))!;
@@ -65,7 +65,7 @@ describe('ProblemReportDialog', () => {
   });
 
   it('shows exactly the request the service would send when "what will be sent" is opened', async () => {
-    serve({ '/v1/problem/list': { status: 200, body: { problems: [{ number: 5, url: 'https://github.com/x/y/issues/5', closed: true, filed_at: 1 }] } }, '/v1/problem/preview': { status: 200, body: { version: '4.0.0', models: 'quality-q8', log: 'line one' } } });
+    serve({ '/v1/problem/preview': { status: 200, body: { version: '4.0.0', models: 'quality-q8', log: 'line one' } } });
     await open();
     await type('The song stops at decoding every time');
     const details = host.querySelector('details')!;
@@ -76,12 +76,11 @@ describe('ProblemReportDialog', () => {
     expect(calls.some(call => call.path === '/v1/problem/preview')).toBe(true);
     expect(host.querySelector('pre')?.textContent).toContain('"models": "quality-q8"');
     expect(host.querySelector('pre')?.textContent).toContain('line one');
-    expect(host.textContent).toContain('problemYours');
-    expect(host.textContent).toContain('problemClosed');
+    expect(calls.every(call => call.path !== '/v1/problem/list'), 'the window lists no earlier messages').toBe(true);
   });
 
   it('takes the fields, the log choice and the GitHub form of the kind chosen', async () => {
-    serve({ '/v1/problem/list': { status: 200, body: { problems: [] } }, '/v1/problem/report': { status: 200, body: { number: 8, url: 'https://github.com/x/y/issues/8' } } });
+    serve({ '/v1/problem/report': { status: 200, body: { number: 8, url: 'https://github.com/x/y/issues/8' } } });
     await open();
     const pick = async (label: string) => act(async () => [...host.querySelectorAll('[role="radio"]')].find(radio => radio.textContent === label)!.dispatchEvent(new MouseEvent('click', { bubbles: true })));
     const github = () => [...host.querySelectorAll('a')].find(link => link.textContent?.includes('problemOpenGithub'))!.getAttribute('href')!;
