@@ -74,6 +74,9 @@ export function issueReportUrl(repositoryUrl: string, version: string, language:
     query.set('gpu', memory ? `${hardware.gpuName}, ${memory}` : hardware.gpuName);
   }
   if (facts?.selected_profile_id) query.set('models', facts.selected_profile_id);
+  // the issue's title as the hub makes it for a report without an account: the first line of the first field
+  const title = (words?.what ?? '').trim().split('\n')[0].trim().slice(0, 80);
+  if (title) query.set('title', title);
   const typed: [string, string][] = Object.entries(formWords(kind, words)).filter(([, text]) => text.trim() !== '').map(([id, text]) => [id, text.trim()]);
   const address = () => {
     const full = new URLSearchParams(query);

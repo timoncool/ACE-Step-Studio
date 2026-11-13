@@ -65,6 +65,17 @@ describe('the report link', () => {
     }
   });
 
+  it('titles the issue with the first line of the first field, as the hub does', () => {
+    const titled = (what: string, kind: 'bug' | 'idea' | 'question' = 'bug') => new URL(issueReportUrl(base, '4.0.0', 'en', {}, kind, { what })).searchParams;
+    expect(titled('  The song stops at decoding\nevery time, after 30 s  ').get('title')).toBe('The song stops at decoding');
+    expect(titled('A'.repeat(120)).get('title')).toBe('A'.repeat(80));
+    expect(titled('Can it sing in Thai?', 'question').get('title')).toBe('Can it sing in Thai?');
+    expect(titled('   ').has('title')).toBe(false);
+    expect(new URL(issueReportUrl(base, '4.0.0', 'en', {})).searchParams.has('title')).toBe(false);
+    const long = new URL(issueReportUrl(base, '4.0.0', 'ru', {}, 'bug', { what: 'Ж'.repeat(3000), steps: 'Ж'.repeat(3000) })).toString();
+    expect(long.length).toBeLessThanOrEqual(MAX_URL);
+  });
+
   it('keeps the link under the limit by cutting the longest field', () => {
     const long = 'Ж'.repeat(5000);
     const url = issueReportUrl(base, '4.0.0', 'ru', {}, 'bug', { what: 'short', steps: long });
