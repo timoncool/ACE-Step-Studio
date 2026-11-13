@@ -48,6 +48,7 @@ describe('RestoreTool', () => {
     serve({ ...ready, ready: false, model: { ...model, installed: false }, missing_bytes: 66_398_592 });
     await open();
     expect(host.textContent).toContain('Apollo · 63 MB');
+    expect(host.textContent, "the service's English note is not repeated in the window's language").not.toContain(model.note);
     expect(button('restoreStart')!.disabled).toBe(true);
     await click(button('restoreInstall'));
     expect(calls.some(call => call.path === '/v1/restore/install')).toBe(true);

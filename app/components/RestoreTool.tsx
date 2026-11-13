@@ -162,7 +162,7 @@ export const RestoreTool: React.FC<{
       {status && !status.ready && (
         <div className="mt-3 rounded-lg border border-zinc-200 p-3 dark:border-white/10">
           <p className="text-xs leading-5 text-zinc-600 dark:text-zinc-300">
-            {status.model.label} · {megabytes(status.missing_bytes)} — {status.model.note}
+            {status.model.label} · {megabytes(status.missing_bytes)}
           </p>
           {download ? (
             <div className="mt-2 flex items-center gap-2">
