@@ -81,9 +81,10 @@ if [ "${1:-}" = "--inside" ]; then
   grep -qF " usr/share/applications/${product}.desktop" <<< "$listing" || { echo "[ERROR] $deb has no ${product}.desktop"; exit 1; }
   grep -qF " usr/lib/${product}/resources/engine/ace-server" <<< "$listing" || { echo "[ERROR] $deb carries no ACE-Step engine"; exit 1; }
   rm -rf /tmp/appimage-check && mkdir -p /tmp/appimage-check
-  (cd /tmp/appimage-check && env -u APPIMAGE_EXTRACT_AND_RUN "$appimage" --appimage-extract '*.desktop' >/dev/null)
-  grep -qx "Name=${product}" /tmp/appimage-check/squashfs-root/*.desktop || { echo "[ERROR] $appimage is not ${product}"; exit 1; }
-  echo "[OK] packages are ${product}: deb ${found}, AppImage $(basename /tmp/appimage-check/squashfs-root/*.desktop)"
+  # the .desktop at the image's root is a link into usr/share/applications: take the file it points to
+  (cd /tmp/appimage-check && env -u APPIMAGE_EXTRACT_AND_RUN "$appimage" --appimage-extract 'usr/share/applications/*.desktop' >/dev/null)
+  grep -qx "Name=${product}" /tmp/appimage-check/squashfs-root/usr/share/applications/*.desktop || { echo "[ERROR] $appimage is not ${product}"; exit 1; }
+  echo "[OK] packages are ${product}: deb ${found}, AppImage $(basename /tmp/appimage-check/squashfs-root/usr/share/applications/*.desktop)"
   cp "$deb" "/out/ACE-Step-Studio-${version}-linux-amd64.deb"
   cp "$appimage" "/out/ACE-Step-Studio-${version}-linux-x86_64.AppImage"
   ls -la /out/*.deb /out/*.AppImage
