@@ -7462,12 +7462,18 @@ async fn set_song_karaoke(
         (None, Some(lrc)) => format!("{}\n", lrc.trim_end()),
         _ => subimport::to_lrc(&cues),
     };
-    state
-        .library
-        .set_song_lrc(&id, &lrc)
+    set_karaoke_of(&state.library, &id, &lrc)?;
+    Ok(Json(serde_json::json!({ "lrc": lrc, "lines": cues.len() })))
+}
+
+/// Stores `lrc` as the karaoke of a song taken for work: a song in the bin is refused, as for any other work on it.
+fn set_karaoke_of(library: &library::Library, id: &str, lrc: &str) -> Result<(), (StatusCode, Json<ApiError>)> {
+    song_in_library_for_work(library, id)?.ok_or_else(|| api_error(StatusCode::NOT_FOUND, "no such song".into()))?;
+    library
+        .set_song_lrc(id, lrc)
         .map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?
         .ok_or_else(|| api_error(StatusCode::NOT_FOUND, "no such song".into()))?;
-    Ok(Json(serde_json::json!({ "lrc": lrc, "lines": cues.len() })))
+    Ok(())
 }
 
 /// The cloud path: base64 the audio, ask for verbose output, read the times.
@@ -8295,7 +8301,12 @@ async fn start_midi(State(state): State<AppState>, Json(input): Json<MidiRequest
 
 /// A library song taken for new work by its id: a song in the bin is refused with its title and the way back.
 fn song_for_work(state: &AppState, id: &str) -> Result<Option<library::Song>, (StatusCode, Json<ApiError>)> {
-    let song = state.library.get_song(id).map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("{error:#}")))?;
+    song_in_library_for_work(&state.library, id)
+}
+
+/// [`song_for_work`] in `library`.
+fn song_in_library_for_work(library: &library::Library, id: &str) -> Result<Option<library::Song>, (StatusCode, Json<ApiError>)> {
+    let song = library.get_song(id).map_err(|error| api_error(StatusCode::INTERNAL_SERVER_ERROR, format!("{error:#}")))?;
     if let Some(refusal) = song.as_ref().and_then(library::in_the_bin) {
         return Err(api_error(StatusCode::CONFLICT, refusal));
     }
@@ -10845,6 +10856,25 @@ mod tests {
         let kept = library.trashed_songs().unwrap();
         assert_eq!(kept.len(), 1, "the song stays in the studio's bin");
         assert_eq!(kept[0].id, song);
+        drop(library);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+
+    /// A song in the bin takes no karaoke, as it takes no other work; restored, it does.
+    #[test]
+    fn a_song_in_the_bin_takes_no_karaoke() {
+        let root = std::env::temp_dir().join(format!("ace-bin-karaoke-{}", uuid::Uuid::now_v7().simple()));
+        let library = library::Library::open_at(root.join("library.sqlite"), root.join("media")).unwrap();
+        let song = library.create_song(library::SongInput { title: "Harbour".into(), audio_path: None, caption: String::new(), lyrics: String::new(), metadata: Value::Null, generation_settings: Value::Null, engine_id: "manual".into(), profile_id: None, replay_request: None, audio_codes: None, source: "manual".into() }).unwrap().id;
+        library.set_song_trashed(&song, true, None).unwrap();
+        let (status, _) = set_karaoke_of(&library, &song, "[00:01.00]One\n").unwrap_err();
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert!(library.get_song(&song).unwrap().unwrap().metadata["lrc"].is_null(), "nothing is stored");
+        library.set_song_trashed(&song, false, None).unwrap();
+        set_karaoke_of(&library, &song, "[00:01.00]One\n").unwrap();
+        assert_eq!(library.get_song(&song).unwrap().unwrap().metadata["lrc"], "[00:01.00]One\n");
+        assert_eq!(set_karaoke_of(&library, "missing", "[00:01.00]One\n").unwrap_err().0, StatusCode::NOT_FOUND);
         drop(library);
         let _ = std::fs::remove_dir_all(&root);
     }
