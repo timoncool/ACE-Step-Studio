@@ -1892,7 +1892,6 @@ export const ru = {
     aboutSectionHint: 'Версия, автор и как поддержать',
     supportTheAuthor: 'Поддержать автора',
     supportLine: 'Всё здесь бесплатно. Донаты оплачивают время, которое на это уходит.',
-    aboutSite: 'Сайт',
     donateCardButton: 'Поддержать картой',
     donateMonthlyButton: 'Подписаться на Boosty',
     supportPageButton: 'Все способы',

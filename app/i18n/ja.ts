@@ -1889,7 +1889,6 @@ export const ja = {
     vramError: 'VRAM を読み取れません',
     supportTheAuthor: '作者を支援する',
     supportLine: 'ここにあるものはすべて無料です。寄付は、これに費やす時間を支えます。',
-    aboutSite: 'サイト',
     donateCardButton: 'カードで支援',
     donateMonthlyButton: 'Boostyでサブスクライブ',
     supportPageButton: 'すべての方法',

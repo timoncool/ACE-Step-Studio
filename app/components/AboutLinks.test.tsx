@@ -38,7 +38,8 @@ describe('About: the author and support', () => {
     expect(links.length).toBe(AUTHOR_LINKS.length);
     expect(host.querySelectorAll('li').length).toBe(0);
     for (const link of links) expect(link.className).toBe(ABOUT_LINK);
-    expect(links.map(link => link.querySelector('span')?.textContent)).toEqual(['Telegram · @nerual_dreming', 'Telegram · @neuroport', 'X · @nerualdreming', 'GitHub · timoncool', 'aboutSite · artgeneration.me']);
+    expect(links.map(link => link.querySelector('span')?.textContent)).toEqual(['Telegram · @nerual_dreming', 'Telegram · @neuroport', 'X · @nerualdreming', 'GitHub · timoncool']);
+    expect(host.innerHTML).not.toContain('artgeneration');
     expect(host.textContent).not.toContain('aboutLink');
     expect(host.innerHTML).not.toContain('neuro-cartel');
     expect(host.innerHTML).not.toMatch(/MiniMax|ACE-Step|studioFamily/);
@@ -58,7 +59,7 @@ describe('About: the author and support', () => {
     const free = [[en, /\bfree\b/gi], [ru, /бесплатн/gi], [zh, /免费/g], [ja, /無料/g], [ko, /무료/g]] as const;
     for (const [strings, word] of free) {
       const page = [strings.localAIMusicGenerator, strings.problemTitle, strings.aboutAuthor, strings.aboutAuthorLede, strings.supportTheAuthor,
-        strings.supportLine, strings.donateCardButton, strings.donateMonthlyButton, strings.supportPageButton, strings.aboutSite].join('\n');
+        strings.supportLine, strings.donateCardButton, strings.donateMonthlyButton, strings.supportPageButton].join('\n');
       expect(page.match(word)?.length).toBe(1);
       expect(strings.supportLine).not.toMatch(/Apple Pay|[«“「]/);
     }

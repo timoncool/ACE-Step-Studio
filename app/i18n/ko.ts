@@ -1889,7 +1889,6 @@ export const ko = {
     vramError: 'VRAM 을 읽을 수 없습니다',
     supportTheAuthor: '제작자 후원',
     supportLine: '여기 있는 모든 것은 무료입니다. 후원은 여기에 들어가는 시간을 지탱합니다.',
-    aboutSite: '사이트',
     donateCardButton: '카드로 후원',
     donateMonthlyButton: 'Boosty에서 구독하기',
     supportPageButton: '모든 방법',

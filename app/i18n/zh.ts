@@ -1889,7 +1889,6 @@ export const zh = {
     vramError: '无法读取显存',
     supportTheAuthor: '支持作者',
     supportLine: '这里的一切都是免费的。捐赠支付投入其中的时间。',
-    aboutSite: '网站',
     donateCardButton: '用银行卡捐助',
     donateMonthlyButton: '在 Boosty 上订阅',
     supportPageButton: '所有方式',

@@ -1893,7 +1893,6 @@ export const en = {
     aboutSectionHint: 'Version, author, and how to help',
     supportTheAuthor: 'Support the author',
     supportLine: 'Everything here is free. Donations pay for the time that goes into it.',
-    aboutSite: 'Site',
     donateCardButton: 'Donate by card',
     donateMonthlyButton: 'Subscribe on Boosty',
     supportPageButton: 'All the ways',
