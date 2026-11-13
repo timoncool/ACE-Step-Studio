@@ -1222,7 +1222,6 @@ export const ko = {
     problemSend: '보내기',
     problemOpenGithub: 'GitHub에서 양식 열기',
     problemSent: '메시지 {n}번이 만들어졌습니다:',
-    problemAuthorNews: '작성자 소식:',
     problemKind: '메시지 종류',
     problemKind_bug: '버그',
     problemKind_idea: '아이디어',

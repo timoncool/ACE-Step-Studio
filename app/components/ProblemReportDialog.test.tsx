@@ -53,9 +53,8 @@ describe('ProblemReportDialog', () => {
     expect(sendButton().disabled).toBe(true);
     const github = [...host.querySelectorAll('a')].find(link => link.textContent?.includes('problemOpenGithub'))!;
     expect(github.getAttribute('href')).toContain('template=2-ru-1-bug.yml');
-    expect(host.textContent).toContain('problemAuthorNews');
-    expect(host.querySelector('a[href="https://x.com/nerualdreming"]')).not.toBeNull();
-    expect(host.querySelector('a[href="https://t.me/nerual_dreming"]')).not.toBeNull();
+    expect(host.textContent, 'the window carries no links to the author').not.toContain('problemAuthorNews');
+    expect(host.querySelector('a[href="https://x.com/nerualdreming"]')).toBeNull();
     await type('short');
     expect(sendButton().disabled, 'under ten characters').toBe(true);
     await type('The song stops at decoding every time');

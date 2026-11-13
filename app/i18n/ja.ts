@@ -1222,7 +1222,6 @@ export const ja = {
     problemSend: '送信',
     problemOpenGithub: 'GitHub でフォームを開く',
     problemSent: 'メッセージ No. {n} を作成しました：',
-    problemAuthorNews: '作者のお知らせ：',
     problemKind: 'メッセージの種類',
     problemKind_bug: 'バグ',
     problemKind_idea: 'アイデア',

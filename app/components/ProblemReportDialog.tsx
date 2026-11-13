@@ -4,7 +4,6 @@ import { SiGithub } from '@icons-pack/react-simple-icons';
 import { useI18n } from '../context/I18nContext';
 import { issueReportUrl, type IssueKind, type ReportFacts } from '../services/issueReport';
 import { STUDIO_REPO_URL } from '../studio';
-import { AuthorNewsLinks } from './AuthorNewsLinks';
 
 /** The service's refusal, by kind: each has its own words in the window. */
 export interface ProblemRefusal {
@@ -187,10 +186,6 @@ export const ProblemReportDialog: React.FC<Props> = ({ facts, onClose }) => {
             {refusal && <p role="alert" className="text-xs text-rose-600 dark:text-rose-400">{refusalText(refusal, tt)}</p>}
           </div>
         )}
-        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-          <span>{tt('problemAuthorNews')}</span>
-          <AuthorNewsLinks />
-        </div>
         <div className="mt-5 flex flex-wrap justify-end gap-2">
           <a href={githubUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">
             <SiGithub size={14} />{tt('problemOpenGithub')}

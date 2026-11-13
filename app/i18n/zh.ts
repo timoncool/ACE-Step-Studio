@@ -1222,7 +1222,6 @@ export const zh = {
     problemSend: '发送',
     problemOpenGithub: '在 GitHub 上打开表单',
     problemSent: '已创建第 {n} 号消息：',
-    problemAuthorNews: '作者动态：',
     problemKind: '消息类型',
     problemKind_bug: '错误',
     problemKind_idea: '建议',
