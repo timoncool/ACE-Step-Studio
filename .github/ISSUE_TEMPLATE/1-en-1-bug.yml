@@ -1,0 +1,71 @@
+name: Bug report
+description: Something is broken or works wrong
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Many problems are already fixed in the [latest version](https://github.com/timoncool/ACE-Step-Studio/releases/latest).
+        Opened from the studio, the fields at the bottom are filled in already.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Copy the exact error text from the notification, if there was one. You can drop screenshots here.
+      placeholder: |
+        The song stops at "Decoding" with "The engine stopped during this song…"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Create
+        2. Paste lyrics, 3 minutes
+        3. Press Create
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+  - type: upload
+    id: log
+    attributes:
+      label: Log or report pack
+      description: "In the studio: **Settings → Local engine → System diagnostics → Make a bug-report pack**, then drop the .zip here. If the studio does not open, drop `engine.log` from the data folder."
+    validations:
+      required: false
+      accept: ".zip,.log,.txt,.png,.jpg,.mp4"
+  - type: input
+    id: version
+    attributes:
+      label: ACE-Step Studio version
+      description: "**Settings → About**"
+    validations:
+      required: true
+  - type: dropdown
+    id: package
+    attributes:
+      label: System and package
+      options:
+        - Windows — installer (.exe)
+        - Windows — portable (.zip)
+        - macOS — Apple Silicon (.dmg)
+        - Linux — AppImage
+        - Linux — .deb
+        - Other
+  - type: input
+    id: os
+    attributes:
+      label: System version
+      placeholder: "Windows 11 24H2 · macOS 15.4 · Ubuntu 24.04"
+  - type: input
+    id: gpu
+    attributes:
+      label: Graphics card
+      placeholder: "RTX 3060 12 GB, driver 581.57 · RX 6600 XT 8 GB · Apple M3 16 GB · no GPU"
+  - type: input
+    id: models
+    attributes:
+      label: Model set
+      description: "**Settings → Models**"

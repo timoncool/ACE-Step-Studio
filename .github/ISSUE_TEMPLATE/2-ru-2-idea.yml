@@ -1,0 +1,26 @@
+name: Идея (Русский)
+description: Предложить функцию или улучшение
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Сначала [поищите похожие](https://github.com/timoncool/ACE-Step-Studio/issues?q=is%3Aissue): если идея уже есть, поставьте 👍.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Что хотите сделать?
+      description: Задача или неудобство — пока без решения.
+      placeholder: "Делаю каверы на свои песни и каждый раз обрезаю вступление вручную."
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Как могла бы помочь студия?
+      placeholder: "Ручка обрезки на исходном треке перед кавером."
+  - type: textarea
+    id: examples
+    attributes:
+      label: Примеры или скриншоты
+      description: Как это сделано в других программах, наброски, ссылки.

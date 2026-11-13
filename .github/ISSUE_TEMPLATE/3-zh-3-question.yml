@@ -1,0 +1,25 @@
+name: 问题 (中文)
+description: 想知道怎么做，或有地方不清楚
+labels: ["question"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: 你的问题
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ACE-Step Studio 版本
+      description: "**设置 → 关于**"
+  - type: input
+    id: os
+    attributes:
+      label: 系统
+      placeholder: "Windows 11 · macOS 15.4 · Ubuntu 24.04"
+  - type: input
+    id: gpu
+    attributes:
+      label: 显卡
+      placeholder: "RTX 4060 8 GB · Apple M3 16 GB · 无独立显卡"

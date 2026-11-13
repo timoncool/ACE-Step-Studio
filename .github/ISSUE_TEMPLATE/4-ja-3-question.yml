@@ -1,0 +1,25 @@
+name: 質問 (日本語)
+description: やり方を知りたい、またはわからないことがある
+labels: ["question"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: ご質問
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ACE-Step Studio のバージョン
+      description: "**設定 → について**"
+  - type: input
+    id: os
+    attributes:
+      label: システム
+      placeholder: "Windows 11 · macOS 15.4 · Ubuntu 24.04"
+  - type: input
+    id: gpu
+    attributes:
+      label: グラフィックカード
+      placeholder: "RTX 4060 8 GB · Apple M3 16 GB · GPU なし"

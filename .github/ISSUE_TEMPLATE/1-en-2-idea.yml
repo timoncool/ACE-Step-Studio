@@ -1,0 +1,26 @@
+name: Idea
+description: Suggest a feature or an improvement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        [Search existing issues](https://github.com/timoncool/ACE-Step-Studio/issues?q=is%3Aissue) first — if the idea is there, add a 👍.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What do you want to do?
+      description: The task or the problem, not the solution yet.
+      placeholder: "I make covers of my own songs and have to cut the intro by hand every time."
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could ACE-Step Studio help?
+      placeholder: "A trim handle on the source track before making the cover."
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples or screenshots
+      description: How other programs do it, mockups, links.

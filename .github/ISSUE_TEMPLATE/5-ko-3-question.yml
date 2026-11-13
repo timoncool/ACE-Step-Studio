@@ -1,0 +1,25 @@
+name: 질문 (한국어)
+description: 방법이 궁금하거나 이해되지 않는 부분이 있음
+labels: ["question"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: 질문
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ACE-Step Studio 버전
+      description: "**설정 → 정보**"
+  - type: input
+    id: os
+    attributes:
+      label: 시스템
+      placeholder: "Windows 11 · macOS 15.4 · Ubuntu 24.04"
+  - type: input
+    id: gpu
+    attributes:
+      label: 그래픽 카드
+      placeholder: "RTX 4060 8 GB · Apple M3 16 GB · GPU 없음"

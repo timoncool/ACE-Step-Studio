@@ -1,0 +1,71 @@
+name: Ошибка (Русский)
+description: Что-то сломалось или работает не так
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо, что сообщаете! Многое уже исправлено в [последней версии](https://github.com/timoncool/ACE-Step-Studio/releases/latest).
+        Если форма открыта из студии, поля внизу уже заполнены.
+  - type: textarea
+    id: what
+    attributes:
+      label: Что случилось?
+      description: Если было сообщение об ошибке, скопируйте его текст целиком. Сюда же можно перетащить скриншоты.
+      placeholder: |
+        Песня останавливается на «Декодировании» с сообщением «Движок остановился во время этой песни…»
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Как повторить
+      placeholder: |
+        1. Открыть «Создать»
+        2. Вставить текст, 3 минуты
+        3. Нажать «Создать»
+  - type: textarea
+    id: expected
+    attributes:
+      label: Что ожидали?
+  - type: upload
+    id: log
+    attributes:
+      label: Лог или пакет отчёта
+      description: "В студии: **Настройки → Локальный движок → Диагностика системы → Собрать пакет для баг-репорта**, затем перетащите .zip сюда. Если студия не открывается, перетащите `engine.log` из папки данных."
+    validations:
+      required: false
+      accept: ".zip,.log,.txt,.png,.jpg,.mp4"
+  - type: input
+    id: version
+    attributes:
+      label: Версия ACE-Step Studio
+      description: "**Настройки → О программе**"
+    validations:
+      required: true
+  - type: dropdown
+    id: package
+    attributes:
+      label: Система и сборка
+      options:
+        - Windows — installer (.exe)
+        - Windows — portable (.zip)
+        - macOS — Apple Silicon (.dmg)
+        - Linux — AppImage
+        - Linux — .deb
+        - Other
+  - type: input
+    id: os
+    attributes:
+      label: Версия системы
+      placeholder: "Windows 11 24H2 · macOS 15.4 · Ubuntu 24.04"
+  - type: input
+    id: gpu
+    attributes:
+      label: Видеокарта
+      placeholder: "RTX 3060 12 GB, драйвер 581.57 · RX 6600 XT 8 GB · Apple M3 16 GB · без видеокарты"
+  - type: input
+    id: models
+    attributes:
+      label: Набор моделей
+      description: "**Настройки → Модели**"

@@ -1,0 +1,26 @@
+name: アイデア (日本語)
+description: 機能や改善を提案する
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        まず[既存の issue を検索](https://github.com/timoncool/ACE-Step-Studio/issues?q=is%3Aissue)してください。同じアイデアがあれば 👍 を付けてください。
+  - type: textarea
+    id: problem
+    attributes:
+      label: 何をしたいですか？
+      description: やりたいことや困っていることを書いてください。解決策はまだ不要です。
+      placeholder: "自分の曲のカバーを作るたびに、イントロを手で切っています。"
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: ACE-Step Studio はどう役立てますか？
+      placeholder: "カバーを作る前に、元トラックをその場でトリミングできるハンドル。"
+  - type: textarea
+    id: examples
+    attributes:
+      label: 例やスクリーンショット
+      description: ほかのソフトでのやり方、ラフ、リンクなど。

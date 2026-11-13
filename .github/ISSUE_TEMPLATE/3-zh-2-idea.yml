@@ -1,0 +1,26 @@
+name: 建议 (中文)
+description: 提出新功能或改进
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请先[搜索已有的问题](https://github.com/timoncool/ACE-Step-Studio/issues?q=is%3Aissue)：如果已经有人提过这个想法，点个 👍。
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你想做什么？
+      description: 说说要完成的事情或遇到的不便，先不用给出解决办法。
+      placeholder: "我给自己的歌做翻唱，每次都要手动剪掉前奏。"
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: ACE-Step Studio 可以怎样帮你？
+      placeholder: "在做翻唱之前，能在源音轨上直接拖动裁剪。"
+  - type: textarea
+    id: examples
+    attributes:
+      label: 示例或截图
+      description: 其他软件是怎么做的、草图、链接。
