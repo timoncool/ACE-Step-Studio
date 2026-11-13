@@ -1,0 +1,76 @@
+name: macos-window-check
+
+# The released .dmg on a Mac as a user gets it: mounted, the app started, its window opened, and the studio asked
+# through its MCP as an agent would - version, the open window, the first screen read back.
+# Runs only when the macos-window-check branch is pushed; the screenshot is kept for a day.
+on:
+  push:
+    branches: [macos-window-check]
+
+jobs:
+  check:
+    runs-on: macos-15
+    timeout-minutes: 20
+    env:
+      VERSION: "4.0.0"
+      APP: "ACE-Step Studio"
+      DMG: "ACE-Step-Studio-4.0.0-macos-arm64.dmg"
+      PORT: "8792"
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: The dmg, mounted and copied out
+        run: |
+          gh release download "v$VERSION" -R "$GITHUB_REPOSITORY" -p "$DMG" -D "$RUNNER_TEMP"
+          shasum -a 256 "$RUNNER_TEMP/$DMG"
+          hdiutil attach -nobrowse -readonly -mountpoint /Volumes/studio "$RUNNER_TEMP/$DMG"
+          ls /Volumes/studio
+          cp -R "/Volumes/studio/$APP.app" "$RUNNER_TEMP/"
+          hdiutil detach /Volumes/studio
+          ls "$RUNNER_TEMP/$APP.app/Contents/MacOS"
+          file "$RUNNER_TEMP/$APP.app/Contents/MacOS/"* | head -5
+      - name: The app started, its service answers
+        run: |
+          bin="$(ls "$RUNNER_TEMP/$APP.app/Contents/MacOS" | grep -i studio | head -1)"
+          nohup "$RUNNER_TEMP/$APP.app/Contents/MacOS/$bin" > "$RUNNER_TEMP/run.log" 2>&1 &
+          for i in $(seq 1 120); do
+            code=$(curl -s -m 2 -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/" || true)
+            [ "$code" = 200 ] && break
+            sleep 2
+          done
+          [ "$code" = 200 ] || { echo "[ERROR] no answer on $PORT"; tail -50 "$RUNNER_TEMP/run.log"; exit 1; }
+          echo "[OK] the service answers on $PORT"
+      - name: Version, window and first screen through the MCP
+        run: |
+          u="http://127.0.0.1:$PORT/mcp"
+          H=(-H "content-type: application/json" -H "accept: application/json, text/event-stream")
+          init='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"macos-window-check","version":"1"}}}'
+          curl -s -m 30 -D headers.txt -o init.txt "${H[@]}" -d "$init" "$u"
+          sid=$(grep -i '^mcp-session-id:' headers.txt | tr -d '\r' | awk '{print $2}')
+          S=(); [ -n "$sid" ] && S=(-H "mcp-session-id: $sid")
+          curl -s -m 30 -o /dev/null "${H[@]}" "${S[@]}" -d '{"jsonrpc":"2.0","method":"notifications/initialized"}' "$u"
+          sed 's/^data: //' init.txt | grep -oE '"version":"[0-9.]+"' | tail -1
+          sed 's/^data: //' init.txt | grep -q "\"version\":\"$VERSION\"" || { echo "[ERROR] the studio is not $VERSION"; head -c 600 init.txt; exit 1; }
+          call() { curl -s -m 60 "${H[@]}" "${S[@]}" -d "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/call\",\"params\":{\"name\":\"$1\",\"arguments\":$2}}" "$u" | sed 's/^data: //' | grep -v '^event:' | grep -v '^$'; }
+          text() { node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(JSON.parse(s).result.content[0].text)}catch(e){process.stdout.write(s)}})"; }
+          for i in $(seq 1 30); do
+            call studio_status '{}' | text > status.txt
+            grep -q '"window_open": true' status.txt && break
+            sleep 2
+          done
+          head -c 400 status.txt; echo
+          screencapture -x "$RUNNER_TEMP/shot-$VERSION.png" && ls -la "$RUNNER_TEMP/shot-$VERSION.png" || true
+          grep -q '"window_open": true' status.txt || { echo "[ERROR] the window did not open"; exit 1; }
+          echo "[OK] window open"
+          call ui_read_page '{}' | text > page.txt
+          lines=$(wc -l < page.txt); echo "first screen: $lines lines"; head -12 page.txt
+          [ "$lines" -gt 5 ] || { echo "[ERROR] the first screen read back empty"; exit 1; }
+          echo "[OK] $APP $VERSION: window open, first screen read through the MCP"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-window-${{ env.VERSION }}
+          path: ${{ runner.temp }}/shot-*.png
+          retention-days: 1
+      - name: The app's log
+        if: always()
+        run: tail -40 "$RUNNER_TEMP/run.log" || true
