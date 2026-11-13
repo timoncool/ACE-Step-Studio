@@ -5002,8 +5002,8 @@ fn delete_for_good(state: &AppState, id: &str) -> anyhow::Result<()> {
 }
 
 /// A file the recycle bin does not take (a Linux desktop without one, a
-/// network drive) keeps the songs in the studio's bin and is named; nothing is
-/// deleted past it.
+/// network drive) keeps the songs in the studio's bin and is named, with the
+/// files the recycle bin did take before it, which are restored from there.
 fn delete_songs_for_good(
     library: &library::Library,
     id: &str,
@@ -5014,16 +5014,18 @@ fn delete_songs_for_good(
     if let Some(song) = library.get_song(id)? {
         songs.push(song);
     }
-    let mut refused = Vec::new();
+    let (mut recycled, mut refused) = (Vec::new(), Vec::new());
     for song in &songs {
         for path in files(song).into_iter().filter(|path| path.exists()) {
-            if let Err(error) = recycle(&path) {
-                refused.push(format!("{}: {error}", plain_path(&path)));
+            match recycle(&path) {
+                Ok(()) => recycled.push(plain_path(&path)),
+                Err(error) => refused.push(format!("{}: {error}", plain_path(&path))),
             }
         }
     }
     if !refused.is_empty() {
-        anyhow::bail!("the system's recycle bin did not take these files, so the song stays in the studio's bin: {}", refused.join("; "));
+        let taken = if recycled.is_empty() { "none of its files went there".to_string() } else { format!("these are in the system's recycle bin already and come back from there: {}", recycled.join("; ")) };
+        anyhow::bail!("the system's recycle bin did not take these files, so the song stays in the studio's bin: {}; {taken}", refused.join("; "));
     }
     for song in &songs {
         library.delete_song(&song.id)?;
@@ -10813,6 +10815,36 @@ mod tests {
         delete_songs_for_good(&library, &song, files, |path| { recycled.borrow_mut().push(path.to_path_buf()); Ok(()) }).unwrap();
         assert!(library.get_song(&song).unwrap().is_none() && library.get_song(&stem).unwrap().is_none());
         assert!(!recycled.borrow().is_empty());
+        drop(library);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+
+    /// The recycle bin takes the first file and refuses the second: the refusal names both - the one to get back
+    /// from the system's recycle bin and the one still on disk - and the song stays in the studio's bin as it was.
+    #[test]
+    fn a_refusal_past_the_first_file_names_what_went_and_what_stayed() {
+        let root = std::env::temp_dir().join(format!("ace-bin-partly-{}", uuid::Uuid::now_v7().simple()));
+        let library = library::Library::open_at(root.join("library.sqlite"), root.join("media")).unwrap();
+        let song = library.create_song(library::SongInput { title: "Harbour".into(), audio_path: None, caption: String::new(), lyrics: String::new(), metadata: Value::Null, generation_settings: Value::Null, engine_id: "manual".into(), profile_id: None, replay_request: None, audio_codes: None, source: "manual".into() }).unwrap().id;
+        library.set_song_trashed(&song, true, None).unwrap();
+        std::fs::create_dir_all(&root).unwrap();
+        let (cover, audio) = (root.join("harbour.png"), root.join("harbour.flac"));
+        std::fs::write(&cover, b"png").unwrap();
+        std::fs::write(&audio, b"fLaC").unwrap();
+        let files = |_: &library::Song| vec![cover.clone(), audio.clone()];
+        let calls = std::cell::Cell::new(0);
+        let refused = delete_songs_for_good(&library, &song, files, |_| {
+            calls.set(calls.get() + 1);
+            if calls.get() == 1 { Ok(()) } else { Err("network drive".into()) }
+        })
+        .unwrap_err();
+        let said = format!("{refused:#}");
+        assert!(said.contains(&format!("{}: network drive", plain_path(&audio))), "{said}");
+        assert!(said.contains("recycle bin already") && said.contains(&plain_path(&cover)), "{said}");
+        let kept = library.trashed_songs().unwrap();
+        assert_eq!(kept.len(), 1, "the song stays in the studio's bin");
+        assert_eq!(kept[0].id, song);
         drop(library);
         let _ = std::fs::remove_dir_all(&root);
     }
