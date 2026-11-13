@@ -35,7 +35,33 @@ export function bugTemplate(language: string): string {
  * `.github/ISSUE_TEMPLATE/*.yml`, the same in every language; the form fills a
  * field from the query parameter of the same name.
  */
-export function issueReportUrl(repositoryUrl: string, version: string, language: string, facts?: ReportFacts, kind: IssueKind = 'bug'): string {
+/** What the person wrote in the Report a problem window: the first field, the second and the third of its kind. */
+export interface ReportWords {
+  what?: string;
+  steps?: string;
+  expected?: string;
+}
+
+/** The longest link to the GitHub form the window opens. */
+export const MAX_URL = 7000;
+
+/**
+ * The window's three fields under the ids of the GitHub form of `kind`, the same in every language: a bug's
+ * what, steps and expected; an idea's problem, idea and examples; a question's question.
+ */
+export function formWords(kind: IssueKind, words?: ReportWords): Record<string, string> {
+  const { what = '', steps = '', expected = '' } = words ?? {};
+  switch (kind) {
+    case 'bug':
+      return { what, steps, expected };
+    case 'idea':
+      return { problem: what, idea: steps, examples: expected };
+    default:
+      return { question: what };
+  }
+}
+
+export function issueReportUrl(repositoryUrl: string, version: string, language: string, facts?: ReportFacts, kind: IssueKind = 'bug', words?: ReportWords): string {
   const query = new URLSearchParams({ template: issueTemplate(language, kind), version });
   const os = system(facts?.portable);
   if (os) query.set('os', os);
@@ -48,5 +74,19 @@ export function issueReportUrl(repositoryUrl: string, version: string, language:
     query.set('gpu', memory ? `${hardware.gpuName}, ${memory}` : hardware.gpuName);
   }
   if (facts?.selected_profile_id) query.set('models', facts.selected_profile_id);
-  return `${repositoryUrl}/issues/new?${query.toString()}`;
+  const typed: [string, string][] = Object.entries(formWords(kind, words)).filter(([, text]) => text.trim() !== '').map(([id, text]) => [id, text.trim()]);
+  const address = () => {
+    const full = new URLSearchParams(query);
+    for (const [id, text] of typed) full.set(id, text);
+    return `${repositoryUrl}/issues/new?${full.toString()}`;
+  };
+  // a link GitHub takes stays under MAX_URL: the longest of the person's fields is cut, with an ellipsis, until it fits
+  let url = address();
+  while (url.length > MAX_URL && typed.length > 0) {
+    const longest = typed.reduce((most, field) => (field[1].length > most[1].length ? field : most));
+    const over = Math.ceil((url.length - MAX_URL) / 3) + 1;
+    longest[1] = `${longest[1].slice(0, Math.max(0, longest[1].length - 1 - over))}…`;
+    url = address();
+  }
+  return url;
 }

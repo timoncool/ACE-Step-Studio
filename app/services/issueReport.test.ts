@@ -1,8 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
-import { bugTemplate, issueReportUrl, issueTemplate } from './issueReport';
+import { bugTemplate, formWords, issueReportUrl, issueTemplate, MAX_URL } from './issueReport';
 
+const base = 'https://github.com/timoncool/ACE-Step-Studio';
 const FORMS = path.resolve(__dirname, '../../.github/ISSUE_TEMPLATE');
 const LANGUAGES = [['en', '1'], ['ru', '2'], ['zh', '3'], ['ja', '4'], ['ko', '5']] as const;
 const read = (file: string) => fs.readFileSync(path.join(FORMS, file), 'utf-8');
@@ -45,5 +46,31 @@ describe('the report link', () => {
     expect(files.slice(0, 3).every(file => file.startsWith('1-en-'))).toBe(true);
     const names = files.map(file => read(file).match(/^name: (.+)$/m)?.[1]);
     expect(new Set(names).size, 'every form has a name of its own').toBe(names.length);
+  });
+
+  it('fills the fields of the form of each kind with what was typed in the window, empty ones left out', () => {
+    const words = { what: 'The song stops', steps: 'Press Create', expected: 'A whole song' };
+    const bug = new URL(issueReportUrl(base, '4.0.0', 'ru', {}, 'bug', words)).searchParams;
+    expect([bug.get('template'), bug.get('what'), bug.get('steps'), bug.get('expected')]).toEqual(['2-ru-1-bug.yml', 'The song stops', 'Press Create', 'A whole song']);
+    const idea = new URL(issueReportUrl(base, '4.0.0', 'ja', {}, 'idea', { what: 'Slow on long songs', steps: 'A preview first', expected: '' })).searchParams;
+    expect([idea.get('template'), idea.get('problem'), idea.get('idea'), idea.has('examples')]).toEqual(['4-ja-2-idea.yml', 'Slow on long songs', 'A preview first', false]);
+    const question = new URL(issueReportUrl(base, '4.0.0', 'en', {}, 'question', { what: 'Can it sing in Thai?' })).searchParams;
+    expect([question.get('template'), question.get('question'), question.has('what')]).toEqual(['1-en-3-question.yml', 'Can it sing in Thai?', false]);
+    for (const [language, order] of LANGUAGES) {
+      for (const kind of ['1-bug', '2-idea', '3-question']) {
+        const fields = ids(read(`${order}-${language}-${kind}.yml`));
+        const used = Object.keys(formWords(kind === '1-bug' ? 'bug' : kind === '2-idea' ? 'idea' : 'question', words));
+        expect(used.every(id => fields.includes(id)), `${language}-${kind}`).toBe(true);
+      }
+    }
+  });
+
+  it('keeps the link under the limit by cutting the longest field', () => {
+    const long = 'Ж'.repeat(5000);
+    const url = issueReportUrl(base, '4.0.0', 'ru', {}, 'bug', { what: 'short', steps: long });
+    expect(url.length).toBeLessThanOrEqual(MAX_URL);
+    const steps = new URL(url).searchParams.get('steps') ?? '';
+    expect(steps.endsWith('…') && steps.length < long.length).toBe(true);
+    expect(new URL(url).searchParams.get('what')).toBe('short');
   });
 });

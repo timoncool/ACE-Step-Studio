@@ -128,7 +128,8 @@ export const ProblemReportDialog: React.FC<Props> = ({ facts, onClose }) => {
   };
 
   const field = 'w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100';
-  const githubUrl = issueReportUrl(STUDIO_REPO_URL, __APP_VERSION__, language, facts, kind);
+  // what the person typed goes into the fields of the form, so it is not written twice
+  const githubUrl = issueReportUrl(STUDIO_REPO_URL, __APP_VERSION__, language, facts, kind, { what, steps: stepsLabel ? steps : '', expected: expectedLabel ? expected : '' });
   const tooShort = what.trim().length < MIN_WHAT;
 
   return (
