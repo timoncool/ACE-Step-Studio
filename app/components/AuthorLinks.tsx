@@ -15,15 +15,19 @@ export const AUTHOR_LINKS: { network: Network; name: string; url: string }[] = [
 ];
 
 const ICONS: Record<Network, React.ReactNode> = {
-  Telegram: <SiTelegram size={14} />,
-  X: <SiX size={13} />,
-  GitHub: <SiGithub size={14} />,
-  site: <Globe size={14} />,
+  Telegram: <SiTelegram size={14} aria-hidden="true" />,
+  X: <SiX size={13} aria-hidden="true" />,
+  GitHub: <SiGithub size={14} aria-hidden="true" />,
+  site: <Globe size={14} aria-hidden="true" />,
 };
 
-/** The button look the About page uses for every link: a neutral plate with a border. */
-export const ABOUT_LINK = 'inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:border-pink-500 hover:text-pink-500 dark:border-zinc-600 dark:text-zinc-200';
+/** The button look of the About page: a neutral plate with a border, 44 pixels high on a phone. */
+export const ABOUT_LINK = 'inline-flex items-center gap-1.5 max-sm:min-h-11 rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:border-pink-500 hover:text-pink-500 dark:border-zinc-600 dark:text-zinc-200';
 
+/** The heading of each block of the About page: the author, support. */
+export const ABOUT_HEADING = 'text-xs font-semibold uppercase tracking-wide text-zinc-900 dark:text-white';
+
+/** The author's links, the same buttons as the rest of the page, in one row that wraps. */
 export const AuthorLinks: React.FC = () => {
   const { t } = useI18n();
   return (
