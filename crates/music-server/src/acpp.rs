@@ -350,8 +350,8 @@ struct Known {
 /// The audio.cpp server of the studio: its downloads in the karaoke folder (the karaoke downloader's), its logs beside.
 pub struct Acpp {
     downloader: Downloader,
-    /// cuBLAS 13 of the music engine, which the CUDA 13 build imports.
-    cuda13_libraries: OnceLock<PathBuf>,
+    /// The music engine's library folder, with the cuBLAS of either CUDA line that the CUDA builds import.
+    engine_libraries: OnceLock<PathBuf>,
     /// Every model the server may carry. One server per build serves them all: a config that names only the model of
     /// the run at hand would restart the server whenever another tool asks for its own.
     known: std::sync::Mutex<Vec<Known>>,
@@ -365,20 +365,20 @@ impl Acpp {
     pub fn new(downloader: Downloader) -> Self {
         Self {
             downloader,
-            cuda13_libraries: OnceLock::new(),
+            engine_libraries: OnceLock::new(),
             known: std::sync::Mutex::new(Vec::new()),
             active: std::sync::Mutex::new(Vec::new()),
             ended: std::sync::Condvar::new(),
         }
     }
 
-    /// The folder of the cuBLAS 13 the music engine runs on.
-    pub fn set_cuda13_libraries(&self, folder: PathBuf) {
-        self.cuda13_libraries.set(folder).ok();
+    /// The music engine's library folder, where its CUDA libraries of either line are.
+    pub fn set_engine_libraries(&self, folder: PathBuf) {
+        self.engine_libraries.set(folder).ok();
     }
 
-    pub fn cuda13_libraries(&self) -> Option<&Path> {
-        self.cuda13_libraries.get().map(PathBuf::as_path)
+    pub fn engine_libraries(&self) -> Option<&Path> {
+        self.engine_libraries.get().map(PathBuf::as_path)
     }
 
     /// A model the server may carry, complete once every one of `files` is on disk, in place of an earlier one of the
@@ -436,7 +436,7 @@ impl Acpp {
         let folder = self.folder(build);
         let exe = self.exe(build).ok_or_else(|| anyhow!("the audio.cpp server ({}) has no {} in {}", build.folder(), exe_name(), folder.display()))?;
         if build == Build::Cuda13 {
-            link_cuda13(self.cuda13_libraries(), &folder, "the audio.cpp server")?;
+            link_cuda13(self.engine_libraries(), &folder, "the audio.cpp server")?;
         }
         // the loader looks beside the program, then on PATH (Linux: LD_LIBRARY_PATH), where the engine's folder and its
         // CUDA libraries are

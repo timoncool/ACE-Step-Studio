@@ -545,13 +545,14 @@ impl LyricsSync {
         self.acpp.clone()
     }
 
-    /// The folder of the cuBLAS 13 the music engine runs on: transcribe.cpp's and audio.cpp's CUDA builds take links to it.
+    /// The music engine's library folder, with its CUDA libraries of either line: transcribe.cpp's and audio.cpp's CUDA
+    /// builds take links to them.
     pub fn set_cuda_libraries(&self, folder: PathBuf) {
-        self.acpp.set_cuda13_libraries(folder);
+        self.acpp.set_engine_libraries(folder);
     }
 
     fn link_cuda13(&self, engine_dir: &Path, who: &str) -> Result<()> {
-        crate::acpp::link_cuda13(self.acpp.cuda13_libraries(), engine_dir, who)
+        crate::acpp::link_cuda13(self.acpp.engine_libraries(), engine_dir, who)
     }
 
     pub fn downloader(&self) -> &Downloader {
@@ -630,7 +631,7 @@ impl LyricsSync {
             dub_tcpp::Build::Cuda => self.link_cuda13(&engine, "transcribe.cpp")?,
             dub_tcpp::Build::Cuda12 => {
                 let bundle = crate::engine_bundle_root();
-                let sources: Vec<&Path> = self.acpp.cuda13_libraries().into_iter().chain([bundle.as_path()]).collect();
+                let sources: Vec<&Path> = self.acpp.engine_libraries().into_iter().chain([bundle.as_path()]).collect();
                 crate::acpp::link_cuda12(&sources, &engine, "transcribe.cpp")?;
             }
             dub_tcpp::Build::Vulkan | dub_tcpp::Build::Cpu => {}
