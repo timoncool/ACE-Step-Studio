@@ -60,8 +60,30 @@ pub fn chosen_card() -> Vec<String> {
     }
 }
 
-/// Every NVIDIA card: its nvidia-smi index, name and memory in GB.
-pub fn nvidia_cards() -> Vec<(u32, String, f64)> {
+/// NVIDIA cards: nvidia-smi index, name and memory in GB.
+pub type Cards = Vec<(u32, String, f64)>;
+
+/// Every NVIDIA card; `None` when nvidia-smi did not answer (not on PATH, did not start, failed), which says nothing
+/// about the cards. The answer is kept for half a minute: the setup status, polled every second, and the engine's
+/// watchdog ask for the cards while one is chosen.
+pub fn nvidia_cards() -> Option<Cards> {
+    static LAST: std::sync::Mutex<Option<(std::time::Instant, Option<Cards>)>> = std::sync::Mutex::new(None);
+    remembered(&LAST, CARDS_FRESH, ask_nvidia_smi_for_cards)
+}
+
+const CARDS_FRESH: std::time::Duration = std::time::Duration::from_secs(30);
+
+fn remembered<T: Clone>(slot: &std::sync::Mutex<Option<(std::time::Instant, T)>>, fresh: std::time::Duration, ask: impl FnOnce() -> T) -> T {
+    let mut last = slot.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some((_, answer)) = last.as_ref().filter(|(at, _)| at.elapsed() < fresh) {
+        return answer.clone();
+    }
+    let answer = ask();
+    *last = Some((std::time::Instant::now(), answer.clone()));
+    answer
+}
+
+fn ask_nvidia_smi_for_cards() -> Option<Cards> {
     let mut command = dub_core::proc::host_command("nvidia-smi");
     #[cfg(windows)]
     {
@@ -69,12 +91,15 @@ pub fn nvidia_cards() -> Vec<(u32, String, f64)> {
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         command.creation_flags(CREATE_NO_WINDOW);
     }
-    let Ok(output) = command.args(["--query-gpu=index,name,memory.total", "--format=csv,noheader,nounits"]).output() else { return Vec::new() };
+    let output = command.args(["--query-gpu=index,name,memory.total", "--format=csv,noheader,nounits"]).output().ok()?;
     if !output.status.success() {
-        return Vec::new();
+        return None;
     }
-    String::from_utf8_lossy(&output.stdout)
-        .lines()
+    Some(parse_cards(&String::from_utf8_lossy(&output.stdout)))
+}
+
+fn parse_cards(csv: &str) -> Cards {
+    csv.lines()
         .filter_map(|line| {
             let mut fields = line.split(',').map(str::trim);
             let index = fields.next()?.parse().ok()?;
@@ -108,12 +133,6 @@ fn device() -> Option<((u32, u32), u32)> {
     })
 }
 
-/// The chosen NVIDIA card's compute capability (sm_XY as (X, Y)), or None off
-/// an NVIDIA card or behind a driver too old to report it.
-pub fn compute_capability() -> Option<(u32, u32)> {
-    device().map(|(compute, _driver)| compute)
-}
-
 /// `7.5, 581.29` into the compute capability and the driver's major version.
 fn parse_query(line: &str) -> Option<((u32, u32), u32)> {
     let (compute, driver) = line.split_once(',')?;
@@ -136,6 +155,12 @@ pub fn nvidia_card() -> bool {
         }
         command.arg("-L").output().is_ok_and(|output| output.status.success())
     })
+}
+
+/// The chosen NVIDIA card's compute capability (sm_XY as (X, Y)), the one the build is chosen by; None off an NVIDIA
+/// card or behind a driver too old to report it.
+pub fn compute_capability() -> Option<(u32, u32)> {
+    device().map(|(compute, _driver)| compute)
 }
 
 /// The build this machine runs, none without an NVIDIA card one of the builds
@@ -176,11 +201,8 @@ pub fn describe() -> Option<String> {
     .clone()
 }
 
-/// The CUDA builds this platform's engine carries: both on Windows, CUDA 13 in the Linux package.
-#[cfg(windows)]
+/// The CUDA builds the engine carries, the same two on Windows and Linux.
 const SHIPPED: &[CudaBuild] = &[CudaBuild::Cuda13, CudaBuild::Cuda12];
-#[cfg(not(windows))]
-const SHIPPED: &[CudaBuild] = &[CudaBuild::Cuda13];
 
 /// Tensor cores before Ampere accumulate in FP16, where the V projection can
 /// overflow to infinity and poison every later attention; the engine's clamp
@@ -189,12 +211,35 @@ pub fn accumulates_in_fp16() -> bool {
     device().is_some_and(|(compute, _)| compute < (8, 0))
 }
 
+
+/// ggml's `blackwell_mma_available` for the CUDA 13 build's architectures (120a the newest): compute 12.x, whose
+/// tensor cores take FP4 weights directly.
+fn blackwell_mma(compute: (u32, u32)) -> bool {
+    compute >= (12, 0) && compute < (13, 0)
+}
+
+/// The DiT in MXFP4 is offered where the engine runs its CUDA 13 build: that is where it was tried.
+pub fn offers_mxfp4() -> bool {
+    mxfp4_offered(current())
+}
+
+/// No MXFP4 on the CUDA 12 build, Vulkan (AMD, Intel), a Mac or the processor: not tried there.
+pub fn mxfp4_offered(build: Option<CudaBuild>) -> bool {
+    build == Some(CudaBuild::Cuda13)
+}
+
+/// The CUDA 13 build computes FP4 on the card's tensor cores: an RTX 50.
+pub fn computes_fp4_natively() -> bool {
+    fp4_natively(current(), device().map(|(compute, _)| compute))
+}
+
+fn fp4_natively(build: Option<CudaBuild>, compute: Option<(u32, u32)>) -> bool {
+    build == Some(CudaBuild::Cuda13) && compute.is_some_and(blackwell_mma)
+}
+
 /// Why the engine cannot start on CUDA here, in words for the person at the
 /// machine.
-#[cfg(windows)]
 pub const UNSUPPORTED: &str = "CUDA was chosen, but this card or its driver runs neither CUDA build of the engine: it needs an NVIDIA card from the GTX 900 series on and driver 525 or newer. Update the NVIDIA driver, or choose Vulkan in Settings.";
-#[cfg(not(windows))]
-pub const UNSUPPORTED: &str = "CUDA was chosen, but this card or its driver does not run the engine's CUDA build: it needs an NVIDIA card from the GTX 16 and RTX 20 series on and driver 580 or newer. Update the NVIDIA driver, or choose Vulkan in Settings.";
 
 #[cfg(test)]
 mod tests {
@@ -213,10 +258,56 @@ mod tests {
         assert_eq!(cuda_build((8, 6), 511), None);
     }
 
+
+    /// Linux runs the same table as Windows: a card the table gives CUDA 12 computes on the CUDA 12 build, not on
+    /// Vulkan.
+    #[test]
+    fn the_engine_carries_both_cuda_builds_on_windows_and_linux() {
+        assert_eq!(SHIPPED, &[CudaBuild::Cuda13, CudaBuild::Cuda12]);
+        for (compute, driver) in [((7, 5), 581), ((6, 1), 560), ((8, 9), 566)] {
+            let build = cuda_build(compute, driver).expect("a build for the card");
+            assert!(SHIPPED.contains(&build), "{compute:?} with driver {driver}: {build:?} is not carried");
+        }
+        assert!(UNSUPPORTED.contains("525"), "the refusal names the oldest driver a build runs on");
+    }
+
+
+    /// FP4 on the tensor cores: an RTX 50 (compute 12.0) on the CUDA 13 build; not Ada, not the CUDA 12 build, not
+    /// without an NVIDIA card.
+    #[test]
+    fn fp4_runs_natively_only_on_an_rtx_50_with_the_cuda13_build() {
+        assert!(fp4_natively(Some(CudaBuild::Cuda13), Some((12, 0))), "RTX 5090");
+        assert!(!fp4_natively(Some(CudaBuild::Cuda13), Some((8, 9))), "RTX 4090");
+        assert!(!fp4_natively(Some(CudaBuild::Cuda13), Some((10, 0))), "B200: no 100a in the build");
+        assert!(!fp4_natively(Some(CudaBuild::Cuda12), Some((12, 0))), "the CUDA 12 build");
+        assert!(!fp4_natively(None, None), "no NVIDIA card");
+    }
+
     #[test]
     fn the_query_reads_the_capability_and_the_driver_major() {
         assert_eq!(parse_query("7.5, 581.29"), Some(((7, 5), 581)));
         assert_eq!(parse_query("12.0, 591.44"), Some(((12, 0), 591)));
         assert_eq!(parse_query("[N/A], 581.29"), None);
+    }
+
+    #[test]
+    fn the_card_list_reads_nvidia_smi_lines() {
+        let cards = parse_cards("0, NVIDIA GeForce RTX 4090, 24564\n1, NVIDIA GeForce RTX 3060, 12288\n");
+        assert_eq!(cards, vec![(0, "NVIDIA GeForce RTX 4090".to_string(), 24564.0 / 1024.0), (1, "NVIDIA GeForce RTX 3060".to_string(), 12.0)]);
+    }
+
+    #[test]
+    fn a_second_ask_within_its_life_does_not_run_nvidia_smi_again() {
+        let slot = std::sync::Mutex::new(None);
+        let asked = std::cell::Cell::new(0);
+        let ask = || {
+            asked.set(asked.get() + 1);
+            None::<Cards>
+        };
+        assert_eq!(remembered(&slot, std::time::Duration::from_secs(30), ask), None);
+        assert_eq!(remembered(&slot, std::time::Duration::from_secs(30), ask), None);
+        assert_eq!(asked.get(), 1, "a failed answer is kept too");
+        remembered(&slot, std::time::Duration::ZERO, ask);
+        assert_eq!(asked.get(), 2, "an answer past its life is asked again");
     }
 }

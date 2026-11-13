@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Check, Cpu, FolderOpen, Loader2, RotateCw , Terminal } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
-import { SELF_READ } from '../services/studioQueries';
+import { SELF_READ, useSetupStatus } from '../services/studioQueries';
+import { poll } from '../services/poll';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
 
 /**
@@ -14,12 +15,37 @@ import { DiagnosticsPanel } from './DiagnosticsPanel';
  */
 
 type ComputeBackend = 'auto' | 'cuda' | 'vulkan' | 'cpu';
+type FlashAttention = 'auto' | 'on' | 'off';
+type KeepLoaded = 'auto' | 'yes' | 'no';
+
+/** What the running engine was started with, as the service read it from the launch. */
+interface InEffect {
+  max_seq: number;
+  max_seq_reason: 'full' | 'set';
+  flash_attention: boolean;
+  keep_loaded?: boolean;
+  /** set, fits, does_not_fit, not_on_card, free_unknown, set_not_on_disk, no_set */
+  keep_loaded_reason?: string | null;
+  keep_loaded_need_gb?: number | null;
+  keep_loaded_free_gb?: number | null;
+}
+
+/** The line under the choice: whether the running engine keeps its models, and why. */
+export function keepLoadedNow(inEffect: InEffect, t: (key: string) => string): string {
+  const reason = inEffect.keep_loaded_reason ?? 'set';
+  const why = reason === 'fits' || reason === 'does_not_fit'
+    ? t(reason === 'fits' ? 'keepLoadedReasonFits' : 'keepLoadedReasonNoRoom')
+      .replace('{need}', (inEffect.keep_loaded_need_gb ?? 0).toFixed(1))
+      .replace('{free}', (inEffect.keep_loaded_free_gb ?? 0).toFixed(1))
+    : t(reason === 'not_on_card' ? 'keepLoadedReasonNotOnCard' : reason === 'set' ? 'keepLoadedReasonSet' : 'keepLoadedReasonUnknown');
+  return t(inEffect.keep_loaded ? 'keepLoadedNowKept' : 'keepLoadedNowNotKept').replace('{reason}', why);
+}
 
 interface EngineOptions {
   backend: ComputeBackend;
-  keep_loaded: boolean;
+  keep_loaded: KeepLoaded;
   max_seq: number | null;
-  disable_flash_attention: boolean;
+  flash_attention: FlashAttention;
   split_cfg_forwards: boolean;
   clamp_fp16: boolean;
   /** The NVIDIA card by nvidia-smi index; null: the first. Taken at the studio's start. */
@@ -32,9 +58,9 @@ interface EngineOptions {
 
 const DEFAULTS: EngineOptions = {
   backend: 'auto',
-  keep_loaded: false,
+  keep_loaded: 'auto',
   max_seq: null,
-  disable_flash_attention: false,
+  flash_attention: 'auto',
   split_cfg_forwards: false,
   clamp_fp16: false,
   gpu: null,
@@ -57,9 +83,10 @@ const Toggle: React.FC<{ label: string; hint: string; checked: boolean; onChange
 
 export const EngineSettings: React.FC = () => {
   const { t } = useI18n();
+  const { data: setup } = useSetupStatus<{ hardware?: { onProcessor?: boolean } }>();
   const [options, setOptions] = useState<EngineOptions>(DEFAULTS);
   // With two cards or more, which one the studio computes on
-  const [cards, setCards] = useState<{ cards: { index: number; name: string; memory_gb: number }[]; running: number | null } | null>(null);
+  const [cards, setCards] = useState<{ cards: { index: number; name: string; memory_gb: number }[] | null; running: number | null } | null>(null);
   useEffect(() => {
     void fetch('/v1/system/gpus').then(response => (response.ok ? response.json() : null)).then(setCards).catch(() => undefined);
   }, []);
@@ -67,6 +94,9 @@ export const EngineSettings: React.FC = () => {
   // Which engine executable a start takes and which one is running, so the
   // page answers "did my change apply?" without opening the engine log.
   const [runtime, setRuntime] = useState<{ executable: string | null; executable_source: string; running_executable: string | null; engine_starting: boolean } | null>(null);
+  // The KV cache and flash attention of the running engine, and the cache the saved settings start the next one with.
+  const [inEffect, setInEffect] = useState<InEffect | null>(null);
+  const [savedMaxSeq, setSavedMaxSeq] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [picking, setPicking] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -96,7 +126,9 @@ export const EngineSettings: React.FC = () => {
     try {
       const response = await fetch('/engine/options');
       if (!response.ok) throw new Error(`Engine options are unavailable (${response.status})`);
-      const body: { options: EngineOptions; executable?: string | null; executable_source?: string; running_executable?: string | null; engine_starting?: boolean } = await response.json();
+      const body: { options: EngineOptions; in_effect?: InEffect | null; saved_max_seq?: number; executable?: string | null; executable_source?: string; running_executable?: string | null; engine_starting?: boolean } = await response.json();
+      setInEffect(body.in_effect ?? null);
+      setSavedMaxSeq(typeof body.saved_max_seq === 'number' ? body.saved_max_seq : null);
       // A settings file written before a flag existed arrives without it;
       // the default keeps the comparison below honest.
       setOptions({ ...DEFAULTS, ...body.options });
@@ -162,13 +194,11 @@ export const EngineSettings: React.FC = () => {
   const [logsOpen, setLogsOpen] = useState(false);
   useEffect(() => {
     if (!logsOpen) return;
-    const read = () => void fetch('/v1/engine/logs', { headers: SELF_READ })
+    const read = () => fetch('/v1/engine/logs', { headers: SELF_READ })
       .then(response => (response.ok ? response.json() : Promise.reject(new Error())))
       .then((body: { lines?: string[] }) => setLogs((body.lines ?? []).slice(-200)))
       .catch(() => undefined);
-    read();
-    const timer = window.setInterval(read, 2000);
-    return () => window.clearInterval(timer);
+    return poll(read, 2000);
   }, [logsOpen]);
 
   const restart = async () => {
@@ -211,9 +241,10 @@ export const EngineSettings: React.FC = () => {
           ))}
         </div>
         <span className="mt-2 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t(`computeBackendHint_${options.backend}`)}</span>
+        {setup?.hardware?.onProcessor && <span className="mt-2 block text-xs leading-5 text-amber-700 dark:text-amber-300">{t('songsOnProcessor')}</span>}
       </div>
 
-      {cards && cards.cards.length > 1 && (
+      {cards?.cards && (cards.cards.length > 1 || (options.gpu != null && !cards.cards.some(card => card.index === options.gpu))) && (
         <label className="block rounded-xl border border-zinc-200 p-3 dark:border-white/10">
           <span className="block text-sm font-medium text-zinc-800 dark:text-zinc-100">{t('gpuChoice')}</span>
           <select
@@ -222,11 +253,16 @@ export const EngineSettings: React.FC = () => {
             className={`${CONTROL} mt-2`}
           >
             <option value="">{t('gpuChoiceFirst')}</option>
+            {options.gpu != null && !cards.cards.some(card => card.index === options.gpu) && <option value={String(options.gpu)}>{t('gpuChoiceMissing').replace('{index}', String(options.gpu))}</option>}
             {cards.cards.map(card => <option key={card.index} value={card.index}>{`${card.index}: ${card.name} · ${card.memory_gb.toFixed(0)} GB`}</option>)}
           </select>
-          <span className="mt-2 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-            {(options.gpu ?? null) !== (cards.running ?? null) ? t('gpuChoiceRestart') : t('gpuChoiceHint')}
-          </span>
+          {options.gpu != null && !cards.cards.some(card => card.index === options.gpu) ? (
+            <span className="mt-2 block text-xs leading-5 text-amber-600 dark:text-amber-300">{t('gpuChoiceGone').replace('{index}', String(options.gpu))}</span>
+          ) : (
+            <span className="mt-2 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+              {(options.gpu ?? null) !== (cards.running ?? null) ? t('gpuChoiceRestart') : t('gpuChoiceHint')}
+            </span>
+          )}
         </label>
       )}
 
@@ -268,12 +304,22 @@ export const EngineSettings: React.FC = () => {
         )}
       </div>
 
-      <Toggle
-        label={t('keepLoadedLabel')}
-        hint={t('keepLoadedHint')}
-        checked={options.keep_loaded}
-        onChange={value => setOptions(current => ({ ...current, keep_loaded: value }))}
-      />
+      <label className="block rounded-xl border border-zinc-200 p-3 dark:border-white/10">
+        <span className="block text-sm font-medium text-zinc-800 dark:text-zinc-100">{t('keepLoadedLabel')}</span>
+        <select
+          value={options.keep_loaded}
+          onChange={event => setOptions(current => ({ ...current, keep_loaded: event.target.value as KeepLoaded }))}
+          className={`${CONTROL} mt-2`}
+        >
+          <option value="auto">{t('keepLoadedAuto')}</option>
+          <option value="yes">{t('keepLoadedYes')}</option>
+          <option value="no">{t('keepLoadedNo')}</option>
+        </select>
+        <span className="mt-2 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('keepLoadedHint')}</span>
+        {inEffect?.keep_loaded !== undefined && (
+          <span className="mt-1 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">{keepLoadedNow(inEffect, t as (key: string) => string)}</span>
+        )}
+      </label>
 
       {/* The batch ceiling is not here and is not sent: it reserves KV cache
           for the whole batch when the weights load - memory paid for on every
@@ -286,7 +332,7 @@ export const EngineSettings: React.FC = () => {
             type="number"
             min={512}
             step={512}
-            placeholder={t('maxSeqHint')}
+            placeholder={t('maxSeqAuto')}
             value={options.max_seq ?? ''}
             onChange={event => {
               const value = Number(event.target.value);
@@ -297,16 +343,34 @@ export const EngineSettings: React.FC = () => {
           <span className="mt-1 block font-normal text-zinc-500">{t('maxSeqHint')}</span>
         </label>
       </div>
+      {inEffect && (
+        <div className="-mt-1 space-y-0.5 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+          <span className="block">
+            {t('maxSeqNow').replace('{n}', String(inEffect.max_seq)).replace('{reason}', t(inEffect.max_seq_reason === 'set' ? 'maxSeqReasonSet' : 'maxSeqReasonFull'))}
+          </span>
+          {savedMaxSeq != null && savedMaxSeq !== inEffect.max_seq && (
+            <span className="block text-amber-600 dark:text-amber-300">{t('maxSeqPending').replace('{n}', String(savedMaxSeq))}</span>
+          )}
+        </div>
+      )}
+
+      <label className="block rounded-xl border border-zinc-200 p-3 dark:border-white/10">
+        <span className="block text-sm font-medium text-zinc-800 dark:text-zinc-100">{t('flashAttentionLabel')}</span>
+        <select
+          value={options.flash_attention}
+          onChange={event => setOptions(current => ({ ...current, flash_attention: event.target.value as FlashAttention }))}
+          className={`${CONTROL} mt-2`}
+        >
+          <option value="auto">{t('flashAttentionAuto')}</option>
+          <option value="on">{t('flashAttentionOn')}</option>
+          <option value="off">{t('flashAttentionOff')}</option>
+        </select>
+        <span className="mt-2 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t('flashAttentionHint')}</span>
+      </label>
 
       <details className="rounded-xl border border-zinc-200 p-3 dark:border-white/10">
         <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-zinc-500">{t('diagnostics')}</summary>
         <div className="mt-3 space-y-3">
-          <Toggle
-            label={t('noFlashAttentionLabel')}
-            hint={t('noFlashAttentionHint')}
-            checked={options.disable_flash_attention}
-            onChange={value => setOptions(current => ({ ...current, disable_flash_attention: value }))}
-          />
           <Toggle
             label={t('splitCfgLabel')}
             hint={t('splitCfgHint')}

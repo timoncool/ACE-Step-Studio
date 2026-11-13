@@ -67,7 +67,11 @@ summary {
    identically with no network, so no CDN stylesheet and no remote font. */
 :root {
         --breakpoint-mobile: 768px;
+        --vh: 1vh;
+        --vw: 1vw;
       }
+
+      html, body, #root { height: 100%; }
 
       body {
         font-family: 'Inter', sans-serif;

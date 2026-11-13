@@ -449,6 +449,12 @@ impl AceClient {
         Ok(())
     }
 
+    /// Unloads every model no job holds (`POST /evict`); they load again with the next song. The megabytes freed.
+    pub async fn evict(&self) -> Result<f64> {
+        let answer: Value = json_of(self.send(self.http.post(self.url("/evict")), true).await?).await?;
+        answer.get("freed_mb").and_then(Value::as_f64).context("the engine's evict answer has no freed_mb")
+    }
+
     pub async fn result(&self, job: &str) -> Result<(String, Vec<u8>)> {
         let response = self.send(self.http.get(self.url("/job")).query(&[("id", job), ("result", "1")]), true).await?;
         let status = response.status();

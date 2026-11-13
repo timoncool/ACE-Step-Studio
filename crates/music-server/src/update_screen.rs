@@ -32,43 +32,43 @@ struct Change {
 }
 
 /// The table of changes of this release against 3.7.0. A release that changes what the studio downloads writes its
-/// own rows here; ONNX Runtime on the processor, HT-Demucs, MuScriptor and SheetSage2 on audio.cpp have their reasons
-/// in `REASONS` already and add their rows when they come.
+/// own rows here; ONNX Runtime on the processor has its reasons in `REASONS` already and adds its rows when it comes.
 const CHANGES: &[Change] = &[
     Change { what: "crisperwhisper-turbo*", reason: "crisperwhisper" },
-    // More specific rows come first: `reason_of` takes the first that matches. The audio.cpp engine
-    // (the server builds) carries the karaoke reason; its CUDA libraries are not karaoke, so they
-    // get their own reason instead of sharing it (#180).
-    Change { what: "audiocpp-cuda13-cufft*", reason: "audiocpp-cuda" },
-    Change { what: "audiocpp-cuda12-cufft*", reason: "audiocpp-cuda" },
-    Change { what: "audiocpp-cuda12-cudart*", reason: "audiocpp-cuda" },
-    Change { what: "audiocpp-cuda12-cublas*", reason: "audiocpp-cuda" },
-    Change { what: "audiocpp-*", reason: "crisperwhisper" },
+    Change { what: "htdemucs-6s", reason: "demucs-audiocpp" },
+    Change { what: "htdemucs-onnx", reason: "htdemucs-onnx-gone" },
+    // More specific rows come first: `reason_of` takes the first that matches. The audio.cpp server's CUDA libraries
+    // have a reason of their own beside the server's.
+    Change { what: "audiocpp-cuda12-*", reason: "audiocpp-cuda" },
+    Change { what: "audiocpp-cuda13-*", reason: "audiocpp-cuda" },
+    Change { what: "audiocpp-*", reason: "audiocpp-server" },
     Change { what: "transcribe-engine*", reason: "transcribe-avx2" },
     Change { what: "llama-*", reason: "llama" },
     Change { what: "music-train", reason: "hotstep" },
     Change { what: "ace-caption", reason: "hotstep" },
-    Change { what: "music-midi", reason: "hotstep" },
     Change { what: "engine-cuda12-cublas", reason: "cublas-wheel" },
-    Change { what: "cuda-cublas", reason: "cublas-wheel" },
     Change { what: "faster-whisper", reason: "faster-whisper-gone" },
     Change { what: "parakeet-onnx", reason: "parakeet-onnx-gone" },
+    Change { what: "ort-gpu", reason: "ort-gpu-gone" },
+    Change { what: "onnxruntime", reason: "ort-cpu" },
 ];
 
 /// Every reason, by its code, in English; the window says it in its own language by the code.
 pub const REASONS: &[(&str, &str)] = &[
     ("crisperwhisper", "Karaoke and the dataset lyrics are heard by CrisperWhisper 2.0 turbo in the audio.cpp server instead of Faster-Whisper, with a time for every word"),
     ("audiocpp-cuda", "A CUDA library the audio.cpp engine needs on an NVIDIA card"),
-    ("transcribe-avx2", "Built for every processor with AVX2: Parakeet no longer closes the studio on processors without AVX-512"),
+    ("transcribe-avx2", "Parakeet's engine runs on any 64-bit processor and no longer closes the studio on processors without AVX-512"),
     ("llama", "A newer llama.cpp for the assistant"),
-    ("hotstep", "A newer build of HOT-Step's tools for training, captions and audio to MIDI"),
+    ("hotstep", "A newer build of HOT-Step's tools for training and captions"),
     ("cublas-wheel", "The same cuBLAS 12.9, now from NVIDIA's package with its checksum pinned"),
     ("faster-whisper-gone", "Faster-Whisper is replaced by CrisperWhisper"),
     ("parakeet-onnx-gone", "Parakeet runs on transcribe.cpp; these ONNX models are no longer read"),
-    ("ort-cpu", "Tempo, key and the listening pack run on ONNX Runtime on the processor"),
+    ("ort-cpu", "The tempo and key of a song are measured on the processor, in 4.5 to 6 seconds a song"),
     ("ort-gpu-gone", "ONNX Runtime no longer runs on the card; its CUDA, cuDNN and DirectML files are not read"),
     ("demucs-audiocpp", "Stems are split by HT-Demucs in the audio.cpp server"),
-    ("midi-audiocpp", "Audio to MIDI runs MuScriptor and SheetSage2 in the audio.cpp server"),
+    ("audiocpp-server", "The audio.cpp engine behind stem separation, karaoke and audio-to-MIDI"),
+    ("htdemucs-onnx-gone", "No longer needed — HT-Demucs now runs in the audio.cpp engine"),
+    ("midi-audiocpp", "Audio to MIDI runs MuScriptor in the audio.cpp server"),
     ("newer", "This release uses another build of it"),
     ("unused", "No longer used"),
 ];
@@ -337,7 +337,7 @@ mod tests {
     #[test]
     fn a_models_files_are_one_row_and_a_runtime_its_own() {
         let p = plan(
-            vec![candidate("transcribe-engine", false, "runtime/transcribe_engine.dll", Some("https://github.com/timoncool/transcribe.cpp/releases/download/engine-0.1.1/transcribe_engine.dll"))],
+            vec![candidate("transcribe-engine", false, "runtime/transcribe_engine.dll", Some("https://github.com/timoncool/transcribe.cpp/releases/download/engine-0.2.0/transcribe-windows-cpu-x64.zip"))],
             vec![
                 candidate("crisperwhisper-turbo", true, "models/crisperwhisper2-turbo/model.safetensors", None),
                 candidate("crisperwhisper-turbo-config", true, "models/crisperwhisper2-turbo/config.json", None),
@@ -348,7 +348,7 @@ mod tests {
         );
         assert_eq!(p.updated.len(), 1);
         let engine = &p.updated[0];
-        assert_eq!((engine.from.as_deref(), engine.reason_code), (Some("engine-0.1.1"), "transcribe-avx2"));
+        assert_eq!((engine.from.as_deref(), engine.reason_code), (Some("engine-0.2.0"), "transcribe-avx2"));
         assert_eq!(p.added.len(), 1, "a model's files are one row");
         let model = &p.added[0];
         assert_eq!((model.id.as_str(), model.ids.len(), model.bytes, model.download), ("models/crisperwhisper2-turbo", 2, 200, 120));
@@ -359,14 +359,16 @@ mod tests {
 
     #[test]
     fn the_audiocpp_engine_and_its_cuda_libraries_read_apart() {
-        // The server builds carry the karaoke reason; the CUDA libraries are not karaoke (#180).
+        // The server builds carry stems, karaoke and MIDI; the CUDA libraries are not the server (#180).
         for server in ["audiocpp-cuda13", "audiocpp-cuda12", "audiocpp-vulkan", "audiocpp-cpu", "audiocpp-metal"] {
-            assert_eq!(reason_of(server, "unused"), "crisperwhisper", "{server}");
+            assert_eq!(reason_of(server, "unused"), "audiocpp-server", "{server}");
         }
-        for lib in ["audiocpp-cuda13-cufft", "audiocpp-cuda12-cufft", "audiocpp-cuda12-cudart", "audiocpp-cuda12-cublas"] {
+        for lib in ["audiocpp-cuda13-cufft", "audiocpp-cuda13-cudart", "audiocpp-cuda13-cublas", "audiocpp-cuda12-cufft", "audiocpp-cuda12-cudart", "audiocpp-cuda12-cublas"] {
             assert_eq!(reason_of(lib, "unused"), "audiocpp-cuda", "{lib}");
         }
-        assert!(REASONS.iter().any(|(code, _)| *code == "audiocpp-cuda"), "the reason has its text");
+        for code in ["audiocpp-cuda", "audiocpp-server"] {
+            assert!(REASONS.iter().any(|(reason, _)| *reason == code), "{code} has its text");
+        }
     }
 
     #[test]

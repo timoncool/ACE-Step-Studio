@@ -3,6 +3,7 @@ import { Check, Copy } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import { apiUrl } from '../services/apiBase';
 import { SELF_READ } from '../services/studioQueries';
+import { poll } from '../services/poll';
 import { STUDIO } from '../studio';
 
 /**
@@ -71,11 +72,10 @@ export const AgentPanel: React.FC = () => {
           setFailed(null);
         })
         .catch((error: Error) => alive && setFailed(error.message));
-    void load();
-    const timer = window.setInterval(() => void load(), 3000);
+    const stop = poll(load, 3000);
     return () => {
       alive = false;
-      window.clearInterval(timer);
+      stop();
     };
   }, []);
 

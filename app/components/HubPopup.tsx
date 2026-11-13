@@ -2,7 +2,8 @@ import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 import { openExternal } from '../services/externalLinks';
-import { HUB_GRADIENTS, HUB_TEXT, hubMediaUrl, hubText, reportNotice, stackTheme, type HubButton, type HubItem } from '../services/studioHub';
+import { HUB_GRADIENTS, HUB_TEXT, hubMediaUrl, hubText, reportLinkClick, reportNotice, stackTheme, type HubButton, type HubItem } from '../services/studioHub';
+import { hubStateChanged } from '../services/studioQueries';
 import { HubMarkdown } from './HubMarkdown';
 
 interface Props {
@@ -23,7 +24,7 @@ export const HubPopup: React.FC<Props> = ({ item, onClose, onOpen }) => {
   }, [item.id]);
 
   const dismiss = React.useCallback(() => {
-    reportNotice(item.id, 'dismissed').catch((error) => console.warn('[hub] popup close not recorded:', error));
+    reportNotice(item.id, 'dismissed').catch((error) => console.warn('[hub] popup close not recorded:', error)).finally(hubStateChanged);
     onClose();
   }, [item.id, onClose]);
 
@@ -39,7 +40,8 @@ export const HubPopup: React.FC<Props> = ({ item, onClose, onOpen }) => {
 
   const press = (button: HubButton, index: number) => {
     reportNotice(item.id, button.action === 'dismiss' ? 'dismissed' : 'clicked', button.action === 'dismiss' ? undefined : `b${index}`)
-      .catch((error) => console.warn('[hub] popup button not recorded:', error));
+      .catch((error) => console.warn('[hub] popup button not recorded:', error))
+      .finally(hubStateChanged);
     if (button.action === 'url' && button.url) void openExternal(button.url);
     if (button.action === 'open' && button.target) onOpen(button.target);
     onClose();
@@ -59,9 +61,7 @@ export const HubPopup: React.FC<Props> = ({ item, onClose, onOpen }) => {
           )}
         </div>
         {item.image && <img src={hubMediaUrl(item.image)} alt="" className="max-h-56 w-full object-cover" />}
-        <div onClickCapture={(event) => {
-          if ((event.target as HTMLElement).closest('a')) reportNotice(item.id, 'clicked', 'link').catch((error) => console.warn('[hub] popup link not recorded:', error));
-        }}>
+        <div onClickCapture={(event) => reportLinkClick(item.id, event.target, event.currentTarget, hubStateChanged)}>
           <HubMarkdown text={content.body} className="space-y-2 px-5 py-4 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300 [&_a]:text-pink-600 dark:[&_a]:text-pink-400" />
         </div>
         {item.ad?.label && <p className="px-5 pb-2 text-xs text-zinc-400">{t('hubAd')}{item.ad.erid ? ` · erid ${item.ad.erid}` : ''}</p>}

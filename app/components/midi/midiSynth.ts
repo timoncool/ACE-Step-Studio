@@ -49,6 +49,7 @@ export class MidiSynth {
   private noiseBuf: AudioBuffer;
   private audioEl: HTMLAudioElement | null = null;
   private mediaSrc: MediaElementAudioSourceNode | null = null;
+  private sources = new WeakMap<HTMLAudioElement, MediaElementAudioSourceNode>();
 
   private notes: PlayNote[] = [];       // kept sorted by start
   private schedIdx = 0;                 // next note to consider scheduling
@@ -81,11 +82,17 @@ export class MidiSynth {
   /** Wire the original-audio element into the crossfade graph (once). */
   attachAudio(el: HTMLAudioElement): void {
     if (this.audioEl === el) return;
+    // A new element (another track, or the same one after the player was redrawn) is routed through the crossfade
+    // as well; an element can have one source node only, so a source made for it before is reused.
+    this.mediaSrc?.disconnect();
     this.audioEl = el;
-    if (!this.mediaSrc) {
-      this.mediaSrc = this.ctx.createMediaElementSource(el);
-      this.mediaSrc.connect(this.origGain);
+    let source = this.sources.get(el);
+    if (!source) {
+      source = this.ctx.createMediaElementSource(el);
+      this.sources.set(el, source);
     }
+    this.mediaSrc = source;
+    this.mediaSrc.connect(this.origGain);
   }
 
   /** Per-family output bus — lets the UI mute/solo instrument tracks. */

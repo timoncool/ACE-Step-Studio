@@ -144,7 +144,7 @@ export const MidiEditor: React.FC<{ source: MidiEditorSource; onClose: () => voi
             event.stopPropagation();
             close();
           }}
-          className="flex h-[94vh] w-full max-w-[1600px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-zinc-900"
+          className="flex h-[calc(var(--vh)*94)] w-full max-w-[1600px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-zinc-900"
         >
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-zinc-200 px-4 py-3 dark:border-white/10 sm:px-5">
             <h3 id="midi-editor-title" className="flex min-w-0 items-center gap-2 text-base font-bold text-zinc-900 dark:text-white">

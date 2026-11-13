@@ -1,21 +1,12 @@
-//! Splitting a finished track into stems.
-//!
-//! ACE-Step Studio did this in the browser: an ONNX build of htdemucs running
-//! under WebAssembly on a page of its own. That is the arrangement this studio
-//! replaced everywhere else, and it is replaced here too - the model runs in
-//! this process, on the ONNX Runtime the studio already ships for the karaoke
-//! recogniser, with no Python and no second window.
-//!
-//! The model takes 7.8 seconds of 44.1 kHz stereo at a time and returns the
-//! same span once per stem. A song is longer than that, so it is cut into
-//! overlapping segments and cross-faded back together: without the overlap the
-//! seams are audible, which is the usual way a separator sounds broken.
+//! Splitting a finished track into stems: HT-Demucs 6s on audio.cpp's server
+//! (six stems of 44.1 kHz stereo, the server cuts and joins the segments
+//! itself), or Mel-Band RoFormer through Dub Studio's separator for the vocals
+//! and the rest.
 
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use anyhow::{bail, Context, Result};
-use ort::session::Session;
-use ort::value::Value;
 
 use serde::{Deserialize, Serialize};
 
@@ -32,9 +23,6 @@ pub struct SeparationConfig {
     /// returns all six - but writing only what the user wants keeps the
     /// library from filling with silence they never asked for.
     pub stems: Vec<String>,
-    /// How much neighbouring segments share. More overlap means more passes
-    /// and a smoother seam; a quarter is the model's own reference setting.
-    pub overlap: f64,
     /// Which separator runs: HT-Demucs for six stems, Mel-Band RoFormer for the
     /// vocals and the rest. It also separates the vocals the vocals-only mode
     /// and training take.
@@ -56,42 +44,32 @@ impl Default for SeparationConfig {
             // what the panel shows before anything is chosen
             runtime: crate::lyrics_sync::OnnxFlavour::Auto,
             stems: STEMS.iter().map(|stem| (*stem).to_string()).collect(),
-            overlap: OVERLAP,
             engine: Engine::Htdemucs,
         }
     }
 }
 
 impl SeparationConfig {
-    /// The overlap, kept inside what the segment length can actually support.
-    pub fn sane_overlap(&self) -> f64 {
-        self.overlap.clamp(0.0, 0.5)
-    }
-
-    pub fn wants(&self, stem: &str) -> bool {
-        self.stems.iter().any(|wanted| wanted == stem)
-    }
 }
 
 
 
 /// The separation model, and where it comes from.
 ///
-/// One file, one download, pinned to the revision it was measured at. Like
-/// everything else here it is fetched only when the user asks for it: a studio
-/// that never separates a track never spends the 136 MB.
+/// One file, one download, pinned to the revision it was measured at: audio.cpp's own GGUF of HT-Demucs 6s, f16 as
+/// it is published. Like everything else here it is fetched only when the user asks for it.
 pub const MODEL: Asset = Asset {
     id: "htdemucs-6s",
     label: "HT-Demucs 6 stems",
     kind: AssetKind::Model,
-    url: "https://huggingface.co/StemSplitio/htdemucs-6s-onnx/resolve/49df9b6989cf2150840ea65b0bef77a2e471b678/htdemucs_6s_fp16weights.onnx",
-    relative_path: "models/htdemucs/htdemucs_6s_fp16.onnx",
-    bytes: 136_428_532,
+    url: "https://huggingface.co/audio-cpp/audio.cpp-gguf/resolve/462b4cec041e06ffb3d8fcf0d8c655051b1cd9f5/HTDemucs-6stems-GGUF/htdemucs-6stems-f16.gguf",
+    relative_path: "models/htdemucs/htdemucs-6stems-f16.gguf",
+    bytes: 54_919_200,
     unzip_into: None,
     marker: "",
     pick: &[],
     vram_gb: Some(2),
-    note: "Six stems: drums, bass, other, vocals, guitar, piano. MIT-licensed, runs on the studio's ONNX Runtime.",
+    note: "Six stems: drums, bass, other, vocals, guitar, piano. MIT-licensed, runs on audio.cpp's server.",
 };
 
 /// The stems Mel-Band RoFormer leaves: the voice, and the mix without it.
@@ -112,79 +90,77 @@ pub const ROFORMER_MODEL: Asset = Asset {
     note: "The vocals and the rest, cleaner than HT-Demucs: Dub Studio's separator, run by BSRoformer.cpp.",
 };
 
-/// BSRoformer.cpp (timoncool studio-0.1.1), the CUDA build and the processor build, each with a ggml-cpu per
-/// instruction level so any x86-64 runs it, as Dub Studio ships them.
-#[cfg(windows)]
-pub const ROFORMER_ENGINE: Asset = Asset {
-    id: "bsroformer-engine",
-    label: "BSRoformer.cpp (CUDA)",
-    kind: AssetKind::Runtime,
-    url: "https://github.com/timoncool/BSRoformer.cpp/releases/download/studio-0.1.1/BSRoformer-windows-cuda13-x64.zip",
-    relative_path: "bsroformer-cuda.zip",
-    bytes: 119_367_905,
-    unzip_into: Some("bsroformer"),
-    marker: "bs_roformer-cli",
-    pick: &[],
-    vram_gb: None,
-    note: "Runs Mel-Band RoFormer on an NVIDIA card, with the engine's cuBLAS 13.",
-};
-#[cfg(windows)]
-pub const ROFORMER_ENGINE_CPU: Asset = Asset {
-    id: "bsroformer-engine-cpu",
-    label: "BSRoformer.cpp (processor)",
-    kind: AssetKind::Runtime,
-    url: "https://github.com/timoncool/BSRoformer.cpp/releases/download/studio-0.1.1/BSRoformer-windows-cpu-x64.zip",
-    relative_path: "bsroformer-cpu.zip",
-    bytes: 3_006_666,
-    unzip_into: Some("bsroformer-cpu"),
-    marker: "bs_roformer-cli",
-    pick: &[],
-    vram_gb: None,
-    note: "Runs Mel-Band RoFormer on the processor: slower, the same result.",
-};
-#[cfg(target_os = "linux")]
-pub const ROFORMER_ENGINE: Asset = Asset {
-    id: "bsroformer-engine",
-    label: "BSRoformer.cpp (CUDA)",
-    kind: AssetKind::Runtime,
-    url: "https://github.com/timoncool/BSRoformer.cpp/releases/download/studio-0.1.1/BSRoformer-linux-cuda13-x64.tar.gz",
-    relative_path: "bsroformer-cuda.tar.gz",
-    bytes: 123_464_218,
-    unzip_into: Some("bsroformer"),
-    marker: "bs_roformer-cli",
-    pick: &[],
-    vram_gb: None,
-    note: "Runs Mel-Band RoFormer on an NVIDIA card.",
-};
-#[cfg(target_os = "linux")]
-pub const ROFORMER_ENGINE_CPU: Asset = Asset {
-    id: "bsroformer-engine-cpu",
-    label: "BSRoformer.cpp (processor)",
-    kind: AssetKind::Runtime,
-    url: "https://github.com/timoncool/BSRoformer.cpp/releases/download/studio-0.1.1/BSRoformer-linux-cpu-x64.tar.gz",
-    relative_path: "bsroformer-cpu.tar.gz",
-    bytes: 5_849_988,
-    unzip_into: Some("bsroformer-cpu"),
-    marker: "bs_roformer-cli",
-    pick: &[],
-    vram_gb: None,
-    note: "Runs Mel-Band RoFormer on the processor: slower, the same result.",
-};
-/// The author's Apple silicon build: ggml with Metal and the processor, its libraries by their full versions only.
-#[cfg(target_os = "macos")]
-pub const ROFORMER_ENGINE_CPU: Asset = Asset {
-    id: "bsroformer-engine-cpu",
-    label: "BSRoformer.cpp (Metal)",
-    kind: AssetKind::Runtime,
-    url: "https://github.com/chenmozhijin/BSRoformer.cpp/releases/download/v0.1.0/BSRoformer-macos-arm64.tar.xz",
-    relative_path: "bsroformer-cpu.tar.xz",
-    bytes: 636_996,
-    unzip_into: Some("bsroformer-cpu"),
-    marker: "bs_roformer-cli",
-    pick: &[],
-    vram_gb: None,
-    note: "Runs Mel-Band RoFormer on Apple silicon: Metal, and the processor where Metal cannot.",
-};
+/// The builds of BSRoformer.cpp, as Dub Studio names them.
+pub use dub_sep::asset::Build as RoformerBuild;
+
+/// BSRoformer.cpp as Dub Studio pins it (`dub_sep::asset`): timoncool studio-0.1.1 on Windows and Linux - CUDA 13,
+/// CUDA 12.9, Vulkan and the processor, each with a ggml-cpu per instruction level so any x86-64 runs it - and the
+/// author's Apple silicon build. The component ids and folders are the other programs' too. None where the platform
+/// has no such build.
+pub fn roformer_asset(build: RoformerBuild) -> Option<&'static Asset> {
+    static ASSETS: OnceLock<Vec<(RoformerBuild, Asset)>> = OnceLock::new();
+    ASSETS
+        .get_or_init(|| RoformerBuild::ALL.into_iter().filter_map(|build| build.engine().map(|pinned| (build, roformer_download(build, pinned)))).collect())
+        .iter()
+        .find(|(of, _)| *of == build)
+        .map(|(_, asset)| asset)
+}
+
+fn roformer_download(build: RoformerBuild, pinned: dub_sep::asset::Asset) -> Asset {
+    let leak = |text: String| -> &'static str { Box::leak(text.into_boxed_str()) };
+    let folder = pinned.archive.rsplit('/').nth(1).unwrap_or("bsroformer");
+    let extension = pinned.archive.rsplit_once("_engine.").map_or("zip", |(_, extension)| extension);
+    // the CUDA 13 build's archive keeps the name it had before the other builds came
+    let archive = if build == RoformerBuild::Cuda13 { "bsroformer-cuda" } else { folder };
+    let (label, note) = match build {
+        RoformerBuild::Cuda13 => ("BSRoformer.cpp (CUDA)", "Runs Mel-Band RoFormer on an NVIDIA card, with the engine's CUDA 13 libraries."),
+        RoformerBuild::Cuda12 => ("BSRoformer.cpp (CUDA 12)", "Runs Mel-Band RoFormer on an NVIDIA card CUDA 13 does not run - Maxwell to Volta, or a driver older than 580 - with the engine's CUDA 12 libraries."),
+        RoformerBuild::Vulkan => ("BSRoformer.cpp (Vulkan)", "Runs Mel-Band RoFormer on an AMD or Intel card."),
+        RoformerBuild::Cpu if cfg!(target_os = "macos") => ("BSRoformer.cpp (Metal)", "Runs Mel-Band RoFormer on Apple silicon: Metal, and the processor where Metal cannot."),
+        RoformerBuild::Cpu => ("BSRoformer.cpp (processor)", "Runs Mel-Band RoFormer on the processor: slower, the same result."),
+    };
+    Asset {
+        id: build.component(),
+        label,
+        kind: AssetKind::Runtime,
+        url: pinned.url,
+        relative_path: leak(format!("{archive}.{extension}")),
+        bytes: pinned.size,
+        unzip_into: Some(leak(folder.to_string())),
+        marker: "bs_roformer-cli",
+        pick: &[],
+        vram_gb: None,
+        note,
+    }
+}
+
+/// The build RoFormer runs, as Dub Studio chooses it: on the card (`gpu`) the CUDA build its card and driver run (13
+/// or 12), Vulkan on a card of another make (`other_make`), the processor on an NVIDIA card no CUDA build runs; the
+/// processor otherwise. A Mac has its one build.
+pub fn roformer_build(gpu: bool, card: Option<crate::cuda_build::CudaBuild>, other_make: bool) -> RoformerBuild {
+    let card = card.map(|build| match build {
+        crate::cuda_build::CudaBuild::Cuda13 => RoformerBuild::Cuda13,
+        crate::cuda_build::CudaBuild::Cuda12 => RoformerBuild::Cuda12,
+    });
+    RoformerBuild::for_device(if gpu { "auto" } else { "cpu" }, card, other_make).unwrap_or(RoformerBuild::Cpu)
+}
+
+/// The build this machine runs RoFormer on, `gpu` or not.
+pub fn machine_roformer_build(gpu: bool) -> RoformerBuild {
+    roformer_build(gpu, crate::cuda_build::card(), crate::presets::display_card().is_some() && !crate::cuda_build::nvidia_card())
+}
+
+/// The libraries a Windows CUDA build loads from beside it: cuBLAS of its CUDA, and for CUDA 12 its runtime, which
+/// CUDA 13's links in. None for the other builds, and off Windows, where they come from `LD_LIBRARY_PATH`.
+pub fn roformer_cuda_libraries(build: RoformerBuild) -> &'static [&'static str] {
+    const CUDA12: [&str; 3] = [crate::engine_runtime::CUDA12_LIBRARIES[0], crate::engine_runtime::CUDA12_LIBRARIES[1], "cudart64_12.dll"];
+    match build {
+        _ if !cfg!(windows) => &[],
+        RoformerBuild::Cuda13 => &crate::engine_runtime::CUDA13_LIBRARIES,
+        RoformerBuild::Cuda12 => &CUDA12,
+        RoformerBuild::Vulkan | RoformerBuild::Cpu => &[],
+    }
+}
 
 /// Owns the separation model's directory and the runs that use it.
 pub struct Separator {
@@ -208,30 +184,18 @@ impl Separator {
         self.downloader.is_installed(&MODEL)
     }
 
-    /// True when a run could start right now: the model is here and so is the
-    /// runtime that executes it.
-    pub fn ready(&self, runtime: Option<&Path>) -> bool {
-        self.is_installed() && runtime.is_some()
+    /// Apollo's weights, kept with the separator's.
+    pub fn restore_model_path(&self) -> PathBuf {
+        self.downloader.path_of(&crate::restore::MODEL)
     }
 
+    pub fn restore_installed(&self) -> bool {
+        self.downloader.is_installed(&crate::restore::MODEL)
+    }
 
-    /// The BSRoformer.cpp build for the card or the processor, where this platform has one.
+    /// The BSRoformer.cpp build for the card or the processor on this machine, where this platform has one.
     pub fn roformer_engine(gpu: bool) -> Option<&'static Asset> {
-        #[cfg(any(windows, target_os = "linux"))]
-        {
-            Some(if gpu { &ROFORMER_ENGINE } else { &ROFORMER_ENGINE_CPU })
-        }
-        // one build on a Mac: Metal and the processor, chosen by the engine itself
-        #[cfg(target_os = "macos")]
-        {
-            let _ = gpu;
-            Some(&ROFORMER_ENGINE_CPU)
-        }
-        #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
-        {
-            let _ = gpu;
-            None
-        }
+        roformer_asset(machine_roformer_build(gpu))
     }
 
     pub fn roformer_cli(&self, gpu: bool) -> Option<PathBuf> {
@@ -240,32 +204,35 @@ impl Separator {
         Some(self.downloader.runtime_dir(engine.unzip_into?).join(name))
     }
 
-    /// Mel-Band RoFormer can run: its model, the engine build for the card or the processor, and for the card the
-    /// cuBLAS that build loads.
+    /// Mel-Band RoFormer can run: its model, the engine build for the card or the processor, and for a CUDA build the
+    /// libraries that build loads.
     pub fn roformer_installed(&self, gpu: bool) -> bool {
         self.downloader.is_installed(&ROFORMER_MODEL)
             && Self::roformer_engine(gpu).is_some_and(|engine| self.downloader.is_installed(engine))
             && (!gpu || self.cuda_libraries_found())
     }
 
-    /// The CUDA build's cuBLAS 13 where the Windows loader looks: beside the program, or on PATH.
+    /// The CUDA build's libraries where the Windows loader looks: beside the program, or on PATH.
     fn cuda_libraries_found(&self) -> bool {
-        if !cfg!(windows) {
+        let libraries = roformer_cuda_libraries(machine_roformer_build(true));
+        if libraries.is_empty() {
             return true;
         }
         let Some(folder) = self.roformer_cli(true).and_then(|cli| cli.parent().map(Path::to_path_buf)) else { return false };
         let on_path = |name: &str| std::env::var_os("PATH").is_some_and(|path| std::env::split_paths(&path).any(|dir| dir.join(name).is_file()));
-        crate::engine_runtime::CUDA13_LIBRARIES.iter().all(|name| folder.join(name).is_file() || on_path(name))
+        libraries.iter().all(|name| folder.join(name).is_file() || on_path(name))
     }
 
-    /// The CUDA build imports the cuBLAS 13 the music engine already has beside it; Windows
-    /// looks for a library in the program's folder, so it gets links to those files, no copies.
-    pub fn link_cuda_libraries(&self, from: &Path) -> Result<()> {
+    /// The CUDA build imports the CUDA libraries the music engine already has (cuBLAS beside it or in the data folder,
+    /// CUDA 12's runtime beside it); Windows looks for a library in the program's folder, so it gets links to those
+    /// files from the first of `from` that has each, no copies.
+    pub fn link_cuda_libraries(&self, from: &[PathBuf]) -> Result<()> {
         let Some(cli) = self.roformer_cli(true) else { return Ok(()) };
         let Some(folder) = cli.parent() else { return Ok(()) };
-        for name in crate::engine_runtime::CUDA13_LIBRARIES {
-            let (source, target) = (from.join(name), folder.join(name));
-            if target.is_file() || !source.is_file() {
+        for name in roformer_cuda_libraries(machine_roformer_build(true)) {
+            let target = folder.join(name);
+            let Some(source) = from.iter().map(|directory| directory.join(name)).find(|source| source.is_file()) else { continue };
+            if target.is_file() {
                 continue;
             }
             if std::fs::hard_link(&source, &target).is_err() {
@@ -292,15 +259,8 @@ impl Separator {
     }
 }
 
-/// What the exported graph expects: 7.8 s of stereo at 44.1 kHz.
-pub const SEGMENT_SAMPLES: usize = 343_980;
 pub const SAMPLE_RATE: u32 = 44_100;
 const CHANNELS: usize = 2;
-
-/// How much of each segment is shared with the one before it. A quarter is what
-/// the model's own reference inference uses, and it is enough for the crossfade
-/// to hide the boundary.
-const OVERLAP: f64 = 0.25;
 
 /// The stems the six-source model returns, in the order it returns them.
 pub const STEMS: [&str; 6] = ["drums", "bass", "other", "vocals", "guitar", "piano"];
@@ -318,146 +278,33 @@ pub struct Separated {
     pub used_gpu: bool,
 }
 
-/// The model on its runtime, loaded once and run over as many tracks as there
-/// are: a dataset of twenty songs loads it once, not twenty times.
-pub struct Loaded {
-    session: Session,
-    /// True when the graphics card actually does the work.
-    pub used_gpu: bool,
-}
-
-/// Loads the model, on the card a path reaches when one is given.
-pub fn load(model: &Path, card: Option<crate::lyrics_sync::OnnxCard>) -> Result<Loaded> {
-    let builder = Session::builder().context("prepare an ONNX session")?;
-    let (mut builder, used_gpu) = crate::lyrics_sync::with_card(builder, card);
-    let session = builder
-        .commit_from_file(model)
-        .with_context(|| {
-            if used_gpu {
-                format!("the graphics card could not load the separation model {}; choose the processor in the separation settings to separate without it", model.display())
-            } else {
-                format!("load the separation model {}", model.display())
-            }
-        })?;
-    Ok(Loaded { session, used_gpu })
-}
-
-/// Loads the model and runs it over one track.
-pub fn separate(
+/// The six stems of interleaved 44.1 kHz stereo, through audio.cpp's HT-Demucs on `build`. `stop` is asked while it
+/// runs; a stop ends the server and the call says "stopped".
+pub fn separate_htdemucs(
+    acpp: &crate::acpp::Acpp,
     model: &Path,
     audio: &[f32],
-    stem_count: usize,
-    overlap: f64,
-    card: Option<crate::lyrics_sync::OnnxCard>,
-    progress: impl FnMut(f64),
-) -> Result<Separated> {
-    let mut loaded = load(model, card)?;
-    separate_with(&mut loaded, audio, stem_count, overlap, progress)
-}
-
-/// Runs a loaded model over a whole track.
-///
-/// `progress` is called with a fraction between 0 and 1 after each segment, so
-/// a long song can say how far along it is instead of appearing to hang.
-pub fn separate_with(
-    loaded: &mut Loaded,
-    audio: &[f32],
-    stem_count: usize,
-    overlap: f64,
-    mut progress: impl FnMut(f64),
+    build: acpp_server::asset::Build,
+    stop: &(dyn Fn() -> bool + Sync),
 ) -> Result<Separated> {
     if audio.is_empty() {
         bail!("nothing to separate: the track decoded to no audio");
     }
-    if stem_count > STEMS.len() {
-        bail!("this model was declared with {stem_count} stems, more than the {} known", STEMS.len());
-    }
-    let (session, used_gpu) = (&mut loaded.session, loaded.used_gpu);
-
-    let frames = audio.len() / CHANNELS;
-    let overlap = overlap.clamp(0.0, 0.5);
-    let step = (((SEGMENT_SAMPLES as f64) * (1.0 - overlap)) as usize).max(1);
-    let mut sums = vec![vec![0f32; frames * CHANNELS]; stem_count];
-    let mut weights = vec![0f32; frames];
-
-    let window = fade_window(SEGMENT_SAMPLES, (SEGMENT_SAMPLES as f64 * overlap) as usize);
-    let segments = frames.div_ceil(step).max(1);
-
-    for (index, start) in (0..frames).step_by(step).enumerate() {
-        // The tail of the song is shorter than a segment; the model still wants
-        // a full one, so the rest is silence and is discarded afterwards.
-        let mut planar = vec![0f32; SEGMENT_SAMPLES * CHANNELS];
-        let taken = SEGMENT_SAMPLES.min(frames - start);
-        for frame in 0..taken {
-            for channel in 0..CHANNELS {
-                planar[channel * SEGMENT_SAMPLES + frame] = audio[(start + frame) * CHANNELS + channel];
-            }
+    let work = tempfile::tempdir()?;
+    let mix = work.path().join("mix.wav");
+    write_wav_stereo(&mix, audio)?;
+    let entry = acpp_server::ModelEntry::htdemucs(crate::acpp::HTDEMUCS, model);
+    let result = crate::acpp::run(acpp, build, entry, vec![model.to_path_buf()], serde_json::json!({ "audio": mix }), stop)?;
+    let outputs = acpp_server::task_audio(&result).map_err(|error| anyhow::anyhow!("HT-Demucs: {}", crate::acpp::describe(&error)))?;
+    let mut stems = Vec::new();
+    for name in STEMS {
+        let output = outputs.iter().find(|output| output.id.as_deref() == Some(name)).with_context(|| format!("HT-Demucs returned no {name}"))?;
+        if output.sample_rate != SAMPLE_RATE || usize::from(output.channels) != CHANNELS {
+            bail!("HT-Demucs returned {name} at {} Hz in {} channels, not {SAMPLE_RATE} Hz stereo", output.sample_rate, output.channels);
         }
-
-        let input = Value::from_array(([1usize, CHANNELS, SEGMENT_SAMPLES], planar))
-            .context("build the model input")?;
-        let outputs = session.run(ort::inputs!["mix" => input]).context("run the separation model")?;
-        let (shape, data) = outputs[0]
-            .try_extract_tensor::<f32>()
-            .context("read the separated stems")?;
-        let produced = shape.get(1).copied().unwrap_or(0) as usize;
-        if produced < stem_count {
-            bail!("the model returned {produced} stems, fewer than the {stem_count} expected");
-        }
-
-        for stem in 0..stem_count {
-            for frame in 0..taken {
-                let gain = window[frame];
-                for channel in 0..CHANNELS {
-                    let offset = ((stem * CHANNELS) + channel) * SEGMENT_SAMPLES + frame;
-                    sums[stem][(start + frame) * CHANNELS + channel] += data[offset] * gain;
-                }
-            }
-        }
-        for frame in 0..taken {
-            weights[start + frame] += window[frame];
-        }
-
-        progress(((index + 1) as f64 / segments as f64).min(1.0));
+        stems.push(Stem { name, samples: output.samples.clone() });
     }
-
-    // Undo the crossfade weighting, so a sample covered by two segments is not
-    // twice as loud as one covered by a single segment.
-    for stem in sums.iter_mut() {
-        for frame in 0..frames {
-            let weight = weights[frame];
-            if weight <= f32::EPSILON {
-                continue;
-            }
-            for channel in 0..CHANNELS {
-                stem[frame * CHANNELS + channel] /= weight;
-            }
-        }
-    }
-
-    Ok(Separated {
-        stems: sums
-            .into_iter()
-            .enumerate()
-            .map(|(index, samples)| Stem { name: STEMS[index], samples })
-            .collect(),
-        used_gpu,
-    })
-}
-
-/// A segment's gain curve: full in the middle, fading in and out across the
-/// overlap so two neighbouring segments sum to one.
-fn fade_window(length: usize, fade: usize) -> Vec<f32> {
-    let mut window = vec![1f32; length];
-    if fade == 0 {
-        return window;
-    }
-    for index in 0..fade.min(length / 2) {
-        let gain = (index as f32 + 0.5) / fade as f32;
-        window[index] = gain;
-        window[length - 1 - index] = gain;
-    }
-    window
+    Ok(Separated { stems, used_gpu: crate::acpp::on_card(build) })
 }
 
 /// Writes interleaved stereo samples as a 16-bit WAV, which every player and
@@ -493,20 +340,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn neighbouring_windows_sum_to_one_across_the_overlap() {
-        let fade = (SEGMENT_SAMPLES as f64 * OVERLAP) as usize;
-        let window = fade_window(SEGMENT_SAMPLES, fade);
-        let step = ((SEGMENT_SAMPLES as f64) * (1.0 - OVERLAP)) as usize;
-        // Where two segments overlap, their gains must add up to full volume,
-        // or the seam is a dip the listener hears.
-        for offset in 0..fade {
-            let leaving = window[step + offset];
-            let arriving = window[offset];
-            assert!((leaving + arriving - 1.0).abs() < 0.05, "seam at {offset}: {leaving} + {arriving}");
-        }
-    }
-
-    #[test]
     fn a_wav_carries_the_header_a_player_expects() {
         let path = std::env::temp_dir().join(format!("studio-stem-{}.wav", uuid::Uuid::now_v7()));
         write_wav_stereo(&path, &[0.0, 0.5, -0.5, 1.0]).unwrap();
@@ -518,5 +351,27 @@ mod tests {
         // Two frames of stereo, sixteen bits each.
         assert_eq!(bytes.len(), 44 + 8);
         let _ = std::fs::remove_file(path);
+    }
+
+
+    /// RoFormer takes the build of the card it runs on: the CUDA build of the card and driver, Vulkan on a card of
+    /// another make, the processor without one or when asked.
+    #[test]
+    #[cfg(not(target_os = "macos"))]
+    fn roformer_takes_the_build_of_the_card() {
+        use crate::cuda_build::CudaBuild;
+        assert_eq!(roformer_build(true, Some(CudaBuild::Cuda13), false), RoformerBuild::Cuda13);
+        assert_eq!(roformer_build(true, Some(CudaBuild::Cuda12), false), RoformerBuild::Cuda12);
+        assert_eq!(roformer_build(true, None, true), RoformerBuild::Vulkan, "an AMD or Intel card");
+        assert_eq!(roformer_build(true, None, false), RoformerBuild::Cpu, "no card, or an NVIDIA card no CUDA build runs");
+        assert_eq!(roformer_build(false, Some(CudaBuild::Cuda13), false), RoformerBuild::Cpu);
+        for (build, folder) in [(RoformerBuild::Cuda13, "bsroformer"), (RoformerBuild::Cuda12, "bsroformer-cuda12"), (RoformerBuild::Vulkan, "bsroformer-vulkan"), (RoformerBuild::Cpu, "bsroformer-cpu")] {
+            let asset = roformer_asset(build).expect("every build on Windows and Linux");
+            assert_eq!((asset.id, asset.unzip_into), (build.component(), Some(folder)));
+            assert!(crate::pin_sha::sha256(asset.url).is_some(), "{} has its pin's SHA-256", asset.url);
+            assert!(asset.relative_path.ends_with(if cfg!(windows) { ".zip" } else { ".tar.gz" }), "{}", asset.relative_path);
+        }
+        assert_eq!(roformer_asset(RoformerBuild::Cuda13).unwrap().relative_path, if cfg!(windows) { "bsroformer-cuda.zip" } else { "bsroformer-cuda.tar.gz" });
+        assert_eq!(roformer_cuda_libraries(RoformerBuild::Cuda12).len(), if cfg!(windows) { 3 } else { 0 });
     }
 }

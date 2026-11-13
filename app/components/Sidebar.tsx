@@ -104,7 +104,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs md:hidden" onClick={onToggle} />
       )}
 
-      <aside className={`fixed inset-y-0 left-0 z-50 flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-r border-zinc-200 bg-white py-4 transition-[width,transform] duration-300 dark:border-white/5 dark:bg-suno-sidebar md:relative md:inset-auto ${isOpen ? 'w-[min(20rem,calc(100vw-2.5rem))] md:w-[200px]' : 'w-[72px]'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-50 flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-r border-zinc-200 bg-white py-4 transition-[width,transform] duration-300 dark:border-white/5 dark:bg-suno-sidebar md:relative md:inset-auto ${isOpen ? 'w-[min(20rem,calc(var(--vw)*100-2.5rem))] md:w-[200px]' : 'w-[72px]'}`}>
         <div className="mb-6 flex min-w-0 items-center justify-between gap-2 px-3">
           <div className="flex min-w-0 items-center gap-3">
             {/* The studio mark: three ascending bars in the accent ramp, the

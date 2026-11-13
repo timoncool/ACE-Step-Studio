@@ -110,6 +110,44 @@ pub fn write_wav_f32(path: &Path, audio: &audio_post::Stereo) -> Result<()> {
     Ok(())
 }
 
+
+/// Decodes `input` at 44.1 kHz in its own channels, one plane each: a mono recording stays mono.
+pub fn decode_44k(input: &Path) -> Result<Vec<Vec<f32>>> {
+    let (channels, rate) = decode_channels(input)?;
+    if channels.is_empty() || channels[0].is_empty() {
+        bail!("{} decoded to no audio", input.display());
+    }
+    channels.iter().map(|plane| resample(plane, rate, 44_100)).collect()
+}
+
+/// Writes `planes` as one interleaved 32-bit IEEE float WAV at `rate`, unclipped, as long as the shortest plane.
+pub fn write_wav_planes_f32(path: &Path, rate: u32, planes: &[Vec<f32>]) -> Result<()> {
+    let channels = u16::try_from(planes.len()).context("too many channels")?;
+    let frames = planes.iter().map(Vec::len).min().unwrap_or(0);
+    let spec = hound::WavSpec { channels, sample_rate: rate, bits_per_sample: 32, sample_format: hound::SampleFormat::Float };
+    let mut out = hound::WavWriter::create(path, spec).with_context(|| format!("create {}", path.display()))?;
+    for frame in 0..frames {
+        for plane in planes {
+            out.write_sample(plane[frame])?;
+        }
+    }
+    out.finalize().context("finish writing the WAV")?;
+    Ok(())
+}
+
+/// Writes interleaved `samples` of `channels` channels as 24-bit PCM WAV at `rate`, samples past full scale clipped
+/// there.
+pub fn write_wav24_interleaved(path: &Path, rate: u32, channels: u16, samples: &[f32]) -> Result<()> {
+    const FULL: f32 = 8_388_607.0;
+    let spec = hound::WavSpec { channels, sample_rate: rate, bits_per_sample: 24, sample_format: hound::SampleFormat::Int };
+    let mut out = hound::WavWriter::create(path, spec).with_context(|| format!("create {}", path.display()))?;
+    for sample in samples {
+        out.write_sample((sample.clamp(-1.0, 1.0) * FULL).round() as i32)?;
+    }
+    out.finalize().context("finish writing the WAV")?;
+    Ok(())
+}
+
 /// Every channel kept apart, at the file's own sample rate.
 /// What a file's own tags say about it; empty where they say nothing.
 #[derive(Debug, Clone, Default)]
@@ -372,6 +410,35 @@ mod tests {
         let spec = reader.spec();
         assert_eq!((spec.channels, spec.sample_rate), (1, 16_000));
         assert!((reader.len() as i64 - 16_000).abs() < 64, "{} samples for one second", reader.len());
+    }
+
+    #[test]
+    fn the_restorer_gets_44k_in_the_channels_of_the_source() {
+        let dir = tempfile::tempdir().unwrap();
+        let mono = dir.path().join("mono.wav");
+        let spec = hound::WavSpec { channels: 1, sample_rate: 22_050, bits_per_sample: 16, sample_format: hound::SampleFormat::Int };
+        let mut writer = hound::WavWriter::create(&mono, spec).unwrap();
+        for i in 0..22_050 {
+            writer.write_sample(((i as f32 * 0.05).sin() * 8_000.0) as i16).unwrap();
+        }
+        writer.finalize().unwrap();
+        let planes = decode_44k(&mono).unwrap();
+        assert_eq!(planes.len(), 1, "a mono source stays mono");
+        assert!((planes[0].len() as i64 - 44_100).abs() < 64, "one second at 44.1 kHz: {}", planes[0].len());
+
+        let wav = dir.path().join("in.wav");
+        write_wav_planes_f32(&wav, 44_100, &[vec![0.5, 1.5], vec![-0.5, -1.5]]).unwrap();
+        let reader = hound::WavReader::open(&wav).unwrap();
+        assert_eq!((reader.spec().channels, reader.spec().sample_rate, reader.spec().bits_per_sample), (2, 44_100, 32));
+        let samples: Vec<f32> = reader.into_samples::<f32>().map(Result::unwrap).collect();
+        assert_eq!(samples, vec![0.5, -0.5, 1.5, -1.5], "interleaved and unclipped");
+
+        let out = dir.path().join("out.wav");
+        write_wav24_interleaved(&out, 44_100, 1, &[0.5, 2.0]).unwrap();
+        let reader = hound::WavReader::open(&out).unwrap();
+        assert_eq!((reader.spec().channels, reader.spec().bits_per_sample), (1, 24));
+        let samples: Vec<i32> = reader.into_samples::<i32>().map(Result::unwrap).collect();
+        assert_eq!(samples[1], 8_388_607, "past full scale is clipped there");
     }
 
     #[test]

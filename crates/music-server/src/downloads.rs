@@ -453,6 +453,16 @@ impl Downloader {
         self.cancel.store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
+    /// Stops the running download only when the panel of `scope` started it: a downloader two panels share (karaoke's
+    /// carries audio.cpp's server for the stems and Audio to MIDI too) keeps the other panel's download going.
+    pub async fn cancel_for(&self, scope: &str) -> bool {
+        let ours = self.active_for(scope).await.is_some_and(|progress| !progress.done);
+        if ours {
+            self.cancel();
+        }
+        ours
+    }
+
     /// The running download, but only if this panel started it.
     pub async fn active_for(&self, scope: &str) -> Option<DownloadProgress> {
         self.active().await.filter(|progress| progress.scope.as_deref() == Some(scope))
@@ -1216,6 +1226,36 @@ fn link_beside(link: &Path, target: &str) -> Result<()> {
     Ok(())
 }
 
+/// The cause of a failed download as one code for the hub's counters (CONTRACT, Counters: one cause, one row):
+/// disk_space, io, hash_mismatch, size_mismatch, rate_limited, http_status, network, proxy, extract or other. The
+/// detail stays in the window and the log; it names hosts and sizes and would split one cause into many rows.
+pub fn failure_code(error: &anyhow::Error) -> &'static str {
+    for cause in error.chain() {
+        if let Some(io) = cause.downcast_ref::<io::Error>() {
+            // 112 is Windows' ERROR_DISK_FULL, 28 is ENOSPC
+            return if io.kind() == io::ErrorKind::StorageFull || matches!(io.raw_os_error(), Some(112) | Some(28)) { "disk_space" } else { "io" };
+        }
+    }
+    let text = format!("{error:#}");
+    if text.contains("differs from the pinned") {
+        "hash_mismatch"
+    } else if text.contains("bytes, the server said") {
+        "size_mismatch"
+    } else if text.contains(" minutes") && text.contains(" answered ") {
+        "rate_limited"
+    } else if text.contains("proxy") {
+        "proxy"
+    } else if text.contains("could not connect to") || text.contains("could not start") || text.contains("failed after") {
+        "network"
+    } else if text.contains(" answered ") {
+        "http_status"
+    } else if text.contains("did not contain") || text.contains("to files it does not contain") || text.contains("extraction") {
+        "extract"
+    } else {
+        "other"
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1374,7 +1414,7 @@ mod tests {
     fn an_install_cut_off_before_its_record_is_not_installed() {
         let root = std::env::temp_dir().join(format!("downloads-{}", uuid::Uuid::now_v7()));
         let downloader = Downloader::new(root.clone());
-        let url = "https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-win-x64-1.30.0.zip";
+        let url = "https://github.com/microsoft/onnxruntime/releases/download/v1.31.1/onnxruntime-win-x64-1.31.1.zip";
         let runtime = Asset { id: "test-runtime", kind: AssetKind::Runtime, url, relative_path: "runtime/onnxruntime.zip", unzip_into: Some("onnx"), marker: "onnxruntime.dll", ..asset() };
         let (key, size) = crate::install_record::key_file(url).unwrap();
         let record = downloader.record_of(&runtime);
@@ -1596,11 +1636,30 @@ mod tests {
         fs::create_dir_all(downloader.picked_into(&runtime)).unwrap();
         let archive = linux_archive(&root);
         let files = extract_named_local(&archive, runtime.pick, &downloader.picked_into(&runtime)).unwrap();
+        // the record sits where the download would have, a folder a real download makes
+        fs::create_dir_all(downloader.record_of(&runtime).parent().unwrap()).unwrap();
         crate::install_record::write(&downloader.record_of(&runtime), runtime.url, "", &files, &root).unwrap();
         assert!(downloader.is_installed(&runtime));
         assert_eq!(downloader.remove(&runtime).unwrap(), "library".len() as u64);
         assert!(!downloader.runtime_dir("cuda").join("libfoo.so.1.2.3").exists());
         assert!(!downloader.is_installed(&runtime));
         fs::remove_dir_all(&root).ok();
+    }
+
+
+    /// A failed download reaches the hub as one code for its cause, never the text that names a host or a size.
+    #[test]
+    fn a_failed_download_is_one_code_for_its_cause() {
+        let code = |error: anyhow::Error| failure_code(&error);
+        assert_eq!(code(anyhow::Error::new(io::Error::from_raw_os_error(112)).context("write the part")), "disk_space");
+        assert_eq!(code(anyhow::Error::new(io::Error::new(io::ErrorKind::PermissionDenied, "denied"))), "io");
+        assert_eq!(code(anyhow::anyhow!("model.gguf: its SHA-256 ab differs from the pinned cd; the file is removed, download it again")), "hash_mismatch");
+        assert_eq!(code(anyhow::anyhow!("Model has 10 bytes, the server said 20")), "size_mismatch");
+        assert_eq!(code(anyhow::anyhow!("https://h/x answered 429 Too Many Requests for 5 minutes")), "rate_limited");
+        assert_eq!(code(anyhow::anyhow!("could not connect to huggingface.co (3 attempts) for https://huggingface.co/x: timed out")), "network");
+        assert_eq!(code(anyhow::anyhow!("range 0-9 failed after 8 attempts: reset")), "network");
+        assert_eq!(code(anyhow::anyhow!("https://h/x answered 404 Not Found")), "http_status");
+        assert_eq!(code(anyhow::anyhow!("a.zip did not contain b.dll")), "extract");
+        assert_eq!(code(anyhow::anyhow!("something new")), "other");
     }
 }

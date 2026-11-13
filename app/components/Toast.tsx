@@ -26,14 +26,15 @@ export const Toast: React.FC<ToastProps> = ({
     const onCloseRef = useRef(onClose);
     useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
+    // an error stays until it is closed: it is read, copied and acted on, not glimpsed
     useEffect(() => {
-        if (isVisible && duration > 0) {
+        if (isVisible && duration > 0 && type !== 'error') {
             const timer = setTimeout(() => {
                 onCloseRef.current();
             }, action ? Math.max(duration, 10000) : duration);
             return () => clearTimeout(timer);
         }
-    }, [isVisible, duration, message, action]);
+    }, [isVisible, duration, message, action, type]);
 
     if (!isVisible) return null;
 
@@ -53,7 +54,7 @@ export const Toast: React.FC<ToastProps> = ({
         <div className="pointer-events-none fixed inset-x-3 top-3 z-100 flex justify-center sm:top-6">
             <div role={type === 'error' ? 'alert' : 'status'} className={`pointer-events-auto flex max-w-full items-center gap-3 rounded-2xl border px-4 py-3 shadow-2xl ${bgColors[type]} animate-in slide-in-from-top-4 fade-in duration-300 sm:rounded-full sm:px-6 sm:py-4`}>
                 {icons[type]}
-                <span className="min-w-0 wrap-break-word text-sm font-medium">{message}</span>
+                <span className="min-w-0 max-h-48 overflow-y-auto wrap-break-word select-text text-sm font-medium">{message}</span>
                 {action && (
                     <button type="button" onClick={() => { action.onClick(); onClose(); }} className="shrink-0 rounded-full px-2 py-0.5 text-sm font-bold text-pink-400 hover:bg-white/10">
                         {action.label}

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowRight, Check, Download, Loader2, X } from 'lucide-react';
+import { ArrowRight, Check, Download, Loader2, RotateCw, X } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
+import { poll } from '../services/poll';
 import { SELF_READ } from '../services/studioQueries';
 import type { TranslationKey } from '../i18n/translations';
 
@@ -8,7 +9,7 @@ type Row = { id: string; part: string; ids: string[]; name: string; from: string
 type Gone = { what: string; name: string; paths: string[]; size: number; reason_code: string; reason: string };
 export type UpdatePlan = { version: string; updated: Row[]; added: Row[]; retired: Gone[]; download: number; freed: number; show: boolean };
 type UpdateJob = { status: 'running' | 'done' | 'failed'; error: string | null; updated: Row[]; added: Row[] };
-type UpdateAnswer = { plan: UpdatePlan; job: UpdateJob | null };
+type UpdateAnswer = { plan: UpdatePlan; job: UpdateJob | null; restart_to_apply?: boolean };
 
 /** The window's words for the reasons of the release's table of changes, by their codes. */
 const WHY: Record<string, TranslationKey> = {
@@ -24,6 +25,8 @@ const WHY: Record<string, TranslationKey> = {
   'ort-gpu-gone': 'updateWhyOrtGpuGone',
   'demucs-audiocpp': 'updateWhyDemucsAudiocpp',
   'midi-audiocpp': 'updateWhyMidiAudiocpp',
+  'audiocpp-server': 'updateWhyAudiocppServer',
+  'htdemucs-onnx-gone': 'updateWhyHtdemucsOnnxGone',
   'newer': 'updateWhyNewer',
   'unused': 'updateWhyUnused',
 };
@@ -54,13 +57,10 @@ export const UpdatePlanView: React.FC<{ onDone?: () => void; onLater?: () => voi
   onDoneRef.current = onDone;
   useEffect(() => {
     if (!running) return;
-    const timer = window.setInterval(() => {
-      void readUpdatePlan().then((next) => {
-        setState(next);
-        if (next.job?.status === 'done') onDoneRef.current?.();
-      }, (problem: unknown) => setError(problem instanceof Error ? problem.message : String(problem)));
-    }, 1000);
-    return () => window.clearInterval(timer);
+    return poll(() => readUpdatePlan().then((next) => {
+      setState(next);
+      if (next.job?.status === 'done') onDoneRef.current?.();
+    }, (problem: unknown) => setError(problem instanceof Error ? problem.message : String(problem))), 1000);
   }, [running]);
 
   const apply = async () => {
@@ -132,6 +132,11 @@ export const UpdatePlanView: React.FC<{ onDone?: () => void; onLater?: () => voi
       {job?.status === 'done' && empty && (
         <div className="flex gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
           <Check size={16} className="mt-0.5 shrink-0" />{t('updateDone')}
+        </div>
+      )}
+      {state?.restart_to_apply && (
+        <div className="flex gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+          <RotateCw size={16} className="mt-0.5 shrink-0" />{t('updateRestartToApply')}
         </div>
       )}
       {!plan && !error && <Loader2 size={18} className="animate-spin text-zinc-400" />}

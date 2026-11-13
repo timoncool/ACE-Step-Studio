@@ -1,11 +1,10 @@
 #!/bin/bash
-# Linux counterpart of the Windows music-midi.exe and ace-caption.exe: builds
-# HOT-Step's `ace-midi` (MuScriptor audio-to-MIDI) and `ace-caption` (MOSS-Music,
-# Style by ear) at the pinned commit with a build of ggml-cpu for every processor
-# generation, each loaded as a library, and copies them as `music-midi` and
-# `music-caption`, with their libraries, into OUTPUT_DIRECTORY. The studio runs it on
-# the processor here: its Vulkan path writes wrong notes. The libraries are found
-# beside the binary ($ORIGIN), wherever the package puts them.
+# Linux counterpart of the Windows ace-caption.exe: builds HOT-Step's
+# `ace-caption` (MOSS-Music, Style by ear) at the pinned commit with a build of
+# ggml-cpu for every processor generation, each loaded as a library, and copies it
+# as `music-caption`, with its libraries, into OUTPUT_DIRECTORY. Audio to MIDI runs
+# on audio.cpp's server. The libraries are found beside the binary ($ORIGIN),
+# wherever the package puts them.
 set -euo pipefail
 
 output="${1:?usage: build-midi-runtime-linux.sh OUTPUT_DIRECTORY}"
@@ -32,24 +31,23 @@ rm -rf "$build"
 # a processor build: a CUDA toolkit in the container (the engine's) would make HOT-Step define GGML_USE_CUDA
 # for its sources without CUDA's headers, so the toolkit is kept out of this configure
 cmake -S "$worktree/engine" -B "$build" -G Ninja -DCMAKE_BUILD_TYPE=Release \
-    -DGGML_NATIVE=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON -DHOT_STEP_ORT_PATHS=OFF \
+    -DGGML_NATIVE=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON -DGGML_LLAMAFILE=ON -DHOT_STEP_ORT_PATHS=OFF \
     -DCMAKE_DISABLE_FIND_PACKAGE_CUDAToolkit=ON
 # the backends are modules nothing links against, so each is a target of its own
 variants="$(sed -n 's/^build \(ggml-cpu-[a-z0-9_]*\): phony.*/\1/p' "$build/build.ninja" | sort -u | tr '\n' ' ')"
 [ -n "$variants" ] || { echo "[ERROR] the configured build has no processor variants of ggml-cpu" >&2; exit 1; }
-cmake --build "$build" --config Release --target ace-midi ace-caption $variants -j "$(getconf _NPROCESSORS_ONLN)"
+cmake --build "$build" --config Release --target ace-caption $variants -j "$(getconf _NPROCESSORS_ONLN)"
 
 mkdir -p "$output"
-cp "$build/ace-midi" "$output/music-midi"
 cp "$build/ace-caption" "$output/music-caption"
 # -a keeps the version symlinks; the binary finds them through $ORIGIN.
 find "$build" -maxdepth 2 -name 'lib*.so*' -exec cp -a {} "$output/" \;
 echo "$commit" > "$output/runtime.commit"
-for binary in music-midi music-caption; do
-    if readelf -d "$output/$binary" | grep -iE 'runpath|rpath' | grep -qv 'ORIGIN'; then
+for binary in music-caption; do
+    if readelf -d "$output/$binary" | sed -n 's/.*R\(UN\)\{0,1\}PATH.*\[\(.*\)\]/\2/p' | tr ':' '\n' | grep -v '^\$ORIGIN' | grep -q .; then
         echo "[ERROR] $binary keeps a build-machine library path:" >&2
         readelf -d "$output/$binary" | grep -iE 'runpath|rpath' >&2
         exit 1
     fi
 done
-echo "music-midi and music-caption ($commit) built into $output"
+echo "music-caption ($commit) built into $output"

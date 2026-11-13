@@ -14,6 +14,10 @@ fn main() {
         }
     }
     println!("cargo:rerun-if-changed=tauri.conf.json");
+    println!("cargo:rerun-if-changed=windows-app-manifest.xml");
 
-    tauri_build::build()
+    // Tauri's own manifest with the console allocation policy beside it: started from Explorer on Windows 11 24H2
+    // and later, the studio gets no console of its own (no window, no Terminal tab) and makes a windowless one itself.
+    let windows = tauri_build::WindowsAttributes::new().app_manifest(include_str!("windows-app-manifest.xml"));
+    tauri_build::try_build(tauri_build::Attributes::new().windows_attributes(windows)).expect("the Tauri build step");
 }

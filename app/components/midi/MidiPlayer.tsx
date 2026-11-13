@@ -10,6 +10,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pause, Play, Radio } from 'lucide-react';
+import { pageZoom } from '../../services/uiScale';
 import { useI18n } from '../../context/I18nContext';
 import { MidiSynth, type PlayNote } from './midiSynth';
 
@@ -269,15 +270,17 @@ export const MidiPlayer: React.FC<Props> = ({ notes, sourceAudioUrl, live, chunk
           </span>
         </div>
 
-        {live && chunks && (
+        {live && chunks && chunks.total > 0 && (
           <span className="flex items-center gap-1.5 text-[11px] text-pink-500 dark:text-pink-400">
             <Radio size={11} className="animate-pulse" />
             {say('midiLiveChunk', { done: chunks.done, total: chunks.total })}
           </span>
         )}
-        <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
-          {say('midiNoteCount', { count: noteCount })}
-        </span>
+        {(!live || noteCount > 0) && (
+          <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+            {say('midiNoteCount', { count: noteCount })}
+          </span>
+        )}
       </div>
 
       {/* legend + per-track mute/solo (affects the MIDI side only) */}
@@ -331,7 +334,7 @@ export const MidiPlayer: React.FC<Props> = ({ notes, sourceAudioUrl, live, chunk
           style={{ height: ROLL_H }}
           onClick={e => {
             const rect = (e.target as HTMLCanvasElement).getBoundingClientRect();
-            seekTo((e.clientX - rect.left) / PPS);
+            seekTo((e.clientX - rect.left) / pageZoom() / PPS);
           }}
         />
       </div>

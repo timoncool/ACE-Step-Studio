@@ -1,6 +1,5 @@
-import { StudioFamily } from './StudioFamily';
 import React, { useEffect, useRef, useState } from 'react';
-import { BarChart3, Boxes, Cloud, Cpu, Image as ImageIcon, Info, Monitor, Plug, User as UserIcon, X } from 'lucide-react';
+import { BarChart3, Boxes, Bug, Cloud, Cpu, Image as ImageIcon, Info, Monitor, Plug, User as UserIcon, X } from 'lucide-react';
 import { SiGithub } from '@icons-pack/react-simple-icons';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
@@ -12,10 +11,14 @@ import { CoverTemplateSettings } from './CoverTemplateSettings';
 import { AgentPanel } from './AgentPanel';
 import { FileTagSettings } from './FileTagSettings';
 import { HubSettings } from './HubSettings';
-import { STUDIO, STUDIO_REPO_URL } from '../studio';
-import { issueReportUrl, type ReportFacts } from '../services/issueReport';
+import { STUDIO, STUDIO_REPO_URL, STUDIO_SITE_URL } from '../studio';
+import { type ReportFacts } from '../services/issueReport';
+import { ProblemReportDialog } from './ProblemReportDialog';
+import { ABOUT_HEADING, ABOUT_LINK, AuthorLinks } from './AuthorLinks';
+import { SupportAuthor } from './SupportAuthor';
 import { useSetupStatus } from '../services/studioQueries';
 import { onSidebarExtras, setSidebarExtras, sidebarExtras, type SidebarExtras } from '../services/playerPanels';
+import { setUiScale, storedUiScale, UI_SCALE_EVENT, UI_SCALE_MAX, UI_SCALE_MIN, UI_SCALE_STEP } from '../services/uiScale';
 
 /**
  * Settings.
@@ -49,6 +52,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
   const { t, language, setLanguage } = useI18n();
   const [section, setSection] = useState<SectionId>('account');
   const reportFacts = useSetupStatus<ReportFacts>().data;
+  const [reporting, setReporting] = useState(false);
   /// A part of the page to open at, after a colon: `models:assistant`.
   const [focus, setFocus] = useState<string | null>(null);
   // Opened from somewhere with a page in mind - the profile line, say.
@@ -93,7 +97,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
   return (
     <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div
-        className="flex h-[85vh] w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-zinc-900"
+        className="flex h-[calc(var(--vh)*85)] w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-zinc-900"
         onClick={(event) => event.stopPropagation()}
       >
         <nav className="hidden w-60 shrink-0 flex-col border-r border-zinc-200 bg-zinc-50 p-3 dark:border-white/5 dark:bg-black/20 sm:flex">
@@ -211,6 +215,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
                   </div>
                 </div>
 
+                <UiScaleSetting />
+
                 <SidebarExtrasSetting />
 
                 <NetworkAccessSetting />
@@ -218,55 +224,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
             )}
 
             {section === 'about' && (
-              <div className="max-w-lg space-y-6 text-sm text-zinc-600 dark:text-zinc-400">
-                <div className="space-y-1">
+              <div className="max-w-xl space-y-4 text-sm text-zinc-600 dark:text-zinc-400">
+                <div className="space-y-0.5">
                   <p className="text-zinc-900 dark:text-white">{STUDIO.name} · {t('version')} {__APP_VERSION__}</p>
-                  <p>{t('localAIMusicGenerator')}</p>
-                  <p className="text-xs text-zinc-400 dark:text-zinc-500">{t('poweredBy')}</p>
-                </div>
-
-                {/* Whose studio this is, and where to find the rest of it. */}
-                <div className="space-y-3 border-t border-zinc-200 pt-4 dark:border-zinc-700/50">
-                  <p className="font-medium text-zinc-900 dark:text-white">Nerual Dreming</p>
-                  <p className="text-xs leading-5">{t('authorLine')}</p>
-                  <div className="flex flex-wrap gap-2">
-                    <a href="https://t.me/nerual_dreming" target="_blank" rel="noopener noreferrer" className="rounded-lg bg-[#2AABEE] px-3 py-1.5 text-xs font-medium text-white">Telegram · @nerual_dreming</a>
-                    <a href="https://x.com/nerualdreming" target="_blank" rel="noopener noreferrer" className="rounded-lg bg-black px-3 py-1.5 text-xs font-medium text-white">X · @nerualdreming</a>
-                    <a href="https://t.me/neuroport" target="_blank" rel="noopener noreferrer" className="rounded-lg bg-[#2AABEE]/80 px-3 py-1.5 text-xs font-medium text-white">Telegram · @neuroport</a>
-                    <a href="https://github.com/timoncool" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-medium text-white dark:bg-zinc-700">
-                      <SiGithub size={14} />timoncool
-                    </a>
-                    <a href="https://neuro-cartel.com" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">neuro-cartel.com</a>
-                    <a href="https://artgeneration.me" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">ArtGeneration.me</a>
+                  <p className="text-xs">{t('localAIMusicGenerator')}</p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <button type="button" onClick={() => setReporting(true)} className={ABOUT_LINK}><Bug size={14} aria-hidden="true" />{t('problemTitle')}</button>
+                    <a href={STUDIO_REPO_URL} target="_blank" rel="noopener noreferrer" className={ABOUT_LINK}><SiGithub size={14} aria-hidden="true" />GitHub</a>
+                    {reporting && <ProblemReportDialog facts={reportFacts} onClose={() => setReporting(false)} />}
                   </div>
                 </div>
 
-                <StudioFamily current="ace" />
+                <section aria-labelledby="about-author" className="space-y-2 border-t border-zinc-200 pt-3 dark:border-zinc-700/50">
+                  <div className="flex items-baseline gap-2 whitespace-nowrap">
+                    <h4 id="about-author" className={ABOUT_HEADING}>{t('aboutAuthor')}</h4>
+                    <p className="font-medium text-zinc-900 dark:text-white">Nerual Dreming</p>
+                  </div>
+                  <p className="text-xs leading-5">{t('aboutAuthorLede')}</p>
+                  <AuthorLinks />
+                </section>
 
-                {/* Support, in the author's own words: the software is free. */}
-                <div className="space-y-3 border-t border-zinc-200 pt-4 dark:border-zinc-700/50">
-                  <p className="font-medium text-zinc-900 dark:text-white">{t('supportTheAuthor')}</p>
+                <section aria-labelledby="about-support" className="space-y-2 border-t border-zinc-200 pt-3 dark:border-zinc-700/50">
+                  <h4 id="about-support" className={ABOUT_HEADING}>{t('supportTheAuthor')}</h4>
                   <p className="text-xs leading-5">{t('supportLine')}</p>
-                  <div className="flex flex-wrap gap-2">
-                    <a href="https://boosty.to/neuro_art" target="_blank" rel="noopener noreferrer" className="rounded-lg bg-[#F15F2C] px-3 py-1.5 text-xs font-semibold text-white">Boosty</a>
-                    <a href="https://dalink.to/nerual_dreming" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">{t('allLinks')}</a>
-                  </div>
-                  <div className="space-y-1 rounded-lg bg-zinc-100 p-3 font-mono text-[11px] text-zinc-600 dark:bg-black/30 dark:text-zinc-400">
-                    <div><span className="text-zinc-400">BTC</span> 1E7dHL22RpyhJGVpcvKdbyZgksSYkYeEBC</div>
-                    <div><span className="text-zinc-400">ETH</span> 0xb5db65adf478983186d4897ba92fe2c25c594a0c</div>
-                    <div><span className="text-zinc-400">USDT · TRC20</span> TQST9Lp2TjK6FiVkn4fwfGUee7NmkxEE7C</div>
-                  </div>
-                </div>
-
-                <div className="space-y-2 border-t border-zinc-200 pt-4 dark:border-zinc-700/50">
-                  <p className="font-medium text-zinc-900 dark:text-white">{t('thisStudio')}</p>
-                  <div className="flex flex-wrap gap-2">
-                    <a href={STUDIO_REPO_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-medium text-white dark:bg-zinc-700">
-                      <SiGithub size={14} />{STUDIO.name}
-                    </a>
-                    <a href={issueReportUrl(STUDIO_REPO_URL, __APP_VERSION__, reportFacts)} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">{t('reportIssues')}</a>
-                  </div>
-                </div>
+                  <SupportAuthor donatePage={`${STUDIO_SITE_URL}donate.html`} />
+                </section>
               </div>
             )}
           </div>
@@ -278,6 +260,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, initialSec
           </div>
         </div>
       </div>
+    </div>
+  );
+};
+
+/** How large the whole interface is drawn; Ctrl with plus, minus and nought changes the same setting. */
+const UiScaleSetting: React.FC = () => {
+  const { t } = useI18n();
+  const [scale, setScale] = React.useState(storedUiScale);
+  const [error, setError] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    const onScale = (event: Event) => setScale((event as CustomEvent<number>).detail);
+    window.addEventListener(UI_SCALE_EVENT, onScale);
+    return () => window.removeEventListener(UI_SCALE_EVENT, onScale);
+  }, []);
+  const change = (next: number) => {
+    setError(null);
+    setScale(next);
+    setUiScale(next).catch((problem) => setError(problem instanceof Error ? problem.message : String(problem)));
+  };
+  return (
+    <div className="space-y-2">
+      <div className="flex items-baseline justify-between">
+        <span className="text-sm font-semibold text-zinc-900 dark:text-white">{t('uiScale')}</span>
+        <span className="text-sm tabular-nums text-zinc-700 dark:text-zinc-200">{scale} %</span>
+      </div>
+      <input
+        type="range"
+        min={UI_SCALE_MIN}
+        max={UI_SCALE_MAX}
+        step={UI_SCALE_STEP}
+        value={scale}
+        onChange={(event) => change(Number(event.target.value))}
+        aria-label={t('uiScale')}
+        className="w-full accent-pink-500"
+      />
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">{t('uiScaleHint')}</p>
+      {error && <p className="text-xs text-rose-600 dark:text-rose-300">{error}</p>}
     </div>
   );
 };

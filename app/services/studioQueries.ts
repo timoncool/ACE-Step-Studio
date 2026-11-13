@@ -38,6 +38,8 @@ export interface KaraokeStatus {
   enabled?: boolean;
   ready?: boolean;
   openrouter_model?: string | null;
+  /** The recogniser chosen for karaoke: parakeet, whisper, openrouter or none. */
+  provider?: string;
 }
 
 const karaokeStatusKey = ['karaoke-status'] as const;

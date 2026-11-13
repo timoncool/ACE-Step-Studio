@@ -9,7 +9,7 @@ anyhow.workspace = true
 audioadapter = "5.0"
 audioadapter-buffers = "5.2"
 flac-bound = { version = "0.5.0", default-features = false, features = ["libflac-noogg"] }
-mp3lame-encoder = "0.2.5"
+mp3lame-encoder = "0.3.0"
 realfft = "3.5"
 rubato = "5.0"
 serde.workspace = true

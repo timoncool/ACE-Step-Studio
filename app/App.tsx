@@ -122,7 +122,8 @@ import { UpdateScreen, readUpdatePlan } from './components/UpdateScreen';
 import { EngineStarting } from './components/EngineStarting';
 import { StudioOffline } from './components/StudioOffline';
 import { StudioToolsPanel } from './components/StudioToolsPanel';
-import { createNativePlaylist, deleteNativeSong, moveStoredLikes, setNativeSongLiked, updateNativePlaylist } from './services/nativeLibrary';
+import { deleteQuestion } from './services/deleteQuestion';
+import { createNativePlaylist, deleteNativeSong, moveStoredLikes, restoreTrashedSong, setNativeSongLiked, updateNativePlaylist } from './services/nativeLibrary';
 import { foldStems } from './services/songStems';
 import { noteStudioMessage } from './services/journal';
 import { JournalPanel } from './components/JournalPanel';
@@ -130,6 +131,7 @@ import { hubStateChanged, useActivity, useHubState } from './services/studioQuer
 import { hubView, setTelemetry, showsNow, type HubButton } from './services/studioHub';
 import { HubBars } from './components/HubBars';
 import { HubPopup } from './components/HubPopup';
+import { applyUiScale, scaleForKey, setUiScale, storedUiScale, UI_SCALE_EVENT } from './services/uiScale';
 import { ShellPrompts } from './components/ShellPrompts';
 
 /** Where versions before 3.3 kept the likes, in the window's own storage. */
@@ -197,7 +199,7 @@ function AppContent() {
   // page for a second on every launch is how a ready studio was made to look
   // like a bill.
   const [nativeModels, setNativeModels] = useState<'unknown' | 'missing' | 'installed' | 'offline'>('unknown');
-  const setupQuery = useSetupStatus<{ ready?: boolean; engine_ready?: boolean }>();
+  const setupQuery = useSetupStatus<{ ready?: boolean; engine_ready?: boolean; trash_days?: number }>();
   useEffect(() => {
     // A service that does not answer is not an engine that is still coming
     // up: the application has been closed, and saying "starting" at a dead
@@ -513,6 +515,41 @@ function AppContent() {
       setSelectedSong(updatedSong);
     }
   };
+
+  // The interface scale kept from the last session, and Ctrl with plus, minus, nought or the wheel to change it.
+  // The Winamp mode zooms the page for its skin and leaves the shortcuts alone while it is open.
+  useEffect(() => {
+    let scale = storedUiScale();
+    applyUiScale(scale).catch((error) => console.error('[ERROR] the interface scale could not be applied:', error));
+    const winampOpen = () => document.getElementById('webamp') !== null;
+    const change = (next: number | null) => {
+      if (next === null || next === scale) return;
+      scale = next;
+      setUiScale(next).catch((error) => console.error('[ERROR] the interface scale could not be applied:', error));
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || winampOpen()) return;
+      const next = scaleForKey(event.key, scale);
+      if (next === null) return;
+      event.preventDefault();
+      change(next);
+    };
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey || winampOpen() || event.deltaY === 0) return;
+      event.preventDefault();
+      change(scaleForKey(event.deltaY < 0 ? '+' : '-', scale));
+    };
+    const onScale = (event: Event) => { scale = (event as CustomEvent<number>).detail; };
+    // caught on the way down, so a panel that handles the wheel or a key itself does not keep the scale from changing
+    window.addEventListener('keydown', onKey, { capture: true });
+    window.addEventListener('wheel', onWheel, { passive: false, capture: true });
+    window.addEventListener(UI_SCALE_EVENT, onScale);
+    return () => {
+      window.removeEventListener('keydown', onKey, { capture: true });
+      window.removeEventListener('wheel', onWheel, { capture: true });
+      window.removeEventListener(UI_SCALE_EVENT, onScale);
+    };
+  }, []);
 
   // Theme Effect
   useEffect(() => {
@@ -1046,11 +1083,14 @@ function AppContent() {
   const handleDeleteSongs = (songsToDelete: Song[]) => {
     if (songsToDelete.length === 0) return;
 
+    const days = setupQuery.data?.trash_days;
+    if (days === undefined) {
+      showToast(t('serviceUnavailable'), 'error');
+      return;
+    }
     const isSingle = songsToDelete.length === 1;
     const title = isSingle ? t('confirmDeleteTitle') : t('confirmDeleteManyTitle');
-    const message = isSingle
-      ? t('deleteSongConfirm').replace('{title}', () => songsToDelete[0].title)
-      : t('deleteSongsConfirm').replace('{count}', String(songsToDelete.length));
+    const message = deleteQuestion(t, songsToDelete, days);
 
     setConfirmDialog({
       title,
@@ -1091,12 +1131,21 @@ function AppContent() {
           setPlayQueue(prev => prev.filter(s => !idsToDelete.has(s.id) || failed.includes(s.id)));
         }
 
+        // what went to the bin comes back from the message, with its stems
+        const undo = {
+          label: t('undo'),
+          onClick: () => {
+            void Promise.all(succeeded.map(id => restoreTrashedSong(id)))
+              .then(() => { libraryChanged(); showToast(t('songsRestored')); })
+              .catch((error: unknown) => showToast(error instanceof Error ? error.message : String(error), 'error'));
+          },
+        };
         if (failed.length > 0) {
           showToast(t('songsDeletedPartial').replace('{succeeded}', String(succeeded.length)).replace('{total}', String(songsToDelete.length)), 'error');
         } else if (isSingle) {
-          showToast(t('songDeleted'));
+          showToast(t('songDeleted'), 'success', undo);
         } else {
-          showToast(t('songsDeletedSuccess'));
+          showToast(t('songsDeletedSuccess'), 'success', undo);
         }
       },
     });
@@ -1257,6 +1306,7 @@ function AppContent() {
             onSelectPlaylist={(p) => handleNavigateToPlaylist(p.id)}
             onPlayPlaylist={(p, songs) => playFromPlaylist(p.id)(songs[0], songs)}
             onError={message => showToast(message, 'error')}
+            onToast={(message, type) => showToast(message, type)}
             onImported={count => { libraryChanged(); showToast(t('importedToLibrary').replace('{count}', String(count))); }}
             likedSongIds={likedSongIds}
             onToggleLike={toggleLike}
@@ -1475,7 +1525,7 @@ function AppContent() {
 
   return (
     <SongActionsProvider value={songActions}>
-    <div className="flex h-dvh min-h-0 min-w-0 flex-col overflow-hidden bg-white dark:bg-suno text-zinc-900 dark:text-white font-sans antialiased selection:bg-pink-500/30 transition-colors duration-300">
+    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white dark:bg-suno text-zinc-900 dark:text-white font-sans antialiased selection:bg-pink-500/30 transition-colors duration-300">
       <HubBars items={hubItems} elapsed={hubElapsed} view={hubSection} closed={hubClosed} onClosed={closeHubNotice} />
       {hubPopup && <HubPopup item={hubPopup} onClose={() => closeHubNotice(hubPopup.id)} onOpen={openHubTarget} />}
       <ShellPrompts />

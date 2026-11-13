@@ -135,7 +135,7 @@ export const ModelSwitcher: React.FC<{ status: SwitcherStatus | null; onChanged:
     const components = (catalog?.components ?? []).filter(component => component.kind === 'dit');
     const active = chosen?.id;
     return (
-      <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-[60vh] overflow-y-auto rounded-xl border border-zinc-200 bg-white p-2 shadow-2xl dark:border-white/10 dark:bg-zinc-900">
+      <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-[calc(var(--vh)*60)] overflow-y-auto rounded-xl border border-zinc-200 bg-white p-2 shadow-2xl dark:border-white/10 dark:bg-zinc-900">
         <p className="px-2 pb-1 text-[11px] text-zinc-500">
           <Check size={10} className="inline" /> {tt('aceInstalledLegend')} · <Download size={10} className="inline" /> {tt('aceDownloadLegend')}
         </p>
@@ -162,7 +162,7 @@ export const ModelSwitcher: React.FC<{ status: SwitcherStatus | null; onChanged:
                           type="button"
                           disabled={busy !== null || (downloading !== null && !here)}
                           onClick={() => void pick(component)}
-                          title={`${bytes(component.bytes)}${here ? '' : ` · ${tt('aceDownloadAndUse')}`}`}
+                          title={`${bytes(component.bytes)}${split(component).quant === 'mxfp4' ? ` · ${tt('aceMxfp4Hint')}` : ''}${here ? '' : ` · ${tt('aceDownloadAndUse')}`}`}
                           className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums transition-colors disabled:opacity-40 ${
                             on
                               ? 'border-pink-500 bg-pink-500 text-white'

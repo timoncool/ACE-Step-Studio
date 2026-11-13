@@ -53,7 +53,7 @@ pub fn snapshot() -> ResourceSnapshot {
     if guard.is_none() {
         // The very first CPU reading has no previous sample to diff against and
         // would report a meaningless 100%. Prime it before the caller sees it.
-        let mut primed = System::new();
+        let mut primed = System::new().expect("sysinfo has Windows, Linux and macOS");
         primed.refresh_cpu_usage();
         std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
         *guard = Some(primed);
@@ -92,7 +92,7 @@ pub fn snapshot() -> ResourceSnapshot {
     }
 }
 
-fn nvidia_gpus() -> Option<Vec<GpuSnapshot>> {
+pub fn nvidia_gpus() -> Option<Vec<GpuSnapshot>> {
     // the card the studio runs on, when one was chosen: that is the one to watch
     let output = dub_core::proc::host_command("nvidia-smi")
         .args(crate::cuda_build::chosen_card())

@@ -64,7 +64,7 @@ export const FilesPanel: React.FC = () => {
   }
 
   return (
-    <div className="fixed z-45 w-[min(90vw,340px)]" style={{ left: panel.pos.x, top: panel.pos.y }}>
+    <div className="fixed z-45 w-[min(calc(var(--vw)*90),340px)]" style={{ left: panel.pos.x, top: panel.pos.y }}>
       <div className="w-full overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl dark:border-white/10 dark:bg-suno-card">
         <div
           onPointerDown={panel.onDragStart}
@@ -78,7 +78,7 @@ export const FilesPanel: React.FC = () => {
             <Minimize2 size={14} />
           </button>
         </div>
-        <div className="max-h-[52vh] space-y-1.5 overflow-y-auto p-2">
+        <div className="max-h-[calc(var(--vh)*52)] space-y-1.5 overflow-y-auto p-2">
           {files.map((file) => {
             const percent = file.total ? Math.min(100, Math.round(((file.written ?? 0) / file.total) * 100)) : null;
             return (

@@ -15,7 +15,7 @@ export const HubTelemetryPreview: React.FC<{ onClose: () => void }> = ({ onClose
   }, []);
   return (
     <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/60 p-4" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <div role="dialog" aria-modal="true" className="flex max-h-[80vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-white/10 dark:bg-suno-panel">
+      <div role="dialog" aria-modal="true" className="flex max-h-[calc(var(--vh)*80)] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-white/10 dark:bg-suno-panel">
         <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-3 dark:border-white/10">
           <h2 className="font-semibold">{t('hubTelemetryWhat')}</h2>
           <button type="button" onClick={onClose} aria-label={t('hubClose')} className="rounded-md p-1 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10"><X size={18} /></button>

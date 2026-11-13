@@ -1,5 +1,6 @@
 import { NumberField } from './NumberField';
 import { saveFile } from '../services/saveFile';
+import { poll } from '../services/poll';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Check, CheckSquare, ChevronDown, Download, ExternalLink, FolderOpen, Heart, Layers, Loader2, Pencil, Search, Square, Trash2, X } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
@@ -473,9 +474,11 @@ export function AdaptersPage(): React.ReactElement {
 
   const downloading = Boolean(state?.download && !state.download.done);
   useEffect(() => {
-    void refresh().catch(problem => setError(String(problem)));
-    const timer = window.setInterval(() => void refresh().catch(() => undefined), downloading ? 1000 : 5000);
-    return () => window.clearInterval(timer);
+    let first = true;
+    return poll(
+      () => refresh().catch(problem => { if (first) setError(String(problem)); }).finally(() => { first = false; }),
+      downloading ? 1000 : 5000,
+    );
   }, [refresh, downloading]);
 
   // A finished download is news for the create page's picker.

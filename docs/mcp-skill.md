@@ -11,9 +11,12 @@ studio, and the user sees what you do in the studio's window.
 
 ## If the studio is not running yet
 
-1. It is a Windows desktop application. If it is not installed, download the installer or
-   the portable archive from https://github.com/timoncool/ACE-Step-Studio/releases/latest (it needs an
-   NVIDIA card; the first start offers to download the models).
+1. If it is not installed, take the package for this computer from
+   https://github.com/timoncool/ACE-Step-Studio/releases/latest: the installer or the portable
+   archive for Windows, the .dmg for a Mac with Apple silicon, the .deb or the AppImage for Linux
+   (experimental). An NVIDIA card is not required: without one the engine runs on the processor,
+   many times slower, and AMD and Intel cards go through Vulkan, untested - see the README. The
+   first start offers to download the models.
 2. Start it. The MCP server is up as soon as its window is: `http://127.0.0.1:8792/mcp`.
    Nothing else to install - no npx, no bridge.
 3. Connect (below), then call `studio_status`. If the models are missing, `models_catalog`
@@ -222,20 +225,21 @@ move around. Check the result with `ui_screenshot`.
 
 ## Tools by area
 
-- **studio**: `studio_status`, `studio_wait`, `studio_system`, `resources_rescan` (models and LoRAs put in the folders by hand), `studio_capabilities`, `studio_open_data_folder` (in Explorer, for the user), `runtime_status` (midi, training pack, training listen), `system_gpus` (the cards and the one in use).
+- **studio**: `studio_status`, `studio_wait`, `studio_system`, `resources_rescan` (models and LoRAs put in the folders by hand), `studio_capabilities`, `studio_open_data_folder` (in Explorer, for the user), `runtime_status` (midi, restore, training pack, training listen), `system_gpus` (the cards and the one in use).
 - **settings**: `settings_get`, `settings_set`.
 - **network**: `network_proxy_get`, `network_proxy_set` (no proxy, the system's or your own), `network_proxy_test`, `network_access_get`, `network_access_set` (opening the studio from other computers, a new key).
 - **journal**: `journal_read` (the Activity page), `journal_clear`, `journal_remove`.
 - **models**: `models_status`, `models_catalog`, `models_download`, `models_adopt` (files already on disk), `models_select`, `models_cancel_download`, `models_remove`, `models_update_plan` (what this release updates, adds and no longer needs, with the reasons: the update screen), `models_update_apply` (its button: downloads, then removes what former releases left), `models_update_later` (its «Later»).
-- **engine**: `engine_options_get`, `engine_options_set`, `engine_restart`, `engine_presets_get`, `engine_preset_apply`, `engine_logs`, `diagnostics_get` (the diagnostics and their text for an issue), `diagnostics_report` (a bug-report zip in the data folder's reports).
+- **engine**: `engine_options_get`, `engine_options_set`, `engine_restart`, `engine_presets_get`, `engine_preset_apply`, `engine_logs`, `diagnostics_get` (the diagnostics and their text for an issue), `diagnostics_report` (a bug-report zip in the data folder's reports), `problem_preview` (exactly what a report would send), `problem_report` (a problem reported without a GitHub account: Studio Hub's bot opens a public issue and answers its number and url; a refusal by code - field, rate, not_configured, busy, unreachable - means the GitHub form).
 - **song**: `song_defaults` (what a field left out becomes), `song_create` (playlist_id puts the made songs into a playlist), `song_plan` (ACE-Step's planner), `song_understand` (listen to a library song), `song_job_get`, `song_jobs_list`, `song_job_cancel`, `song_replay`.
 - **writing**: `writing_guide`, `writing_examples`.
 - **assistant**: `assistant_requests_wait`, `assistant_request_answer` (when you are the assistant), `assistant_sections`, `assistant_write`, `assistant_status`, `assistant_set`, `assistant_local_models`, `assistant_cli_agents` (Claude Code, Codex, opencode, Antigravity, Muse Code: installed or how to install), `assistant_runtime`, `assistant_model_install`, `assistant_model_remove`, `assistant_cancel_download`, `assistant_start`, `assistant_stop`.
-- **library**: `library_songs_list` (since/until), `library_liked`, `library_song_like`, `library_song_get`, `library_song_update`, `library_song_delete`, `library_import_audio`, `library_file_tags_get`, `library_file_tags_set`, `library_song_files`, `library_version_select`, `library_version_delete`, `library_song_describe_style` (by ear: the caption, tempo, key and metre of a recording that came without them), `library_song_note_set` (the song's note).
+- **library**: `library_songs_list` (since/until), `library_liked`, `library_song_like`, `library_song_get`, `library_song_update`, `library_song_delete` (to the bin for 30 days, with its stems), `library_trash_list`, `library_trash_restore`, `library_trash_delete` (for good), `library_trash_empty`, `library_import_audio`, `library_file_tags_get`, `library_file_tags_set`, `library_song_files`, `library_version_select`, `library_version_delete`, `library_song_describe_style` (by ear: the caption, tempo, key and metre of a recording that came without them), `library_song_note_set` (the song's note).
 - **playlist**: `playlist_list`, `playlist_create`, `playlist_update`, `playlist_delete`, `playlist_get`.
 - **cover**: `cover_draw`, `cover_templates_get`, `cover_templates_set`, `cover_set_from_file`, `cover_prompt_render`, `cover_look_get`, `cover_look_set` (the photo or pattern of tracks without a cover, unique: each track's pattern drawn from its words and music style, kept in the file or not), `cover_scenes`, `cover_photos_search`, `video_backgrounds_search`, `song_cover_photo_set`, `song_cover_pattern_set`.
-- **karaoke**: `karaoke_make`, `karaoke_settings_get`, `karaoke_settings_set`, `recogniser_install`, `recogniser_remove`, `recogniser_cancel_download`, `karaoke_delete`.
+- **karaoke**: `karaoke_make`, `karaoke_settings_get`, `karaoke_settings_set`, `recogniser_install`, `recogniser_remove`, `recogniser_cancel_download`, `karaoke_delete`, `karaoke_set` (the person's own .srt, .ass or .lrc, or edited LRC lines), `lyrics_recognise` (the lyrics a song or an audio file sings, heard by the karaoke recogniser).
 - **stems**: `stems_split`, `stems_get`.
+- **restore**: `restore_status`, `restore_start` (a track or a file compressed to MP3, restored with Apollo into a new track `<title> · restored`), `restore_install`, `restore_remove`, `restore_cancel`.
 - **separator**: `separator_status`, `separator_runtime`, `separator_runtime_install`, `separator_cancel_download`, `separator_install`, `separator_remove`, `separator_settings_get`, `separator_settings_set`.
 - **midi**: `midi_status`, `midi_transcribe`, `midi_get`, `midi_delete`, `midi_install`, `midi_remove`, `midi_cancel`, `midi_set` (a .mid of your own).
 - **processing**: `processing_start`, `processing_get`, `processing_keep`, `processing_discard`, `processing_set_reference`.
@@ -264,3 +268,15 @@ move around. Check the result with `ui_screenshot`.
    A file named by path is written to the studio's `midi` folder (`midi_status` run.file).
 4. The weights are MuScriptor by Kyutai & Mirelo, CC BY-NC 4.0: say so when the user wants
    the MIDI for commercial work.
+
+## Restore a track after compression
+
+1. `restore_status`; when `ready` is false, `restore_install` (Apollo, 66 MB, and audio.cpp's
+   server of the stems' device when it is missing) and `studio_wait`, or `restore_status` until
+   the download is done.
+2. `restore_start` with `song_id`, or `path` of any audio file. It removes the artefacts of MP3
+   compression and gives 44.1 kHz in the source's channels.
+3. `studio_wait until: restore`; `restore_status` run.library_song names the new track,
+   `<title> · restored`, which plays, downloads and goes to the tools like any track. Restoring
+   the same track again replaces it; `restore_cancel` stops the run.
+4. Apollo's weights are CC BY-SA 4.0.

@@ -7,7 +7,9 @@ param(
     [ValidateSet('cuda')]
     [string]$RuntimeBackend = 'cuda',
     # The CUDA 12 toolkit of the engine's second CUDA backend.
-    [string]$Cuda12Root = $env:CUDA_PATH_V12_9
+    [string]$Cuda12Root = $env:CUDA_PATH_V12_9,
+    # A studio data folder with the downloaded tools installed, read by the DLL import check.
+    [string]$DllDataRoot = $env:ACE_DLL_DATA
 )
 
 $ErrorActionPreference = 'Stop'
@@ -78,6 +80,8 @@ try {
     # fails if it names a library neither shipped nor downloaded on first start.
     cargo test --workspace
     if ($LASTEXITCODE -ne 0) { throw "cargo test failed with exit code $LASTEXITCODE" }
+    if (-not $DllDataRoot) { throw "ACE_DLL_DATA (or -DllDataRoot) must name a studio data folder with the downloaded tools, for the DLL import check" }
+    & (Join-Path $PSScriptRoot 'check-dll-imports.ps1') -DataRoot $DllDataRoot
     npm --prefix (Join-Path $repoRoot 'app') run test
     if ($LASTEXITCODE -ne 0) { throw "the interface tests failed with exit code $LASTEXITCODE" }
 

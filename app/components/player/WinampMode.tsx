@@ -9,6 +9,7 @@ import { parseDuration } from '../../services/nativeLibrary';
 import { TRACK_ARTIST } from '../../services/studio';
 import { trackCoverUrl } from '../../services/playerPanels';
 import { isDesktop } from '../../services/externalLinks';
+import { applyUiScale, storedUiScale } from '../../services/uiScale';
 import { EQ_BANDS, equalizer, setEqualizer } from '../../services/audioGraph';
 import { addWinampSkin, pickSkin, registerWinampControl, setWinampSettings, winampSettings, winampSkins, type WinampSkin } from '../../services/winamp';
 import { sharpenSkin, sharpSkinCss, skinScale } from '../../services/winampSharp';
@@ -117,7 +118,7 @@ async function restoreWindow(win: ReturnType<typeof getCurrentWindow>, saved: Sa
     ['size', () => win.setSize(saved.size)],
     ['position', () => win.setPosition(saved.position)],
     ['maximised', () => (saved.maximized ? win.maximize() : Promise.resolve())],
-    ['page zoom', () => getCurrentWebview().setZoom(1)],
+    ['page zoom', () => applyUiScale(storedUiScale())],
   ];
   for (const [what, step] of steps) {
     try {
@@ -725,7 +726,7 @@ const WinampListPicker: React.FC<{
   const title = picker.mode === 'load' ? t('winampLoadList') : picker.mode === 'add' ? t('winampAddList') : t('winampSaveList');
 
   return (
-    <div data-winamp-shape className="absolute left-1/2 top-1/2 z-2000 w-[min(92vw,360px)] -translate-x-1/2 -translate-y-1/2 border border-[#5a5a6e] bg-[#1d1d2b] font-mono text-[11px] text-[#00e000] shadow-2xl" role="dialog" aria-label={title}>
+    <div data-winamp-shape className="absolute left-1/2 top-1/2 z-2000 w-[min(calc(var(--vw)*92),360px)] -translate-x-1/2 -translate-y-1/2 border border-[#5a5a6e] bg-[#1d1d2b] font-mono text-[11px] text-[#00e000] shadow-2xl" role="dialog" aria-label={title}>
       <div className="flex items-center justify-between bg-linear-to-r from-[#2a2a52] to-[#1a1a32] px-2 py-1 text-[#d8d8f0]">
         <span className="font-bold uppercase tracking-wider">{title}</span>
         <button type="button" onClick={onCancel} aria-label={t('cancel')} className="px-1 hover:text-white">x</button>
@@ -758,7 +759,7 @@ const WinampListPicker: React.FC<{
           </form>
         </div>
       ) : (
-        <ul className="max-h-[60vh] overflow-y-auto py-1">
+        <ul className="max-h-[calc(var(--vh)*60)] overflow-y-auto py-1">
           {lists.map((list, index) => (
             <li key={list.key}>
               <button type="button" autoFocus={index === 0} disabled={!list.songs.length} className={`${row} disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[#00e000]`} onClick={() => onPick(list.songs)}>

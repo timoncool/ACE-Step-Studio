@@ -14,14 +14,16 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace = true
+# A song deleted for good sends its files to the system's recycle bin, as Dub Studio does with a project.
+trash = "5"
 # Dub Studio's vocal separator: Mel-Band RoFormer through BSRoFormer.cpp.
-dub-sep = { git = "https://github.com/timoncool/dub-studio", rev = "d7d3f7600ff23c25ba497a1636002e429b571641" }
+dub-sep = { git = "https://github.com/timoncool/dub-studio", rev = "bd27e1179221c7dc546177bdf6afa2f60ecc6791" }
 # Programs of the computer and downloaded ones started without the AppImage's libraries (dub_core::proc).
-dub-core = { git = "https://github.com/timoncool/dub-studio", rev = "d7d3f7600ff23c25ba497a1636002e429b571641" }
+dub-core = { git = "https://github.com/timoncool/dub-studio", rev = "bd27e1179221c7dc546177bdf6afa2f60ecc6791", features = ["ort"] }
 # "today" and dates the agent names, in this computer's time zone.
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 # The folder picker for "use models I already have", the same crate Dub Studio uses.
-rfd = "0.17"
+rfd = "0.18"
 base64.workspace = true
 hound = "3.5"
 axum.workspace = true
@@ -38,7 +40,7 @@ lofty = "0.25.4"
 # the PNG it is written into the track as.
 dicebear-core = "=11.0.0-rc.2"
 dicebear-styles = { version = "=11.0.0-rc.3", default-features = false, features = ["waves", "squircles", "blobs", "constellation", "disco", "glass", "identicon", "landscape", "loops", "marbles", "patchwork", "planets", "rings", "shadows", "shape-grid", "shapes", "slice", "stack", "stripes", "triangles", "weave"] }
-resvg = { version = "0.48", default-features = false }
+resvg = { version = "0.50", default-features = false }
 reqwest.workspace = true
 hyper-util.workspace = true
 http.workspace = true
@@ -48,7 +50,7 @@ sha2.workspace = true
 symphonia.workspace = true
 sysinfo.workspace = true
 # Studio Hub: anonymous statistics and the news feed (telemetry only after the start screen showed its choice).
-studio-hub-client = { git = "https://github.com/timoncool/studio-hub-client", rev = "365c2b757bfddd45fff67e7264b41f4f961a0032" }
+studio-hub-client = { git = "https://github.com/timoncool/studio-hub-client", rev = "073d1b553b3cd50a47d863fd560e1bd1a9ce3afa" }
 ort.workspace = true
 realfft = "3.5"
 regex = "1"

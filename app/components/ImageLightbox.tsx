@@ -64,7 +64,7 @@ export const ImageLightbox: React.FC<{ src: string; alt?: string; onClose: () =>
           src={src}
           alt={alt}
           draggable={false}
-          className="max-h-[85vh] max-w-[92vw] select-none rounded-lg shadow-2xl"
+          className="max-h-[calc(var(--vh)*85)] max-w-[calc(var(--vw)*92)] select-none rounded-lg shadow-2xl"
           style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`, cursor: scale > 1 ? 'grab' : 'zoom-in' }}
         />
       </div>

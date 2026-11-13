@@ -129,7 +129,9 @@ fn excluded_range(port: u16) -> Option<(u16, u16)> {
     use std::io::Read;
     use std::os::windows::process::CommandExt;
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    let mut child = Command::new("netsh")
+    // Windows' own netsh by its full path: a bare name is looked for beside the studio first
+    let system = PathBuf::from(std::env::var_os("SystemRoot")?);
+    let mut child = Command::new(system.join("System32").join("netsh.exe"))
         .args(["interface", "ipv4", "show", "excludedportrange", "protocol=tcp"])
         .creation_flags(CREATE_NO_WINDOW)
         .stdin(Stdio::null())
@@ -139,9 +141,10 @@ fn excluded_range(port: u16) -> Option<(u16, u16)> {
         .ok()?;
     // read while it runs, so a listing longer than the pipe holds does not stop it
     let mut stdout = child.stdout.take()?;
+    // the listing comes in the console's code page, not UTF-8, on a Windows in another language
     let reader = thread::spawn(move || {
-        let mut listing = String::new();
-        stdout.read_to_string(&mut listing).map(|_| listing)
+        let mut listing = Vec::new();
+        stdout.read_to_end(&mut listing).map(|_| String::from_utf8_lossy(&listing).into_owned())
     });
     let deadline = Instant::now() + Duration::from_secs(3);
     while child.try_wait().ok()?.is_none() {
@@ -639,7 +642,15 @@ impl ServerSupervisor {
             }
             if let Some(child) = self.child.as_mut() {
                 if let Some(status) = child.try_wait().context("inspect starting engine server")? {
-                    bail!("engine server exited during startup with status {status}");
+                    // a crash says nothing of where: Windows' record of it names the module
+                    let fault = music_core::process::exited_on_exception(status.code()).then(|| music_core::process::fault_of(child.id(), Duration::from_secs(5))).flatten();
+                    match fault {
+                        Some(fault) => {
+                            note_in_log(&format!("the engine crashed during startup: {fault}"));
+                            bail!("engine server exited during startup with status {status}; {fault}");
+                        }
+                        None => bail!("engine server exited during startup with status {status}"),
+                    }
                 }
             }
             if Instant::now() >= deadline {
@@ -784,6 +795,25 @@ mod tests {
         assert_eq!(strip_verbatim(Path::new(r"\\?\UNC\server\share\mm.exe")), PathBuf::from(r"\\?\UNC\server\share\mm.exe"));
     }
 
+    #[test]
+    fn a_log_that_is_not_utf8_is_still_trimmed_to_whole_lines() {
+        let mut log = b"old line one\nold \xff\xfe line two\n".to_vec();
+        log.extend_from_slice(b"new line three\nnew line four\n");
+        let kept = newer_half(&log);
+        assert!(kept.len() < log.len());
+        assert!(log.ends_with(kept));
+        assert_eq!(kept, b"new line four\n");
+    }
+
+    #[test]
+    fn a_middle_inside_a_character_keeps_whole_lines() {
+        let log = "строка один\nстрока два\nстрока три\n".as_bytes();
+        let kept = newer_half(log);
+        assert!(std::str::from_utf8(kept).is_ok());
+        assert!(log.ends_with(kept));
+        assert!(kept.is_empty() || log[log.len() - kept.len() - 1] == b'\n');
+    }
+
     fn fresh_directory(label: &str) -> PathBuf {
         let path = std::env::temp_dir().join(format!("music-engine-{label}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&path);
@@ -914,6 +944,29 @@ mod tests {
         assert_eq!(excluded_range_in(listing, 50000), Some((50000, 50059)));
         assert_eq!(excluded_range_in(listing, 9000), None);
     }
+
+    #[test]
+    fn a_listing_in_the_russian_console_code_page_still_names_the_range() {
+        // "Диапазон исключенных портов протокола tcp" and "Начальный порт / Конечный порт" in CP866
+        let mut listing = b"\r\n\x84\xa8\xa0\xaf\xa0\xa7\xae\xad \xa8\xe1\xaa\xab\xee\xe7\xa5\xad\xad\xeb\xe5 \xaf\xae\xe0\xe2\xae\xa2 tcp\r\n\r\n".to_vec();
+        listing.extend_from_slice(b"\x8d\xa0\xe7\xa0\xab\xec\xad\xeb\xa9 \xaf\xae\xe0\xe2    \x8a\xae\xad\xa5\xe7\xad\xeb\xa9 \xaf\xae\xe0\xe2\r\n");
+        listing.extend_from_slice(b"----------    --------\r\n      5357        5357\r\n      8040        8139\r\n\r\n");
+        assert!(std::str::from_utf8(&listing).is_err(), "the listing is not UTF-8");
+        assert_eq!(excluded_range_in(&String::from_utf8_lossy(&listing), 8089), Some((8040, 8139)));
+    }
+
+    #[test]
+    fn a_log_with_a_broken_utf8_byte_still_gives_its_last_lines() {
+        let root = fresh_directory("log-tail");
+        unsafe { std::env::set_var("STUDIO_DATA_ROOT", &root) };
+        let mut log = b"[Server] Job 1 created (1 requests)\n[LM-Phase2] caption \xd0\n".to_vec();
+        log.extend_from_slice(b"[Resolve-T] ERROR: T=15500 exceeds silence_latent max 15000, skipping\n");
+        fs::write(root.join("engine-startup.log"), log).unwrap();
+        let tail = startup_log_tail(2);
+        assert_eq!(tail.len(), 2, "{tail:?}");
+        assert!(tail[1].contains("ERROR: T=15500"), "{tail:?}");
+        let _ = fs::remove_dir_all(&root);
+    }
 }
 
 /// Where the engine's startup output is kept: beside the studio's data, so the
@@ -938,10 +991,26 @@ fn trim_log_if_huge() {
     if meta.len() < LIMIT {
         return;
     }
-    let Ok(text) = std::fs::read_to_string(&path) else { return };
-    let keep = text.split_at(text.len() / 2).1;
-    let start = keep.find(char::is_control).map(|index| index + 1).unwrap_or(0);
-    let _ = std::fs::write(&path, &keep[start..]);
+    let bytes = match std::fs::read(&path) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            eprintln!("[ERROR] the engine log {} could not be read to trim it: {error}", path.display());
+            return;
+        }
+    };
+    if let Err(error) = std::fs::write(&path, newer_half(&bytes)) {
+        eprintln!("[ERROR] the engine log {} could not be trimmed: {error}", path.display());
+    }
+}
+
+/// The newer half of a log, from the first whole line after its middle. Bytes,
+/// not text: an engine writes whatever its libraries print, not always UTF-8.
+fn newer_half(log: &[u8]) -> &[u8] {
+    let keep = &log[log.len() / 2..];
+    match keep.iter().position(|&byte| byte == b'\n') {
+        Some(index) => &keep[index + 1..],
+        None => keep,
+    }
 }
 
 pub fn startup_log_path() -> PathBuf {
@@ -952,11 +1021,11 @@ pub fn startup_log_path() -> PathBuf {
     root.join("engine-startup.log")
 }
 
-/// The tail of that file, oldest first.
 pub fn startup_log_tail(lines: usize) -> Vec<String> {
-    let Ok(text) = std::fs::read_to_string(startup_log_path()) else {
+    let Ok(bytes) = std::fs::read(startup_log_path()) else {
         return Vec::new();
     };
+    let text = String::from_utf8_lossy(&bytes);
     let all: Vec<&str> = text.lines().filter(|line| !line.trim().is_empty()).collect();
     all.iter().rev().take(lines).rev().map(|line| (*line).to_string()).collect()
 }

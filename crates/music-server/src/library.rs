@@ -117,7 +117,32 @@ impl Library {
     /// showed two different libraries depending on how it was launched.
     pub fn open_default()->Result<Self>{let root=crate::studio_data_root().unwrap_or_else(||env::current_dir().unwrap_or_else(|_|PathBuf::from(".")).join("data"));Self::open_at(root.join("library.sqlite"),root.join("media"))}
  pub fn open_at(db_path:PathBuf,media_dir:PathBuf)->Result<Self>{if let Some(p)=db_path.parent(){fs::create_dir_all(p)?};let c=Connection::open(db_path)?;c.execute_batch("PRAGMA foreign_keys=ON; CREATE TABLE IF NOT EXISTS songs(id TEXT PRIMARY KEY,title TEXT NOT NULL,audio_path TEXT,caption TEXT NOT NULL,lyrics TEXT NOT NULL,metadata_json TEXT NOT NULL,generation_settings_json TEXT NOT NULL,engine_id TEXT NOT NULL,profile_id TEXT,replay_request_json TEXT,audio_codes_json TEXT,source TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL); CREATE TABLE IF NOT EXISTS playlists(id TEXT PRIMARY KEY,name TEXT NOT NULL,description TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL); CREATE TABLE IF NOT EXISTS playlist_songs(playlist_id TEXT NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,song_id TEXT NOT NULL REFERENCES songs(id) ON DELETE CASCADE,position INTEGER NOT NULL,PRIMARY KEY(playlist_id,song_id)); CREATE TABLE IF NOT EXISTS music_jobs(id TEXT PRIMARY KEY,submitted_at INTEGER NOT NULL,engine_id TEXT NOT NULL,title TEXT,caption TEXT NOT NULL,lyrics TEXT NOT NULL,duration_seconds REAL NOT NULL,playlist_id TEXT,generation_settings_json TEXT NOT NULL,request_json TEXT NOT NULL,status TEXT NOT NULL,message TEXT NOT NULL DEFAULT '',attempt INTEGER NOT NULL DEFAULT 0,resumed_as TEXT); CREATE TABLE IF NOT EXISTS journal(id INTEGER PRIMARY KEY AUTOINCREMENT,at TEXT NOT NULL,source TEXT NOT NULL,tone TEXT NOT NULL DEFAULT '',verb TEXT NOT NULL DEFAULT '',kind TEXT NOT NULL DEFAULT '',target TEXT NOT NULL DEFAULT '',text TEXT NOT NULL DEFAULT '');")?;Ok(Self{connection:Arc::new(Mutex::new(c)),media_dir})}
- pub fn list_songs(&self)->Result<Vec<Song>>{let c=self.connection.lock().unwrap();let mut s=c.prepare("SELECT id,title,audio_path,caption,lyrics,metadata_json,generation_settings_json,engine_id,profile_id,replay_request_json,audio_codes_json,source,created_at,updated_at FROM songs ORDER BY created_at DESC, id DESC")?;Ok(s.query_map([],row_song)?.collect::<rusqlite::Result<_>>()?)}
+ /// Every song but those in the bin.
+ pub fn list_songs(&self)->Result<Vec<Song>>{Ok(self.all_songs()?.into_iter().filter(|song|!is_trashed(song)).collect())}
+ /// The songs in the bin, the latest deleted first.
+ pub fn trashed_songs(&self)->Result<Vec<Song>>{
+  let mut songs:Vec<Song>=self.all_songs()?.into_iter().filter(is_trashed).collect();
+  songs.sort_by(|a,b|trashed_at(b).cmp(&trashed_at(a)));
+  Ok(songs)
+ }
+ /// Puts a song in the bin with the songs made from it (`with` names the song
+ /// whose deletion took them), or takes it out; the bin keeps it from every list.
+ pub fn set_song_trashed(&self,id:&str,trashed:bool,with:Option<&str>)->Result<Option<Song>>{
+  let Some(mut song)=self.get_song(id)? else{return Ok(None)};
+  let mut metadata=match song.metadata.take(){serde_json::Value::Object(map)=>map,_=>serde_json::Map::new()};
+  if trashed{
+   metadata.insert("deleted_at".into(),serde_json::Value::String(now()));
+   if let Some(with)=with{metadata.insert("deleted_with".into(),serde_json::Value::String(with.to_string()));}
+  }else{
+   metadata.remove("deleted_at");
+   metadata.remove("deleted_with");
+  }
+  song.metadata=serde_json::Value::Object(metadata);
+  self.save_song(&song)?;
+  crate::mcp::announce("library");
+  Ok(Some(song))
+ }
+ fn all_songs(&self)->Result<Vec<Song>>{let c=self.connection.lock().unwrap();let mut s=c.prepare("SELECT id,title,audio_path,caption,lyrics,metadata_json,generation_settings_json,engine_id,profile_id,replay_request_json,audio_codes_json,source,created_at,updated_at FROM songs ORDER BY created_at DESC, id DESC")?;Ok(s.query_map([],row_song)?.collect::<rusqlite::Result<_>>()?)}
  pub fn get_song(&self,id:&str)->Result<Option<Song>>{let c=self.connection.lock().unwrap();Ok(c.query_row("SELECT id,title,audio_path,caption,lyrics,metadata_json,generation_settings_json,engine_id,profile_id,replay_request_json,audio_codes_json,source,created_at,updated_at FROM songs WHERE id=?",[id],row_song).optional()?)}
  pub fn create_song(&self,input:SongInput)->Result<Song>{let now=now();let song=Song{id:uuid::Uuid::now_v7().to_string(),title:input.title,audio_path:input.audio_path,caption:input.caption,lyrics:input.lyrics,metadata:input.metadata,generation_settings:input.generation_settings,engine_id:input.engine_id,profile_id:input.profile_id,replay_request:input.replay_request,audio_codes:input.audio_codes,source:input.source,created_at:now.clone(),updated_at:now};self.save_song(&song)?;Ok(song)}
  pub fn import_generated_song(&self,input:GeneratedSongInput)->Result<ImportedSong>{
@@ -404,6 +429,17 @@ fn merged_metadata(stored:&serde_json::Value,edit:serde_json::Value)->serde_json
  serde_json::Value::Object(edit)
 }
 fn row_song(r:&rusqlite::Row)->rusqlite::Result<Song>{Ok(Song{id:r.get(0)?,title:r.get(1)?,audio_path:r.get(2)?,caption:r.get(3)?,lyrics:r.get(4)?,metadata:json(r.get::<_,String>(5)?),generation_settings:json(r.get::<_,String>(6)?),engine_id:r.get(7)?,profile_id:r.get(8)?,replay_request:r.get::<_,Option<String>>(9)?.map(json),audio_codes:r.get::<_,Option<String>>(10)?.map(json),source:r.get(11)?,created_at:r.get(12)?,updated_at:r.get(13)?})}fn json(s:String)->serde_json::Value{serde_json::from_str(&s).unwrap_or(serde_json::Value::Null)}fn playlist(c:&Connection,r:&rusqlite::Row)->rusqlite::Result<Playlist>{let id:String=r.get(0)?;let mut q=c.prepare("SELECT song_id FROM playlist_songs WHERE playlist_id=? ORDER BY position")?;let song_ids=q.query_map([&id],|x|x.get(0))?.collect::<rusqlite::Result<_>>()?;Ok(Playlist{id,name:r.get(1)?,description:r.get(2)?,song_ids,created_at:r.get(3)?,updated_at:r.get(4)?})}fn now()->String{std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs().to_string()}
+
+/// Whether a song is in the studio's bin.
+pub fn is_trashed(song:&Song)->bool{song.metadata.get("deleted_at").is_some()}
+/// When a song went to the bin, in seconds since 1970; 0 when it is not there.
+pub fn trashed_at(song:&Song)->u64{song.metadata.get("deleted_at").and_then(serde_json::Value::as_str).and_then(|at|at.parse().ok()).unwrap_or(0)}
+/// The song whose deletion took this one to the bin with it.
+pub fn trashed_with(song:&Song)->Option<&str>{song.metadata.get("deleted_with").and_then(serde_json::Value::as_str)}
+
+/// Why a song in the bin cannot be taken for new work (stems, MIDI, karaoke, a replay...), by its title and with the
+/// way back; None for a song in the library.
+pub fn in_the_bin(song:&Song)->Option<String>{is_trashed(song).then(||format!("\"{}\" is in the library's bin; restore it in Library - Bin to work with it",song.title))}
 #[cfg(test)]mod tests{use super::*;#[test]fn a_structured_caption_does_not_become_a_title_of_headings(){
   let caption="Global Metadata
 Basic Attributes: bpm is 118. key is F# minor, and scale is minor. Darkwave, Synth-pop. Global Emotional Progression: haunting.";
@@ -493,6 +529,36 @@ mod edit_tests {
         assert!(taken_back.metadata.get("liked").is_none() && taken_back.metadata.get("liked_at").is_none());
         assert_eq!(taken_back.metadata["tags"][0], "t", "the rest of the metadata stays");
         assert!(db.set_song_liked("gone", true).unwrap().is_none());
+        drop(db);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn a_song_in_the_bin_leaves_every_list_and_comes_back_whole() {
+        let root = std::env::temp_dir().join(format!("library-bin-{}", uuid::Uuid::now_v7().simple()));
+        let db = Library::open_at(root.join("library.sqlite"), root.join("media")).unwrap();
+        let song = |title: &str| db.create_song(SongInput { title: title.into(), audio_path: None, caption: String::new(), lyrics: String::new(), metadata: serde_json::json!({ "lrc": "[00:01.00] la" }), generation_settings: serde_json::Value::Null, engine_id: "manual".into(), profile_id: None, replay_request: None, audio_codes: None, source: "manual".into() }).unwrap().id;
+        let (kept, binned, stem) = (song("kept"), song("binned"), song("binned · vocals"));
+        db.set_song_liked(&binned, true).unwrap();
+        db.set_song_trashed(&binned, true, None).unwrap();
+        db.set_song_trashed(&stem, true, Some(&binned)).unwrap();
+        let listed: Vec<String> = db.list_songs().unwrap().into_iter().map(|song| song.id).collect();
+        assert_eq!(listed, vec![kept.clone()]);
+        assert!(db.liked_songs().unwrap().is_empty(), "a liked song in the bin is not among the liked");
+        let trashed = db.trashed_songs().unwrap();
+        assert_eq!(trashed.len(), 2);
+        assert!(trashed.iter().any(|song| trashed_with(song) == Some(binned.as_str())));
+        let refusal = in_the_bin(&db.get_song(&binned).unwrap().unwrap()).expect("a song in the bin is not taken for new work");
+        assert!(refusal.contains("\"binned\"") && refusal.contains("Library - Bin"), "{refusal}");
+        assert!(in_the_bin(&db.get_song(&kept).unwrap().unwrap()).is_none());
+        db.set_song_trashed(&binned, false, None).unwrap();
+        db.set_song_trashed(&stem, false, None).unwrap();
+        let back = db.get_song(&binned).unwrap().unwrap();
+        assert!(!is_trashed(&back) && back.metadata.get("deleted_with").is_none());
+        assert!(in_the_bin(&back).is_none(), "a restored song is taken for new work again");
+        assert_eq!(back.metadata["lrc"], "[00:01.00] la", "its karaoke comes back with it");
+        assert_eq!(back.metadata["liked"], true);
+        assert_eq!(db.list_songs().unwrap().len(), 3);
         drop(db);
         let _ = fs::remove_dir_all(root);
     }

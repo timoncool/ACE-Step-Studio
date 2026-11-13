@@ -58,7 +58,7 @@ export function modelsForCapability(models: NativeOpenRouterModel[], capability:
   return models.filter((model) => model.capabilities.includes(capability));
 }
 
-async function base64For(file: File): Promise<string> {
+export async function base64For(file: File): Promise<string> {
   const bytes = new Uint8Array(await file.arrayBuffer());
   let binary = '';
   const chunkSize = 0x8000;
@@ -91,7 +91,7 @@ export async function generateCoverWithNativeOpenRouter(modelId: string, prompt:
   return `data:${mediaType};base64,${image.b64_json}`;
 }
 
-function audioFormatFor(file: File): string {
+export function audioFormatFor(file: File): string {
   const byMime: Record<string, string> = {
     'audio/wav': 'wav', 'audio/mpeg': 'mp3', 'audio/flac': 'flac', 'audio/mp4': 'm4a',
     'audio/ogg': 'ogg', 'audio/webm': 'webm', 'audio/aac': 'aac',

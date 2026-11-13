@@ -4,7 +4,16 @@ import { hubStateChanged, useHubState } from '../services/studioQueries';
 import { refreshHub, resetInstall, setTelemetry } from '../services/studioHub';
 import { HubTelemetryPreview } from './HubTelemetryPreview';
 
-/** Settings: the telemetry switch, what is sent, a new install id, and where the notices come from. */
+/**
+ * When the news were last fetched, the hub's address left out: the window never prints it. Before the first fetch,
+ * that the studio shows the news of its release.
+ */
+export function hubFeedLine(data: { source?: string | null; fetchedAt?: number | null } | null | undefined, language: string, t: (key: string) => string): string {
+  if (!data?.source) return t('hubFeedNever');
+  return `${t('hubFeedUpdated')} ${new Date((data.fetchedAt ?? 0) * 1000).toLocaleString(language)}`;
+}
+
+/** Settings: the telemetry switch, what is sent, a new install id, and when the news were last fetched. */
 export const HubSettings: React.FC = () => {
   const { t, language } = useI18n();
   const hub = useHubState(language);
@@ -46,7 +55,7 @@ export const HubSettings: React.FC = () => {
       </section>
       <section className="space-y-2">
         <p className="text-zinc-500 dark:text-zinc-400">
-          {hub.data?.source ? `${t('hubFeedSource')} ${hub.data.source} · ${new Date((hub.data.fetchedAt ?? 0) * 1000).toLocaleString(language)}` : t('hubFeedNever')}
+          {hubFeedLine(hub.data, language, t)}
         </p>
         <button type="button" disabled={busy} onClick={() => run(refreshHub)} className="rounded-lg bg-zinc-100 px-3 py-1.5 font-medium hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15">{t('hubFeedRefresh')}</button>
       </section>

@@ -41,6 +41,10 @@ pub struct Hardware {
     pub total_vram_gb: f64,
     pub total_ram_gb: f64,
     pub has_gpu: bool,
+    /// The card is an AMD or Intel one the engine reaches through Vulkan, not NVIDIA's CUDA or Apple's Metal.
+    pub vulkan: bool,
+    /// No card the songs are computed on: none at all, or one with less memory than the smallest local set needs.
+    pub on_processor: bool,
     pub recommended: &'static str,
     pub reason: String,
 }
@@ -58,13 +62,13 @@ pub struct PresetView {
 pub fn list() -> Vec<PresetView> {
     PRESETS
         .iter()
-        .map(|preset| PresetView {
-            id: preset.id,
-            title: preset.title,
-            subtitle: preset.subtitle,
-            min_vram_gb: preset.min_vram_gb,
-            profile_id: preset.profile_id,
-            provider_mode: preset.provider_mode,
+        .map(|preset| {
+            let (profile_id, subtitle) = match preset.profile_id.map(on_this_card) {
+                Some((profile, Some(files))) => (Some(profile), files),
+                Some((profile, None)) => (Some(profile), preset.subtitle),
+                None => (None, preset.subtitle),
+            };
+            PresetView { id: preset.id, title: preset.title, subtitle, min_vram_gb: preset.min_vram_gb, profile_id, provider_mode: preset.provider_mode }
         })
         .collect()
 }
@@ -75,14 +79,37 @@ pub fn list() -> Vec<PresetView> {
 fn probe() -> &'static Hardware {
     static HARDWARE: OnceLock<Hardware> = OnceLock::new();
     HARDWARE.get_or_init(|| {
-        let mut system = System::new();
+        let mut system = System::new().expect("sysinfo has Windows, Linux and macOS");
         system.refresh_memory();
         let total_ram_gb = system.total_memory() as f64 / GIB;
-        let (gpu_name, total_vram_gb) = nvidia_smi().or_else(other_card).unwrap_or_else(|| ("No NVIDIA GPU detected".into(), 0.0));
+        let (card, vulkan, nvidia) = match nvidia_smi() {
+            Some(card) => (Some(card), false, true),
+            None => {
+                let other = other_card();
+                let vulkan = other.is_some() && !cfg!(target_os = "macos");
+                (other, vulkan, false)
+            }
+        };
+        let (gpu_name, total_vram_gb) = card.unwrap_or_else(|| ("No NVIDIA GPU detected".into(), 0.0));
         let has_gpu = total_vram_gb > 0.0;
-        let (recommended, reason) = recommend_for_hardware(&gpu_name, total_vram_gb, total_ram_gb, crate::model_manager::profile_weights_bytes);
-        Hardware { gpu_name, total_vram_gb, total_ram_gb, has_gpu, recommended, reason }
+        let (recommended, mut reason) = recommend_for_hardware(&gpu_name, total_vram_gb, total_ram_gb, crate::model_manager::profile_weights_bytes);
+        if vulkan {
+            reason.push_str("; the engine computes on it through Vulkan");
+        }
+        let on_processor = computes_on_processor(nvidia, total_vram_gb);
+        Hardware { gpu_name, total_vram_gb, total_ram_gb, has_gpu, vulkan, on_processor, recommended, reason }
     })
+}
+
+/// Whether songs are computed on the processor: no card, or built-in graphics below the smallest local set. An
+/// NVIDIA card nvidia-smi lists is where the engine computes on CUDA at any size; a Mac computes on Metal.
+fn computes_on_processor(nvidia: bool, total_vram_gb: f64) -> bool {
+    let smallest = PRESETS
+        .iter()
+        .filter(|preset| !preset.provider_mode && preset.profile_id.is_some())
+        .map(|preset| preset.min_vram_gb)
+        .fold(f64::INFINITY, f64::min);
+    !cfg!(target_os = "macos") && !nvidia && total_vram_gb < smallest
 }
 
 pub fn hardware() -> Hardware {
@@ -145,7 +172,7 @@ pub fn recommended_local_profile() -> &'static str {
 
 /// Maps a hardware preset onto the complete four-component profile it installs.
 pub fn profile_for_preset(preset_id: &str) -> &'static str {
-    match preset_id {
+    let profile = match preset_id {
         "native-full" => "native",
         "native-quality" => "quality-q8",
         "native-balanced" => "balanced",
@@ -155,6 +182,21 @@ pub fn profile_for_preset(preset_id: &str) -> &'static str {
         // for the Model Manager; the quality set is the smallest set that is
         // not advertised as a speed compromise.
         _ => "quality-q8",
+    };
+    on_this_card(profile).0
+}
+
+/// The set a preset installs on this card, with the files it names: on an RTX 50 with the CUDA 13 build the XL sets
+/// take their DiT in MXFP4, which its tensor cores compute directly, at half the DiT memory of Q8_0.
+fn on_this_card(profile: &'static str) -> (&'static str, Option<&'static str>) {
+    fp4_sibling(profile, crate::cuda_build::computes_fp4_natively())
+}
+
+fn fp4_sibling(profile: &'static str, fp4_native: bool) -> (&'static str, Option<&'static str>) {
+    match profile {
+        "quality-q8" if fp4_native => ("quality-mxfp4", Some("XL turbo MXFP4, LM 4B Q8_0, 8.2 GB; MXFP4: half the DiT memory of Q8_0, computed on the RTX 50's tensor cores directly")),
+        "balanced" | "recommended-light" if fp4_native => ("balanced-mxfp4", Some("XL turbo MXFP4, LM 1.7B Q8_0, 5.8 GB; MXFP4: half the DiT memory of Q8_0, computed on the RTX 50's tensor cores directly")),
+        _ => (profile, None),
     }
 }
 
@@ -178,7 +220,7 @@ pub fn apply(id: &str, configuration: &mut StudioConfiguration, openrouter_music
     music.mode = ExecutionMode::Local;
     music.local_engine = Some(crate::model_manager::ENGINE_ID.into());
     music.cloud_model = None;
-    Ok(PresetApplication { profile_id: preset.profile_id.map(str::to_owned), selected_profile_changed: true })
+    Ok(PresetApplication { profile_id: preset.profile_id.map(|profile| on_this_card(profile).0.to_owned()), selected_profile_changed: true })
 }
 
 fn nvidia_smi() -> Option<(String, f64)> {
@@ -189,13 +231,13 @@ fn nvidia_smi() -> Option<(String, f64)> {
     Some((name.trim().into(), memory.trim().parse::<f64>().ok()? / 1024.0))
 }
 
-/// The card that sizes the recommendation when there is no NVIDIA one: on
-/// Windows none, the sets are sized to CUDA there; elsewhere the engine runs
-/// on Metal (Apple Silicon, the unified memory) or Vulkan, and the adapter
-/// says how much memory it has.
+/// The card that sizes the recommendation when nvidia-smi lists none: on
+/// Windows an AMD or Intel adapter, which the engine reaches through Vulkan.
+/// An NVIDIA adapter nvidia-smi does not list is left out: CUDA does not run
+/// there, and the engine on Vulkan is not for NVIDIA cards.
 #[cfg(windows)]
 fn other_card() -> Option<(String, f64)> {
-    None
+    registry_adapter(|name| !is_nvidia(name))
 }
 
 #[cfg(not(windows))]
@@ -217,6 +259,13 @@ pub fn display_card() -> Option<&'static str> {
 /// driver reports, where WMI's `AdapterRAM` wraps at 4 GB.
 #[cfg(windows)]
 fn display_adapter() -> Option<(String, f64)> {
+    registry_adapter(|_| true)
+}
+
+
+/// The adapter with the most memory among those `keep` takes, as the display adapters' class in the registry lists them.
+#[cfg(windows)]
+fn registry_adapter(keep: impl Fn(&str) -> bool) -> Option<(String, f64)> {
     use std::os::windows::process::CommandExt;
     const CLASS: &str = r"HKLM\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}";
     // A GUI process spawning a console tool flashes a window without this.
@@ -225,7 +274,15 @@ fn display_adapter() -> Option<(String, f64)> {
         let output = Command::new("reg").args(["query", CLASS, "/s", "/v", value]).creation_flags(CREATE_NO_WINDOW).output().ok()?;
         output.status.success().then(|| String::from_utf8_lossy(&output.stdout).into_owned())
     };
-    best_adapter(&query("DriverDesc")?, &query("HardwareInformation.qwMemorySize")?)
+    best_adapter(&query("DriverDesc")?, &query("HardwareInformation.qwMemorySize")?, keep)
+}
+
+#[cfg(windows)]
+/// Whether an adapter's name is an NVIDIA card's: nvidia-smi answers for those, and a Vulkan run of the engine is not
+/// for them.
+fn is_nvidia(name: &str) -> bool {
+    let name = name.to_ascii_lowercase();
+    ["nvidia", "geforce", "quadro", "rtx", "tesla"].iter().any(|mark| name.contains(mark))
 }
 
 #[cfg(target_os = "macos")]
@@ -344,9 +401,9 @@ fn parse_lspci_name(listing: &str, device_id: &str) -> Option<String> {
 }
 
 /// Joins `reg query /s` listings of the adapter names and memory sizes by
-/// their subkey and keeps the adapter with the most memory.
+/// their subkey and keeps the adapter with the most memory among those `keep` takes.
 #[cfg(windows)]
-fn best_adapter(names: &str, sizes: &str) -> Option<(String, f64)> {
+fn best_adapter(names: &str, sizes: &str, keep: impl Fn(&str) -> bool) -> Option<(String, f64)> {
     fn values(listing: &str) -> Vec<(String, String)> {
         let mut key = String::new();
         let mut out = Vec::new();
@@ -367,7 +424,7 @@ fn best_adapter(names: &str, sizes: &str) -> Option<(String, f64)> {
         .filter_map(|(key, size)| {
             let bytes = u64::from_str_radix(size.trim_start_matches("0x"), 16).ok()?;
             let name = names.iter().find(|(name_key, _)| *name_key == key)?.1.clone();
-            (!name.starts_with("Microsoft")).then_some((name, bytes as f64 / 1024.0 / 1024.0 / 1024.0))
+            (!name.starts_with("Microsoft") && keep(&name)).then_some((name, bytes as f64 / 1024.0 / 1024.0 / 1024.0))
         })
         .max_by(|a, b| a.1.total_cmp(&b.1))
 }
@@ -427,10 +484,42 @@ mod tests {
         assert_eq!(recommend("No NVIDIA GPU detected", 0.0), "native-minimal");
     }
 
+    /// Songs are computed on the processor without a card and on built-in graphics below the smallest set; an NVIDIA
+    /// card of any size computes on CUDA. The window says so then.
+    #[cfg(not(target_os = "macos"))]
+    #[test]
+    fn songs_go_to_the_processor_without_a_card_or_on_built_in_graphics() {
+        assert!(computes_on_processor(false, 0.0), "no card");
+        assert!(computes_on_processor(false, 0.125), "Intel UHD with 128 MB");
+        assert!(!computes_on_processor(true, 3.0), "an NVIDIA card of 3 GB computes on CUDA");
+        assert!(!computes_on_processor(false, 16.0), "an AMD card of 16 GB");
+    }
+
     #[test]
     fn every_local_tier_installs_a_profile() {
         for vram in [5.0, 8.0, 10.0, 16.0, 24.0, 32.0] {
             assert!(crate::model_manager::profile_exists(profile_for_preset(recommend("NVIDIA test card", vram))));
+        }
+    }
+
+
+    /// An RTX 5090 on the CUDA 13 build is recommended the set with the DiT in MXFP4; an RTX 4090 keeps its set and
+    /// sees MXFP4 as a choice; the CUDA 12 build, AMD, a Mac and no card see no MXFP4 at all.
+    #[test]
+    fn mxfp4_is_the_rtx_50_default_a_cuda13_choice_and_absent_elsewhere() {
+        use crate::cuda_build::{mxfp4_offered, CudaBuild};
+        let rtx5090 = fp4_sibling("quality-q8", true);
+        assert_eq!(rtx5090.0, "quality-mxfp4");
+        assert!(rtx5090.1.is_some_and(|files| files.contains("MXFP4")));
+        assert_eq!(fp4_sibling("recommended-light", true).0, "balanced-mxfp4");
+        assert_eq!(fp4_sibling("minimal", true), ("minimal", None), "no 2B set in MXFP4");
+        assert_eq!(fp4_sibling("quality-q8", false), ("quality-q8", None), "RTX 4090: the recommendation stays");
+        for (profile, _) in [rtx5090, fp4_sibling("balanced", true)] {
+            assert!(crate::model_manager::profile_exists(profile), "{profile}");
+        }
+        assert!(mxfp4_offered(Some(CudaBuild::Cuda13)), "RTX 4090 on CUDA 13 sees MXFP4");
+        for build in [Some(CudaBuild::Cuda12), None] {
+            assert!(!mxfp4_offered(build), "{build:?}: CUDA 12, AMD, a Mac or no card");
         }
     }
 
@@ -449,9 +538,27 @@ mod tests {
     fn the_adapter_with_the_most_memory_wins_and_basic_display_never_does() {
         let names = "\r\nHKEY_LOCAL_MACHINE\\X\\0000\r\n    DriverDesc    REG_SZ    AMD Radeon RX 7800 XT\r\n\r\nHKEY_LOCAL_MACHINE\\X\\0001\r\n    DriverDesc    REG_SZ    Intel(R) UHD Graphics 770\r\n\r\nHKEY_LOCAL_MACHINE\\X\\0002\r\n    DriverDesc    REG_SZ    Microsoft Basic Display Adapter\r\n";
         let sizes = "\r\nHKEY_LOCAL_MACHINE\\X\\0000\r\n    HardwareInformation.qwMemorySize    REG_QWORD    0x400000000\r\n\r\nHKEY_LOCAL_MACHINE\\X\\0001\r\n    HardwareInformation.qwMemorySize    REG_QWORD    0x80000000\r\n\r\nHKEY_LOCAL_MACHINE\\X\\0002\r\n    HardwareInformation.qwMemorySize    REG_QWORD    0x800000000\r\n";
-        let (name, vram) = best_adapter(names, sizes).unwrap();
+        let (name, vram) = best_adapter(names, sizes, |_| true).unwrap();
         assert_eq!(name, "AMD Radeon RX 7800 XT");
         assert_eq!(vram, 16.0);
+    }
+
+    /// A laptop with Intel graphics and an NVIDIA card nvidia-smi does not list: the NVIDIA one is not taken for a
+    /// Vulkan run, and the Intel graphics' memory is below every set on the card.
+    #[cfg(windows)]
+    #[test]
+    fn a_card_without_nvidia_smi_is_amd_or_intel_and_built_in_graphics_gets_no_set_on_the_card() {
+        let names = "\r\nHKEY_LOCAL_MACHINE\\X\\0000\r\n    DriverDesc    REG_SZ    Intel(R) UHD Graphics\r\n\r\nHKEY_LOCAL_MACHINE\\X\\0001\r\n    DriverDesc    REG_SZ    NVIDIA GeForce RTX 3060 Laptop GPU\r\n";
+        let sizes = "\r\nHKEY_LOCAL_MACHINE\\X\\0000\r\n    HardwareInformation.qwMemorySize    REG_QWORD    0x8000000\r\n\r\nHKEY_LOCAL_MACHINE\\X\\0001\r\n    HardwareInformation.qwMemorySize    REG_QWORD    0x180000000\r\n";
+        let (name, vram) = best_adapter(names, sizes, |name| !is_nvidia(name)).unwrap();
+        assert_eq!((name.as_str(), vram), ("Intel(R) UHD Graphics", 0.125));
+        let (preset, reason) = recommend_for_hardware(&name, vram, 32.0, |_| 7_000_000_000);
+        assert_eq!(preset, "native-minimal", "128 MB of built-in graphics holds no set: the smallest runs on the processor");
+        assert!(reason.contains("Intel(R) UHD Graphics"), "{reason}");
+        let radeon = "\r\nHKEY_LOCAL_MACHINE\\X\\0000\r\n    DriverDesc    REG_SZ    AMD Radeon RX 7800 XT\r\n";
+        let sixteen = "\r\nHKEY_LOCAL_MACHINE\\X\\0000\r\n    HardwareInformation.qwMemorySize    REG_QWORD    0x400000000\r\n";
+        let (name, vram) = best_adapter(radeon, sixteen, |name| !is_nvidia(name)).unwrap();
+        assert_eq!(recommend_for_hardware(&name, vram, 64.0, |_| 13_000_000_000).0, "native-quality", "16 GB of an AMD card sizes the set as on Linux");
     }
 
     #[test]

@@ -93,13 +93,14 @@ async fn report(state: &AppState) -> Value {
     // nvidia-smi is a process of its own: it waits off the async workers
     let (gpu, cards) = tokio::task::spawn_blocking(|| (crate::cuda_build::describe(), crate::cuda_build::nvidia_cards())).await.unwrap_or_else(|error| {
         studio_log!("[ERROR] the card query of the diagnostics stopped: {error}");
-        (None, Vec::new())
+        (None, None)
     });
     json!({
         "version": crate::studio_version(),
-        "os": format!("{} ({})", sysinfo::System::long_os_version().or_else(sysinfo::System::name).unwrap_or_else(|| std::env::consts::OS.to_string()), std::env::consts::ARCH),
+        "os": format!("{} ({})", sysinfo::System::long_os_version().or_else(|_| sysinfo::System::name()).unwrap_or_else(|_| std::env::consts::OS.to_string()), std::env::consts::ARCH),
         "gpu": gpu,
-        "cards": cards.into_iter().map(|(index, name, vram_gb)| json!({ "index": index, "name": name, "vram_gb": vram_gb })).collect::<Vec<_>>(),
+        // null: nvidia-smi did not answer
+        "cards": cards.map(|cards| cards.into_iter().map(|(index, name, vram_gb)| json!({ "index": index, "name": name, "vram_gb": vram_gb })).collect::<Vec<_>>()),
         "memory": { "ram_used_mb": resources.ram_used_mb, "ram_total_mb": resources.ram_total_mb, "vram": resources.gpus.iter().map(|gpu| json!({ "name": gpu.name, "used_mb": gpu.vram_used_mb, "total_mb": gpu.vram_total_mb })).collect::<Vec<_>>() },
         "engine_device": serde_json::to_value(*state.active_device.read().await).unwrap_or(Value::Null),
         "engine_options": serde_json::to_value(state.engine_options.read().await.clone()).unwrap_or(Value::Null),
@@ -167,6 +168,11 @@ pub async fn get(State(state): State<AppState>) -> Json<Value> {
     Json(json!({ "text": text(&report, &log), "report": report }))
 }
 
+/// An engine log as the pack carries it: without the text of any song, keys masked.
+fn engine_text(lines: &[String]) -> String {
+    masked(&crate::problem::without_request_text(lines).join("\n"))
+}
+
 /// The bug-report pack: the diagnostics, the journal, the studio's logs and the engine's, every one masked.
 fn pack(root: &Path, report: &Value, journal: &[crate::library::JournalEntry], engine_log: &[String]) -> Result<PathBuf, String> {
     let log = recent_log(root);
@@ -190,9 +196,9 @@ fn pack(root: &Path, report: &Value, journal: &[crate::library::JournalEntry], e
         }
     }
     if let Ok(bytes) = std::fs::read(music_engine::server::startup_log_path()) {
-        put("engine-startup.log", masked(&String::from_utf8_lossy(&bytes)).as_bytes())?;
+        put("engine-startup.log", engine_text(&String::from_utf8_lossy(&bytes).lines().map(String::from).collect::<Vec<_>>()).as_bytes())?;
     }
-    put("engine.log", masked(&engine_log.join("\n")).as_bytes())?;
+    put("engine.log", engine_text(engine_log).as_bytes())?;
     zip.finish().map_err(|error| error.to_string())?;
     Ok(path)
 }
@@ -275,6 +281,35 @@ mod tests {
         assert_eq!(log.len(), LOG_LINES);
         assert_eq!(log.last().map(String::as_str), Some("key [key]"));
         assert_eq!(log_files(&root).iter().map(|path| path.file_name().unwrap().to_string_lossy().into_owned()).collect::<Vec<_>>(), vec!["ace-step-studio.old.log", "ace-step-studio.log"]);
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+
+    /// The pack a person attaches to a public issue carries the engine's log without the text of a song: the request's
+    /// numbers - seed, steps, length, the models - its steps and its errors stay.
+    #[test]
+    fn the_pack_carries_no_text_of_a_song() {
+        let root = std::env::temp_dir().join(format!("ace-diagnostics-{}", uuid::Uuid::now_v7()));
+        std::fs::create_dir_all(root.join("logs")).unwrap();
+        let lines: Vec<String> = include_str!("testdata/engine-log-with-song-text.log").lines().map(String::from).collect();
+        let path = pack(&root, &serde_json::json!({}), &[], &lines).unwrap();
+        let mut zip = zip::ZipArchive::new(std::fs::File::open(&path).unwrap()).unwrap();
+        let mut read = |name: &str| -> Option<String> {
+            let mut file = zip.by_name(name).ok()?;
+            let mut text = String::new();
+            std::io::Read::read_to_string(&mut file, &mut text).unwrap();
+            Some(text)
+        };
+        let engine = read("engine.log").unwrap();
+        let startup = read("engine-startup.log");
+        for log in std::iter::once(&engine).chain(startup.as_ref()) {
+            for text in ["caption:", "Coffee in the morning sun", "Electric sunshine fills the air", "[Verse 1]", "# Lyric"] {
+                assert!(!log.contains(text), "{text} is in the pack");
+            }
+        }
+        for line in ["[request text left out]", "[Resolve-T] seed=", "steps=8", "duration=30.0s", "DiT=acestep-v15-turbo-Q8_0.gguf", "[DiT] Step 8/8", "[Server] FATAL: cannot bind"] {
+            assert!(engine.contains(line), "{line} stays in the pack");
+        }
         std::fs::remove_dir_all(&root).ok();
     }
 

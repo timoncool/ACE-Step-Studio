@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Loader2, Mic2 } from 'lucide-react';
 import { useKaraokeStatus } from '../services/studioQueries';
+import { karaokeReason } from '../services/karaoke';
 import { useI18n } from '../context/I18nContext';
 import { Song } from '../types';
 
@@ -26,7 +27,8 @@ export const KaraokeAction: React.FC<{ song: Song; onDone?: (lrc: string) => voi
             if (!response.ok) throw new Error(body?.error || String(response.status));
             onDone?.(body.lrc as string);
         } catch (reason) {
-            setError(reason instanceof Error ? reason.message : String(reason));
+            const message = reason instanceof Error ? reason.message : String(reason);
+            setError(karaokeReason(t, message) ?? message);
         } finally {
             setBusy(false);
         }

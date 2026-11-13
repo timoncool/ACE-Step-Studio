@@ -320,7 +320,12 @@ pub struct Training {
     /// Held over each read-change-write of a `run.json` or `dataset.json`, so
     /// two edits never write over each other.
     edits: std::sync::Mutex<()>,
+    /// Told how each run ended: done, or the failure's reason and whether it was stopped.
+    ended: std::sync::OnceLock<RunEnded>,
 }
+
+/// How a training run ended, for whoever counts finished work: `Ok` done, `Err` the reason, and whether it was stopped.
+pub type RunEnded = Box<dyn Fn(std::result::Result<(), String>, bool) + Send + Sync>;
 
 struct Active {
     run_id: String,
@@ -444,8 +449,8 @@ const CAPTIONER_PICK: [&str; 12] = [
 ];
 
 /// The captioner the macOS app bundle and the Linux packages carry in
-/// `resources/music-midi`, built with the MIDI transcriber from the same
-/// HOT-Step; the downloadable archive is a Windows build.
+/// `resources/music-midi`, built from the pinned HOT-Step; the downloadable
+/// archive is a Windows build.
 fn bundled_captioner() -> Option<PathBuf> {
     if cfg!(windows) {
         return None;
@@ -514,7 +519,7 @@ pub(crate) fn listen_pack() -> &'static [Asset] {
             model(
                 "s-key",
                 "S-KEY (key)",
-                "https://huggingface.co/aaatmy/skey-onnx/resolve/main/skey.onnx",
+                "https://huggingface.co/aaatmy/skey-onnx/resolve/c04b6a2bc1d82e50b46d8669560d056f3a2344ab/skey.onnx",
                 "models/audio-facts/skey.onnx",
                 324_536,
             ),
@@ -556,7 +561,19 @@ fn read_json<T: for<'a> Deserialize<'a>>(path: &Path) -> Option<T> {
 impl Training {
     pub fn new(data_root: &Path, engine: &str) -> Self {
         let root = data_root.join("training");
-        Self { downloader: Downloader::with_runtimes(root.clone(), tools_root(data_root)), root, engine: engine.to_string(), active: RwLock::new(None), edits: std::sync::Mutex::new(()) }
+        Self {
+            downloader: Downloader::with_runtimes(root.clone(), tools_root(data_root)),
+            root,
+            engine: engine.to_string(),
+            active: RwLock::new(None),
+            edits: std::sync::Mutex::new(()),
+            ended: std::sync::OnceLock::new(),
+        }
+    }
+
+    /// Who is told how each run ends; set once.
+    pub fn on_run_ended(&self, ended: RunEnded) {
+        let _ = self.ended.set(ended);
     }
 
     pub fn downloader(&self) -> &Downloader {
@@ -1233,6 +1250,13 @@ impl Training {
 
     /// Records how a run ended and lets the next one start.
     async fn settle(&self, run_id: &str, outcome: Result<bool>) {
+        if let Some(ended) = self.ended.get() {
+            match &outcome {
+                Ok(true) => ended(Ok(()), false),
+                Ok(false) => ended(Err("stopped".to_string()), true),
+                Err(error) => ended(Err(format!("{error:#}")), false),
+            }
+        }
         {
             let _edit = self.edits.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
             if let Ok(mut run) = self.run(run_id) {
@@ -1327,6 +1351,7 @@ impl Training {
                 });
             }
             drop(lines_out);
+            let pid = child.id();
             let mut last_error = String::new();
             let status = loop {
                 tokio::select! {
@@ -1359,6 +1384,15 @@ impl Training {
             if !status.success() {
                 if last_error.contains("GGML_BACKEND=CUDA0 not found") {
                     bail!("{} stopped: the trainer's CUDA did not load on the graphics card, and training does not run on the processor; it needs NVIDIA driver {} or newer", stage.id, crate::cuda_build::CUDA13_DRIVER);
+                }
+                // a crash says where it happened only in Windows' record of it
+                if last_error.is_empty() || music_core::process::exited_on_exception(status.code()) {
+                    if let Some(pid) = pid {
+                        let fault = tokio::task::spawn_blocking(move || music_core::process::fault_of(pid, std::time::Duration::from_secs(5))).await.ok().flatten();
+                        if let Some(fault) = fault {
+                            last_error = if last_error.is_empty() { fault.to_string() } else { format!("{last_error} | {fault}") };
+                        }
+                    }
                 }
                 bail!("{} stopped ({status}){}", stage.id, if last_error.is_empty() { String::new() } else { format!(": {last_error}") });
             }

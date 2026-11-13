@@ -196,6 +196,41 @@ export async function deleteNativeSong(id: string): Promise<void> {
   if (!response.ok) throw new Error(`Native song deletion failed (${response.status})`);
 }
 
+/** A song in the library's bin: when it went there, when it goes for good, how many songs went with it. */
+export interface TrashedSong {
+  song: Song;
+  trashedAt: Date;
+  goneAt: Date;
+  with: number;
+}
+
+async function trashRequest<T>(path: string, method: string): Promise<T> {
+  const response = await fetch(path, { method });
+  const body = await response.json().catch(() => null) as (T & { error?: unknown }) | null;
+  if (!response.ok || body === null) throw new Error(typeof body?.error === 'string' ? body.error : `the bin did not answer (${response.status})`);
+  return body;
+}
+
+export async function listTrash(): Promise<{ songs: TrashedSong[]; days: number }> {
+  const body = await trashRequest<{ songs: Array<NativeLibrarySong & { trashed_at: number; gone_at: number; with: number }>; days: number }>('/v1/library/trash', 'GET');
+  return {
+    days: body.days,
+    songs: body.songs.map(song => ({ song: mapNativeLibrarySong(song), trashedAt: new Date(song.trashed_at * 1000), goneAt: new Date(song.gone_at * 1000), with: song.with })),
+  };
+}
+
+export async function restoreTrashedSong(id: string): Promise<void> {
+  await trashRequest(`/v1/library/trash/${encodeURIComponent(id)}/restore`, 'POST');
+}
+
+export async function deleteTrashedSong(id: string): Promise<void> {
+  await trashRequest(`/v1/library/trash/${encodeURIComponent(id)}`, 'DELETE');
+}
+
+export async function emptyTrash(): Promise<void> {
+  await trashRequest('/v1/library/trash', 'DELETE');
+}
+
 /** The thumbs-up, set or taken back in the library; answers with the song as stored. */
 export async function setNativeSongLiked(id: string, liked: boolean): Promise<Song> {
   const response = await fetch(`/v1/library/songs/${encodeURIComponent(id)}/liked`, {

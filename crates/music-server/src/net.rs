@@ -265,6 +265,57 @@ fn proxy_for(settings: &ProxySettings, system: &Matcher, url: &reqwest::Url) -> 
     }
 }
 
+
+/// The proxy a request went through, as a message names it: the address without its login, and whether it is the
+/// one Windows or the environment is set to or the user's own.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProxyRoute {
+    pub address: String,
+    pub system: bool,
+}
+
+impl ProxyRoute {
+    fn of(proxy: &reqwest::Url, system: bool) -> Self {
+        let host = proxy.host_str().unwrap_or_default();
+        let address = match proxy.port_or_known_default() {
+            Some(port) => format!("{}://{host}:{port}", proxy.scheme()),
+            None => format!("{}://{host}", proxy.scheme()),
+        };
+        ProxyRoute { address, system }
+    }
+
+    /// Why nothing was reached through it, and what to do, in the window's place names.
+    pub fn did_not_connect(&self) -> String {
+        let whose = if self.system { "The system proxy" } else { "The proxy set in Settings - Providers" };
+        format!(
+            "{whose} {} did not answer or refused the connection: start the proxy program, or choose No proxy in Settings - Providers",
+            self.address
+        )
+    }
+
+    /// Whether the proxy's own address accepts a TCP connection. Only a proxy that does not is to blame: one that
+    /// takes the connection and answers 502 to CONNECT is alive and could not reach the host, so the mirror behind it
+    /// may still answer.
+    pub async fn takes_connections(&self) -> bool {
+        let Some(address) = reqwest::Url::parse(&self.address).ok().and_then(|url| Some(format!("{}:{}", url.host_str()?, url.port_or_known_default()?)))
+        else {
+            return false;
+        };
+        matches!(tokio::time::timeout(std::time::Duration::from_secs(3), tokio::net::TcpStream::connect(address)).await, Ok(Ok(_)))
+    }
+}
+
+fn route_with(settings: &ProxySettings, system: &Matcher, url: &reqwest::Url) -> Option<ProxyRoute> {
+    proxy_for(settings, system, url).map(|proxy| ProxyRoute::of(&proxy, settings.mode == ProxyMode::System))
+}
+
+/// The proxy a request to `target` goes through now, None for straight out.
+pub fn route_for(target: &str) -> Option<ProxyRoute> {
+    let url = reqwest::Url::parse(target).ok()?;
+    let route = route().read().expect("proxy route");
+    route_with(&route.settings, &route.system, &url)
+}
+
 fn user_agent() -> String {
     music_core::studio().user_agent(crate::studio_version())
 }
@@ -297,6 +348,45 @@ pub fn download_client() -> reqwest::Client {
         .expect("an HTTP client with a proxy callback builds")
 }
 
+/// Attempts at a cloud request that a server answers with 408, 409 or 429.
+const CLOUD_ATTEMPTS: u32 = 4;
+
+/// Whether a cloud server's answer asks for the same request again later: 408, 409 (a provider's concurrency
+/// conflict) and 429, as the OpenAI SDKs retry them. Any other 4xx is the request's own fault.
+pub fn is_transient(status: reqwest::StatusCode) -> bool {
+    matches!(status.as_u16(), 408 | 409 | 429)
+}
+
+/// How long a transient answer asks to wait: its `Retry-After` in seconds, at most a minute, else a doubling wait.
+fn wait_after(headers: &reqwest::header::HeaderMap, attempt: u32) -> std::time::Duration {
+    headers
+        .get(reqwest::header::RETRY_AFTER)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .map(|seconds| std::time::Duration::from_secs(seconds.clamp(1, 60)))
+        .unwrap_or_else(|| std::time::Duration::from_secs(2u64 << attempt.min(4)))
+}
+
+/// Sends a cloud request built by `request`, again after 408, 409 and 429 answers. A server that cannot be connected
+/// to is named by its host in the error; any other answer is the caller's to read.
+pub async fn send_cloud(request: impl Fn() -> reqwest::RequestBuilder) -> Result<reqwest::Response> {
+    let mut attempt = 0;
+    loop {
+        let built = request();
+        let host = built.try_clone().and_then(|copy| copy.build().ok()).and_then(|built| built.url().host_str().map(str::to_owned)).unwrap_or_default();
+        let response = match built.send().await {
+            Ok(response) => response,
+            Err(error) if error.is_connect() => bail!("could not connect to {host}: {}", why(&error)),
+            Err(error) => return Err(error.into()),
+        };
+        attempt += 1;
+        if !is_transient(response.status()) || attempt >= CLOUD_ATTEMPTS {
+            return Ok(response);
+        }
+        tokio::time::sleep(wait_after(response.headers(), attempt - 1)).await;
+    }
+}
+
 /// Whether Hugging Face, where the models come from, and OpenRouter answer
 /// through `settings`, before they are kept. An answer of any status counts;
 /// a connection that fails does not. Without the mirror chosen, HF-Mirror is
@@ -306,32 +396,40 @@ pub async fn test(settings: ProxySettings) -> Result<serde_json::Value> {
     let hub_url = model_url_with(&settings, "https://huggingface.co/api/models?limit=1");
     let mirror_chosen = settings.huggingface_mirror;
     let system = Matcher::from_system();
+    let hub_route = reqwest::Url::parse(&hub_url).ok().and_then(|url| route_with(&settings, &system, &url));
     let client = reqwest::Client::builder()
         .user_agent(user_agent())
         .proxy(reqwest::Proxy::custom(move |url| proxy_for(&settings, &system, url)))
         .timeout(std::time::Duration::from_secs(15))
         .build()?;
+    // the reason, and whether the connection itself failed
     let reach = |url: String, answered: bool| {
         let client = client.clone();
         async move {
-            let response = client.get(url).send().await.map_err(|error| why(&error))?;
+            let response = client.get(url).send().await.map_err(|error| (why(&error), error.is_connect()))?;
             // a mirror's error page is no source of models
-            if !answered { response.error_for_status().map_err(|error| why(&error))?; }
-            Ok::<(), String>(())
+            if !answered { response.error_for_status().map_err(|error| (why(&error), false))?; }
+            Ok::<(), (String, bool)>(())
         }
     };
     let mirror = async {
         if mirror_chosen { None } else { Some(reach(mirror_url("https://huggingface.co/api/models?limit=1"), false).await) }
     };
     let (hub, openrouter, mirror) = tokio::join!(reach(hub_url, !mirror_chosen), reach("https://openrouter.ai/api/v1/models".into(), true), mirror);
+    // a proxy whose address takes no connection is named, and the mirror behind it is no way out
+    let proxy_down = match hub_route.filter(|_| hub.as_ref().is_err_and(|(_, connect)| *connect)) {
+        Some(route) if !route.takes_connections().await => Some(route),
+        _ => None,
+    };
     Ok(serde_json::json!({
         "huggingface": hub.is_ok(),
-        "huggingface_error": hub.err(),
+        "huggingface_error": hub.err().map(|(reason, _)| reason),
+        "huggingface_proxy": proxy_down.map(|route| serde_json::json!({ "address": route.address, "system": route.system })),
         "openrouter": openrouter.is_ok(),
-        "openrouter_error": openrouter.err(),
+        "openrouter_error": openrouter.err().map(|(reason, _)| reason),
         "mirror_chosen": mirror_chosen,
         "mirror": mirror.as_ref().map(|answer| answer.is_ok()),
-        "mirror_error": mirror.and_then(|answer| answer.err()),
+        "mirror_error": mirror.and_then(|answer| answer.err()).map(|(reason, _)| reason),
     }))
 }
 
@@ -427,6 +525,92 @@ mod tests {
         assert_eq!((through.scheme(), through.username(), through.password()), ("socks5h", "user", Some("pass")));
         let off = ProxySettings { mode: ProxyMode::Off, ..ProxySettings::default() };
         assert_eq!(proxy_for(&off, &system, &url("https://huggingface.co/x")), None);
+    }
+
+    /// Under the system's settings a host its NO_PROXY names goes straight out,
+    /// and the rest through the system's proxy.
+    #[test]
+    fn a_host_the_system_excludes_goes_straight_out() {
+        let system = Matcher::builder().https("http://127.0.0.1:9").http("http://127.0.0.1:9").no("hf-mirror.com, .example.org").build();
+        let settings = ProxySettings::default();
+        assert_eq!(settings.mode, ProxyMode::System);
+        assert_eq!(proxy_for(&settings, &system, &url("https://hf-mirror.com/api/models?limit=1")), None);
+        assert_eq!(proxy_for(&settings, &system, &url("https://cdn.example.org/x")), None);
+        assert!(proxy_for(&settings, &system, &url("https://huggingface.co/api/models?limit=1")).is_some());
+    }
+
+
+    /// A proxy that refuses the connection is named in the check, by its address without the login, and as the
+    /// user's own or the system's.
+    #[tokio::test]
+    async fn a_proxy_that_does_not_connect_is_named_without_its_login() {
+        let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = closed.local_addr().unwrap().port();
+        drop(closed);
+        let answer = test(custom(&format!("user:secret@127.0.0.1:{port}"), ProxyKind::Http)).await.unwrap();
+        assert_eq!(answer["huggingface"], false);
+        assert_eq!(answer["huggingface_proxy"]["address"], format!("http://127.0.0.1:{port}"));
+        assert_eq!(answer["huggingface_proxy"]["system"], false);
+        assert!(!answer.to_string().contains("secret"), "{answer}");
+        let system = Matcher::builder().https("http://user:secret@127.0.0.1:9").build();
+        let route = route_with(&ProxySettings::default(), &system, &url("https://huggingface.co/x")).expect("through the system proxy");
+        assert_eq!(route, ProxyRoute { address: "http://127.0.0.1:9".into(), system: true });
+        let off = ProxySettings { mode: ProxyMode::Off, ..ProxySettings::default() };
+        assert_eq!(route_with(&off, &system, &url("https://huggingface.co/x")), None);
+    }
+
+    /// A proxy that takes the connection but cannot reach the host (502 to CONNECT) is alive: it is not blamed, and
+    /// the mirror behind it may still answer.
+    #[tokio::test]
+    async fn a_proxy_that_answers_502_is_not_called_down() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            use tokio::io::{AsyncReadExt, AsyncWriteExt};
+            while let Ok((mut socket, _)) = listener.accept().await {
+                let mut request = [0u8; 2048];
+                let _ = socket.read(&mut request).await;
+                let _ = socket.write_all(b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n").await;
+            }
+        });
+        let answer = test(custom(&format!("127.0.0.1:{port}"), ProxyKind::Http)).await.unwrap();
+        assert_eq!(answer["huggingface"], false);
+        assert!(answer["huggingface_proxy"].is_null(), "{answer}");
+        let route = ProxyRoute { address: format!("http://127.0.0.1:{port}"), system: false };
+        assert!(route.takes_connections().await, "the proxy's address accepts a connection");
+        let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let gone = ProxyRoute { address: format!("http://{}", closed.local_addr().unwrap()), system: true };
+        drop(closed);
+        assert!(!gone.takes_connections().await);
+    }
+
+    /// A cloud server that answers 429 is asked again after the wait it names; one that cannot be reached is named.
+    #[tokio::test]
+    async fn a_busy_cloud_server_is_asked_again_and_an_unreachable_one_is_named() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            for answer in ["HTTP/1.1 429 Too Many Requests\r\nRetry-After: 1\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok"] {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let mut buffer = [0u8; 4096];
+                let _ = socket.read(&mut buffer).await;
+                socket.write_all(answer.as_bytes()).await.unwrap();
+                socket.shutdown().await.ok();
+            }
+        });
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+        let started = std::time::Instant::now();
+        let response = send_cloud(|| client.get(format!("http://127.0.0.1:{port}/x"))).await.unwrap();
+        assert_eq!(response.status(), 200);
+        assert!(started.elapsed() >= std::time::Duration::from_secs(1), "the Retry-After second was waited");
+        assert!(is_transient(reqwest::StatusCode::REQUEST_TIMEOUT) && is_transient(reqwest::StatusCode::CONFLICT));
+        assert!(!is_transient(reqwest::StatusCode::UNAUTHORIZED));
+        let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let gone = closed.local_addr().unwrap().port();
+        drop(closed);
+        let error = send_cloud(|| client.get(format!("http://127.0.0.1:{gone}/x"))).await.unwrap_err().to_string();
+        assert!(error.starts_with("could not connect to 127.0.0.1: "), "{error}");
     }
 
     #[test]
