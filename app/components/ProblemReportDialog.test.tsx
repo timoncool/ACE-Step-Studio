@@ -51,8 +51,7 @@ describe('ProblemReportDialog', () => {
     serve({ '/v1/problem/report': { status: 200, body: { number: 77, url: 'https://github.com/x/y/issues/77' } } });
     await open();
     expect(sendButton().disabled).toBe(true);
-    const github = [...host.querySelectorAll('a')].find(link => link.textContent?.includes('problemOpenGithub'))!;
-    expect(github.getAttribute('href')).toContain('template=2-ru-1-bug.yml');
+    expect(host.querySelectorAll('input[type="radio"]').length, 'no choice of way: two buttons say it').toBe(0);
     expect(host.textContent, 'the window carries no links to the author').not.toContain('problemAuthorNews');
     expect(host.querySelector('a[href="https://x.com/nerualdreming"]')).toBeNull();
     await type('short');
@@ -101,7 +100,6 @@ describe('ProblemReportDialog', () => {
     serve({ '/v1/problem/report': { status: 200, body: { number: 8, url: 'https://github.com/x/y/issues/8' } } });
     await open();
     const pick = async (label: string) => act(async () => [...host.querySelectorAll('[role="radio"]')].find(radio => radio.textContent === label)!.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-    const github = () => [...host.querySelectorAll('a')].find(link => link.textContent?.includes('problemOpenGithub'))!.getAttribute('href')!;
     const log = () => (host.querySelector('input[type="checkbox"]') as HTMLInputElement).checked;
     expect(host.textContent).toContain('problemSteps');
     expect(log()).toBe(true);
@@ -110,13 +108,35 @@ describe('ProblemReportDialog', () => {
     expect(host.textContent).toContain('problemIdeaHow');
     expect(host.textContent).not.toContain('problemSteps');
     expect(log(), 'an idea takes no log unless ticked').toBe(false);
-    expect(github()).toContain('template=2-ru-2-idea.yml');
     await pick('problemKind_question');
     expect(host.querySelectorAll('textarea').length).toBe(1);
-    expect(github()).toContain('template=2-ru-3-question.yml');
     await type('How do I make a song longer than four minutes?');
     await act(async () => sendButton().click());
     expect(calls.find(call => call.path === '/v1/problem/report')?.body).toMatchObject({ kind: 'question', steps: '', expected: '', attach_log: false });
+  });
+
+  it('offers two ways as two buttons named by their result, GitHub the main one, both explained in view', async () => {
+    serve({});
+    await open();
+    const footer = () => [...host.querySelectorAll('.mt-5 a, .mt-5 button')] as HTMLElement[];
+    const label = (element: HTMLElement) => element.querySelector('span')?.textContent;
+    expect(host.querySelectorAll('input[type="radio"]').length).toBe(0);
+    expect(footer().map(label)).toEqual(['problemSendOwn', 'problemSendAnon']);
+    expect(footer()[0].tagName, 'the main one is the GitHub form, first on a phone').toBe('A');
+    expect(footer()[0].className).toContain('bg-pink-600');
+    expect(footer()[1].className, 'anonymous sending is the fallback').not.toContain('bg-pink-600');
+    for (const element of footer()) expect(label(element)?.startsWith('problemSend')).toBe(true);
+    const text = host.textContent ?? '';
+    for (const line of ['problemOwnName', 'problemOwnLine', 'problemAnonName', 'problemAnonLine', 'problemAttachLog']) expect(text).toContain(line);
+    expect(text.indexOf('problemOwnLine')).toBeLessThan(text.indexOf('problemAnonLine'));
+    expect(text.indexOf('problemAnonLine'), 'the log belongs to the anonymous way, after its line').toBeLessThan(text.indexOf('problemAttachLog'));
+    expect(footer()[0].getAttribute('aria-disabled')).toBe('true');
+    await type('The song stops at decoding\nevery time');
+    const link = new URL(footer()[0].getAttribute('href')!);
+    expect(link.searchParams.get('template')).toBe('2-ru-1-bug.yml');
+    expect(link.searchParams.get('what')).toBe('The song stops at decoding\nevery time');
+    expect(link.searchParams.get('title')).toBe('The song stops at decoding');
+    expect(footer()[0].getAttribute('target')).toBe('_blank');
   });
 
   it('says why a report did not go, each kind in its own words', () => {
