@@ -5791,13 +5791,18 @@ async fn models_kept(state: &AppState) -> bool {
 
 /// Gives the card back before other work on it - stems, Audio to MIDI, karaoke and recognition on audio.cpp, Describe
 /// by ear, training, the assistant on the card - or after a while without songs: models the engine keeps loaded are
-/// unloaded and load again with the next song.
+/// unloaded and load again with the next song. An engine that holds nothing - before its first song, after a new
+/// start or after an unload - is not asked.
 async fn evict_kept_models(state: &AppState, before: &str) {
-    if !models_kept(state).await || !state.music_server.health().await {
+    let holds = state.engine_idle_since.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_some();
+    if !holds || !models_kept(state).await || !state.music_server.health().await {
         return;
     }
     match state.music_server.evict().await {
-        Ok(freed) => music_engine::server::note_in_log(&format!("models unloaded {before}: {freed:.0} MB freed")),
+        Ok(freed) => {
+            *state.engine_idle_since.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = None;
+            music_engine::server::note_in_log(&format!("models unloaded {before}: {freed:.0} MB freed"))
+        }
         // said once a start: an engine built before /evict answers every ask the same way
         Err(error) if !EVICT_FAILED.swap(true, std::sync::atomic::Ordering::SeqCst) => {
             studio_log!("[ERROR] the engine did not unload its models {before}, and kept models stay on the card until it restarts: {error:#}")
