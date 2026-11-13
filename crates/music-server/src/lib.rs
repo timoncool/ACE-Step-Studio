@@ -3718,7 +3718,9 @@ async fn cancel_restore(State(state): State<AppState>) -> Json<Value> {
 /// beside it. Restoring a track again replaces the track its last restoration made.
 async fn start_restore(State(state): State<AppState>, Json(request): Json<RestoreRequest>) -> Result<Json<Value>, (StatusCode, Json<ApiError>)> {
     card_free_of_training(&state, "restore tracks").await?;
-    if state.restore_run.read().await.as_ref().is_some_and(|run| !run.done) {
+    // held from the check to the start, so a second request in between finds this one running
+    let mut slot = state.restore_run.write().await;
+    if slot.as_ref().is_some_and(|run| !run.done) {
         return Err(api_error(StatusCode::CONFLICT, "a track is already being restored".into()));
     }
     let runtime = state.separation_config.read().await.runtime;
@@ -3763,7 +3765,8 @@ async fn start_restore(State(state): State<AppState>, Json(request): Json<Restor
         RestoreSource::File { title, .. } => (None, title.clone()),
     };
     state.restore_stop.store(false, std::sync::atomic::Ordering::Relaxed);
-    *state.restore_run.write().await = Some(RestoreRun { song_id: song_id.clone(), title, stage: "restoring", started_ms: unix_millis(), done: false, error: None, used_gpu: None, library_song: None });
+    *slot = Some(RestoreRun { song_id: song_id.clone(), title, stage: "restoring", started_ms: unix_millis(), done: false, error: None, used_gpu: None, library_song: None });
+    drop(slot);
 
     let background = state.clone();
     let model = state.separator.restore_model_path();
