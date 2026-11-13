@@ -263,6 +263,18 @@ ${steps}
     <div class="cta">${download}</div>
   </section>
 
+  <section id="speed">
+    <h2>${escape(s.speed.title)}</h2>
+    <p class="sub">${escape(s.speed.sub)}</p>
+    <div class="scroll"><table>
+      <thead><tr>${s.speed.head.map((cell) => `<th>${escape(cell)}</th>`).join('')}</tr></thead>
+      <tbody>
+${s.speed.rows.map((row) => `        <tr>${row.map((cell) => `<td>${escape(cell)}</td>`).join('')}</tr>`).join('\n')}
+      </tbody>
+    </table></div>
+    <p class="sub">${escape(s.speed.ours)}</p>
+  </section>
+
   <section id="faq">
     <h2>${escape(w.faqTitle)}</h2>
 ${faq.map(({ q, html }) => `    <details><summary>${escape(q)}</summary><div class="answer">${html}</div></details>`).join('\n')}
