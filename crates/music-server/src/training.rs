@@ -235,11 +235,15 @@ pub enum RunStatus {
 }
 
 /// The device of the last "[Load] <part> backend: <device>" line a trainer
-/// wrote.
+/// wrote. The "DiT" part is not one: the trainer keeps that copy of the base
+/// in memory and computes on the card, and does not start without a card.
 fn trainer_device(log: &str) -> Option<String> {
     log.lines().rev().find_map(|line| {
         let rest = line.trim().strip_prefix("[Load] ")?;
-        let device = rest.split_once(" backend: ")?.1;
+        let (part, device) = rest.split_once(" backend: ")?;
+        if part == "DiT" {
+            return None;
+        }
         Some(device.split_whitespace().next()?.to_string())
     })
 }
@@ -1310,6 +1314,7 @@ impl Training {
                 }
             }
             log.write_all(format!("==== {}\n", stage.id).as_bytes()).await?;
+            music_core::process::runtime_beside(trainer);
             let mut command = tokio::process::Command::new(trainer);
             if let Some(path) = music_core::process::own_libraries_first(trainer) {
                 command.env("LD_LIBRARY_PATH", path);
@@ -1693,7 +1698,13 @@ mod tests {
     #[test]
     fn the_trainer_says_what_it_computes_on() {
         assert_eq!(trainer_device("x\n[Load] YuE2 backend: CUDA0 (shared)\nstep 1"), Some("CUDA0".into()));
-        assert_eq!(trainer_device("[Load] DiT backend: CPU (CPU threads: 16)"), Some("CPU".into()));
+        assert_eq!(trainer_device("[Load] VAE-Enc backend: CPU (CPU threads: 16)"), Some("CPU".into()));
+        assert_eq!(
+            trainer_device("[Load] CondEncoder backend: CUDA0 (shared)\n[Load] DiT backend: CPU (CPU threads: 16)\n[Load] DiT: 32 layers"),
+            Some("CUDA0".into()),
+            "the base kept in memory is not what the trainer computes on"
+        );
+        assert_eq!(trainer_device("[Load] DiT backend: CPU (CPU threads: 16)"), None);
         assert_eq!(trainer_device("nothing yet"), None);
     }
 

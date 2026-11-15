@@ -81,6 +81,7 @@ impl VstHost {
 
     /// Looks through the system's VST3 folders and remembers what it found.
     pub fn scan(&self) -> Result<Vec<VstPlugin>> {
+        music_core::process::runtime_beside(&self.exe);
         let mut command = Command::new(&self.exe);
         command.arg("--scan").stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
         hide_window(&mut command);
@@ -104,6 +105,7 @@ impl VstHost {
         let id = state_id.unwrap_or_else(|| uuid::Uuid::now_v7().simple().to_string());
         let state = self.state_file(&id)?;
         std::fs::create_dir_all(state.parent().context("state folder")?)?;
+        music_core::process::runtime_beside(&self.exe);
         Command::new(&self.exe)
             .arg("--gui")
             .arg("--plugin")
@@ -160,6 +162,7 @@ impl VstHost {
         let outcome = (|| -> Result<Stereo> {
             crate::audio_pcm::write_wav_f32(&input, audio)?;
             std::fs::write(&chain_file, serde_json::to_vec(&serde_json::json!({ "plugins": plugins }))?)?;
+            music_core::process::runtime_beside(&self.exe);
             let mut command = Command::new(&self.exe);
             command
                 .arg("--process-chain")

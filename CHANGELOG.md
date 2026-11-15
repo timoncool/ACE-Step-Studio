@@ -2,6 +2,23 @@
 
 What changed, newest first. Dates are release dates.
 
+## 2026-11-15 — 4.0.1
+
+### Added
+
+- **Lithuanian among the vocal languages** of the create form, a language the model knows.
+
+### Fixed
+
+- **On Linux the engine is no longer killed in the middle of a song**, as in YuE2 Studio ([YuE2 Studio #246](https://github.com/timoncool/YuE2-Studio/issues/246), found and explained by BitOBSessiOn): the engine was tied to the life of the thread that started it, not of the studio, and died with SIGKILL when that thread was retired. The engine and the writing assistant's llama-server now start from a thread that lives as long as the studio.
+- **A model file is a handful of requests, not hundreds**, as in YuE2 Studio ([YuE2 Studio #249](https://github.com/timoncool/YuE2-Studio/issues/249)): a download was cut into 16 MB pieces, hundreds of requests for a model, and Hugging Face counts each as a download of it. A file is now fetched in one piece a connection, four at most; a dropped connection asks only for the rest of its piece, and a download closed halfway goes on from the last 16 MB it noted. A download left by an earlier version starts over.
+- **Training no longer says it runs on the processor while it runs on the card** ([#72](https://github.com/timoncool/ACE-Step-Studio/issues/72), [#73](https://github.com/timoncool/ACE-Step-Studio/issues/73)): the trainer keeps a copy of the base model in memory and says so in its log as "DiT backend: CPU", and the studio took that line for the device of the whole run and advised stopping it. The run itself is on the card, and the trainer does not start without one; the warning now shows only when the preparation of the dataset is on the processor.
+- **A hub popup is closed for good by any answer**: a button or a link inside it closes it as the cross does, and it does not come back.
+- **"Keep models loaded" saved by a version before 4.0.0 reads as Auto**, not as Yes: the old switch kept the models on a card of any size.
+- **An engine that exits at its start says why**: the error, and the anonymous report of it, carry the engine's own FATAL line.
+- **"The assistant is unreachable" says where its address and model are set**: Settings - Models - Writing assistant.
+- **Auto-describe, training, the writing assistant and VST effects no longer depend on the Visual C++ runtime Windows has**, as in YuE2 Studio ([YuE2 Studio #204](https://github.com/timoncool/YuE2-Studio/issues/204)): the programs the studio downloads for them came without the runtime they were built with, and with an older one in Windows they stopped at their start with 0xc0000005 and not a word. The studio now puts its own runtime beside every program it starts.
+
 ## 2026-11-13 — 4.0.0
 
 ### Added

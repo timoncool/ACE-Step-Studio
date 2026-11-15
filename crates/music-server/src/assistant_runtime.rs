@@ -828,6 +828,7 @@ impl AssistantRuntime {
         state.server = None;
 
         let port = free_port()?;
+        music_core::process::runtime_beside(&binary);
         let mut command = Command::new(&binary);
         if let Some(path) = music_core::process::own_libraries_first(&binary) {
             command.env("LD_LIBRARY_PATH", path);
@@ -880,8 +881,7 @@ impl AssistantRuntime {
         }
         hide_console(&mut command);
 
-        let child = command
-            .spawn()
+        let child = music_core::process::spawn_bound(&mut command)
             .with_context(|| format!("start llama-server {}", binary.display()))?;
         music_core::process::adopt(&child);
         let base_url = format!("http://127.0.0.1:{port}/v1");
