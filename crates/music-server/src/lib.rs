@@ -650,7 +650,7 @@ enum KeepLoaded {
     No,
 }
 
-/// The saved switch of earlier settings reads as a choice: on is Yes, off is Auto.
+/// The saved switch of earlier settings reads as Auto either way: on, it kept the models on a card of any size.
 impl<'de> Deserialize<'de> for KeepLoaded {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
@@ -660,8 +660,7 @@ impl<'de> Deserialize<'de> for KeepLoaded {
             Choice(String),
         }
         Ok(match Saved::deserialize(deserializer)? {
-            Saved::Switch(true) => KeepLoaded::Yes,
-            Saved::Switch(false) => KeepLoaded::Auto,
+            Saved::Switch(_) => KeepLoaded::Auto,
             Saved::Choice(word) => match word.as_str() {
                 "yes" => KeepLoaded::Yes,
                 "no" => KeepLoaded::No,
@@ -7784,7 +7783,7 @@ async fn assistant_write_stream(
             Ok(response) => response,
             Err(error) => {
                 request_log::failed("assistant", &model, &format!("{error:#}"));
-                emit(sender.clone(), serde_json::json!({ "error": format!("the assistant is unreachable: {error}") })).await;
+                emit(sender.clone(), serde_json::json!({ "error": format!("the assistant is unreachable: {error}. Its address and model are set in Settings - Models - Writing assistant") })).await;
                 return;
             }
         };
@@ -11195,7 +11194,7 @@ mod tests {
         assert!(EngineOptions { auto_keeps: true, ..EngineOptions::default() }.to_engine().keep_loaded);
         assert!(!EngineOptions { keep_loaded: KeepLoaded::No, auto_keeps: true, ..EngineOptions::default() }.to_engine().keep_loaded);
         use serde_json::json;
-        for (saved, read) in [(json!(true), KeepLoaded::Yes), (json!(false), KeepLoaded::Auto), (json!("no"), KeepLoaded::No), (json!("auto"), KeepLoaded::Auto)] {
+        for (saved, read) in [(json!(true), KeepLoaded::Auto), (json!(false), KeepLoaded::Auto), (json!("yes"), KeepLoaded::Yes), (json!("no"), KeepLoaded::No), (json!("auto"), KeepLoaded::Auto)] {
             let options: EngineOptions = serde_json::from_value(json!({ "keep_loaded": saved })).unwrap();
             assert_eq!(options.keep_loaded, read, "{saved}");
         }

@@ -2,6 +2,21 @@
 
 What changed, newest first. Dates are release dates.
 
+## 2026-11-15 — 4.0.1
+
+### Added
+
+- **Lithuanian among the vocal languages** of the create form, a language the model knows.
+
+### Fixed
+
+- **On Linux the engine is no longer killed in the middle of a song**, as in YuE2 Studio ([YuE2 Studio #246](https://github.com/timoncool/YuE2-Studio/issues/246), found and explained by BitOBSessiOn): the engine was tied to the life of the thread that started it, not of the studio, and died with SIGKILL when that thread was retired. The engine and the writing assistant's llama-server now start from a thread that lives as long as the studio.
+- **A model file is a handful of requests, not hundreds**, as in YuE2 Studio ([YuE2 Studio #249](https://github.com/timoncool/YuE2-Studio/issues/249)): a download was cut into 16 MB pieces, hundreds of requests for a model, and Hugging Face counts each as a download of it. A file is now fetched in one piece a connection, four at most; a dropped connection asks only for the rest of its piece, and a download closed halfway goes on from the last 16 MB it noted. A download left by an earlier version starts over.
+- **A hub popup is closed for good by any answer**: a button or a link inside it closes it as the cross does, and it does not come back.
+- **"Keep models loaded" saved by a version before 4.0.0 reads as Auto**, not as Yes: the old switch kept the models on a card of any size.
+- **An engine that exits at its start says why**: the error, and the anonymous report of it, carry the engine's own FATAL line.
+- **"The assistant is unreachable" says where its address and model are set**: Settings - Models - Writing assistant.
+
 ## 2026-11-13 — 4.0.0
 
 ### Added

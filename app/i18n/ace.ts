@@ -123,7 +123,7 @@ const en = {
   ...prefixed('aceGroup_', { self_attn: 'Self-attention', cross_attn: 'Cross-attention', mlp: 'MLP', cond_embed: 'Condition', time_embed: 'Time', proj_in: 'Input' }),
   aceComponentsHint: 'Any installed model for this song; empty uses the selected set.',
   aceFadeIn: 'Fade in, s', aceFadeOut: 'Fade out, s',
-  ...prefixed('aceLang_', { en: 'English', ru: 'Russian', zh: 'Chinese', ja: 'Japanese', ko: 'Korean', es: 'Spanish', fr: 'French', de: 'German', it: 'Italian', pt: 'Portuguese', ar: 'Arabic', hi: 'Hindi', tr: 'Turkish', pl: 'Polish', uk: 'Ukrainian', nl: 'Dutch', sv: 'Swedish', vi: 'Vietnamese', th: 'Thai', id: 'Indonesian', unknown: 'No language' }),
+  ...prefixed('aceLang_', { en: 'English', ru: 'Russian', zh: 'Chinese', ja: 'Japanese', ko: 'Korean', es: 'Spanish', fr: 'French', de: 'German', it: 'Italian', pt: 'Portuguese', ar: 'Arabic', hi: 'Hindi', tr: 'Turkish', pl: 'Polish', uk: 'Ukrainian', nl: 'Dutch', sv: 'Swedish', vi: 'Vietnamese', th: 'Thai', id: 'Indonesian', lt: 'Lithuanian', unknown: 'No language' }),
 };
 
 type Strings = typeof en;
@@ -223,7 +223,7 @@ const ru: Strings = {
   ...prefixed('aceGroup_', { self_attn: 'Self-attention', cross_attn: 'Cross-attention', mlp: 'MLP', cond_embed: 'Условие', time_embed: 'Время', proj_in: 'Вход' }),
   aceComponentsHint: 'Любая установленная модель для этой песни; пусто — выбранный набор.',
   aceFadeIn: 'Нарастание, с', aceFadeOut: 'Затухание, с',
-  ...prefixed('aceLang_', { en: 'Английский', ru: 'Русский', zh: 'Китайский', ja: 'Японский', ko: 'Корейский', es: 'Испанский', fr: 'Французский', de: 'Немецкий', it: 'Итальянский', pt: 'Португальский', ar: 'Арабский', hi: 'Хинди', tr: 'Турецкий', pl: 'Польский', uk: 'Украинский', nl: 'Нидерландский', sv: 'Шведский', vi: 'Вьетнамский', th: 'Тайский', id: 'Индонезийский', unknown: 'Без языка' }),
+  ...prefixed('aceLang_', { en: 'Английский', ru: 'Русский', zh: 'Китайский', ja: 'Японский', ko: 'Корейский', es: 'Испанский', fr: 'Французский', de: 'Немецкий', it: 'Итальянский', pt: 'Португальский', ar: 'Арабский', hi: 'Хинди', tr: 'Турецкий', pl: 'Польский', uk: 'Украинский', nl: 'Нидерландский', sv: 'Шведский', vi: 'Вьетнамский', th: 'Тайский', id: 'Индонезийский', lt: 'Литовский', unknown: 'Без языка' }),
 };
 
 const zh: Strings = {
@@ -309,7 +309,7 @@ const zh: Strings = {
   aceGroupScales: '按层的 LoRA', aceGroupScalesHint: '每个 LoRA 在 DiT 各部分的强度。',
   ...prefixed('aceGroup_', { self_attn: '自注意力', cross_attn: '交叉注意力', mlp: 'MLP', cond_embed: '条件', time_embed: '时间', proj_in: '输入' }),
   aceComponentsHint: '为这首歌选择任意已安装模型；留空使用所选组合。', aceFadeIn: '淡入（秒）', aceFadeOut: '淡出（秒）',
-  ...prefixed('aceLang_', { en: '英语', ru: '俄语', zh: '中文', ja: '日语', ko: '韩语', es: '西班牙语', fr: '法语', de: '德语', it: '意大利语', pt: '葡萄牙语', ar: '阿拉伯语', hi: '印地语', tr: '土耳其语', pl: '波兰语', uk: '乌克兰语', nl: '荷兰语', sv: '瑞典语', vi: '越南语', th: '泰语', id: '印尼语', unknown: '无语言' }),
+  ...prefixed('aceLang_', { en: '英语', ru: '俄语', zh: '中文', ja: '日语', ko: '韩语', es: '西班牙语', fr: '法语', de: '德语', it: '意大利语', pt: '葡萄牙语', ar: '阿拉伯语', hi: '印地语', tr: '土耳其语', pl: '波兰语', uk: '乌克兰语', nl: '荷兰语', sv: '瑞典语', vi: '越南语', th: '泰语', id: '印尼语', lt: '立陶宛语', unknown: '无语言' }),
 };
 
 const ja: Strings = {
@@ -395,7 +395,7 @@ const ja: Strings = {
   aceGroupScales: 'レイヤー別 LoRA', aceGroupScalesHint: 'DiT の各部分での全 LoRA の強さ。',
   ...prefixed('aceGroup_', { self_attn: '自己注意', cross_attn: 'クロス注意', mlp: 'MLP', cond_embed: '条件', time_embed: '時間', proj_in: '入力' }),
   aceComponentsHint: 'この曲に任意のインストール済みモデル。空欄で選択中のセット。', aceFadeIn: 'フェードイン（秒）', aceFadeOut: 'フェードアウト（秒）',
-  ...prefixed('aceLang_', { en: '英語', ru: 'ロシア語', zh: '中国語', ja: '日本語', ko: '韓国語', es: 'スペイン語', fr: 'フランス語', de: 'ドイツ語', it: 'イタリア語', pt: 'ポルトガル語', ar: 'アラビア語', hi: 'ヒンディー語', tr: 'トルコ語', pl: 'ポーランド語', uk: 'ウクライナ語', nl: 'オランダ語', sv: 'スウェーデン語', vi: 'ベトナム語', th: 'タイ語', id: 'インドネシア語', unknown: '言語なし' }),
+  ...prefixed('aceLang_', { en: '英語', ru: 'ロシア語', zh: '中国語', ja: '日本語', ko: '韓国語', es: 'スペイン語', fr: 'フランス語', de: 'ドイツ語', it: 'イタリア語', pt: 'ポルトガル語', ar: 'アラビア語', hi: 'ヒンディー語', tr: 'トルコ語', pl: 'ポーランド語', uk: 'ウクライナ語', nl: 'オランダ語', sv: 'スウェーデン語', vi: 'ベトナム語', th: 'タイ語', id: 'インドネシア語', lt: 'リトアニア語', unknown: '言語なし' }),
 };
 
 const ko: Strings = {
@@ -481,7 +481,7 @@ const ko: Strings = {
   aceGroupScales: '레이어별 LoRA', aceGroupScalesHint: 'DiT 각 부분에서 모든 LoRA의 강도.',
   ...prefixed('aceGroup_', { self_attn: '셀프 어텐션', cross_attn: '크로스 어텐션', mlp: 'MLP', cond_embed: '조건', time_embed: '시간', proj_in: '입력' }),
   aceComponentsHint: '이 곡에 설치된 아무 모델. 비우면 선택한 세트.', aceFadeIn: '페이드 인(초)', aceFadeOut: '페이드 아웃(초)',
-  ...prefixed('aceLang_', { en: '영어', ru: '러시아어', zh: '중국어', ja: '일본어', ko: '한국어', es: '스페인어', fr: '프랑스어', de: '독일어', it: '이탈리아어', pt: '포르투갈어', ar: '아랍어', hi: '힌디어', tr: '튀르키예어', pl: '폴란드어', uk: '우크라이나어', nl: '네덜란드어', sv: '스웨덴어', vi: '베트남어', th: '태국어', id: '인도네시아어', unknown: '언어 없음' }),
+  ...prefixed('aceLang_', { en: '영어', ru: '러시아어', zh: '중국어', ja: '일본어', ko: '한국어', es: '스페인어', fr: '프랑스어', de: '독일어', it: '이탈리아어', pt: '포르투갈어', ar: '아랍어', hi: '힌디어', tr: '튀르키예어', pl: '폴란드어', uk: '우크라이나어', nl: '네덜란드어', sv: '스웨덴어', vi: '베트남어', th: '태국어', id: '인도네시아어', lt: '리투아니아어', unknown: '언어 없음' }),
 };
 
 export const aceStrings = { en, ru, zh, ja, ko };

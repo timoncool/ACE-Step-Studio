@@ -880,8 +880,7 @@ impl AssistantRuntime {
         }
         hide_console(&mut command);
 
-        let child = command
-            .spawn()
+        let child = music_core::process::spawn_bound(&mut command)
             .with_context(|| format!("start llama-server {}", binary.display()))?;
         music_core::process::adopt(&child);
         let base_url = format!("http://127.0.0.1:{port}/v1");

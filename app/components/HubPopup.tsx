@@ -38,8 +38,10 @@ export const HubPopup: React.FC<Props> = ({ item, onClose, onOpen }) => {
 
   if (!content) return null;
 
+  // A button or a link is an answer: whichever was pressed, the popup is closed for good and does not come back.
+  const closed = () => reportNotice(item.id, 'dismissed');
   const press = (button: HubButton, index: number) => {
-    reportNotice(item.id, button.action === 'dismiss' ? 'dismissed' : 'clicked', button.action === 'dismiss' ? undefined : `b${index}`)
+    (button.action === 'dismiss' ? closed() : reportNotice(item.id, 'clicked', `b${index}`).then(closed))
       .catch((error) => console.warn('[hub] popup button not recorded:', error))
       .finally(hubStateChanged);
     if (button.action === 'url' && button.url) void openExternal(button.url);
@@ -61,7 +63,10 @@ export const HubPopup: React.FC<Props> = ({ item, onClose, onOpen }) => {
           )}
         </div>
         {item.image && <img src={hubMediaUrl(item.image)} alt="" className="max-h-56 w-full object-cover" />}
-        <div onClickCapture={(event) => reportLinkClick(item.id, event.target, event.currentTarget, hubStateChanged)}>
+        <div onClickCapture={(event) => {
+          // the link opens first: an element taken off the page mid-click does not follow its address
+          if (reportLinkClick(item.id, event.target, event.currentTarget, hubStateChanged)) window.setTimeout(dismiss, 0);
+        }}>
           <HubMarkdown text={content.body} className="space-y-2 px-5 py-4 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300 [&_a]:text-pink-600 dark:[&_a]:text-pink-400" />
         </div>
         {item.ad?.label && <p className="px-5 pb-2 text-xs text-zinc-400">{t('hubAd')}{item.ad.erid ? ` · erid ${item.ad.erid}` : ''}</p>}

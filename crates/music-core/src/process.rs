@@ -99,6 +99,44 @@ pub fn ensure_dies_with_parent(command: &mut std::process::Command) {
     }
 }
 
+/// Starts the child of a `Command` prepared with [`ensure_dies_with_parent`].
+///
+/// On Linux the parent-death signal follows the thread that forked the child, not the process: a child started from
+/// a runtime worker is killed when that worker is retired, with the studio alive. One thread that never ends starts
+/// every such child.
+pub fn spawn_bound(command: &mut std::process::Command) -> std::io::Result<std::process::Child> {
+    #[cfg(target_os = "linux")]
+    {
+        use std::sync::{mpsc, Mutex};
+
+        struct Order(*mut std::process::Command, mpsc::SyncSender<std::io::Result<std::process::Child>>);
+        // The pointer is read only while the caller below waits for the answer.
+        unsafe impl Send for Order {}
+
+        static SPAWNER: Mutex<Option<mpsc::Sender<Order>>> = Mutex::new(None);
+        let ended = || std::io::Error::other("the thread that starts child processes has ended");
+        let (answer, spawned) = mpsc::sync_channel(1);
+        {
+            let mut spawner = SPAWNER.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            if spawner.is_none() {
+                let (orders, queue) = mpsc::channel::<Order>();
+                std::thread::Builder::new().name("child-spawner".into()).spawn(move || {
+                    for Order(command, answer) in queue {
+                        let _ = answer.send(unsafe { (*command).spawn() });
+                    }
+                })?;
+                *spawner = Some(orders);
+            }
+            spawner.as_ref().ok_or_else(ended)?.send(Order(command, answer)).map_err(|_| ended())?;
+        }
+        spawned.recv().map_err(|_| ended())?
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        command.spawn()
+    }
+}
+
 /// The library search path a bundled program starts with on Linux: its own folder first, so it loads the libraries
 /// beside it and not another version of the same name an AppImage put on the inherited path (the MIDI tool's older
 /// ggml in `usr/lib`). None on other systems, where nothing is inherited this way.
@@ -253,6 +291,23 @@ mod tests {
         adopt(&child);
         child.kill().ok();
         child.wait().ok();
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn a_child_outlives_the_thread_that_asked_for_it() {
+        let asked = std::thread::spawn(|| {
+            let mut command = std::process::Command::new("sleep");
+            command.arg("30");
+            ensure_dies_with_parent(&mut command);
+            spawn_bound(&mut command).expect("spawn a child")
+        });
+        let mut child = asked.join().expect("the thread that asked");
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        let alive = child.try_wait().expect("the child's state").is_none();
+        child.kill().ok();
+        child.wait().ok();
+        assert!(alive, "the child was killed when the thread that asked for it ended");
     }
 
     #[test]

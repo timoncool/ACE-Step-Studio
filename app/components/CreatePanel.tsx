@@ -78,7 +78,7 @@ const baseOnly = (task: Task) => task === 'lego' || task === 'extract' || task =
 const TRACKS = ['vocals', 'backing_vocals', 'drums', 'bass', 'guitar', 'keyboard', 'percussion', 'strings', 'synth', 'fx', 'brass', 'woodwinds'];
 const GUIDANCE = ['apg', 'adg', 'cfg_pp', 'dynamic_cfg', 'rescaled_cfg', 'cfg_zero_star', 'smc_cfg', 'cfg_mp'];
 const REP_MODES = ['presence', 'frequency', 'dry'];
-const LANGUAGES = ['', 'en', 'ru', 'zh', 'ja', 'ko', 'es', 'fr', 'de', 'it', 'pt', 'ar', 'hi', 'tr', 'pl', 'uk', 'nl', 'sv', 'vi', 'th', 'id', 'unknown'];
+const LANGUAGES = ['', 'en', 'ru', 'zh', 'ja', 'ko', 'es', 'fr', 'de', 'it', 'pt', 'ar', 'hi', 'tr', 'pl', 'uk', 'nl', 'sv', 'vi', 'th', 'id', 'lt', 'unknown'];
 const KEYS = ['', ...['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].flatMap(note => [`${note} major`, `${note} minor`])];
 const TIME_SIGNATURES = ['', '2', '3', '4', '6'];
 const GROUPS = ['self_attn', 'cross_attn', 'mlp', 'cond_embed', 'time_embed', 'proj_in'] as const;

@@ -128,12 +128,13 @@ export function linkName(href: string): string {
 
 /** A click in a notice's text: a link counts by its address, and `then` runs once it is recorded (the window reads
  * the hub again, so a notice that leaves after a click leaves at once). */
-export function reportLinkClick(id: string, target: EventTarget, text: Element, then: () => void): void {
+export function reportLinkClick(id: string, target: EventTarget, text: Element, then: () => void): boolean {
   const link = (target as HTMLElement).closest('a');
-  if (!link || !text.contains(link)) return;
+  if (!link || !text.contains(link)) return false;
   reportNotice(id, 'clicked', linkName(link.getAttribute('href') ?? ''))
     .catch((error: Error) => console.warn('[hub] link not recorded:', error.message))
     .finally(then);
+  return true;
 }
 
 export const setTelemetry = (enabled: boolean, acknowledge = false) =>

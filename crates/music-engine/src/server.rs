@@ -566,8 +566,7 @@ impl ServerSupervisor {
             }
         }
         configure_child_process(&mut command);
-        let child = command
-            .spawn()
+        let child = music_core::process::spawn_bound(&mut command)
             .with_context(|| format!("start engine server {}", self.config.executable.display()))?;
         // The engine must not outlive the studio, however the studio ends.
         music_core::process::adopt(&child);
@@ -649,7 +648,10 @@ impl ServerSupervisor {
                             note_in_log(&format!("the engine crashed during startup: {fault}"));
                             bail!("engine server exited during startup with status {status}; {fault}");
                         }
-                        None => bail!("engine server exited during startup with status {status}"),
+                        None => match fatal_of_this_start() {
+                            Some(fatal) => bail!("engine server exited during startup with status {status}; {fatal}"),
+                            None => bail!("engine server exited during startup with status {status}"),
+                        },
                     }
                 }
             }
@@ -967,6 +969,17 @@ mod tests {
         assert!(tail[1].contains("ERROR: T=15500"), "{tail:?}");
         let _ = fs::remove_dir_all(&root);
     }
+}
+
+/// The engine's own last word of the start under way: the last FATAL line its log holds after the line this start
+/// wrote, its paths left out so that one cause reads the same on every computer.
+fn fatal_of_this_start() -> Option<String> {
+    let bytes = fs::read(startup_log_path()).ok()?;
+    let tail = String::from_utf8_lossy(&bytes[bytes.len().saturating_sub(64 * 1024)..]).into_owned();
+    let since = tail.rfind("---- starting ").map_or(tail.as_str(), |at| &tail[at..]);
+    let line = since.lines().rev().find(|line| line.contains("FATAL"))?;
+    let words: Vec<&str> = line.split_whitespace().map(|word| if word.contains('\\') || word.contains('/') { "<path>" } else { word }).collect();
+    Some(words.join(" "))
 }
 
 /// Where the engine's startup output is kept: beside the studio's data, so the
