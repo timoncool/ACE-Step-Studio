@@ -671,8 +671,7 @@ impl AssistantRuntime {
                 freed += meta.len();
                 fs::remove_file(&path).with_context(|| format!("remove {}", path.display()))?;
             }
-            let manifest = PathBuf::from(format!("{}.done", path.display()));
-            fs::remove_file(manifest).ok();
+            fs::remove_file(crate::chunked::manifest_path(&path)).ok();
         }
         Ok(freed)
     }
