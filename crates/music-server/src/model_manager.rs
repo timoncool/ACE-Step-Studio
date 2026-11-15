@@ -245,7 +245,9 @@ impl ModelManager {
             }
             // A half-finished download of the same component is just as much
             // disk as the finished one.
-            let _ = fs::remove_file(self.root.join(format!("{}.part", component.filename)));
+            let part = part_path(&self.root.join(&component.filename));
+            let _ = fs::remove_file(crate::chunked::manifest_path(&part));
+            let _ = fs::remove_file(part);
         }
         // A remembered download resumes on the next start. Deleting the files
         // without forgetting the job is how twenty-six gigabytes came back by

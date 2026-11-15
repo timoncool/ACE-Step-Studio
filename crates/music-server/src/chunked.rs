@@ -396,6 +396,9 @@ pub async fn fetch(
         return whole(http, url, part, written, cancel).await;
     }
 
+    // A manifest speaks of the part file it was written beside: left after that file was removed, or beside one of
+    // another length, it notes bytes that are not there.
+    let reserved = std::fs::metadata(part).is_ok_and(|meta| meta.len() == plan.total);
     let file = Arc::new(
         OpenOptions::new()
             .create(true)
@@ -407,7 +410,7 @@ pub async fn fetch(
     file.set_len(plan.total).with_context(|| format!("reserve {} bytes", plan.total))?;
 
     std::fs::remove_file(earlier_manifest_path(part)).ok();
-    let progress = progress_of(part, plan.total);
+    let progress = if reserved { progress_of(part, plan.total) } else { std::collections::HashMap::new() };
     let mut noted = OpenOptions::new()
         .create(true)
         .write(true)
@@ -674,15 +677,12 @@ mod tests {
         std::fs::remove_dir_all(&folder).ok();
     }
 
-    /// A server that drops the connection halfway and answers the rest on the next request: the piece is asked for
-    /// from the byte it has come to, and the file is whole.
-    #[tokio::test]
-    async fn a_dropped_connection_asks_only_for_the_rest_of_its_piece() {
+    /// A server of one file by ranges; with `cut`, its first answer stops after that many bytes. Gives its port and
+    /// the ranges it was asked for.
+    async fn range_server(body: Vec<u8>, cut: Option<usize>) -> (u16, Arc<Mutex<Vec<(u64, u64)>>>) {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
-        let body: Vec<u8> = (0..200_000u32).map(|index| (index % 251) as u8).collect();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
-        let served = body.clone();
         let asked: Arc<Mutex<Vec<(u64, u64)>>> = Arc::new(Mutex::new(Vec::new()));
         let seen = asked.clone();
         tokio::spawn(async move {
@@ -702,14 +702,22 @@ mod tests {
                 let (from, to) = range.split_once('-').unwrap();
                 let (from, to): (u64, u64) = (from.parse().unwrap(), to.parse().unwrap());
                 let first = { let mut seen = seen.lock().unwrap(); seen.push((from, to)); seen.len() == 1 };
-                let head = format!("HTTP/1.1 206 Partial Content\r\nContent-Range: bytes {from}-{to}/{}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", served.len(), to - from + 1);
+                let head = format!("HTTP/1.1 206 Partial Content\r\nContent-Range: bytes {from}-{to}/{}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len(), to - from + 1);
                 socket.write_all(head.as_bytes()).await.ok();
-                let slice = &served[from as usize..=to as usize];
-                // the first answer stops after 70 000 bytes of the 200 000 promised
-                socket.write_all(if first { &slice[..70_000] } else { slice }).await.ok();
+                let slice = &body[from as usize..=to as usize];
+                socket.write_all(match cut { Some(cut) if first => &slice[..cut], _ => slice }).await.ok();
                 socket.shutdown().await.ok();
             }
         });
+        (port, asked)
+    }
+
+    /// A server that drops the connection halfway and answers the rest on the next request: the piece is asked for
+    /// from the byte it has come to, and the file is whole.
+    #[tokio::test]
+    async fn a_dropped_connection_asks_only_for_the_rest_of_its_piece() {
+        let body: Vec<u8> = (0..200_000u32).map(|index| (index % 251) as u8).collect();
+        let (port, asked) = range_server(body.clone(), Some(70_000)).await;
         let folder = std::env::temp_dir().join(format!("resume-{}", uuid::Uuid::now_v7()));
         std::fs::create_dir_all(&folder).unwrap();
         let part = folder.join("model.gguf.part");
@@ -720,6 +728,24 @@ mod tests {
         assert_eq!(written.load(Ordering::Relaxed), body.len() as u64, "the bar counts every byte once");
         assert_eq!(*asked.lock().unwrap(), vec![(0, 199_999), (70_000, 199_999)]);
         assert!(!manifest_path(&part).exists());
+        std::fs::remove_dir_all(&folder).ok();
+    }
+
+    #[tokio::test]
+    async fn a_manifest_without_its_part_file_is_not_believed() {
+        let body: Vec<u8> = (0..100_000u32).map(|index| (index % 241) as u8).collect();
+        let total = body.len() as u64;
+        let (port, asked) = range_server(body.clone(), None).await;
+        let folder = std::env::temp_dir().join(format!("stale-{}", uuid::Uuid::now_v7()));
+        std::fs::create_dir_all(&folder).unwrap();
+        let part = folder.join("model.gguf.part");
+        std::fs::write(manifest_path(&part), [entry(WHOLE, total), entry(0, total)].concat()).unwrap();
+        let http = reqwest::Client::builder().no_proxy().build().unwrap();
+        let written = Arc::new(AtomicU64::new(0));
+        fetch(&http, &format!("http://127.0.0.1:{port}/model.gguf"), &part, Plan { total, ranged: true }, written.clone(), Arc::new(AtomicBool::new(false))).await.unwrap();
+        assert_eq!(std::fs::read(&part).unwrap(), body, "the bytes the manifest promised were not on the disk");
+        assert_eq!(*asked.lock().unwrap(), vec![(0, total - 1)]);
+        assert_eq!(written.load(Ordering::Relaxed), total);
         std::fs::remove_dir_all(&folder).ok();
     }
 
