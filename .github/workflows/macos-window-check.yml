@@ -12,9 +12,9 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 20
     env:
-      VERSION: "4.0.0"
+      VERSION: "4.0.1"
       APP: "ACE-Step Studio"
-      DMG: "ACE-Step-Studio-4.0.0-macos-arm64.dmg"
+      DMG: "ACE-Step-Studio-4.0.1-macos-arm64.dmg"
       PORT: "8792"
       GH_TOKEN: ${{ github.token }}
     steps:
