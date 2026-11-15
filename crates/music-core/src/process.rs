@@ -151,6 +151,49 @@ pub fn own_libraries_first(program: impl AsRef<std::path::Path>) -> Option<std::
     std::env::join_paths(paths).ok()
 }
 
+
+/// The C++ runtime a program built with Visual Studio asks Windows for.
+const RUNTIME_LIBRARIES: [&str; 5] = ["msvcp140.dll", "msvcp140_1.dll", "vcruntime140.dll", "vcruntime140_1.dll", "vcomp140.dll"];
+
+static RUNTIME_SOURCE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+
+/// Names the folder whose C++ runtime goes beside the programs the studio starts: the engine's, which the installer
+/// brings whole.
+pub fn runtime_libraries_from(folder: std::path::PathBuf) {
+    let _ = RUNTIME_SOURCE.set(folder);
+}
+
+/// A program downloaded without the C++ runtime it was built with takes the one Windows has, and with an older one
+/// it stops at its first lock with an access violation and not a word (0xc0000005). The studio's own runtime goes
+/// beside it, where Windows looks first; what the program brought itself stays.
+pub fn runtime_beside(program: impl AsRef<std::path::Path>) {
+    if !cfg!(windows) {
+        return;
+    }
+    let (Some(source), Some(folder)) = (RUNTIME_SOURCE.get(), program.as_ref().parent()) else { return };
+    if let Err(error) = bring_missing(source, folder, &RUNTIME_LIBRARIES) {
+        eprintln!("[ERROR] the C++ runtime was not put beside {}: {error}", program.as_ref().display());
+    }
+}
+
+/// Copies into `folder` each of `names` that `source` has and `folder` lacks; says how many it copied. A library
+/// arrives under another name and takes its own only whole, so a copy cut short is never what a program loads.
+fn bring_missing(source: &std::path::Path, folder: &std::path::Path, names: &[&str]) -> std::io::Result<usize> {
+    static ONE_AT_A_TIME: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _held = ONE_AT_A_TIME.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut brought = 0;
+    for name in names {
+        let (from, to) = (source.join(name), folder.join(name));
+        if from.is_file() && !to.exists() {
+            let arriving = folder.join(format!("{name}.arriving"));
+            std::fs::copy(&from, &arriving)?;
+            std::fs::rename(&arriving, &to)?;
+            brought += 1;
+        }
+    }
+    Ok(brought)
+}
+
 /// Where a child that crashed without a word went down, as Windows recorded it: the module the fault happened in
 /// (a file name, never a path), the exception code and the offset into that module.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -308,6 +351,25 @@ mod tests {
         child.kill().ok();
         child.wait().ok();
         assert!(alive, "the child was killed when the thread that asked for it ended");
+    }
+
+    #[test]
+    fn a_program_gets_the_runtime_it_lacks_and_keeps_the_one_it_brought() {
+        let root = std::env::temp_dir().join(format!("music-core-runtime-{}", std::process::id()));
+        let (source, folder) = (root.join("engine"), root.join("tool"));
+        std::fs::create_dir_all(&source).unwrap();
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(source.join("msvcp140.dll"), b"the studio's").unwrap();
+        std::fs::write(source.join("vcruntime140.dll"), b"the studio's").unwrap();
+        std::fs::write(folder.join("vcruntime140.dll"), b"the tool's own").unwrap();
+        let names = ["msvcp140.dll", "vcruntime140.dll", "vcomp140.dll"];
+        assert_eq!(bring_missing(&source, &folder, &names).unwrap(), 1, "one was missing and the source had it");
+        assert_eq!(std::fs::read(folder.join("msvcp140.dll")).unwrap(), b"the studio's");
+        assert_eq!(std::fs::read(folder.join("vcruntime140.dll")).unwrap(), b"the tool's own");
+        assert!(!folder.join("vcomp140.dll").exists(), "what the source lacks is not made up");
+        assert!(!folder.join("msvcp140.dll.arriving").exists());
+        assert_eq!(bring_missing(&source, &folder, &names).unwrap(), 0, "a second start copies nothing");
+        std::fs::remove_dir_all(&root).ok();
     }
 
     #[test]

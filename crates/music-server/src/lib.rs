@@ -656,7 +656,7 @@ impl<'de> Deserialize<'de> for KeepLoaded {
         #[derive(Deserialize)]
         #[serde(untagged)]
         enum Saved {
-            Switch(bool),
+            Switch(#[allow(dead_code)] bool),
             Choice(String),
         }
         Ok(match Saved::deserialize(deserializer)? {
@@ -984,6 +984,7 @@ struct OpenRouterResponse {
 /// in-process, so a release is a single executable rather than a launcher that
 /// has to start a second binary and keep it alive.
 pub async fn serve() -> anyhow::Result<()> {
+    music_core::process::runtime_libraries_from(engine_bundle_root());
     match studio_data_root() {
         Some(root) => {
             studio_log::log_to_file(&root);

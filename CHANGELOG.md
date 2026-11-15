@@ -16,6 +16,7 @@ What changed, newest first. Dates are release dates.
 - **"Keep models loaded" saved by a version before 4.0.0 reads as Auto**, not as Yes: the old switch kept the models on a card of any size.
 - **An engine that exits at its start says why**: the error, and the anonymous report of it, carry the engine's own FATAL line.
 - **"The assistant is unreachable" says where its address and model are set**: Settings - Models - Writing assistant.
+- **Auto-describe, training, the writing assistant and VST effects no longer depend on the Visual C++ runtime Windows has**, as in YuE2 Studio ([YuE2 Studio #204](https://github.com/timoncool/YuE2-Studio/issues/204)): the programs the studio downloads for them came without the runtime they were built with, and with an older one in Windows they stopped at their start with 0xc0000005 and not a word. The studio now puts its own runtime beside every program it starts.
 
 ## 2026-11-13 — 4.0.0
 

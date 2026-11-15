@@ -1310,6 +1310,7 @@ impl Training {
                 }
             }
             log.write_all(format!("==== {}\n", stage.id).as_bytes()).await?;
+            music_core::process::runtime_beside(trainer);
             let mut command = tokio::process::Command::new(trainer);
             if let Some(path) = music_core::process::own_libraries_first(trainer) {
                 command.env("LD_LIBRARY_PATH", path);

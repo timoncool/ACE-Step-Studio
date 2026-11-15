@@ -98,6 +98,7 @@ pub fn hear_batch(
     let listing: Vec<String> = inputs.iter().enumerate().map(|(index, path)| format!("{}\t{}", path.display(), work.path().join(format!("{index}.txt")).display())).collect();
     std::fs::write(&list, listing.join("\n"))?;
 
+    music_core::process::runtime_beside(exe);
     let mut command = Command::new(exe);
     if let Some(path) = music_core::process::own_libraries_first(exe) {
         command.env("LD_LIBRARY_PATH", path);
