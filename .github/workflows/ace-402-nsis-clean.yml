@@ -1,0 +1,164 @@
+name: ACE-Step Studio 4.0.2 NSIS QA
+'on':
+  push:
+    branches: ['qa/ace-402-nsis-clean']
+
+permissions:
+  contents: read
+
+jobs:
+  fetch:
+    if: github.repository == 'timoncool/ACE-Step-Studio' && !github.event.deleted
+    name: Fetch pinned draft
+    # GitHub requires push access to see an unpublished release.
+    permissions: {contents: write}
+    runs-on: windows-2022
+    timeout-minutes: 12
+    outputs:
+      artifact-name: ace-402-qa-${{ github.run_attempt }}
+    steps:
+      - name: Fetch fixed release assets
+        shell: pwsh
+        env:
+          RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-StrictMode -Version Latest
+          if ($env:GITHUB_ACTIONS -cne 'true' -or $env:RUNNER_ENVIRONMENT -cne 'github-hosted') {
+            throw 'Refusing to run outside GitHub-hosted Actions.'
+          }
+          $root = Join-Path (Resolve-Path -LiteralPath $env:RUNNER_TEMP).Path 'ace-402-qa'
+          if (Test-Path -LiteralPath $root) { throw "QA destination already exists: $root" }
+          $json = gh release view v4.0.2 --repo timoncool/ACE-Step-Studio --json isDraft,tagName,targetCommitish
+          if ($LASTEXITCODE -ne 0) { throw "gh release view failed ($LASTEXITCODE)" }
+          $release = ($json -join "`n") | ConvertFrom-Json
+          if ($release.isDraft -isnot [bool] -or !$release.isDraft -or
+              $release.tagName -cne 'v4.0.2' -or
+              $release.targetCommitish -cne '318cc0ad359a7ba9897d7c3d6432a0cbcff56c5b') {
+            throw 'Refusing downloads: expected the exact v4.0.2 draft and release commit.'
+          }
+          New-Item -ItemType Directory -Path $root | Out-Null
+          function Download([string]$tag, [string]$asset) {
+            gh release download $tag --repo timoncool/ACE-Step-Studio --pattern $asset --dir $root
+            if ($LASTEXITCODE -ne 0) { throw "gh failed ($LASTEXITCODE): $tag / $asset" }
+          }
+          Download 'v4.0.2' 'ACE-Step.Studio_4.0.2_x64-setup.exe'
+          Download 'v4.0.2' 'ACE-Step.Studio_4.0.2_x64-setup.exe.sig'
+          Download 'v4.0.2' 'latest.json'
+          Download 'v4.0.1' 'ACE-Step.Studio_4.0.1_x64-setup.exe'
+
+      - name: Stage QA assets for this run only
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ace-402-qa-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/ace-402-qa/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  nsis:
+    needs: fetch
+    if: github.repository == 'timoncool/ACE-Step-Studio' && !github.event.deleted
+    name: NSIS / ${{ matrix.mode }}
+    permissions: {contents: read}
+    runs-on: windows-2022
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [clean, upgrade]
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      QA_MODE: ${{ matrix.mode }}
+    steps:
+      - name: Require a fresh hosted artifact destination
+        env:
+          RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:GITHUB_ACTIONS -cne 'true' -or $env:RUNNER_ENVIRONMENT -cne 'github-hosted') {
+            throw 'Refusing to run outside GitHub-hosted Actions.'
+          }
+          $root = Join-Path (Resolve-Path -LiteralPath $env:RUNNER_TEMP).Path 'ace-402-qa'
+          if (Test-Path -LiteralPath $root) { throw "QA destination already exists: $root" }
+
+      - name: Download staged assets from this run
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ${{ needs.fetch.outputs.artifact-name }}
+          path: ${{ runner.temp }}/ace-402-qa
+
+      - name: Verify release, install silently, inspect installed state
+        env:
+          RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-StrictMode -Version Latest
+          if ($env:GITHUB_ACTIONS -cne 'true' -or $env:RUNNER_ENVIRONMENT -cne 'github-hosted') {
+            throw 'Refusing to run outside GitHub-hosted Actions.'
+          }
+          $root = Join-Path (Resolve-Path -LiteralPath $env:RUNNER_TEMP).Path 'ace-402-qa'
+          $install = Join-Path $root 'ACE-Step Studio QA'
+          $default = Join-Path $env:LOCALAPPDATA 'ACE-Step Studio'
+          $uninstall = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\ACE-Step Studio'
+          $exe = Join-Path $install 'ACE-Step-Studio.exe'
+          function Evidence([string]$line) { Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value $line }
+          function RequireAbsent([string]$path) {
+            if (Test-Path -LiteralPath $path) { throw "Expected absent: $path" }
+          }
+          function VerifyHash([string]$path, [string]$expected) {
+            $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $path).Hash
+            if ($actual -ne $expected) { throw "SHA256 mismatch for $path ($actual)" }
+            Evidence "- SHA256 verified: $(Split-Path -Leaf $path) = $actual"
+          }
+          function CheckVersion([string]$expected) {
+            $info = (Get-Item -LiteralPath $exe).VersionInfo
+            $actual = '{0}.{1}.{2}.{3}' -f $info.FileMajorPart,$info.FileMinorPart,$info.FileBuildPart,$info.FilePrivatePart
+            if ($actual -cne "$expected.0") { throw "$exe has PE file version $actual, expected $expected.0" }
+            Evidence "- Installed PE version: $actual at $exe"
+          }
+          function InstallNsis([string]$setup, [string]$arguments) {
+            $proc = Start-Process -Wait -PassThru -FilePath $setup -ArgumentList $arguments
+            if ($proc.ExitCode -ne 0) { throw "NSIS failed ($($proc.ExitCode)): $setup" }
+          }
+
+          Evidence "### ACE-Step Studio NSIS / $env:QA_MODE (installer and disk state only; no UI launch)"
+          foreach ($path in $install,$default,$uninstall) { RequireAbsent $path }
+          $name = 'ACE-Step.Studio_4.0.2_x64-setup.exe'
+          $new = Join-Path $root $name
+          VerifyHash $new 'bba185d1de1539733accfa13725a22182e4d141a2f1e9d2f0e64f0eeecea9909'
+          $manifest = Get-Content -Raw -LiteralPath (Join-Path $root 'latest.json') | ConvertFrom-Json
+          $sig = (Get-Content -Raw -LiteralPath "$new.sig").TrimEnd("`r","`n")
+          if (!$sig -or $manifest.version -cne '4.0.2') { throw 'Missing signature or wrong manifest version' }
+          $url = "https://github.com/timoncool/ACE-Step-Studio/releases/download/v4.0.2/$name"
+          foreach ($key in 'windows-x86_64','windows-x86_64-nsis') {
+            $entry = $manifest.platforms.$key
+            if ($entry.url -cne $url -or $entry.signature -cne $sig) { throw "Bad updater entry: $key" }
+            Evidence "- ${key}: exact v4.0.2 URL and signature text match (not cryptographic verification)."
+          }
+
+          if ($env:QA_MODE -eq 'upgrade') {
+            $old = Join-Path $root 'ACE-Step.Studio_4.0.1_x64-setup.exe'
+            VerifyHash $old '8dee89670dd814d7a0803fbe8dfa07523d75811f797c1b488571690a19835077'
+            InstallNsis $old "/S /D=$install"
+            CheckVersion '4.0.1'
+            InstallNsis $new "/S /UPDATE /D=$install"
+          } else {
+            InstallNsis $new "/S /D=$install"
+          }
+          CheckVersion '4.0.2'
+          RequireAbsent (Join-Path $install 'portable.flag')
+          RequireAbsent $default
+          $record = Get-ItemProperty -LiteralPath $uninstall
+          if ($record.DisplayVersion -cne '4.0.2' -or $record.InstallLocation.Trim('"') -ne $install) {
+            throw 'Unexpected HKCU uninstall version or location'
+          }
+          Evidence "- HKCU DisplayVersion = $($record.DisplayVersion); InstallLocation = $install; default folder and portable.flag absent."
+
+          foreach ($leaf in 'resources\engine\ace-server.exe','resources\engine\ggml.dll','resources\vst-host\vst-host.exe') {
+            $file = Get-Item -LiteralPath (Join-Path $install $leaf)
+            if ($file.PSIsContainer -or $file.Length -le 0) { throw "Missing payload: $leaf" }
+          }
