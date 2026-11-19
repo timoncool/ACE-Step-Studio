@@ -12,15 +12,15 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 20
     env:
-      VERSION: "4.0.1"
+      VERSION: "4.0.2"
       APP: "ACE-Step Studio"
-      DMG: "ACE-Step-Studio-4.0.1-macos-arm64.dmg"
+      DMG: "ACE-Step-Studio-4.0.2-macos-arm64.dmg"
       PORT: "8792"
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: The dmg, mounted and copied out
         run: |
-          gh release download "v$VERSION" -R "$GITHUB_REPOSITORY" -p "$DMG" -D "$RUNNER_TEMP"
+          gh run download 44570989928 -R "$GITHUB_REPOSITORY" -n ace-step-studio-macos-arm64 -D "$RUNNER_TEMP"
           shasum -a 256 "$RUNNER_TEMP/$DMG"
           hdiutil attach -nobrowse -readonly -mountpoint /Volumes/studio "$RUNNER_TEMP/$DMG"
           ls /Volumes/studio
