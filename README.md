@@ -433,6 +433,14 @@ installed into Windows.
 
 A machine with the CUDA toolkit already has cuBLAS on its `PATH` and downloads nothing.
 
+**Windows portable: if the CUDA 12 download returns 403** and you already have NVIDIA's
+`libcublas-windows-x86_64-12.9.1.4-archive.zip`, check its SHA-256 before extracting:
+`d534d98b0b453a98914dbf3adf47d7e84b55037abf02f87466439e1dcef581ed`.
+Close the studio. From the archive's `bin` folder, copy `cublas64_12.dll` and
+`cublasLt64_12.dll` into `resources\engine` inside the extracted portable studio,
+next to `ace-server.exe`. Reopen the studio; it recognizes the two libraries without
+downloading the archive again. This procedure is for the CUDA 12 package, not CUDA 13.
+
 ## Architecture
 
 ```text

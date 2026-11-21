@@ -41,7 +41,7 @@ const KEY_FILES: &[(&str, &str, u64)] = &[
     ("https://github.com/ggml-org/llama.cpp/releases/download/b12248/llama-b12248-bin-win-cuda-12.4-x64.zip", "ggml-cuda.dll", 614_017_024),
     ("https://github.com/ggml-org/llama.cpp/releases/download/b12248/llama-b12248-bin-win-vulkan-x64.zip", "ggml-vulkan.dll", 42_011_136),
     ("https://github.com/ggml-org/llama.cpp/releases/download/b12248/llama-b12248-bin-win-cpu-x64.zip", "ggml-cpu-haswell.dll", 1_465_856),
-    ("https://github.com/microsoft/onnxruntime/releases/download/v1.31.1/onnxruntime-win-x64-1.31.1.zip", "onnxruntime.dll", 17_253_728),
+    ("https://github.com/timoncool/onnxruntime/releases/download/v1.31.1/onnxruntime-win-x64-1.31.1.zip", "onnxruntime.dll", 17_253_728),
     ("https://github.com/ggml-org/llama.cpp/releases/download/b12248/cudart-llama-bin-win-cuda-13.5-x64.zip", "cublasLt64_13.dll", 499_102_832),
     ("https://github.com/ggml-org/llama.cpp/releases/download/b11236/cudart-llama-bin-win-cuda-12.4-x64.zip", "cudart64_12.dll", 553_984),
     ("https://developer.download.nvidia.com/compute/cuda/redist/libcublas/windows-x86_64/libcublas-windows-x86_64-13.5.1.27-archive.zip", "cublasLt64_13.dll", 460_301_424),
@@ -77,6 +77,12 @@ pub fn read(record: &Path) -> Option<InstallRecord> {
     }
 }
 
+fn legacy_ort_pin(record: &InstallRecord, url: &str) -> bool {
+    let Some(asset) = url.strip_prefix("https://github.com/timoncool/onnxruntime/releases/download/") else { return false };
+    record.url.strip_prefix("https://github.com/microsoft/onnxruntime/releases/download/") == Some(asset)
+        && crate::pin_sha::sha256(url).is_some_and(|hash| hash == record.sha256)
+}
+
 /// Whether the record at `record` says `url` was installed and every file it
 /// put under `root` is there at its size. None when there is no record; false
 /// while an install is under way or was cut off (`begin`), record or not.
@@ -86,7 +92,7 @@ pub fn matches(record: &Path, url: &str, root: &Path) -> Option<bool> {
     }
     let parsed = read(record)?;
     Some(
-        parsed.url == url
+        (parsed.url == url || legacy_ort_pin(&parsed, url))
             && !parsed.files.is_empty()
             && parsed.files.iter().all(|file| fs::metadata(root.join(&file.path)).is_ok_and(|meta| meta.is_file() && meta.len() == file.size)),
     )
@@ -351,5 +357,20 @@ mod tests {
         assert!(!aside.exists(), "removed at the next start");
         assert!(song.exists(), "the person's work is not swept, even under a name set_aside gives");
         assert!(named_alike.exists(), "only the names set_aside gives are swept");
+    }
+
+    #[test]
+    fn legacy_ort_record_requires_the_same_pinned_archive() {
+        let root = scratch("ort-mirror-record");
+        let file = root.join("lib.dll");
+        fs::write(&file, b"lib").unwrap();
+        let record = record_path(&root.join("runtime.zip"));
+        let url = "https://github.com/timoncool/onnxruntime/releases/download/v1.31.1/onnxruntime-win-x64-1.31.1.zip";
+        let old = url.replace("/timoncool/", "/microsoft/");
+        for (source, hash, accepted) in [(old.clone(), crate::pin_sha::sha256(url).unwrap(), true), (old.clone(), "wrong", false), (old.replace("1.31.1", "1.28.2"), crate::pin_sha::sha256(url).unwrap(), false)] {
+            write(&record, &source, hash, std::slice::from_ref(&file), &root).unwrap();
+            assert_eq!(matches(&record, url, &root), Some(accepted));
+        }
+        fs::remove_dir_all(root).unwrap();
     }
 }
