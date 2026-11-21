@@ -7,6 +7,12 @@
 
 # ACE-Step Studio
 
+**Development has moved to YuE2 Studio. Updates for the native ACE-Step engine now ship there. This standalone studio has reached its final release.**
+
+[Download YuE2 Studio 5.0](https://github.com/timoncool/YuE2-Studio/releases/tag/v5.0.0) · [Library migration guide](https://github.com/timoncool/YuE2-Studio#bring-your-ace-step-or-minimax-library-into-yue2) · [Previous ACE-Step Studio releases](https://github.com/timoncool/ACE-Step-Studio/releases)
+
+In YuE2, open **Library → Import**, choose your ACE-Step Studio folder, review the songs and playlists, and select **Copy library into YuE2**. Your original files stay in place. In **Create**, choose the native ACE-Step engine to make another track. Please report engine and migration issues in the [YuE2 Studio issue tracker](https://github.com/timoncool/YuE2-Studio/issues).
+
 **Suno at home: full songs with vocals from ACE-Step 1.5 on your own GPU. One executable — no Python, no Node.js, no launcher.**
 
 [![Project page](https://img.shields.io/badge/Project_page-timoncool.github.io-7c3aed?style=for-the-badge)](https://timoncool.github.io/ACE-Step-Studio/)
