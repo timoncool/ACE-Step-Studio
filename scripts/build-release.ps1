@@ -140,6 +140,7 @@ try {
             }
         }
     }
+    $latest.platforms['windows-x86_64-nsis'] = $latest.platforms['windows-x86_64']
     # A byte-order mark in front of the JSON makes the updater reject it.
     [System.IO.File]::WriteAllText(
         (Join-Path $releaseDir 'latest.json'),
