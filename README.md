@@ -9,14 +9,16 @@
 
 **Development has moved to YuE2 Studio. Updates for the native ACE-Step engine now ship there. This standalone studio has reached its final release.**
 
-[Download YuE2 Studio 5.0](https://github.com/timoncool/YuE2-Studio/releases/tag/v5.0.0) · [Library migration guide](https://github.com/timoncool/YuE2-Studio#bring-your-ace-step-or-minimax-library-into-yue2) · [Previous ACE-Step Studio releases](https://github.com/timoncool/ACE-Step-Studio/releases)
+[Download YuE2 Studio 5.0](https://github.com/timoncool/YuE2-Studio/releases/tag/v5.0.0) · [Library migration guide](https://github.com/timoncool/YuE2-Studio/blob/b84ee50dae32f5e0caa524ee97bc8c79d66b44e3/README.md#bring-your-ace-step-or-minimax-library-into-yue2) · [Previous ACE-Step Studio releases](https://github.com/timoncool/ACE-Step-Studio/releases)
 
-In YuE2, open **Library → Import**, choose your ACE-Step Studio folder, review the songs and playlists, and select **Copy library into YuE2**. Your original files stay in place. In **Create**, choose the native ACE-Step engine to make another track. Please report engine and migration issues in the [YuE2 Studio issue tracker](https://github.com/timoncool/YuE2-Studio/issues).
+In YuE2, open **Library → Import → ACE-Step or MiniMax library**. Select your ACE-Step Studio installation from the list. If it is missing, use **Choose old Studio folder** to open the folder containing `library.sqlite`. For a portable copy, this is usually the `data` folder beside the old app. Review the songs and playlists, then select **Copy library into YuE2**. Your original files stay in place.
+
+Open an imported song in **Library** to play it. To make another track, select **ACE-Step → acestep.cpp** in **Create**, install the engine or model if prompted, and choose your model. Please report engine and migration issues in the [YuE2 Studio issue tracker](https://github.com/timoncool/YuE2-Studio/issues).
 
 **Suno at home: full songs with vocals from ACE-Step 1.5 on your own GPU. One executable — no Python, no Node.js, no launcher.**
 
 [![Project page](https://img.shields.io/badge/Project_page-timoncool.github.io-7c3aed?style=for-the-badge)](https://timoncool.github.io/ACE-Step-Studio/)
-[![Download](https://img.shields.io/badge/Download-Windows_x64-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/timoncool/ACE-Step-Studio/releases/latest)
+[![Legacy Windows downloads](https://img.shields.io/badge/Legacy_downloads-Windows_x64-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/timoncool/ACE-Step-Studio/releases)
 [![Donate](https://img.shields.io/badge/Support-Donate-ff69b4?style=for-the-badge)](DONATE.md)
 
 [![License](https://img.shields.io/github/license/timoncool/ACE-Step-Studio?style=flat-square)](LICENSE)
